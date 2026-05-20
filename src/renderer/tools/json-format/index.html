@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON 美化工具 - FeHelper</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .toolbar {
+            background: #252526;
+            padding: 8px 12px;
+            display: flex;
+            gap: 8px;
+            border-bottom: 1px solid #3c3c3c;
+            flex-wrap: wrap;
+        }
+        .toolbar-btn {
+            padding: 6px 12px;
+            background: #3c3c3c;
+            border: none;
+            border-radius: 4px;
+            color: #d4d4d4;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+        .toolbar-btn:hover { background: #4a4a4a; }
+        .toolbar-btn.primary { background: #0e639c; }
+        .toolbar-btn.primary:hover { background: #1177bb; }
+        .main-content {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+        .editor-pane {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+        .pane-header {
+            background: #2d2d2d;
+            padding: 6px 12px;
+            font-size: 12px;
+            color: #858585;
+            border-bottom: 1px solid #3c3c3c;
+        }
+        .editor-container {
+            flex: 1;
+            position: relative;
+        }
+        textarea {
+            width: 100%;
+            height: 100%;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            border: none;
+            padding: 12px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            resize: none;
+            outline: none;
+        }
+        .output {
+            width: 100%;
+            height: 100%;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            border: none;
+            padding: 12px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            overflow: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .output.error { color: #f48771; }
+        .output.success { color: #89d185; }
+        .status-bar {
+            background: #007acc;
+            padding: 4px 12px;
+            font-size: 12px;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+        }
+        .resize-handle {
+            width: 4px;
+            background: #3c3c3c;
+            cursor: col-resize;
+        }
+        .resize-handle:hover { background: #007acc; }
+        .key { color: #9cdcfe; }
+        .string { color: #ce9178; }
+        .number { color: #b5cea8; }
+        .boolean { color: #569cd6; }
+        .null { color: #569cd6; }
+    </style>
+</head>
+<body>
+    <div class="toolbar">
+        <button class="toolbar-btn primary" onclick="formatJson()">✨ 美化</button>
+        <button class="toolbar-btn" onclick="compressJson()">📦 压缩</button>
+        <button class="toolbar-btn" onclick="sortJson()">↕️ 排序</button>
+        <button class="toolbar-btn" onclick="clearContent()">🗑️ 清空</button>
+        <button class="toolbar-btn" onclick="copyOutput()">📋 复制</button>
+        <button class="toolbar-btn" onclick="downloadJson()">💾 下载</button>
+        <select class="toolbar-btn" id="themeSelect" onchange="changeTheme(this.value)" style="margin-left:auto">
+            <option value="dark">深色主题</option>
+            <option value="light">浅色主题</option>
+        </select>
+    </div>
+    
+    <div class="main-content">
+        <div class="editor-pane">
+            <div class="pane-header">📝 输入 JSON</div>
+            <div class="editor-container">
+                <textarea id="inputJson" placeholder="在此粘贴 JSON 内容..."></textarea>
+            </div>
+        </div>
+        <div class="resize-handle" id="resizeHandle"></div>
+        <div class="editor-pane">
+            <div class="pane-header">✨ 输出结果</div>
+            <div class="editor-container">
+                <div id="outputJson" class="output"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="status-bar">
+        <span id="statusText">就绪</span>
+        <span id="charCount">字符: 0 | 行数: 0</span>
+    </div>
+
+    <script>
+        const inputJson = document.getElementById('inputJson');
+        const outputJson = document.getElementById('outputJson');
+        const statusText = document.getElementById('statusText');
+        const charCount = document.getElementById('charCount');
+
+        // Update character count
+        inputJson.addEventListener('input', updateCharCount);
+        
+        function updateCharCount() {
+            const text = inputJson.value;
+            const lines = text.split('\n').length;
+            charCount.textContent = `字符: ${text.length} | 行数: ${lines}`;
+        }
+
+        // Format JSON
+        function formatJson() {
+            const text = inputJson.value.trim();
+            if (!text) {
+                setError('请输入 JSON 内容');
+                return;
+            }
+            
+            try {
+                // Try to parse and handle BigInt
+                const parsed = JSON.parse(text);
+                const formatted = JSON.stringify(parsed, null, 2);
+                setOutput(formatted);
+                setStatus('格式化成功', 'success');
+            } catch (e) {
+                // Try to fix and re-parse
+                try {
+                    const fixed = fixJson(text);
+                    const parsed = JSON.parse(fixed);
+                    const formatted = JSON.stringify(parsed, null, 2);
+                    setOutput(formatted);
+                    setStatus('已自动修复并格式化', 'success');
+                } catch (e2) {
+                    setError('JSON 格式错误: ' + e.message);
+                }
+            }
+        }
+
+        // Compress JSON
+        function compressJson() {
+            const text = inputJson.value.trim();
+            if (!text) {
+                setError('请输入 JSON 内容');
+                return;
+            }
+            
+            try {
+                const parsed = JSON.parse(text);
+                setOutput(JSON.stringify(parsed));
+                setStatus('压缩成功', 'success');
+            } catch (e) {
+                setError('JSON 格式错误: ' + e.message);
+            }
+        }
+
+        // Sort JSON keys
+        function sortJson() {
+            const text = inputJson.value.trim();
+            if (!text) {
+                setError('请输入 JSON 内容');
+                return;
+            }
+            
+            try {
+                const parsed = JSON.parse(text);
+                const sorted = deepSort(parsed);
+                setOutput(JSON.stringify(sorted, null, 2));
+                setStatus('排序成功', 'success');
+            } catch (e) {
+                setError('JSON 格式错误: ' + e.message);
+            }
+        }
+
+        function deepSort(obj) {
+            if (Array.isArray(obj)) {
+                return obj.map(deepSort);
+            } else if (obj !== null && typeof obj === 'object') {
+                return Object.keys(obj).sort().reduce((result, key) => {
+                    result[key] = deepSort(obj[key]);
+                    return result;
+                }, {});
+            }
+            return obj;
+        }
+
+        // Fix common JSON issues
+        function fixJson(text) {
+            return text
+                .replace(/'/g, '"')           // Single quotes to double quotes
+                .replace(/,\s*}/g, '}')      // Trailing commas
+                .replace(/,\s*\]/g, ']')     // Trailing commas in arrays
+                .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":') // Unquoted keys
+                .replace(/:\s*"([^"]*)"\s*'/g, ': "$1"') // Quote value issues
+                .replace(/([^"])"([^"]*)$/g, '$1\\"$2"'); // Unclosed strings
+        }
+
+        function setOutput(text) {
+            outputJson.textContent = text;
+            outputJson.className = 'output success';
+        }
+
+        function setError(text) {
+            outputJson.textContent = text;
+            outputJson.className = 'output error';
+            setStatus('错误', 'error');
+        }
+
+        function setStatus(text, type) {
+            statusText.textContent = text;
+        }
+
+        function clearContent() {
+            inputJson.value = '';
+            outputJson.textContent = '';
+            setStatus('已清空', '');
+            updateCharCount();
+        }
+
+        function copyOutput() {
+            const text = outputJson.textContent;
+            if (text) {
+                navigator.clipboard.writeText(text).then(() => {
+                    setStatus('已复制到剪贴板', 'success');
+                });
+            }
+        }
+
+        function downloadJson() {
+            const text = outputJson.textContent;
+            if (text) {
+                const blob = new Blob([text], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'data.json';
+                a.click();
+                URL.revokeObjectURL(url);
+                setStatus('下载完成', 'success');
+            }
+        }
+
+        function changeTheme(theme) {
+            if (theme === 'light') {
+                document.body.style.background = '#ffffff';
+                document.body.style.color = '#333333';
+                inputJson.style.background = '#ffffff';
+                inputJson.style.color = '#333333';
+            } else {
+                document.body.style.background = '#1e1e1e';
+                document.body.style.color = '#d4d4d4';
+                inputJson.style.background = '#1e1e1e';
+                inputJson.style.color = '#d4d4d4';
+            }
+        }
+
+        // Resize handle
+        const resizeHandle = document.getElementById('resizeHandle');
+        let isResizing = false;
+        
+        resizeHandle.addEventListener('mousedown', (e) => {
+            isResizing = true;
+            document.body.style.cursor = 'col-resize';
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isResizing) return;
+            const containers = document.querySelectorAll('.editor-pane');
+            if (containers.length === 2) {
+                const container = document.querySelector('.main-content');
+                const rect = container.getBoundingClientRect();
+                const ratio = (e.clientX - rect.left) / rect.width;
+                containers[0].style.flex = ratio;
+                containers[1].style.flex = 1 - ratio;
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            isResizing = false;
+            document.body.style.cursor = '';
+        });
+
+        // Auto-format on paste
+        inputJson.addEventListener('paste', (e) => {
+            setTimeout(formatJson, 0);
+        });
+
+        // Keyboard shortcut
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                formatJson();
+            }
+        });
+    </script>
+</body>
+</html>

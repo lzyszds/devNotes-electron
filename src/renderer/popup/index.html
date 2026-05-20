@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FeHelper - 前端助手</title>
+    <link rel="stylesheet" href="index.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        body.dark-mode {
+            background: #1a1a1a;
+            color: #e0e0e0;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 16px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .header .version {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+        
+        .tool-list {
+            padding: 8px;
+        }
+        
+        .tool-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        body.dark-mode .tool-item {
+            background: #2d2d2d;
+        }
+        
+        .tool-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .tool-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            margin-right: 12px;
+            flex-shrink: 0;
+        }
+        
+        .tool-info {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .tool-name {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: #333;
+        }
+        
+        body.dark-mode .tool-name {
+            color: #e0e0e0;
+        }
+        
+        .tool-tips {
+            font-size: 12px;
+            color: #888;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        body.dark-mode .tool-tips {
+            color: #999;
+        }
+        
+        .footer {
+            padding: 12px;
+            text-align: center;
+            border-top: 1px solid #eee;
+            background: white;
+        }
+        
+        body.dark-mode .footer {
+            background: #2d2d2d;
+            border-top-color: #444;
+        }
+        
+        .footer-btn {
+            display: inline-block;
+            padding: 8px 16px;
+            margin: 0 4px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+        
+        body.dark-mode .btn-secondary {
+            background: #444;
+            color: #e0e0e0;
+        }
+        
+        .btn-primary:hover, .btn-secondary:hover {
+            opacity: 0.9;
+            transform: scale(1.02);
+        }
+        
+        .search-box {
+            padding: 8px 12px;
+            background: white;
+        }
+        
+        body.dark-mode .search-box {
+            background: #2d2d2d;
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        
+        body.dark-mode .search-input {
+            background: #333;
+            border-color: #555;
+            color: #e0e0e0;
+        }
+        
+        .search-input:focus {
+            border-color: #667eea;
+        }
+        
+        .category-tabs {
+            display: flex;
+            padding: 8px 12px;
+            gap: 8px;
+            overflow-x: auto;
+            background: white;
+        }
+        
+        body.dark-mode .category-tabs {
+            background: #2d2d2d;
+        }
+        
+        .category-tab {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 16px;
+            background: #f0f0f0;
+            color: #666;
+            font-size: 12px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+        
+        body.dark-mode .category-tab {
+            background: #444;
+            color: #aaa;
+        }
+        
+        .category-tab.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+        }
+        
+        .spinner {
+            width: 30px;
+            height: 30px;
+            border: 3px solid #ddd;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🛠️ FeHelper 前端助手</h1>
+        <div class="version">v2026.4.2920</div>
+    </div>
+    
+    <div class="search-box">
+        <input type="text" class="search-input" id="searchInput" placeholder="搜索工具...">
+    </div>
+    
+    <div class="category-tabs" id="categoryTabs">
+        <button class="category-tab active" data-category="all">全部</button>
+        <button class="category-tab" data-category="dev">开发工具</button>
+        <button class="category-tab" data-category="encode">编解码</button>
+        <button class="category-tab" data-category="image">图像工具</button>
+        <button class="category-tab" data-category="productivity">效率工具</button>
+        <button class="category-tab" data-category="calculator">计算器</button>
+    </div>
+    
+    <div class="tool-list" id="toolList">
+        <div class="loading">
+            <div class="spinner"></div>
+            <div>加载中...</div>
+        </div>
+    </div>
+    
+    <div class="footer">
+        <button class="footer-btn btn-primary" id="openSettings">🛒 工具市场</button>
+        <button class="footer-btn btn-secondary" id="toggleTheme">🌙 深色模式</button>
+    </div>
+
+    <script>
+        // Tool categories
+        const TOOL_CATEGORIES = {
+            'dev': ['json-format', 'json-diff', 'code-beautify', 'code-compress', 'postman', 'websocket', 'regexp', 'page-timing'],
+            'encode': ['en-decode', 'trans-radix', 'timestamp', 'trans-color', 'datetime-calc'],
+            'image': ['qr-code', 'image-base64', 'svg-converter', 'chart-maker', 'poster-maker', 'screenshot', 'color-picker'],
+            'productivity': ['aiagent', 'sticky-notes', 'html2markdown', 'page-monkey'],
+            'calculator': ['crontab', 'loan-rate', 'password', 'uuid-gen', 'excel2json', 'grid-ruler', 'naotu']
+        };
+
+        // Tool definitions (same as original FeHelper)
+        const TOOL_MAP = {
+            'json-format': { name: 'Json美化工具', icon: '📋', tips: 'JSON自动美化、乱码解码、排序、BigInt精度' },
+            'json-diff': { name: 'Json比对工具', icon: '☷', tips: 'JSON结构化比较，标记差异' },
+            'qr-code': { name: '二维码/解码', icon: '▣', tips: '二维码生成和解码' },
+            'image-base64': { name: '图片转Base64', icon: '▤', tips: '图片与Base64互转' },
+            'en-decode': { name: '信息编码转换', icon: '♨', tips: 'Unicode/UTF-8/URL/Base64/MD5' },
+            'code-beautify': { name: '代码美化工具', icon: '✡', tips: 'JS/CSS/HTML/XML/SQL格式化' },
+            'code-compress': { name: '代码压缩工具', icon: '♯', tips: 'HTML/JS/CSS代码压缩' },
+            'aiagent': { name: 'AI(智能助手)', icon: '֍', tips: 'AI对话、写代码、改代码' },
+            'timestamp': { name: '时间戳转换', icon: '♖', tips: 'Unix时间戳与日期互转' },
+            'password': { name: '随机密码生成', icon: '♆', tips: '自定义长度密码生成' },
+            'uuid-gen': { name: 'UUID/ID生成器', icon: '❄', tips: 'UUID v4/雪花ID/NanoID' },
+            'sticky-notes': { name: '便签笔记', icon: '✐', tips: '分类目录便签笔记' },
+            'html2markdown': { name: 'Markdown转换', icon: 'ⓜ', tips: 'Markdown编写预览/HTML转Markdown' },
+            'postman': { name: '简易Postman', icon: '☯', tips: '接口调试/GET/POST请求' },
+            'websocket': { name: 'Websocket工具', icon: 'ⓦ', tips: 'WebSocket连接测试' },
+            'regexp': { name: '正则公式速查', icon: '✙', tips: '常用正则表达式模板' },
+            'trans-radix': { name: '进制转换工具', icon: '❖', tips: '2-36进制任意互转' },
+            'trans-color': { name: '颜色转换工具', icon: '▶', tips: 'HEX/RGB/HSL互转' },
+            'crontab': { name: 'Crontab工具', icon: '½', tips: 'Crontab表达式生成' },
+            'loan-rate': { name: '贷(还)款利率', icon: '$', tips: '贷款还款计划计算' },
+            'devtools': { name: 'FH开发者工具', icon: '㉿', tips: '自定义工具开发' },
+            'page-monkey': { name: '网页油猴工具', icon: '♀', tips: '网页Hack脚本注入' },
+            'screenshot': { name: '网页截屏工具', icon: '✂', tips: '可视区域/全页截屏' },
+            'mock-data': { name: '数据Mock工具', icon: '⟡', tips: '生成测试数据' },
+            'color-picker': { name: '页面取色工具', icon: '✑', tips: '网页元素色值采集' },
+            'naotu': { name: '便捷思维导图', icon: 'Ψ', tips: '轻量思维导图' },
+            'grid-ruler': { name: '网页栅格标尺', icon: 'Ⅲ', tips: '横竖标尺检测' },
+            'page-timing': { name: '网站性能优化', icon: 'Σ', tips: 'Web指标分析' },
+            'excel2json': { name: 'Excel转JSON', icon: 'Ⓗ', tips: 'Excel数据转换' },
+            'chart-maker': { name: '图表制作工具', icon: '📊', tips: '柱状图/折线图/饼图' },
+            'svg-converter': { name: 'SVG转图片', icon: '⇲', tips: 'SVG转PNG/JPG/WebP' },
+            'poster-maker': { name: '海报快速生成', icon: '🖼️', tips: '营销海报制作' },
+            'datetime-calc': { name: '时间戳计算器', icon: '⏱️', tips: '时间格式解析/计算' }
+        };
+
+        // State
+        let installedTools = {};
+        let currentCategory = 'all';
+        let searchQuery = '';
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadInstalledTools();
+            renderTools();
+            setupEventListeners();
+            applyDarkMode();
+        });
+
+        async function loadInstalledTools() {
+            // Default: install all tools for Electron version
+            installedTools = { ...TOOL_MAP };
+        }
+
+        function setupEventListeners() {
+            // Search
+            document.getElementById('searchInput').addEventListener('input', (e) => {
+                searchQuery = e.target.value.toLowerCase();
+                renderTools();
+            });
+
+            // Category tabs
+            document.querySelectorAll('.category-tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    document.querySelectorAll('.category-tab').forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    currentCategory = tab.dataset.category;
+                    renderTools();
+                });
+            });
+
+            // Open settings
+            document.getElementById('openSettings').addEventListener('click', () => {
+                if (window.FhBridge) {
+                    window.FhBridge.openTool('options');
+                }
+            });
+
+            // Toggle theme
+            document.getElementById('toggleTheme').addEventListener('click', () => {
+                document.body.classList.toggle('dark-mode');
+                localStorage.setItem('fehelper-dark-mode', document.body.classList.contains('dark-mode'));
+            });
+
+            // Keyboard navigation
+            document.addEventListener('keydown', (e) => {
+                const items = document.querySelectorAll('.tool-item');
+                let hoveredIndex = -1;
+                
+                items.forEach((item, index) => {
+                    if (item.classList.contains('x-hovered')) {
+                        hoveredIndex = index;
+                        item.classList.remove('x-hovered');
+                    }
+                });
+
+                if (e.key === 'ArrowDown') {
+                    hoveredIndex = (hoveredIndex + 1) % items.length;
+                } else if (e.key === 'ArrowUp') {
+                    hoveredIndex = hoveredIndex <= 0 ? items.length - 1 : hoveredIndex - 1;
+                } else if (e.key === 'Enter' && hoveredIndex >= 0) {
+                    items[hoveredIndex].click();
+                    return;
+                }
+
+                if (hoveredIndex >= 0 && items[hoveredIndex]) {
+                    items[hoveredIndex].classList.add('x-hovered');
+                    items[hoveredIndex].scrollIntoView({ block: 'nearest' });
+                }
+            });
+        }
+
+        function applyDarkMode() {
+            const isDark = localStorage.getItem('fehelper-dark-mode') === 'true';
+            if (isDark) {
+                document.body.classList.add('dark-mode');
+            }
+        }
+
+        function renderTools() {
+            const toolList = document.getElementById('toolList');
+            let tools = Object.entries(installedTools);
+
+            // Filter by category
+            if (currentCategory !== 'all') {
+                const categoryTools = TOOL_CATEGORIES[currentCategory] || [];
+                tools = tools.filter(([key]) => categoryTools.includes(key));
+            }
+
+            // Filter by search
+            if (searchQuery) {
+                tools = tools.filter(([key, tool]) => 
+                    tool.name.toLowerCase().includes(searchQuery) ||
+                    tool.tips.toLowerCase().includes(searchQuery)
+                );
+            }
+
+            if (tools.length === 0) {
+                toolList.innerHTML = '<div class="loading">未找到匹配的工具</div>';
+                return;
+            }
+
+            toolList.innerHTML = tools.map(([key, tool]) => `
+                <div class="tool-item" data-tool="${key}">
+                    <div class="tool-icon">${tool.icon}</div>
+                    <div class="tool-info">
+                        <div class="tool-name">${tool.name}</div>
+                        <div class="tool-tips">${tool.tips}</div>
+                    </div>
+                </div>
+            `).join('');
+
+            // Add click handlers
+            toolList.querySelectorAll('.tool-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const toolName = item.dataset.tool;
+                    if (window.FhBridge) {
+                        window.FhBridge.openTool(toolName);
+                    }
+                });
+            });
+        }
+    </script>
+</body>
+</html>

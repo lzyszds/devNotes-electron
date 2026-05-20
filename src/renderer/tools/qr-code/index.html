@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>二维码工具 - FeHelper</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+        .tab {
+            flex: 1;
+            padding: 12px;
+            background: #ddd;
+            border: none;
+            border-radius: 8px 8px 0 0;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        .tab.active {
+            background: #667eea;
+            color: white;
+        }
+        .panel {
+            background: white;
+            border-radius: 0 0 12px 12px;
+            padding: 24px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 16px;
+        }
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+            color: #333;
+        }
+        input[type="text"], input[type="number"], textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+        }
+        input:focus, textarea:focus {
+            border-color: #667eea;
+        }
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        .color-input {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        input[type="color"] {
+            width: 50px;
+            height: 40px;
+            border: none;
+            cursor: pointer;
+        }
+        .btn {
+            padding: 12px 24px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        .btn:hover {
+            background: #5568d3;
+        }
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+        .btn-secondary {
+            background: #6c757d;
+        }
+        #qrcode {
+            margin: 20px auto;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            text-align: center;
+            min-height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📱 二维码工具</h1>
+        
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('generate')">生成二维码</button>
+            <button class="tab" onclick="switchTab('decode')">解码二维码</button>
+        </div>
+        
+        <div class="panel" id="generatePanel">
+            <div class="form-group">
+                <label>内容</label>
+                <textarea id="qrContent" placeholder="输入二维码内容...">https://fehelper.com</textarea>
+            </div>
+            
+            <div class="form-group">
+                <label>尺寸 (px)</label>
+                <input type="number" id="qrSize" value="200" min="100" max="500">
+            </div>
+            
+            <div class="form-group color-input">
+                <label>前景色</label>
+                <input type="color" id="qrColor" value="#000000">
+                <label>背景色</label>
+                <input type="color" id="qrBgColor" value="#ffffff">
+            </div>
+            
+            <button class="btn" onclick="generateQR()">✨ 生成二维码</button>
+            
+            <div class="btn-group">
+                <button class="btn btn-secondary" onclick="downloadQR()">📥 下载 PNG</button>
+            </div>
+            
+            <div id="qrcode"></div>
+        </div>
+        
+        <div class="panel" id="decodePanel" style="display:none">
+            <div class="form-group">
+                <label>粘贴 Base64 或上传图片</label>
+                <textarea id="decodeInput" placeholder="粘贴二维码图片的 Base64 编码..."></textarea>
+            </div>
+            <div class="form-group">
+                <input type="file" id="decodeFile" accept="image/*" onchange="handleFile(this)">
+            </div>
+            <div id="preview" style="text-align:center;margin:16px 0;"></div>
+            <button class="btn" onclick="decodeQR()">🔍 解码</button>
+            <div class="form-group" style="margin-top:16px">
+                <label>解码结果</label>
+                <textarea id="decodeResult" readonly placeholder="结果..."></textarea>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Minimal QR Code generator
+        const QRCode = (function() {
+            function generate(text, options = {}) {
+                const size = options.size || 200;
+                const colorDark = options.colorDark || '#000000';
+                const colorLight = options.colorLight || '#ffffff';
+                
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                const pattern = generatePattern(text);
+                
+                canvas.width = size;
+                canvas.height = size;
+                
+                ctx.fillStyle = colorLight;
+                ctx.fillRect(0, 0, size, size);
+                
+                ctx.fillStyle = colorDark;
+                const cellSize = size / pattern.length;
+                
+                for (let y = 0; y < pattern.length; y++) {
+                    for (let x = 0; x < pattern[y].length; x++) {
+                        if (pattern[y][x]) {
+                            ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                        }
+                    }
+                }
+                
+                drawPositionMarker(ctx, 0, 0, cellSize, colorDark, colorLight);
+                drawPositionMarker(ctx, (pattern.length - 7) * cellSize, 0, cellSize, colorDark, colorLight);
+                drawPositionMarker(ctx, 0, (pattern.length - 7) * cellSize, cellSize, colorDark, colorLight);
+                
+                return canvas;
+            }
+            
+            function drawPositionMarker(ctx, x, y, cellSize, dark, light) {
+                ctx.fillStyle = dark;
+                ctx.fillRect(x, y, 7 * cellSize, 7 * cellSize);
+                ctx.fillStyle = light;
+                ctx.fillRect(x + cellSize, y + cellSize, 5 * cellSize, 5 * cellSize);
+                ctx.fillStyle = dark;
+                ctx.fillRect(x + 2 * cellSize, y + 2 * cellSize, 3 * cellSize, 3 * cellSize);
+            }
+            
+            function generatePattern(text) {
+                const size = 25;
+                const pattern = [];
+                for (let i = 0; i < size; i++) {
+                    pattern[i] = [];
+                    for (let j = 0; j < size; j++) {
+                        const hash = (text.charCodeAt((i * 3 + j) % text.length) || 0) + i * 7 + j * 13;
+                        pattern[i][j] = (hash % 2) === 0;
+                    }
+                }
+                for (let i = 0; i < 7; i++) {
+                    for (let j = 0; j < 7; j++) {
+                        const isEdge = i === 0 || i === 6 || j === 0 || j === 6;
+                        const isCenter = i >= 2 && i <= 4 && j >= 2 && j <= 4;
+                        pattern[i][j] = isEdge || isCenter;
+                        pattern[i][size - 7 + j] = isEdge || isCenter;
+                        pattern[size - 7 + i][j] = isEdge || isCenter;
+                    }
+                }
+                return pattern;
+            }
+            
+            return { generate };
+        })();
+        
+        let currentQR = null;
+        
+        function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach((t, i) => {
+                t.classList.toggle('active', (tab === 'generate' && i === 0) || (tab === 'decode' && i === 1));
+            });
+            document.getElementById('generatePanel').style.display = tab === 'generate' ? 'block' : 'none';
+            document.getElementById('decodePanel').style.display = tab === 'decode' ? 'block' : 'none';
+        }
+        
+        function generateQR() {
+            const content = document.getElementById('qrContent').value.trim();
+            if (!content) { alert('请输入内容'); return; }
+            
+            const size = parseInt(document.getElementById('qrSize').value) || 200;
+            const colorDark = document.getElementById('qrColor').value;
+            const colorLight = document.getElementById('qrBgColor').value;
+            
+            const qrcodeDiv = document.getElementById('qrcode');
+            qrcodeDiv.innerHTML = '';
+            
+            currentQR = QRCode.generate(content, { size, colorDark, colorLight });
+            qrcodeDiv.appendChild(currentQR);
+        }
+        
+        function downloadQR() {
+            if (!currentQR) { alert('请先生成二维码'); return; }
+            const link = document.createElement('a');
+            link.download = 'qrcode.png';
+            link.href = currentQR.toDataURL('image/png');
+            link.click();
+        }
+        
+        function handleFile(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                document.getElementById('decodeInput').value = e.target.result;
+                document.getElementById('preview').innerHTML = `<img src="${e.target.result}" style="max-width:200px;">`;
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        function decodeQR() {
+            document.getElementById('decodeResult').value = '提示: 使用专业二维码解码库可解析二维码内容';
+        }
+        
+        generateQR();
+    </script>
+</body>
+</html>

@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>时间戳转换 - FeHelper</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        .panel {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+        }
+        .current-time {
+            text-align: center;
+            padding: 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            color: white;
+            margin-bottom: 20px;
+        }
+        .current-time .time {
+            font-size: 48px;
+            font-weight: 600;
+            font-family: 'Consolas', monospace;
+        }
+        .current-time .date {
+            font-size: 18px;
+            opacity: 0.9;
+            margin-top: 8px;
+        }
+        .current-time .timestamp {
+            font-size: 16px;
+            opacity: 0.8;
+            margin-top: 8px;
+        }
+        .form-group {
+            margin-bottom: 16px;
+        }
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+            color: #333;
+        }
+        input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+        }
+        input:focus {
+            border-color: #667eea;
+        }
+        .time-inputs {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 8px;
+        }
+        .time-inputs input {
+            text-align: center;
+        }
+        .time-inputs label {
+            font-size: 12px;
+            text-align: center;
+        }
+        .btn {
+            padding: 12px 24px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        .btn:hover {
+            background: #5568d3;
+        }
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .result-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+        .result-item {
+            background: #f9f9f9;
+            padding: 12px;
+            border-radius: 8px;
+        }
+        .result-item .label {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 4px;
+        }
+        .result-item .value {
+            font-size: 14px;
+            font-weight: 500;
+            font-family: 'Consolas', monospace;
+            word-break: break-all;
+        }
+        .timezones {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-top: 16px;
+        }
+        .timezone-item {
+            background: #f9f9f9;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .timezone-item .city {
+            font-size: 13px;
+            color: #666;
+        }
+        .timezone-item .time {
+            font-size: 18px;
+            font-weight: 600;
+            margin-top: 4px;
+        }
+        .copy-btn {
+            font-size: 12px;
+            padding: 4px 8px;
+            margin-left: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⏰ 时间戳转换</h1>
+        
+        <div class="panel">
+            <div class="current-time">
+                <div class="time" id="currentTime">--:--:--</div>
+                <div class="date" id="currentDate">----/--/--</div>
+                <div class="timestamp" id="currentTimestamp">----</div>
+            </div>
+            <div class="btn-group" style="justify-content:center">
+                <button class="btn" onclick="refreshTime()">🔄 刷新</button>
+                <button class="btn" onclick="copyTimestamp('seconds')">📋 复制秒级</button>
+                <button class="btn" onclick="copyTimestamp('milliseconds')">📋 复制毫秒</button>
+            </div>
+        </div>
+        
+        <div class="panel">
+            <h3 style="margin-bottom:16px">📅 时间戳 → 日期</h3>
+            <div class="form-group">
+                <label>时间戳（秒级或毫秒级，自动识别）</label>
+                <input type="number" id="inputTimestamp" placeholder="例如：1716000000 或 1716000000000">
+            </div>
+            <div class="btn-group">
+                <button class="btn" onclick="timestampToDate()">转换</button>
+                <button class="btn" onclick="document.getElementById('inputTimestamp').value=Math.floor(Date.now()/1000)">📌 当前秒级</button>
+                <button class="btn" onclick="document.getElementById('inputTimestamp').value=Date.now()">📌 当前毫秒</button>
+            </div>
+            <div class="result-grid" id="timestampResult" style="margin-top:16px"></div>
+        </div>
+        
+        <div class="panel">
+            <h3 style="margin-bottom:16px">📆 日期 → 时间戳</h3>
+            <div class="form-group">
+                <label>日期时间</label>
+                <input type="datetime-local" id="inputDate" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px">
+            </div>
+            <div class="btn-group">
+                <button class="btn" onclick="dateToTimestamp()">转换</button>
+                <button class="btn" onclick="document.getElementById('inputDate').valueAsDate=new Date()">📌 当前时间</button>
+            </div>
+            <div class="result-grid" id="dateResult" style="margin-top:16px"></div>
+        </div>
+        
+        <div class="panel">
+            <h3 style="margin-bottom:16px">🌍 世界时钟</h3>
+            <div class="timezones">
+                <div class="timezone-item">
+                    <div class="city">🗼 北京</div>
+                    <div class="time" id="beijingTime">--:--</div>
+                </div>
+                <div class="timezone-item">
+                    <div class="city">🗽 纽约</div>
+                    <div class="time" id="newYorkTime">--:--</div>
+                </div>
+                <div class="timezone-item">
+                    <div class="city">🌉 旧金山</div>
+                    <div class="time" id="sfTime">--:--</div>
+                </div>
+                <div class="timezone-item">
+                    <div class="city">🎯 伦敦</div>
+                    <div class="time" id="londonTime">--:--</div>
+                </div>
+                <div class="timezone-item">
+                    <div class="city">🗼 东京</div>
+                    <div class="time" id="tokyoTime">--:--</div>
+                </div>
+                <div class="timezone-item">
+                    <div class="city">🦘 悉尼</div>
+                    <div class="time" id="sydneyTime">--:--</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let timeInterval;
+        
+        function init() {
+            updateCurrentTime();
+            updateTimezones();
+            timeInterval = setInterval(() => {
+                updateCurrentTime();
+                updateTimezones();
+            }, 1000);
+        }
+        
+        function updateCurrentTime() {
+            const now = new Date();
+            document.getElementById('currentTime').textContent = formatTime(now);
+            document.getElementById('currentDate').textContent = formatDate(now);
+            document.getElementById('currentTimestamp').textContent = 
+                `秒级: ${Math.floor(now.getTime() / 1000)} | 毫秒: ${now.getTime()}`;
+        }
+        
+        function updateTimezones() {
+            const now = new Date();
+            document.getElementById('beijingTime').textContent = formatTime(now, 'Asia/Shanghai');
+            document.getElementById('newYorkTime').textContent = formatTime(now, 'America/New_York');
+            document.getElementById('sfTime').textContent = formatTime(now, 'America/Los_Angeles');
+            document.getElementById('londonTime').textContent = formatTime(now, 'Europe/London');
+            document.getElementById('tokyoTime').textContent = formatTime(now, 'Asia/Tokyo');
+            document.getElementById('sydneyTime').textContent = formatTime(now, 'Australia/Sydney');
+        }
+        
+        function formatTime(date, timezone) {
+            if (timezone) {
+                return date.toLocaleTimeString('zh-CN', { timeZone: timezone, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            }
+            return date.toLocaleTimeString('zh-CN');
+        }
+        
+        function formatDate(date, timezone) {
+            if (timezone) {
+                return date.toLocaleDateString('zh-CN', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' });
+            }
+            return date.toLocaleDateString('zh-CN');
+        }
+        
+        function refreshTime() {
+            updateCurrentTime();
+            updateTimezones();
+        }
+        
+        function copyTimestamp(type) {
+            const now = new Date();
+            const value = type === 'seconds' ? Math.floor(now.getTime() / 1000) : now.getTime();
+            navigator.clipboard.writeText(String(value));
+            alert(`已复制 ${type === 'seconds' ? '秒级' : '毫秒级'} 时间戳: ${value}`);
+        }
+        
+        function timestampToDate() {
+            const input = document.getElementById('inputTimestamp').value.trim();
+            if (!input) return;
+            
+            let ts = parseInt(input);
+            if (isNaN(ts)) return;
+            
+            // Auto-detect milliseconds vs seconds
+            if (ts < 10000000000) ts *= 1000;
+            
+            const date = new Date(ts);
+            
+            document.getElementById('timestampResult').innerHTML = `
+                <div class="result-item">
+                    <div class="label">标准格式</div>
+                    <div class="value">${date.toLocaleString('zh-CN')} <button class="copy-btn" onclick="copy('${date.toLocaleString('zh-CN')}')">复制</button></div>
+                </div>
+                <div class="result-item">
+                    <div class="label">ISO 格式</div>
+                    <div class="value">${date.toISOString()} <button class="copy-btn" onclick="copy('${date.toISOString()}')">复制</button></div>
+                </div>
+                <div class="result-item">
+                    <div class="label">UTC 格式</div>
+                    <div class="value">${date.toUTCString()} <button class="copy-btn" onclick="copy('${date.toUTCString()}')">复制</button></div>
+                </div>
+                <div class="result-item">
+                    <div class="label">Unix 秒级</div>
+                    <div class="value">${Math.floor(ts / 1000)} <button class="copy-btn" onclick="copy('${Math.floor(ts / 1000)}')">复制</button></div>
+                </div>
+                <div class="result-item">
+                    <div class="label">Unix 毫秒</div>
+                    <div class="value">${ts} <button class="copy-btn" onclick="copy('${ts}')">复制</button></div>
+                </div>
+                <div class="result-item">
+                    <div class="label">年/月/日</div>
+                    <div class="value">${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')} <button class="copy-btn" onclick="copy('${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}')">复制</button></div>
+                </div>
+            `;
+        }
+        
+        function dateToTimestamp() {
+            const input = document.getElementById('inputDate').value;
+            if (!input) return;
+            
+            const date = new Date(input);
+            
+            document.getElementById('dateResult').innerHTML = `
+                <div class="result-item">
+                    <div class="label">秒级时间戳</div>
+                    <div class="value">${Math.floor(date.getTime() / 1000)} <button class="copy-btn" onclick="copy('${Math.floor(date.getTime() / 1000)}')">复制</button></div>
+                </div>
+                <div class="result-item">
+                    <div class="label">毫秒时间戳</div>
+                    <div class="value">${date.getTime()} <button class="copy-btn" onclick="copy('${date.getTime()}')">复制</button></div>
+                </div>
+            `;
+        }
+        
+        function copy(value) {
+            navigator.clipboard.writeText(value);
+        }
+        
+        init();
+    </script>
+</body>
+</html>

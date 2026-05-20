@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>随机密码生成 - FeHelper</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container { max-width: 500px; margin: 0 auto; }
+        h1 { text-align: center; margin-bottom: 20px; color: #333; }
+        .panel {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+        .password-display {
+            background: #1e1e1e;
+            color: #4ade80;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Consolas', monospace;
+            font-size: 24px;
+            text-align: center;
+            word-break: break-all;
+            margin-bottom: 16px;
+            min-height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .form-group { margin-bottom: 16px; }
+        label { display: block; margin-bottom: 6px; font-weight: 500; color: #333; }
+        .slider-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        input[type="range"] {
+            flex: 1;
+            height: 8px;
+            -webkit-appearance: none;
+            background: #ddd;
+            border-radius: 4px;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #667eea;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        .length-value {
+            min-width: 40px;
+            text-align: center;
+            font-weight: 600;
+            color: #667eea;
+        }
+        .checkbox-group { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px;
+            background: #f9f9f9;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .checkbox-item input { width: 18px; height: 18px; }
+        .checkbox-item span { font-size: 14px; }
+        .strength-bar {
+            height: 8px;
+            background: #ddd;
+            border-radius: 4px;
+            margin: 16px 0;
+            overflow: hidden;
+        }
+        .strength-fill {
+            height: 100%;
+            transition: all 0.3s;
+            border-radius: 4px;
+        }
+        .strength-text {
+            text-align: center;
+            font-weight: 500;
+            margin-bottom: 16px;
+        }
+        .btn {
+            width: 100%;
+            padding: 14px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-bottom: 12px;
+        }
+        .btn:hover { background: #5568d3; }
+        .btn-secondary { background: #6c757d; }
+        .btn-secondary:hover { background: #5a6268; }
+        .btn-row { display: flex; gap: 12px; }
+        .btn-row .btn { flex: 1; margin-bottom: 0; }
+        .history { margin-top: 20px; }
+        .history-title { font-weight: 500; margin-bottom: 8px; color: #333; }
+        .history-item {
+            padding: 8px 12px;
+            background: #f9f9f9;
+            border-radius: 4px;
+            margin-bottom: 4px;
+            font-family: monospace;
+            font-size: 13px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .history-item:hover { background: #eee; }
+        .history-item .copy-icon { opacity: 0.5; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 随机密码生成</h1>
+        
+        <div class="panel">
+            <div class="password-display" id="passwordDisplay">点击生成</div>
+            
+            <div class="strength-bar">
+                <div class="strength-fill" id="strengthFill" style="width: 0%"></div>
+            </div>
+            <div class="strength-text" id="strengthText">--</div>
+            
+            <div class="form-group">
+                <label>密码长度: <span id="lengthLabel">16</span> 位</label>
+                <div class="slider-row">
+                    <input type="range" id="lengthSlider" min="4" max="64" value="16">
+                    <span class="length-value" id="lengthValue">16</span>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>字符类型</label>
+                <div class="checkbox-group">
+                    <label class="checkbox-item">
+                        <input type="checkbox" id="uppercase" checked>
+                        <span>大写字母 (A-Z)</span>
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" id="lowercase" checked>
+                        <span>小写字母 (a-z)</span>
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" id="numbers" checked>
+                        <span>数字 (0-9)</span>
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" id="symbols" checked>
+                        <span>特殊符号 (!@#$)</span>
+                    </label>
+                </div>
+            </div>
+            
+            <button class="btn" onclick="generatePassword()">⚡ 生成密码</button>
+            <div class="btn-row">
+                <button class="btn btn-secondary" onclick="copyPassword()">📋 复制</button>
+                <button class="btn btn-secondary" onclick="saveToHistory()">💾 保存</button>
+            </div>
+        </div>
+        
+        <div class="history panel" style="margin-top:20px">
+            <div class="history-title">📜 历史记录</div>
+            <div id="historyList">
+                <div style="color:#888;font-size:13px">暂无记录</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        const lowercase = 'abcdefghijklmnopqrstuvwxyz';
+        const numbers = '0123456789';
+        const symbols = '!@#$%^&*()_+-=[]{}|;:,.<>?';
+        
+        let currentPassword = '';
+        let history = JSON.parse(localStorage.getItem('passwordHistory') || '[]');
+        
+        function generatePassword() {
+            let chars = '';
+            if (document.getElementById('uppercase').checked) chars += uppercase;
+            if (document.getElementById('lowercase').checked) chars += lowercase;
+            if (document.getElementById('numbers').checked) chars += numbers;
+            if (document.getElementById('symbols').checked) chars += symbols;
+            
+            if (!chars) {
+                alert('请至少选择一种字符类型');
+                return;
+            }
+            
+            const length = parseInt(document.getElementById('lengthSlider').value);
+            currentPassword = '';
+            
+            for (let i = 0; i < length; i++) {
+                currentPassword += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            
+            document.getElementById('passwordDisplay').textContent = currentPassword;
+            updateStrength();
+        }
+        
+        function updateStrength() {
+            const len = currentPassword.length;
+            let score = 0;
+            
+            if (len >= 8) score += 25;
+            if (len >= 12) score += 25;
+            if (/[A-Z]/.test(currentPassword) && /[a-z]/.test(currentPassword)) score += 20;
+            if (/\d/.test(currentPassword)) score += 15;
+            if (/[^A-Za-z0-9]/.test(currentPassword)) score += 15;
+            
+            const fill = document.getElementById('strengthFill');
+            const text = document.getElementById('strengthText');
+            
+            fill.style.width = score + '%';
+            
+            if (score < 40) {
+                fill.style.background = '#ef4444';
+                text.textContent = '弱';
+                text.style.color = '#ef4444';
+            } else if (score < 70) {
+                fill.style.background = '#f59e0b';
+                text.textContent = '中等';
+                text.style.color = '#f59e0b';
+            } else {
+                fill.style.background = '#4ade80';
+                text.textContent = '强';
+                text.style.color = '#4ade80';
+            }
+        }
+        
+        function copyPassword() {
+            if (!currentPassword) {
+                alert('请先生成密码');
+                return;
+            }
+            navigator.clipboard.writeText(currentPassword);
+            alert('密码已复制到剪贴板');
+        }
+        
+        function saveToHistory() {
+            if (!currentPassword) return;
+            if (history.includes(currentPassword)) return;
+            history.unshift(currentPassword);
+            if (history.length > 10) history.pop();
+            localStorage.setItem('passwordHistory', JSON.stringify(history));
+            renderHistory();
+        }
+        
+        function renderHistory() {
+            const list = document.getElementById('historyList');
+            if (history.length === 0) {
+                list.innerHTML = '<div style="color:#888;font-size:13px">暂无记录</div>';
+                return;
+            }
+            list.innerHTML = history.map((p, i) => `
+                <div class="history-item" onclick="navigator.clipboard.writeText('${p}');alert('已复制')">
+                    <span>${p.substring(0, 30)}${p.length > 30 ? '...' : ''}</span>
+                    <span class="copy-icon">📋</span>
+                </div>
+            `).join('');
+        }
+        
+        // Length slider
+        const slider = document.getElementById('lengthSlider');
+        const lengthValue = document.getElementById('lengthValue');
+        const lengthLabel = document.getElementById('lengthLabel');
+        
+        slider.addEventListener('input', () => {
+            lengthValue.textContent = slider.value;
+            lengthLabel.textContent = slider.value;
+        });
+        
+        renderHistory();
+    </script>
+</body>
+</html>

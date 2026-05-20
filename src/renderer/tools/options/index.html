@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FeHelper - 工具市场</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #f0f2f5;
+            color: #333;
+            min-height: 100vh;
+        }
+        
+        body.dark-mode {
+            background: #1a1a1a;
+            color: #e0e0e0;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+        
+        .header .version {
+            font-size: 14px;
+            opacity: 0.9;
+            background: rgba(255,255,255,0.2);
+            padding: 4px 12px;
+            border-radius: 12px;
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: 12px;
+        }
+        
+        .header-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .btn-light {
+            background: rgba(255,255,255,0.2);
+            color: white;
+        }
+        
+        .btn-light:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        
+        .main-container {
+            display: flex;
+            min-height: calc(100vh - 80px);
+        }
+        
+        .sidebar {
+            width: 220px;
+            background: white;
+            padding: 20px 0;
+            border-right: 1px solid #e0e0e0;
+        }
+        
+        body.dark-mode .sidebar {
+            background: #2d2d2d;
+            border-right-color: #444;
+        }
+        
+        .nav-item {
+            padding: 12px 24px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.2s;
+            border-left: 3px solid transparent;
+        }
+        
+        .nav-item:hover {
+            background: #f5f5f5;
+        }
+        
+        body.dark-mode .nav-item:hover {
+            background: #3d3d3d;
+        }
+        
+        .nav-item.active {
+            background: #f0f0f0;
+            border-left-color: #667eea;
+            color: #667eea;
+            font-weight: 500;
+        }
+        
+        body.dark-mode .nav-item.active {
+            background: #3d3d3d;
+        }
+        
+        .nav-icon {
+            font-size: 18px;
+        }
+        
+        .content {
+            flex: 1;
+            padding: 24px;
+        }
+        
+        .search-bar {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        
+        .search-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+        }
+        
+        body.dark-mode .search-input {
+            background: #2d2d2d;
+            border-color: #555;
+            color: #e0e0e0;
+        }
+        
+        .search-input:focus {
+            border-color: #667eea;
+        }
+        
+        .filter-select {
+            padding: 12px 16px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+        }
+        
+        body.dark-mode .filter-select {
+            background: #2d2d2d;
+            border-color: #555;
+            color: #e0e0e0;
+        }
+        
+        .tool-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+        }
+        
+        .tool-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: all 0.2s;
+        }
+        
+        body.dark-mode .tool-card {
+            background: #2d2d2d;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+        
+        .tool-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+        }
+        
+        .tool-card-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        
+        .tool-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+        
+        .tool-info {
+            flex: 1;
+        }
+        
+        .tool-name {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .tool-tag {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            background: #e8f0fe;
+            color: #667eea;
+        }
+        
+        body.dark-mode .tool-tag {
+            background: #3d3d3d;
+            color: #8b9bff;
+        }
+        
+        .tool-tips {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 16px;
+            line-height: 1.5;
+        }
+        
+        body.dark-mode .tool-tips {
+            color: #999;
+        }
+        
+        .tool-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .tool-btn {
+            flex: 1;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        
+        .btn-install {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-install:hover {
+            background: #5568d3;
+        }
+        
+        .btn-uninstall {
+            background: #f0f0f0;
+            color: #666;
+        }
+        
+        body.dark-mode .btn-uninstall {
+            background: #444;
+            color: #aaa;
+        }
+        
+        .btn-uninstall:hover {
+            background: #e0e0e0;
+        }
+        
+        body.dark-mode .btn-uninstall:hover {
+            background: #555;
+        }
+        
+        .btn-open {
+            background: #10b981;
+            color: white;
+        }
+        
+        .btn-open:hover {
+            background: #059669;
+        }
+        
+        .stats-bar {
+            display: flex;
+            gap: 24px;
+            margin-bottom: 24px;
+            padding: 16px 20px;
+            background: white;
+            border-radius: 8px;
+        }
+        
+        body.dark-mode .stats-bar {
+            background: #2d2d2d;
+        }
+        
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .stat-icon {
+            font-size: 20px;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: 600;
+            color: #667eea;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #888;
+        }
+        
+        .in-page-notification {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #667eea;
+            color: white;
+            padding: 16px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 9999;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        .settings-section {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+        
+        body.dark-mode .settings-section {
+            background: #2d2d2d;
+        }
+        
+        .settings-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        body.dark-mode .settings-title {
+            border-bottom-color: #444;
+        }
+        
+        .setting-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+        }
+        
+        .setting-label {
+            font-size: 14px;
+        }
+        
+        .setting-desc {
+            font-size: 12px;
+            color: #888;
+            margin-top: 4px;
+        }
+        
+        .toggle-switch {
+            width: 44px;
+            height: 24px;
+            background: #ddd;
+            border-radius: 12px;
+            cursor: pointer;
+            position: relative;
+            transition: background 0.2s;
+        }
+        
+        .toggle-switch.active {
+            background: #667eea;
+        }
+        
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            transition: left 0.2s;
+        }
+        
+        .toggle-switch.active::after {
+            left: 22px;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-left">
+            <h1>🛠️ FeHelper 工具市场</h1>
+            <span class="version">v2026.4.2920</span>
+        </div>
+        <div class="header-actions">
+            <button class="header-btn btn-light" onclick="toggleDarkMode()">🌙 深色模式</button>
+            <button class="header-btn btn-light" onclick="openAbout()">ℹ️ 关于</button>
+        </div>
+    </header>
+    
+    <div class="main-container">
+        <nav class="sidebar">
+            <div class="nav-item active" data-view="all">
+                <span class="nav-icon">📦</span>
+                <span>全部工具</span>
+            </div>
+            <div class="nav-item" data-view="installed">
+                <span class="nav-icon">✓</span>
+                <span>已安装</span>
+            </div>
+            <div class="nav-item" data-view="dev">
+                <span class="nav-icon">🔧</span>
+                <span>开发工具</span>
+            </div>
+            <div class="nav-item" data-view="encode">
+                <span class="nav-icon">🔄</span>
+                <span>编解码</span>
+            </div>
+            <div class="nav-item" data-view="image">
+                <span class="nav-icon">🖼️</span>
+                <span>图像工具</span>
+            </div>
+            <div class="nav-item" data-view="productivity">
+                <span class="nav-icon">⚡</span>
+                <span>效率工具</span>
+            </div>
+            <div class="nav-item" data-view="calculator">
+                <span class="nav-icon">🧮</span>
+                <span>计算器</span>
+            </div>
+        </nav>
+        
+        <main class="content">
+            <div class="stats-bar">
+                <div class="stat-item">
+                    <span class="stat-icon">📦</span>
+                    <div>
+                        <div class="stat-value" id="totalTools">32</div>
+                        <div class="stat-label">全部工具</div>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-icon">✓</span>
+                    <div>
+                        <div class="stat-value" id="installedCount">0</div>
+                        <div class="stat-label">已安装</div>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-icon">⭐</span>
+                    <div>
+                        <div class="stat-value" id="favoritesCount">0</div>
+                        <div class="stat-label">收藏</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="search-bar">
+                <input type="text" class="search-input" id="searchInput" placeholder="搜索工具...">
+                <select class="filter-select" id="sortSelect">
+                    <option value="default">默认排序</option>
+                    <option value="name">按名称</option>
+                </select>
+            </div>
+            
+            <div class="tool-grid" id="toolGrid">
+                <!-- Tools will be rendered here -->
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Tool definitions (matching popup)
+        const TOOL_CATEGORIES = {
+            'dev': ['json-format', 'json-diff', 'code-beautify', 'code-compress', 'postman', 'websocket', 'regexp', 'page-timing'],
+            'encode': ['en-decode', 'trans-radix', 'timestamp', 'trans-color', 'datetime-calc'],
+            'image': ['qr-code', 'image-base64', 'svg-converter', 'chart-maker', 'poster-maker', 'screenshot', 'color-picker'],
+            'productivity': ['aiagent', 'sticky-notes', 'html2markdown', 'page-monkey'],
+            'calculator': ['crontab', 'loan-rate', 'password', 'uuid-gen', 'excel2json', 'grid-ruler', 'naotu']
+        };
+
+        const TOOL_MAP = {
+            'json-format': { name: 'Json美化工具', icon: '📋', tips: 'JSON自动美化、乱码解码、排序、BigInt精度', category: 'dev' },
+            'json-diff': { name: 'Json比对工具', icon: '☷', tips: 'JSON结构化比较，标记差异', category: 'dev' },
+            'qr-code': { name: '二维码/解码', icon: '▣', tips: '二维码生成和解码', category: 'image' },
+            'image-base64': { name: '图片转Base64', icon: '▤', tips: '图片与Base64互转', category: 'image' },
+            'en-decode': { name: '信息编码转换', icon: '♨', tips: 'Unicode/UTF-8/URL/Base64/MD5', category: 'encode' },
+            'code-beautify': { name: '代码美化工具', icon: '✡', tips: 'JS/CSS/HTML/XML/SQL格式化', category: 'dev' },
+            'code-compress': { name: '代码压缩工具', icon: '♯', tips: 'HTML/JS/CSS代码压缩', category: 'dev' },
+            'aiagent': { name: 'AI(智能助手)', icon: '֍', tips: 'AI对话、写代码、改代码', category: 'productivity' },
+            'timestamp': { name: '时间戳转换', icon: '♖', tips: 'Unix时间戳与日期互转', category: 'encode' },
+            'password': { name: '随机密码生成', icon: '♆', tips: '自定义长度密码生成', category: 'calculator' },
+            'uuid-gen': { name: 'UUID/ID生成器', icon: '❄', tips: 'UUID v4/雪花ID/NanoID', category: 'calculator' },
+            'sticky-notes': { name: '便签笔记', icon: '✐', tips: '分类目录便签笔记', category: 'productivity' },
+            'html2markdown': { name: 'Markdown转换', icon: 'ⓜ', tips: 'Markdown编写预览/HTML转Markdown', category: 'productivity' },
+            'postman': { name: '简易Postman', icon: '☯', tips: '接口调试/GET/POST请求', category: 'dev' },
+            'websocket': { name: 'Websocket工具', icon: 'ⓦ', tips: 'WebSocket连接测试', category: 'dev' },
+            'regexp': { name: '正则公式速查', icon: '✙', tips: '常用正则表达式模板', category: 'dev' },
+            'trans-radix': { name: '进制转换工具', icon: '❖', tips: '2-36进制任意互转', category: 'encode' },
+            'trans-color': { name: '颜色转换工具', icon: '▶', tips: 'HEX/RGB/HSL互转', category: 'encode' },
+            'crontab': { name: 'Crontab工具', icon: '½', tips: 'Crontab表达式生成', category: 'calculator' },
+            'loan-rate': { name: '贷(还)款利率', icon: '$', tips: '贷款还款计划计算', category: 'calculator' },
+            'devtools': { name: 'FH开发者工具', icon: '㉿', tips: '自定义工具开发', category: 'dev' },
+            'page-monkey': { name: '网页油猴工具', icon: '♀', tips: '网页Hack脚本注入', category: 'productivity' },
+            'screenshot': { name: '网页截屏工具', icon: '✂', tips: '可视区域/全页截屏', category: 'image' },
+            'mock-data': { name: '数据Mock工具', icon: '⟡', tips: '生成测试数据', category: 'calculator' },
+            'color-picker': { name: '页面取色工具', icon: '✑', tips: '网页元素色值采集', category: 'image' },
+            'naotu': { name: '便捷思维导图', icon: 'Ψ', tips: '轻量思维导图', category: 'productivity' },
+            'grid-ruler': { name: '网页栅格标尺', icon: 'Ⅲ', tips: '横竖标尺检测', category: 'dev' },
+            'page-timing': { name: '网站性能优化', icon: 'Σ', tips: 'Web指标分析', category: 'dev' },
+            'excel2json': { name: 'Excel转JSON', icon: 'Ⓗ', tips: 'Excel数据转换', category: 'calculator' },
+            'chart-maker': { name: '图表制作工具', icon: '📊', tips: '柱状图/折线图/饼图', category: 'image' },
+            'svg-converter': { name: 'SVG转图片', icon: '⇲', tips: 'SVG转PNG/JPG/WebP', category: 'image' },
+            'poster-maker': { name: '海报快速生成', icon: '🖼️', tips: '营销海报制作', category: 'image' },
+            'datetime-calc': { name: '时间戳计算器', icon: '⏱️', tips: '时间格式解析/计算', category: 'encode' }
+        };
+
+        // State
+        let installedTools = new Set();
+        let favorites = new Set();
+        let currentView = 'all';
+        let searchQuery = '';
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadState();
+            renderTools();
+            updateStats();
+            setupEventListeners();
+            applyDarkMode();
+        });
+
+        async function loadState() {
+            // Load installed tools from storage
+            const stored = await new Promise(resolve => {
+                if (window.chrome && window.chrome.storage) {
+                    window.chrome.storage.local.get(['installedTools', 'favorites'], resolve);
+                } else {
+                    resolve({
+                        installedTools: JSON.parse(localStorage.getItem('installedTools') || '{}'),
+                        favorites: JSON.parse(localStorage.getItem('favorites') || '[]')
+                    });
+                }
+            });
+            
+            // Default: all tools installed in Electron version
+            installedTools = new Set(Object.keys(TOOL_MAP));
+            favorites = new Set(stored.favorites || []);
+        }
+
+        function saveState() {
+            const data = {
+                installedTools: Object.fromEntries([...installedTools].map(k => [k, true])),
+                favorites: [...favorites]
+            };
+            
+            if (window.chrome && window.chrome.storage) {
+                window.chrome.storage.local.set(data);
+            } else {
+                localStorage.setItem('installedTools', JSON.stringify(data.installedTools));
+                localStorage.setItem('favorites', JSON.stringify(data.favorites));
+            }
+        }
+
+        function setupEventListeners() {
+            // Navigation
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+                    item.classList.add('active');
+                    currentView = item.dataset.view;
+                    renderTools();
+                });
+            });
+
+            // Search
+            document.getElementById('searchInput').addEventListener('input', (e) => {
+                searchQuery = e.target.value.toLowerCase();
+                renderTools();
+            });
+        }
+
+        function applyDarkMode() {
+            const isDark = localStorage.getItem('fehelper-dark-mode') === 'true';
+            if (isDark) {
+                document.body.classList.add('dark-mode');
+            }
+        }
+
+        function toggleDarkMode() {
+            document.body.classList.toggle('dark-mode');
+            localStorage.setItem('fehelper-dark-mode', document.body.classList.contains('dark-mode'));
+        }
+
+        function openAbout() {
+            alert('FeHelper - 前端助手\n版本: 2026.4.2920\n\n面向开发者、测试、运营和效率用户的工具箱。\n\n30+ 常用工具 · Chrome / Edge / Firefox / Electron · 持续维护');
+        }
+
+        function renderTools() {
+            const grid = document.getElementById('toolGrid');
+            let tools = Object.entries(TOOL_MAP);
+
+            // Filter by view
+            if (currentView === 'installed') {
+                tools = tools.filter(([key]) => installedTools.has(key));
+            } else if (currentView !== 'all') {
+                const categoryTools = TOOL_CATEGORIES[currentView] || [];
+                tools = tools.filter(([key]) => categoryTools.includes(key));
+            }
+
+            // Filter by search
+            if (searchQuery) {
+                tools = tools.filter(([key, tool]) => 
+                    tool.name.toLowerCase().includes(searchQuery) ||
+                    tool.tips.toLowerCase().includes(searchQuery)
+                );
+            }
+
+            grid.innerHTML = tools.map(([key, tool]) => {
+                const isInstalled = installedTools.has(key);
+                const isFavorite = favorites.has(key);
+                
+                return `
+                    <div class="tool-card">
+                        <div class="tool-card-header">
+                            <div class="tool-icon">${tool.icon}</div>
+                            <div class="tool-info">
+                                <div class="tool-name">${tool.name}</div>
+                                <span class="tool-tag">${tool.category}</span>
+                            </div>
+                        </div>
+                        <div class="tool-tips">${tool.tips}</div>
+                        <div class="tool-actions">
+                            ${isInstalled ? `
+                                <button class="tool-btn btn-open" onclick="openTool('${key}')">打开</button>
+                                <button class="tool-btn btn-uninstall" onclick="toggleInstall('${key}')">卸载</button>
+                            ` : `
+                                <button class="tool-btn btn-install" onclick="toggleInstall('${key}')">安装</button>
+                            `}
+                            <button class="tool-btn ${isFavorite ? 'btn-install' : 'btn-uninstall'}" 
+                                    onclick="toggleFavorite('${key}')" title="收藏">
+                                ${isFavorite ? '⭐' : '☆'}
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            updateStats();
+        }
+
+        function updateStats() {
+            document.getElementById('totalTools').textContent = Object.keys(TOOL_MAP).length;
+            document.getElementById('installedCount').textContent = installedTools.size;
+            document.getElementById('favoritesCount').textContent = favorites.size;
+        }
+
+        function openTool(toolName) {
+            if (window.FhBridge) {
+                window.FhBridge.openTool(toolName);
+            }
+        }
+
+        function toggleInstall(toolName) {
+            if (installedTools.has(toolName)) {
+                installedTools.delete(toolName);
+            } else {
+                installedTools.add(toolName);
+            }
+            saveState();
+            renderTools();
+            showNotification(`${TOOL_MAP[toolName].name} ${installedTools.has(toolName) ? '已安装' : '已卸载'}`);
+        }
+
+        function toggleFavorite(toolName) {
+            if (favorites.has(toolName)) {
+                favorites.delete(toolName);
+            } else {
+                favorites.add(toolName);
+            }
+            saveState();
+            renderTools();
+        }
+
+        function showNotification(message) {
+            const notification = document.createElement('div');
+            notification.className = 'in-page-notification';
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
