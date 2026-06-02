@@ -29,19 +29,17 @@ export default function ToolPage({ toolId }: { toolId: string }) {
     return (
       <div className="flex h-full items-center justify-center bg-white">
         <div className="text-center">
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight">Tool not found</h2>
+          <h2 className="text-xl font-bold text-slate-900 tracking-tight">未找到工具</h2>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="h-full w-full bg-white overflow-y-auto flex flex-col">
-      <div className="p-2">
-        {/* Main Content Area */}
-        <div className="bg-white">
-          <ToolComponent />
-        </div>
+    <div className="h-full w-full bg-white flex flex-col overflow-hidden">
+      {/* 移除 ToolPage 层的滚动和内边距，让内部工具组件控制其布局和滚动 */}
+      <div className="flex-1 h-full overflow-hidden">
+        <ToolComponent />
       </div>
     </div>
   )

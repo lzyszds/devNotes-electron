@@ -47,8 +47,8 @@ export default function Home({ onOpenTool, onOpenStats, usageStats }: HomeProps)
             <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-slate-900 text-white mb-6 shadow-lg">
               <LayoutGrid size={24} />
             </div>
-            <h1 className="text-3xl font-bold text-slate-900 mb-2 tracking-tight">FeHelper Hub</h1>
-            <p className="text-slate-500 text-sm font-medium">Your minimalist development toolkit</p>
+            <h1 className="text-3xl font-bold text-slate-900 mb-2 tracking-tight">FeHelper 工具中心</h1>
+            <p className="text-slate-500 text-sm font-medium">极致简洁的开发者生产力工具箱</p>
           </div>
 
           {/* Search */}
@@ -56,7 +56,7 @@ export default function Home({ onOpenTool, onOpenStats, usageStats }: HomeProps)
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
             <input
               type="text"
-              placeholder="Search tools..."
+              placeholder="搜索小工具 (支持拼音或描述)..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full h-14 pl-12 pr-4 bg-slate-50 rounded-xl border-none ring-1 ring-slate-200/60 focus:ring-2 focus:ring-slate-900 transition-all text-sm outline-none shadow-sm"
@@ -80,10 +80,10 @@ export default function Home({ onOpenTool, onOpenStats, usageStats }: HomeProps)
              </div>
              <button 
               onClick={onOpenStats}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 text-slate-600 hover:bg-slate-100 transition text-[11px] font-bold uppercase tracking-wider"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100 transition text-[11px] font-bold uppercase tracking-wider"
              >
                 <BarChart3 size={14} />
-                Analytics
+                统计面板
              </button>
           </div>
 
@@ -101,7 +101,7 @@ export default function Home({ onOpenTool, onOpenStats, usageStats }: HomeProps)
                 <span className="text-[11px] font-bold text-slate-900 text-center truncate w-full">{tool.name}</span>
                 {usageStats[tool.id] > 0 && (
                    <span className="mt-1 text-[9px] text-slate-300 font-bold uppercase tracking-tighter">
-                     {usageStats[tool.id]}x
+                     已用 {usageStats[tool.id]} 次
                    </span>
                 )}
               </button>
@@ -110,14 +110,14 @@ export default function Home({ onOpenTool, onOpenStats, usageStats }: HomeProps)
 
           {filteredTools.length === 0 && (
             <div className="py-20 text-center text-slate-300 italic">
-              <p className="text-sm">No tools found.</p>
+              <p className="text-sm">未找到相关工具</p>
             </div>
           )}
         </div>
       </main>
 
       <footer className="py-6 border-t border-slate-50 text-center">
-         <p className="text-[9px] font-bold text-slate-300 uppercase tracking-[0.4em]">FeHelper • v2026.4.2920</p>
+         <p className="text-[9px] font-bold text-slate-300 uppercase tracking-[0.4em]">FeHelper • v2026.4.2920 • 稳定版</p>
       </footer>
     </div>
   )

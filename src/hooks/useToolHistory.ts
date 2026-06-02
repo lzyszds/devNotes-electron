@@ -12,7 +12,7 @@ export function useToolHistory<T>(toolId: string, maxItems = 50) {
 
   const loadHistory = useCallback(async () => {
     const key = `history-${toolId}`
-    const saved = await window.electronAPI.storeGet(key)
+    const saved = await window.electronAPI?.storeGet(key)
     if (saved && Array.isArray(saved)) {
       setHistory(saved)
     }
@@ -33,20 +33,20 @@ export function useToolHistory<T>(toolId: string, maxItems = 50) {
 
     const updatedHistory = [newItem, ...history].slice(0, maxItems)
     setHistory(updatedHistory)
-    await window.electronAPI.storeSet(key, updatedHistory)
+    await window.electronAPI?.storeSet(key, updatedHistory)
   }, [toolId, history, maxItems])
 
   const clearHistory = useCallback(async () => {
     const key = `history-${toolId}`
     setHistory([])
-    await window.electronAPI.storeDelete(key)
+    await window.electronAPI?.storeDelete(key)
   }, [toolId])
 
   const removeHistoryItem = useCallback(async (id: string) => {
     const key = `history-${toolId}`
     const updatedHistory = history.filter(item => item.id !== id)
     setHistory(updatedHistory)
-    await window.electronAPI.storeSet(key, updatedHistory)
+    await window.electronAPI?.storeSet(key, updatedHistory)
   }, [toolId, history])
 
   return {

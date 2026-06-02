@@ -1,15 +1,16 @@
 import { useState } from 'react'
-import { Search, Copy, Trash2 } from 'lucide-react'
+import { Search, Copy, Trash2, History, Clock, ChevronRight, Binary, Code2, ListTree, Sparkles, Filter, X } from 'lucide-react'
+import { useToolHistory } from '../../hooks/useToolHistory'
 
 const templates = [
   { name: '手机号', pattern: '1[3-9]\\d{9}', desc: '中国大陆手机号' },
-  { name: '邮箱', pattern: '[\\w.-]+@[\\w.-]+\\.\\w+', desc: '电子邮箱地址' },
-  { name: 'URL', pattern: 'https?://[\\w./%-]+', desc: 'HTTP/HTTPS链接' },
-  { name: '身份证', pattern: '\\d{17}[\\dXx]', desc: '18位身份证号' },
-  { name: 'IP地址', pattern: '\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}', desc: 'IPv4地址' },
-  { name: '日期', pattern: '\\d{4}[-/]\\d{1,2}[-/]\\d{1,2}', desc: '日期格式' },
-  { name: '整数', pattern: '-?\\d+', desc: '整数' },
-  { name: '中文', pattern: '[\\u4e00-\\u9fa5]+', desc: '中文字符' },
+  { name: '邮箱', pattern: '[\\w.-]+@[\\w.-]+\\.\\w+', desc: '常用邮箱地址' },
+  { name: 'URL', pattern: 'https?://[\\w./%-]+', desc: '网页链接' },
+  { name: '身份证', pattern: '\\d{17}[\\dXx]', desc: '18位身份证' },
+  { name: 'IP v4', pattern: '\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}', desc: 'IPv4 地址' },
+  { name: '日期', pattern: '\\d{4}[-/]\\d{1,2}[-/]\\d{1,2}', desc: '通用日期格式' },
+  { name: '整数', pattern: '-?\\d+', desc: '包含正负整数' },
+  { name: '中文', pattern: '[\\u4e00-\\u9fa5]+', desc: '纯中文字符' },
 ]
 
 export default function RegexpTool() {
@@ -18,6 +19,9 @@ export default function RegexpTool() {
   const [testText, setTestText] = useState('')
   const [matches, setMatches] = useState<string[]>([])
   const [error, setError] = useState('')
+  const [showHistory, setShowHistory] = useState(false)
+
+  const { history, saveHistory, clearHistory } = useToolHistory<{ pattern: string, flags: string, text: string }>('regexp')
 
   const testRegex = () => {
     if (!pattern || !testText) return
@@ -26,8 +30,9 @@ export default function RegexpTool() {
       const result = testText.match(regex) || []
       setMatches(result)
       setError('')
+      saveHistory({ pattern, flags, text: testText }, `/${pattern}/${flags}`)
     } catch (e) {
-      setError('正则表达式错误: ' + (e as Error).message)
+      setError((e as Error).message)
       setMatches([])
     }
   }
@@ -37,93 +42,198 @@ export default function RegexpTool() {
     setError('')
   }
 
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text)
+  }
+
   return (
-    <div className="p-6">
-      <div className="mb-6">
-        <h3 className="mb-3 text-sm font-medium text-slate-700">常用模板</h3>
-        <div className="flex flex-wrap gap-2">
-          {templates.map(t => (
-            <button
-              key={t.name}
-              onClick={() => useTemplate(t.pattern)}
-              className="tool-chip"
-              title={t.desc}
-            >
-              {t.name}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="tool-panel mb-5">
-        <div className="mb-2 flex items-center gap-2">
-          <label className="tool-label mb-0">正则表达式</label>
-          <span className="text-xs text-slate-400">/</span>
-          <input
-            type="text"
-            value={pattern}
-            onChange={(e) => setPattern(e.target.value)}
-            placeholder="输入正则表达式"
-            className="tool-input flex-1 py-2 font-mono"
-          />
-          <span className="text-xs text-slate-400">/</span>
-          <input
-            type="text"
-            value={flags}
-            onChange={(e) => setFlags(e.target.value)}
-            placeholder="flags"
-            className="tool-input w-20 py-2 font-mono"
-          />
-        </div>
-      </div>
-
-      <div className="tool-panel mb-5">
-        <div className="mb-2 flex items-center justify-between">
-          <label className="tool-label mb-0">测试文本</label>
-          <button onClick={() => { setTestText(''); setMatches([]) }} className="tool-button-secondary px-3 py-2">
-            <Trash2 className="h-4 w-4" />
-          </button>
-        </div>
-        <textarea
-          value={testText}
-          onChange={(e) => setTestText(e.target.value)}
-          placeholder="输入要测试的文本..."
-          className="tool-textarea min-h-[180px]"
-        />
-        <button
-          onClick={testRegex}
-          className="tool-button-primary mt-4 w-full"
-        >
-          <Search className="mr-2 h-4 w-4" /> 测试匹配
-        </button>
-      </div>
-
-      {error ? (
-        <div className="status-note border-rose-200 bg-rose-50 text-rose-700">
-          {error}
-        </div>
-      ) : matches.length > 0 ? (
-        <div className="tool-panel">
-          <div className="mb-3 flex items-center justify-between">
-            <span className="text-sm font-medium text-slate-700">匹配结果 ({matches.length})</span>
-            <button onClick={() => copyToClipboard(matches.join('\n'))} className="tool-button-secondary px-3 py-2">
-              <Copy className="h-4 w-4" />
-            </button>
-          </div>
-          <div className="space-y-2">
-            {matches.map((match, i) => (
-              <div key={i} className="soft-panel px-3 py-2 font-mono text-sm text-slate-700">
-                <span className="mr-2 text-slate-400">#{i + 1}</span>
-                {match}
+    <div className="relative flex h-full min-h-[600px] bg-white text-slate-900 overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Action Header */}
+        <div className="px-8 py-5 flex items-center justify-between border-b border-slate-100">
+           <div className="flex items-center gap-4">
+              <div className="h-12 w-12 rounded-2xl bg-sky-600 text-white flex items-center justify-center shadow-lg shadow-sky-100">
+                <Binary size={24} />
               </div>
-            ))}
-          </div>
+              <div>
+                <h2 className="text-xl font-black text-slate-900 tracking-tight">正则实验室</h2>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">编写、测试并即时预览正则表达式匹配结果</p>
+              </div>
+           </div>
+
+           <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowHistory(!showHistory)}
+                className={`tool-button-secondary h-10 px-4 ${showHistory ? 'ring-2 ring-sky-500/20 border-sky-200 text-sky-600' : ''}`}
+              >
+                <History size={16} />
+                <span>匹配历史</span>
+              </button>
+              <div className="w-px h-6 bg-slate-100" />
+              <button onClick={testRegex} className="tool-button-primary h-10 bg-sky-600 hover:bg-sky-700 shadow-sky-100 px-8">
+                <Search size={16} /> 运行测试
+              </button>
+           </div>
         </div>
-      ) : null}
+
+        <div className="flex-1 overflow-y-auto p-8 bg-slate-50/20">
+           <div className="max-w-7xl mx-auto space-y-8">
+              {/* Pattern Input Card */}
+              <div className="workspace-card p-6">
+                 <div className="flex items-center gap-4">
+                    <div className="flex-1 flex items-center gap-3 bg-[#F8FAFC] rounded-2xl px-6 py-4 border border-slate-200 focus-within:border-sky-400 focus-within:ring-4 focus-within:ring-sky-500/[0.03] transition-all shadow-sm">
+                       <span className="text-2xl font-mono text-slate-300">/</span>
+                       <input
+                          type="text"
+                          value={pattern}
+                          onChange={(e) => setPattern(e.target.value)}
+                          placeholder="在此输入正则表达式 (例如: [a-z0-9]+)"
+                          className="flex-1 bg-transparent border-none outline-none font-mono text-xl font-black text-slate-900 placeholder:text-slate-200"
+                       />
+                       <span className="text-2xl font-mono text-slate-300">/</span>
+                       <input
+                          type="text"
+                          value={flags}
+                          onChange={(e) => setFlags(e.target.value)}
+                          placeholder="修饰符"
+                          className="w-16 bg-transparent border-none outline-none font-mono text-xl font-black text-sky-600 text-center placeholder:text-slate-200"
+                       />
+                    </div>
+                    <div className="flex flex-col gap-1.5 shrink-0">
+                       <div className="flex gap-1">
+                          {['g', 'i', 'm'].map(f => (
+                             <button 
+                              key={f} 
+                              onClick={() => setFlags(flags.includes(f) ? flags.replace(f, '') : flags + f)}
+                              className={`w-8 h-8 rounded-lg text-[10px] font-black uppercase transition-all ${flags.includes(f) ? 'bg-sky-600 text-white shadow-sm' : 'bg-white border border-slate-100 text-slate-400 hover:bg-slate-50'}`}
+                             >
+                               {f}
+                             </button>
+                          ))}
+                       </div>
+                    </div>
+                 </div>
+
+                 {/* Templates Bar */}
+                 <div className="mt-6 flex items-center gap-4 px-2">
+                    <div className="flex items-center gap-2 shrink-0">
+                       <Filter size={14} className="text-slate-300" />
+                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">常用库</span>
+                    </div>
+                    <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+                       {templates.map(t => (
+                          <button
+                             key={t.name}
+                             onClick={() => useTemplate(t.pattern)}
+                             className="px-3 py-1.5 rounded-lg border border-slate-100 bg-white text-[10px] font-bold text-slate-500 hover:border-sky-500 hover:text-sky-600 hover:shadow-sm transition-all whitespace-nowrap"
+                          >
+                             {t.name}
+                          </button>
+                       ))}
+                    </div>
+                 </div>
+              </div>
+
+              {/* Main Content Split */}
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 h-full">
+                 {/* Test Area */}
+                 <div className="space-y-3 flex flex-col">
+                    <div className="flex items-center justify-between px-1">
+                       <div className="flex items-center gap-2">
+                          <Code2 size={14} className="text-slate-400" />
+                          <label className="tool-label mb-0">待测试文本</label>
+                    </div>
+                       <button onClick={() => { setTestText(''); setMatches([]); }} className="p-1 text-slate-300 hover:text-rose-500 transition-colors">
+                          <Trash2 size={14} />
+                       </button>
+                    </div>
+                    <textarea
+                      value={testText}
+                      onChange={(e) => setTestText(e.target.value)}
+                      placeholder="在此输入需要进行正则匹配测试的长文本..."
+                      className="tool-textarea flex-1 min-h-[400px] border-slate-200 shadow-sm"
+                    />
+                 </div>
+
+                 {/* Matches View */}
+                 <div className="space-y-3 flex flex-col">
+                    <div className="flex items-center justify-between px-1">
+                       <div className="flex items-center gap-2">
+                          <ListTree size={14} className="text-slate-400" />
+                          <label className="tool-label mb-0">匹配提取结果</label>
+                       </div>
+                       {matches.length > 0 && (
+                          <button onClick={() => copyToClipboard(matches.join('\n'))} className="p-1.5 rounded-lg bg-slate-900 text-white hover:bg-black transition-all flex items-center gap-1.5 px-3 shadow-md">
+                             <Copy size={12} />
+                             <span className="text-[9px] font-black uppercase">全部复制</span>
+                          </button>
+                       )}
+                    </div>
+                    
+                    <div className="tool-panel flex-1 min-h-[400px] p-0 overflow-hidden border-slate-200 bg-white flex flex-col shadow-xl">
+                       {error ? (
+                          <div className="flex-1 flex flex-col items-center justify-center p-12 text-center text-rose-600 bg-rose-50/20">
+                             <Sparkles size={32} className="mb-3 opacity-20" />
+                             <p className="text-[10px] font-black uppercase mb-1">语法错误</p>
+                             <p className="text-xs font-medium font-mono leading-relaxed">{error}</p>
+                          </div>
+                       ) : matches.length > 0 ? (
+                          <div className="divide-y divide-slate-50 overflow-y-auto h-full scrollbar-hide">
+                             {matches.map((match, i) => (
+                                <div key={i} className="px-6 py-4 flex items-start gap-4 hover:bg-slate-50 transition-colors group">
+                                   <span className="text-[10px] font-mono font-black text-slate-200 group-hover:text-sky-400 transition-colors mt-1 w-6 shrink-0">#{i + 1}</span>
+                                   <div className="flex-1 font-mono text-[13px] leading-relaxed text-slate-700 whitespace-pre-wrap break-all">{match}</div>
+                                </div>
+                             ))}
+                          </div>
+                       ) : (
+                          <div className="flex-1 flex flex-col items-center justify-center py-20 text-slate-300 px-12 text-center">
+                             <Search size={40} className="mb-3 opacity-10" />
+                             <p className="text-[11px] font-bold uppercase tracking-widest leading-relaxed">未检测到匹配项<br/>请调整正则或输入文本</p>
+                          </div>
+                       )}
+                    </div>
+                 </div>
+              </div>
+           </div>
+        </div>
+      </div>
+
+       {/* History Sidebar Popup */}
+       <div className={`absolute top-0 -right-5 h-full bg-white border-l border-slate-200 shadow-2xl flex flex-col shrink-0 overflow-hidden transition-all duration-300 ease-in-out z-50 ${showHistory ? 'w-80 translate-x-0' : 'w-80 translate-x-full'}`}>
+          <div className="p-6 border-b border-slate-200/60 bg-white flex items-center justify-between">
+            <div className="flex items-center gap-2 text-slate-900 font-black text-xs uppercase tracking-widest">
+              <Code2 size={18} className="text-sky-600" />
+              历史表达式库
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={clearHistory} className="text-[10px] font-black text-slate-400 hover:text-rose-500 transition uppercase">清空</button>
+              <button onClick={() => setShowHistory(false)} className="p-1 rounded-lg hover:bg-slate-100 text-slate-400"><X size={14}/></button>
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+             {history.length === 0 ? (
+               <div className="flex flex-col items-center justify-center py-20 text-slate-300">
+                  <Clock size={32} className="mb-2 opacity-20" />
+                  <p className="text-[10px] font-bold uppercase tracking-widest">暂无记录</p>
+               </div>
+             ) : (
+               history.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => { setPattern(item.data.pattern); setFlags(item.data.flags); setTestText(item.data.text); setShowHistory(false); }}
+                  className="w-full text-left p-5 rounded-2xl bg-white border border-slate-200/60 shadow-sm hover:border-sky-600 hover:shadow-sky-500/10 transition-all group"
+                >
+                  <p className="text-[11px] font-mono font-black text-slate-800 mb-2 truncate pr-4">/{item.data.pattern}/</p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{new Date(item.timestamp).toLocaleDateString()}</span>
+                    <ChevronRight size={10} className="text-slate-300 group-hover:text-sky-600 transition-colors" />
+                  </div>
+                </button>
+               ))
+             )}
+          </div>
+       </div>
     </div>
   )
-}
-
-function copyToClipboard(text: string) {
-  navigator.clipboard.writeText(text)
 }
