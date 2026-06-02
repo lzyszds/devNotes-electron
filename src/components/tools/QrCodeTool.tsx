@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
-import { QrCode, Upload, Download, Copy, RefreshCw } from 'lucide-react'
+import { Download, Copy, RefreshCw, History, Clock, ChevronRight } from 'lucide-react'
+import { useToolHistory } from '../../hooks/useToolHistory'
 
 export default function QrCodeTool() {
   const [text, setText] = useState('https://fehelper.com')
@@ -7,7 +8,11 @@ export default function QrCodeTool() {
   const [size, setSize] = useState(200)
   const [fgColor, setFgColor] = useState('#000000')
   const [bgColor, setBgColor] = useState('#ffffff')
+  const [showHistory, setShowHistory] = useState(false)
+  
   const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  const { history, saveHistory, clearHistory } = useToolHistory<string>('qr-code')
 
   // Simple QR code generator
   const generateQR = () => {
@@ -80,101 +85,171 @@ export default function QrCodeTool() {
     ])
   }
 
+  const saveToHistoryManual = () => {
+    if (!text.trim()) return
+    saveHistory(text, text.slice(0, 20) + (text.length > 20 ? '...' : ''))
+  }
+
   return (
-    <div className="p-6">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Settings */}
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">内容</label>
-            <textarea
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="输入二维码内容..."
-              className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-gray-100"
-              rows={4}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              尺寸: {size}px
-            </label>
-            <input
-              type="range"
-              min="100"
-              max="500"
-              value={size}
-              onChange={(e) => setSize(Number(e.target.value))}
-              className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">前景色</label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="color"
-                  value={fgColor}
-                  onChange={(e) => setFgColor(e.target.value)}
-                  className="w-10 h-10 rounded-lg cursor-pointer border-0"
-                />
-                <span className="text-sm text-gray-600 dark:text-gray-400">{fgColor}</span>
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">背景色</label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="color"
-                  value={bgColor}
-                  onChange={(e) => setBgColor(e.target.value)}
-                  className="w-10 h-10 rounded-lg cursor-pointer border-0"
-                />
-                <span className="text-sm text-gray-600 dark:text-gray-400">{bgColor}</span>
-              </div>
-            </div>
-          </div>
-
-          <button
-            onClick={generateQR}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-xl text-sm font-medium transition-colors"
-          >
-            <RefreshCw className="w-4 h-4" /> 重新生成
-          </button>
+    <div className="flex h-full min-h-[600px]">
+      <div className="flex-1 p-6 overflow-y-auto">
+        <div className="flex items-center justify-between mb-6">
+           <div>
+              <p className="text-xs uppercase tracking-[0.24em] text-slate-400">QR Code Generator</p>
+              <h3 className="mt-1 text-xl font-bold text-slate-900">二维码生成</h3>
+           </div>
+           <button
+              onClick={() => setShowHistory(!showHistory)}
+              className={`tool-button-secondary h-9 ${showHistory ? 'bg-slate-100 ring-1 ring-slate-900' : ''}`}
+            >
+              <History className="h-4 w-4" />
+              历史
+            </button>
         </div>
 
-        {/* Preview */}
-        <div className="flex flex-col items-center justify-center">
-          <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
-            <canvas ref={canvasRef} className="hidden" />
-            {qrDataUrl && (
-              <img
-                src={qrDataUrl}
-                alt="QR Code"
-                className="max-w-full"
-                style={{ width: size, height: size }}
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+          <div className="tool-panel space-y-6">
+            <div>
+              <label className="tool-label">内容</label>
+              <textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="输入二维码内容..."
+                className="tool-textarea min-h-[140px]"
+                rows={4}
               />
-            )}
+            </div>
+
+            <div>
+              <label className="tool-label">
+                尺寸: {size}px
+              </label>
+              <input
+                type="range"
+                min="100"
+                max="500"
+                value={size}
+                onChange={(e) => setSize(Number(e.target.value))}
+                className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-slate-200 accent-slate-900"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="tool-label">前景色</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={fgColor}
+                    onChange={(e) => setFgColor(e.target.value)}
+                    className="h-9 w-9 cursor-pointer rounded-lg border-0 bg-transparent"
+                  />
+                  <span className="text-[11px] font-mono text-slate-500">{fgColor}</span>
+                </div>
+              </div>
+              <div>
+                <label className="tool-label">背景色</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={bgColor}
+                    onChange={(e) => setBgColor(e.target.value)}
+                    className="h-9 w-9 cursor-pointer rounded-lg border-0 bg-transparent"
+                  />
+                  <span className="text-[11px] font-mono text-slate-500">{bgColor}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={generateQR}
+                className="tool-button-primary flex-1"
+              >
+                <RefreshCw className="h-4 w-4" /> 重新生成
+              </button>
+              <button
+                onClick={saveToHistoryManual}
+                className="tool-button-secondary flex-1"
+              >
+                保存到历史
+              </button>
+            </div>
           </div>
-          
-          <div className="flex gap-3 mt-6">
-            <button
-              onClick={downloadQR}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-medium transition-colors"
-            >
-              <Download className="w-4 h-4" /> 下载 PNG
-            </button>
-            <button
-              onClick={copyQR}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-medium transition-colors"
-            >
-              <Copy className="w-4 h-4" /> 复制图片
-            </button>
+
+          <div className="tool-panel flex flex-col items-center justify-center">
+            <div className="rounded-xl bg-white p-8 border border-slate-200 shadow-sm">
+              <canvas ref={canvasRef} className="hidden" />
+              {qrDataUrl ? (
+                <img
+                  src={qrDataUrl}
+                  alt="QR Code"
+                  className="max-w-full"
+                  style={{ width: size, height: size }}
+                />
+              ) : (
+                <div className="w-[200px] h-[200px] bg-slate-50 rounded-lg flex items-center justify-center text-slate-300 text-xs italic">
+                  输入内容生成二维码
+                </div>
+              )}
+            </div>
+            
+            <div className="flex gap-3 mt-8">
+              <button
+                onClick={downloadQR}
+                className="tool-button-secondary"
+              >
+                <Download className="h-4 w-4" /> 下载 PNG
+              </button>
+              <button
+                onClick={copyQR}
+                className="tool-button-secondary"
+              >
+                <Copy className="h-4 w-4" /> 复制图片
+              </button>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* History Sidebar */}
+      {showHistory && (
+        <aside className="w-80 border-l border-slate-200 bg-slate-50/50 flex flex-col shrink-0 overflow-hidden">
+          <div className="p-4 border-b border-slate-200 bg-white flex items-center justify-between">
+            <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
+              <Clock size={16} />
+              内容历史
+            </div>
+            <button onClick={clearHistory} className="text-[10px] font-bold text-slate-400 hover:text-rose-500 uppercase tracking-wider transition">
+              清空
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-3 space-y-2">
+            {history.length === 0 ? (
+              <div className="py-10 text-center text-slate-400 text-xs italic">暂无历史记录</div>
+            ) : (
+              history.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    setText(item.data)
+                    setShowHistory(false)
+                  }}
+                  className="w-full text-left p-3 rounded-lg bg-white border border-slate-200 shadow-sm hover:border-slate-900 transition-all group"
+                >
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      {new Date(item.timestamp).toLocaleString()}
+                    </span>
+                    <ChevronRight size={12} className="text-slate-200 group-hover:text-slate-900 transition-colors" />
+                  </div>
+                  <p className="text-xs font-bold text-slate-700 truncate">{item.title || '无标题'}</p>
+                </button>
+              ))
+            )}
+          </div>
+        </aside>
+      )}
     </div>
   )
 }

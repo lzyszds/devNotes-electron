@@ -39,15 +39,14 @@ export default function RegexpTool() {
 
   return (
     <div className="p-6">
-      {/* Templates */}
       <div className="mb-6">
-        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">常用模板</h3>
+        <h3 className="mb-3 text-sm font-medium text-slate-700">常用模板</h3>
         <div className="flex flex-wrap gap-2">
           {templates.map(t => (
             <button
               key={t.name}
               onClick={() => useTemplate(t.pattern)}
-              className="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-xs transition-colors"
+              className="tool-chip"
               title={t.desc}
             >
               {t.name}
@@ -56,68 +55,65 @@ export default function RegexpTool() {
         </div>
       </div>
 
-      {/* Pattern Input */}
-      <div className="mb-4">
-        <div className="flex items-center gap-2 mb-2">
-          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">正则表达式</label>
-          <span className="text-xs text-gray-400">/</span>
+      <div className="tool-panel mb-5">
+        <div className="mb-2 flex items-center gap-2">
+          <label className="tool-label mb-0">正则表达式</label>
+          <span className="text-xs text-slate-400">/</span>
           <input
             type="text"
             value={pattern}
             onChange={(e) => setPattern(e.target.value)}
             placeholder="输入正则表达式"
-            className="flex-1 p-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="tool-input flex-1 py-2 font-mono"
           />
-          <span className="text-xs text-gray-400">/</span>
+          <span className="text-xs text-slate-400">/</span>
           <input
             type="text"
             value={flags}
             onChange={(e) => setFlags(e.target.value)}
             placeholder="flags"
-            className="w-16 p-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="tool-input w-20 py-2 font-mono"
           />
         </div>
       </div>
 
-      {/* Test Text */}
-      <div className="mb-4">
-        <div className="flex items-center justify-between mb-2">
-          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">测试文本</label>
-          <button onClick={() => { setTestText(''); setMatches([]) }} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
-            <Trash2 className="w-4 h-4 text-gray-400" />
+      <div className="tool-panel mb-5">
+        <div className="mb-2 flex items-center justify-between">
+          <label className="tool-label mb-0">测试文本</label>
+          <button onClick={() => { setTestText(''); setMatches([]) }} className="tool-button-secondary px-3 py-2">
+            <Trash2 className="h-4 w-4" />
           </button>
         </div>
         <textarea
           value={testText}
           onChange={(e) => setTestText(e.target.value)}
           placeholder="输入要测试的文本..."
-          className="w-full h-32 p-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary-500"
+          className="tool-textarea min-h-[180px]"
         />
         <button
           onClick={testRegex}
-          className="mt-2 w-full py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-sm font-medium transition-colors"
+          className="tool-button-primary mt-4 w-full"
         >
-          <Search className="w-4 h-4 inline mr-2" /> 测试匹配
+          <Search className="mr-2 h-4 w-4" /> 测试匹配
         </button>
       </div>
 
-      {/* Results */}
       {error ? (
-        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-red-600 dark:text-red-400 text-sm">
+        <div className="status-note border-rose-200 bg-rose-50 text-rose-700">
           {error}
         </div>
       ) : matches.length > 0 ? (
-        <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">匹配结果 ({matches.length})</span>
-            <button onClick={() => copyToClipboard(matches.join('\n'))} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded">
-              <Copy className="w-4 h-4 text-gray-400" />
+        <div className="tool-panel">
+          <div className="mb-3 flex items-center justify-between">
+            <span className="text-sm font-medium text-slate-700">匹配结果 ({matches.length})</span>
+            <button onClick={() => copyToClipboard(matches.join('\n'))} className="tool-button-secondary px-3 py-2">
+              <Copy className="h-4 w-4" />
             </button>
           </div>
           <div className="space-y-2">
             {matches.map((match, i) => (
-              <div key={i} className="p-2 bg-white dark:bg-gray-800 rounded-lg font-mono text-sm text-gray-700 dark:text-gray-300">
-                <span className="text-gray-400 mr-2">#{i + 1}</span>
+              <div key={i} className="soft-panel px-3 py-2 font-mono text-sm text-slate-700">
+                <span className="mr-2 text-slate-400">#{i + 1}</span>
                 {match}
               </div>
             ))}

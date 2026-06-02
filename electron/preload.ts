@@ -16,6 +16,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // App info
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+
+  // Store operations
+  storeGet: (key: string) => ipcRenderer.invoke('store-get', key),
+  storeSet: (key: string, value: any) => ipcRenderer.invoke('store-set', key, value),
+  storeDelete: (key: string) => ipcRenderer.invoke('store-delete', key),
 })
 
 // Type definitions for the exposed API
@@ -28,6 +33,9 @@ declare global {
       openTool: (toolName: string) => Promise<void>
       showNotification: (title: string, body: string) => Promise<void>
       getAppVersion: () => Promise<string>
+      storeGet: (key: string) => Promise<any>
+      storeSet: (key: string, value: any) => Promise<void>
+      storeDelete: (key: string) => Promise<void>
     }
   }
 }

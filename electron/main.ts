@@ -1,16 +1,31 @@
 import { app, BrowserWindow, ipcMain, Menu, Tray, globalShortcut, Notification, nativeImage } from 'electron'
 import path from 'path'
 import fs from 'fs'
+import Store from 'electron-store'
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
+const store = new Store()
+
+function loadRendererWindow(window: BrowserWindow, toolName?: string) {
+  const query = toolName ? `?tool=${encodeURIComponent(toolName)}` : ''
+
+  if (process.env.VITE_DEV_SERVER_URL) {
+    window.loadURL(`${process.env.VITE_DEV_SERVER_URL}${query}`)
+    return
+  }
+
+  window.loadFile(path.join(__dirname, '../dist/index.html'), {
+    search: query,
+  })
+}
 
 function createMainWindow() {
   mainWindow = new BrowserWindow({
-    width: 1100,
-    height: 750,
-    minWidth: 800,
-    minHeight: 500,
+    width: 1280,
+    height: 800,
+    minWidth: 1000,
+    minHeight: 600,
     title: 'FeHelper - 前端助手',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -20,11 +35,10 @@ function createMainWindow() {
     show: false
   })
 
+  loadRendererWindow(mainWindow)
+
   if (process.env.VITE_DEV_SERVER_URL) {
-    mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL)
     mainWindow.webContents.openDevTools()
-  } else {
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
   }
 
   mainWindow.once('ready-to-show', () => {
@@ -33,6 +47,28 @@ function createMainWindow() {
 
   mainWindow.on('closed', () => {
     mainWindow = null
+  })
+}
+
+function createToolWindow(toolName: string) {
+  const toolWindow = new BrowserWindow({
+    width: 1280,
+    height: 800,
+    minWidth: 1000,
+    minHeight: 600,
+    title: `FeHelper - ${toolName}`,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false
+    },
+    show: false
+  })
+
+  loadRendererWindow(toolWindow, toolName)
+
+  toolWindow.once('ready-to-show', () => {
+    toolWindow.show()
   })
 }
 
@@ -103,8 +139,25 @@ function setupIpc() {
     }
   })
 
+  ipcMain.handle('open-tool', (_, toolName: string) => {
+    createToolWindow(toolName)
+  })
+
   ipcMain.handle('get-app-version', () => {
     return app.getVersion()
+  })
+
+  // Store operations
+  ipcMain.handle('store-get', (_, key: string) => {
+    return store.get(key)
+  })
+
+  ipcMain.handle('store-set', (_, key: string, value: any) => {
+    store.set(key, value)
+  })
+
+  ipcMain.handle('store-delete', (_, key: string) => {
+    store.delete(key)
   })
 }
 

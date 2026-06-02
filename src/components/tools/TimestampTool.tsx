@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Clock, Copy, RefreshCw } from 'lucide-react'
+import { Clock, Copy } from 'lucide-react'
 
 export default function TimestampTool() {
   const [currentTime, setCurrentTime] = useState(new Date())
@@ -34,75 +34,72 @@ export default function TimestampTool() {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Current Time */}
-      <div className="bg-gradient-to-r from-primary-500 to-primary-600 rounded-2xl p-6 text-white">
-        <div className="flex items-center gap-2 mb-4">
-          <Clock className="w-5 h-5" />
+      <div className="rounded-xl bg-slate-50 p-6 border border-slate-200">
+        <div className="mb-4 flex items-center gap-2 text-slate-700">
+          <Clock className="h-5 w-5" />
           <span className="font-medium">当前时间</span>
         </div>
-        <div className="text-4xl font-mono font-bold mb-2">
+        <div className="mb-2 font-mono text-4xl font-bold text-slate-900">
           {currentTime.toLocaleTimeString('zh-CN')}
         </div>
-        <div className="text-white/80">
+        <div className="text-slate-500">
           {currentTime.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
         </div>
         <div className="mt-4 flex gap-4 text-sm">
-          <div className="bg-white/20 rounded-lg px-3 py-1">
+          <div className="rounded-full bg-white px-3 py-1 text-slate-600 shadow-sm">
             秒级: {Math.floor(currentTime.getTime() / 1000)}
           </div>
-          <div className="bg-white/20 rounded-lg px-3 py-1">
+          <div className="rounded-full bg-white px-3 py-1 text-slate-600 shadow-sm">
             毫秒: {currentTime.getTime()}
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Timestamp to Date */}
-        <div className="bg-gray-50 dark:bg-gray-900 rounded-2xl p-6">
-          <h3 className="font-medium text-gray-900 dark:text-white mb-4">时间戳 → 日期</h3>
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+        <div className="tool-panel">
+          <h3 className="mb-4 text-lg font-semibold text-slate-900">时间戳 → 日期</h3>
           <input
             type="text"
             value={inputTimestamp}
             onChange={(e) => setInputTimestamp(e.target.value)}
             placeholder="输入时间戳..."
-            className="w-full p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="tool-input mb-3"
           />
           <button
             onClick={timestampToDate}
-            className="w-full py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-sm font-medium transition-colors"
+            className="tool-button-primary w-full"
           >
             转换
           </button>
           {timestampResult && (
-            <div className="mt-3 p-3 bg-white dark:bg-gray-800 rounded-xl flex items-center justify-between">
-              <span className="font-mono text-sm">{timestampResult}</span>
-              <button onClick={() => copyToClipboard(timestampResult)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
-                <Copy className="w-4 h-4 text-gray-400" />
+            <div className="soft-panel mt-4 flex items-center justify-between px-4 py-3">
+              <span className="font-mono text-sm text-slate-700">{timestampResult}</span>
+              <button onClick={() => copyToClipboard(timestampResult)} className="tool-button-secondary px-3 py-2">
+                <Copy className="h-4 w-4" />
               </button>
             </div>
           )}
         </div>
 
-        {/* Date to Timestamp */}
-        <div className="bg-gray-50 dark:bg-gray-900 rounded-2xl p-6">
-          <h3 className="font-medium text-gray-900 dark:text-white mb-4">日期 → 时间戳</h3>
+        <div className="tool-panel">
+          <h3 className="mb-4 text-lg font-semibold text-slate-900">日期 → 时间戳</h3>
           <input
             type="datetime-local"
             value={inputDate}
             onChange={(e) => setInputDate(e.target.value)}
-            className="w-full p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="tool-input mb-3"
           />
           <button
             onClick={dateToTimestamp}
-            className="w-full py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-sm font-medium transition-colors"
+            className="tool-button-primary w-full"
           >
             转换
           </button>
           {dateResult && (
-            <div className="mt-3 p-3 bg-white dark:bg-gray-800 rounded-xl flex items-center justify-between">
-              <span className="font-mono text-sm">{dateResult}</span>
-              <button onClick={() => copyToClipboard(dateResult)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
-                <Copy className="w-4 h-4 text-gray-400" />
+            <div className="soft-panel mt-4 flex items-center justify-between px-4 py-3">
+              <span className="font-mono text-sm text-slate-700">{dateResult}</span>
+              <button onClick={() => copyToClipboard(dateResult)} className="tool-button-secondary px-3 py-2">
+                <Copy className="h-4 w-4" />
               </button>
             </div>
           )}
