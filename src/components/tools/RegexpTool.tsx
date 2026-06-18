@@ -199,19 +199,21 @@ export default function RegexpTool() {
         </div>
       </div>
 
-       {/* History Sidebar Popup */}
-       <div className={`absolute top-0 -right-5 h-full bg-white border-l border-slate-200 shadow-2xl flex flex-col shrink-0 overflow-hidden transition-all duration-300 ease-in-out z-50 ${showHistory ? 'w-80 translate-x-0' : 'w-80 translate-x-full'}`}>
-          <div className="p-6 border-b border-slate-200/60 bg-white flex items-center justify-between">
+       {showHistory && (
+       <div className="history-overlay">
+          <button type="button" aria-label="关闭历史记录" className="history-overlay-backdrop" onClick={() => setShowHistory(false)} />
+          <div className="history-overlay-panel" onClick={(e) => e.stopPropagation()}>
+          <div className="p-6 border-b border-slate-200/70 bg-white/80 flex items-center justify-between">
             <div className="flex items-center gap-2 text-slate-900 font-black text-xs uppercase tracking-widest">
               <Code2 size={18} className="text-sky-600" />
               历史表达式库
             </div>
             <div className="flex items-center gap-2">
               <button onClick={clearHistory} className="text-[10px] font-black text-slate-400 hover:text-rose-500 transition uppercase">清空</button>
-              <button onClick={() => setShowHistory(false)} className="p-1 rounded-lg hover:bg-slate-100 text-slate-400"><X size={14}/></button>
+              <button onClick={() => setShowHistory(false)} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400"><X size={14}/></button>
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50">
              {history.length === 0 ? (
                <div className="flex flex-col items-center justify-center py-20 text-slate-300">
                   <Clock size={32} className="mb-2 opacity-20" />
@@ -233,7 +235,9 @@ export default function RegexpTool() {
                ))
              )}
           </div>
+          </div>
        </div>
+       )}
     </div>
   )
 }

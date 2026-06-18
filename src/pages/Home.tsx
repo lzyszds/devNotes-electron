@@ -27,7 +27,7 @@ export default function Home({ onOpenTool, onOpenStats, usageStats }: HomeProps)
   })
 
   return (
-    <div className="h-screen flex flex-col bg-white overflow-hidden text-slate-900">
+    <div className="app-scene h-screen flex flex-col bg-white overflow-hidden text-slate-900">
       {/* Discreet Window Controls (Overlay) */}
       <div className="drag-region absolute top-0 left-0 right-0 h-12 flex justify-end items-center px-4 z-50 pointer-events-none">
         <div className="no-drag flex items-center gap-1 pointer-events-auto">
@@ -93,7 +93,7 @@ export default function Home({ onOpenTool, onOpenStats, usageStats }: HomeProps)
               <button
                 key={tool.id}
                 onClick={() => onOpenTool(tool.id)}
-                className="group flex flex-col items-center justify-center p-5 rounded-xl bg-white ring-1 ring-slate-100 hover:ring-slate-900 hover:shadow-xl hover:shadow-slate-100 transition-all"
+                className="motion-lift group flex flex-col items-center justify-center p-5 rounded-xl bg-white ring-1 ring-slate-100 hover:ring-slate-900 hover:shadow-xl hover:shadow-slate-100 transition-all"
               >
                 <div className="h-10 w-10 flex items-center justify-center rounded-lg bg-slate-50 text-base font-bold text-slate-900 mb-3 group-hover:bg-slate-900 group-hover:text-white transition-colors">
                   {tool.icon.length <= 3 ? tool.icon : tool.icon.charAt(0)}

@@ -69,7 +69,7 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex h-screen bg-white overflow-hidden text-slate-900">
+    <div className="app-scene flex h-screen bg-white overflow-hidden text-slate-900">
       {/* Sidebar - Prevent squeezing with shrink-0 */}
       <aside className="w-[240px] flex-shrink-0 flex flex-col bg-slate-50 border-r border-slate-200 shadow-inner">
         <div className="p-4 flex items-center gap-2 border-b border-slate-200 bg-white h-[56px]">

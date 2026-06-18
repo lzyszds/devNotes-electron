@@ -317,16 +317,16 @@ export default function JsonFormatTool({
       <div className="relative flex h-full bg-slate-50/30 overflow-hidden">
         <div className="flex-1 flex flex-col min-w-0">
           {/* Action Header */}
-          <div className="px-6 py-4 flex items-center justify-between border-b border-slate-100 bg-white shrink-0">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-indigo-50 text-indigo-600">
-                <GitCompareArrows size={20} />
+          <div className="px-8 py-5 flex items-center justify-between border-b border-slate-100 shrink-0 bg-white">
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-100">
+                <GitCompareArrows size={24} />
               </div>
               <div>
-                <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight">
+                <h2 className="text-xl font-black text-slate-900 tracking-tight">
                   JSON 内容比对
-                </h3>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                </h2>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">
                   逐行分析两个 JSON 的差异
                 </p>
               </div>
@@ -335,20 +335,20 @@ export default function JsonFormatTool({
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowHistory(!showHistory)}
-                className={`tool-button-secondary h-9 px-3 ${showHistory ? "ring-2 ring-indigo-500/20 border-indigo-200 text-indigo-600" : ""}`}
+                className={`tool-button-secondary h-10 px-4 ${showHistory ? "ring-2 ring-indigo-500/20 border-indigo-200 text-indigo-600" : ""}`}
               >
-                <History size={14} />
+                <History size={16} />
                 <span>比对历史</span>
               </button>
-              <div className="w-px h-4 bg-slate-200 mx-1" />
+              <div className="w-px h-6 bg-slate-100 mx-2" />
               <button
                 onClick={() => {
                   setLeftInput("");
                   setRightInput("");
                 }}
-                className="tool-button-secondary h-9 px-3 text-rose-500 hover:text-rose-600 hover:bg-rose-50 border-rose-100"
+                className="tool-button-secondary h-10 px-4 text-rose-500 hover:text-rose-600 hover:bg-rose-50 border-rose-100"
               >
-                <Trash2 size={14} />
+                <Trash2 size={16} />
                 <span>清空</span>
               </button>
               <button
@@ -359,15 +359,15 @@ export default function JsonFormatTool({
                     `比对: ${leftInput.slice(0, 10)}...`,
                   );
                 }}
-                className="tool-button-primary h-9 px-4 bg-indigo-600 hover:bg-indigo-700"
+                className="tool-button-primary h-10 px-4 bg-indigo-600 hover:bg-indigo-700 shadow-indigo-100"
               >
-                <Copy size={14} />
+                <Copy size={16} />
                 <span>复制结果</span>
               </button>
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          <div className="flex-1 overflow-y-auto p-6 space-y-6 flex flex-col">
             {/* Stats Cards */}
             <div className="grid grid-cols-4 gap-4 shrink-0">
               {[
@@ -393,7 +393,7 @@ export default function JsonFormatTool({
             </div>
 
             {/* Inputs */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 min-h-[400px]">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 min-h-[400px] h-full">
               <div className="flex flex-col gap-2 h-full">
                 <label className="tool-label px-1 shrink-0">
                   原始 JSON (左侧)
@@ -459,62 +459,90 @@ export default function JsonFormatTool({
           </div>
         </div>
 
-        {/* History Sidebar Popup */}
-        <div
-          className={`absolute top-0 right-0 h-full bg-white border-l border-slate-200 shadow-2xl flex flex-col shrink-0 overflow-hidden transition-all duration-300 ease-in-out z-50 ${showHistory ? "w-80 translate-x-0" : "w-80 translate-x-full"}`}
-        >
-          <div className="p-4 border-b border-slate-100 flex items-center justify-between shrink-0">
-            <div className="flex items-center gap-2 text-slate-900 font-black text-[11px] uppercase tracking-wider">
-              <Clock size={16} className="text-indigo-500" />
-              历史比对记录
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={clearHistory}
-                className="text-[10px] font-black text-slate-400 hover:text-rose-500 transition uppercase"
-              >
-                清空
-              </button>
-              <button
-                onClick={() => setShowHistory(false)}
-                className="p-1 rounded-lg hover:bg-slate-100 text-slate-400"
-              >
-                <X size={14} />
-              </button>
-            </div>
-          </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
-            {history.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => {
-                  try {
-                    const data = JSON.parse(item.data);
-                    setLeftInput(data.left || item.data);
-                    setRightInput(data.right || "");
-                  } catch {
-                    setLeftInput(item.data);
-                  }
-                  setShowHistory(false);
-                }}
-                className="w-full text-left p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:border-indigo-500 hover:shadow-md transition-all group relative"
-              >
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-[9px] font-bold text-slate-300 font-mono">
-                    {new Date(item.timestamp).toLocaleString()}
-                  </span>
-                  <ChevronRight
-                    size={14}
-                    className="text-slate-200 group-hover:text-indigo-500 transition-colors"
-                  />
+        {showHistory && (
+          <div className="history-overlay">
+            <button
+              type="button"
+              aria-label="关闭历史记录"
+              className="history-overlay-backdrop"
+              onClick={() => setShowHistory(false)}
+            />
+            <div
+              className="history-overlay-panel"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-6 border-b border-slate-200/70 bg-white/80 flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-3 text-slate-900">
+                  <div className="h-10 w-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                    <Clock size={18} />
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em]">
+                      历史比对记录
+                    </p>
+                    <p className="text-[10px] font-bold text-slate-400">
+                      点击记录可一键恢复左右 JSON
+                    </p>
+                  </div>
                 </div>
-                <p className="text-[11px] font-bold text-slate-700 truncate">
-                  {item.title || "无标题比对"}
-                </p>
-              </button>
-            ))}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={clearHistory}
+                    className="text-[10px] font-black text-slate-400 hover:text-rose-500 transition uppercase"
+                  >
+                    清空
+                  </button>
+                  <button
+                    onClick={() => setShowHistory(false)}
+                    className="p-2 rounded-xl hover:bg-slate-100 text-slate-400"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50">
+                {history.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-20 text-slate-300">
+                    <Clock size={32} className="mb-2 opacity-20" />
+                    <p className="text-[10px] font-bold uppercase tracking-widest">
+                      暂无记录
+                    </p>
+                  </div>
+                ) : (
+                  history.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        try {
+                          const data = JSON.parse(item.data);
+                          setLeftInput(data.left || item.data);
+                          setRightInput(data.right || "");
+                        } catch {
+                          setLeftInput(item.data);
+                        }
+                        setShowHistory(false);
+                      }}
+                      className="w-full text-left p-4 rounded-2xl bg-white border border-slate-200/70 shadow-sm hover:border-indigo-500 hover:shadow-indigo-500/10 transition-all group relative"
+                    >
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-[9px] font-bold text-slate-300 font-mono">
+                          {new Date(item.timestamp).toLocaleString()}
+                        </span>
+                        <ChevronRight
+                          size={14}
+                          className="text-slate-200 group-hover:text-indigo-500 transition-colors"
+                        />
+                      </div>
+                      <p className="text-[11px] font-bold text-slate-700 truncate">
+                        {item.title || "无标题比对"}
+                      </p>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     );
   }
@@ -584,7 +612,7 @@ export default function JsonFormatTool({
           <div className="max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
             {/* Left Wing: Input Area */}
             <div className="flex flex-col gap-3 min-w-0 h-full overflow-hidden">
-              <div className="flex items-center justify-between px-1 shrink-0">
+              <div className="flex items-center justify-between px-1 shrink-0 h-[26px]">
                 <label className="tool-label mb-0">原始 JSON 输入</label>
                 <span className="text-[9px] font-bold text-slate-300 uppercase tracking-tighter">
                   {input.length} 字符
@@ -688,65 +716,84 @@ export default function JsonFormatTool({
         </div>
       </div>
 
-      {/* History Sidebar Popup */}
-      <div
-        className={`absolute top-0 right-0 h-full bg-white border-l border-slate-200/60 shadow-2xl flex flex-col shrink-0 overflow-hidden transition-all duration-300 ease-in-out z-50 ${showHistory ? "w-80 translate-x-0" : "w-80 translate-x-full"}`}
-      >
-        <div className="p-6 border-b border-slate-200/60 bg-white flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2 text-slate-900 font-black text-xs uppercase tracking-widest">
-            <History size={18} className="text-indigo-600" />
-            历史记录
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={clearHistory}
-              className="text-[10px] font-black text-slate-400 hover:text-rose-500 transition uppercase"
-            >
-              清空
-            </button>
-            <button
-              onClick={() => setShowHistory(false)}
-              className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-900 transition-colors"
-            >
-              <X size={16} />
-            </button>
-          </div>
-        </div>
-        <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/30">
-          {history.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-slate-300">
-              <Clock size={32} className="mb-2 opacity-20" />
-              <p className="text-[10px] font-bold uppercase tracking-widest">
-                暂无记录
-              </p>
-            </div>
-          ) : (
-            history.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => {
-                  setInput(item.data);
-                  setShowHistory(false);
-                }}
-                className="w-full text-left p-5 rounded-2xl bg-white border border-slate-200/60 shadow-sm hover:border-indigo-600 hover:shadow-indigo-500/10 transition-all group"
-              >
-                <p className="text-[11px] font-black text-slate-800 mb-3 truncate pr-4">
-                  {item.title}
-                </p>
-                <div className="flex items-center justify-between">
-                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">
-                    {new Date(item.timestamp).toLocaleString()}
-                  </span>
-                  <ChevronRight
-                    size={12}
-                    className="text-slate-300 group-hover:text-indigo-600 transition-colors"
-                  />
+      {showHistory && (
+        <div className="history-overlay">
+          <button
+            type="button"
+            aria-label="关闭历史记录"
+            className="history-overlay-backdrop"
+            onClick={() => setShowHistory(false)}
+          />
+          <div
+            className="history-overlay-panel"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6 border-b border-slate-200/70 bg-white/80 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3 text-slate-900">
+                <div className="h-10 w-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                  <History size={18} />
                 </div>
-              </button>
-            ))
-          )}
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-[0.18em]">
+                    历史记录
+                  </p>
+                  <p className="text-[10px] font-bold text-slate-400">
+                    最近格式化过的 JSON 片段
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={clearHistory}
+                  className="text-[10px] font-black text-slate-400 hover:text-rose-500 transition uppercase"
+                >
+                  清空
+                </button>
+                <button
+                  onClick={() => setShowHistory(false)}
+                  className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-900 transition-colors"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50">
+              {history.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 text-slate-300">
+                  <Clock size={32} className="mb-2 opacity-20" />
+                  <p className="text-[10px] font-bold uppercase tracking-widest">
+                    暂无记录
+                  </p>
+                </div>
+              ) : (
+                history.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      setInput(item.data);
+                      setShowHistory(false);
+                    }}
+                    className="w-full text-left p-5 rounded-2xl bg-white border border-slate-200/70 shadow-sm hover:border-indigo-600 hover:shadow-indigo-500/10 transition-all group"
+                  >
+                    <p className="text-[11px] font-black text-slate-800 mb-3 truncate pr-4">
+                      {item.title}
+                    </p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">
+                        {new Date(item.timestamp).toLocaleString()}
+                      </span>
+                      <ChevronRight
+                        size={12}
+                        className="text-slate-300 group-hover:text-indigo-600 transition-colors"
+                      />
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

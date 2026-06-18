@@ -36,7 +36,7 @@ export default function ToolPage({ toolId }: { toolId: string }) {
   }
 
   return (
-    <div className="h-full w-full bg-white flex flex-col overflow-hidden">
+    <div className="app-scene h-full w-full bg-white flex flex-col overflow-hidden">
       {/* 移除 ToolPage 层的滚动和内边距，让内部工具组件控制其布局和滚动 */}
       <div className="flex-1 h-full overflow-hidden">
         <ToolComponent />

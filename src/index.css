@@ -20,6 +20,7 @@ body,
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  overflow: hidden;
 }
 
 body {
@@ -79,7 +80,52 @@ textarea {
   scrollbar-width: none;
 }
 
+@keyframes scene-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.9985);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes overlay-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes sheet-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(28px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
 @layer components {
+  .app-scene {
+    animation: scene-enter 320ms cubic-bezier(0.22, 1, 0.36, 1);
+    overflow: clip;
+    transform-origin: center center;
+  }
+
+  .motion-lift {
+    @apply transition-all duration-300;
+  }
+
+  .motion-lift:hover {
+    transform: translateY(-2px);
+  }
+
   /* Premium Card Container */
   .workspace-card {
     @apply rounded-2xl border border-slate-200/60 bg-white shadow-[0_2px_12px_-3px_rgba(0,0,0,0.04),0_10px_24px_-4px_rgba(0,0,0,0.03)] transition-all duration-300;
@@ -87,7 +133,7 @@ textarea {
 
   /* Internal Dashboard Panel */
   .tool-panel {
-    @apply rounded-xl border border-slate-100 bg-white p-6 shadow-[0_1px_3px_rgba(0,0,0,0.02)] transition-all duration-200 hover:shadow-md hover:border-slate-200/60;
+    @apply rounded-xl border border-slate-100 bg-white p-6 shadow-[0_1px_3px_rgba(0,0,0,0.02)] transition-all duration-300 hover:-translate-y-[2px] hover:shadow-md hover:border-slate-200/60;
   }
 
   /* Subtle Decorative Panel */
@@ -129,5 +175,33 @@ textarea {
   /* Tool Chips (Categories/Tags) */
   .tool-chip {
     @apply inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-[11px] font-bold text-slate-500 transition-all duration-200 hover:border-slate-900 hover:text-slate-900 cursor-pointer;
+  }
+
+  .history-overlay {
+    @apply absolute inset-0 z-50;
+    animation: overlay-fade-in 220ms ease-out both;
+  }
+
+  .history-overlay-backdrop {
+    @apply absolute inset-0 backdrop-blur-[2px];
+    background: rgba(15, 23, 42, 0.18);
+  }
+
+  .history-overlay-panel {
+    @apply absolute inset-y-3 right-3 w-80 rounded-[28px] border border-slate-200/70 bg-white/95 shadow-[0_24px_80px_-24px_rgba(15,23,42,0.45)] backdrop-blur-xl flex flex-col overflow-hidden;
+    animation: sheet-slide-in 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-scene,
+  .history-overlay,
+  .history-overlay-panel {
+    animation: none !important;
+  }
+
+  .motion-lift:hover,
+  .tool-panel:hover {
+    transform: none !important;
   }
 }

@@ -20,7 +20,7 @@ export default function Stats({ usageStats, onBack }: StatsProps) {
   const mostUsed = sortedStats[0]
 
   return (
-    <div className="h-screen bg-slate-50 flex flex-col overflow-hidden text-slate-900">
+    <div className="app-scene h-screen bg-slate-50 flex flex-col overflow-hidden text-slate-900">
       <header className="drag-region bg-white border-b border-slate-200 h-[56px] px-6 flex items-center justify-between shrink-0 shadow-sm">
         <div className="flex items-center gap-4">
           <button 
@@ -37,7 +37,7 @@ export default function Stats({ usageStats, onBack }: StatsProps) {
         <div className="max-w-4xl mx-auto">
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+            <div className="motion-lift bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
               <div className="flex items-center gap-2 text-slate-400 mb-4">
                  <Zap size={16} />
                  <span className="text-[10px] font-bold uppercase tracking-widest">累计使用</span>
@@ -46,7 +46,7 @@ export default function Stats({ usageStats, onBack }: StatsProps) {
               <p className="text-xs text-slate-400 mt-1 font-medium">所有工具的点击总数</p>
             </div>
 
-            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+            <div className="motion-lift bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
               <div className="flex items-center gap-2 text-amber-500 mb-4">
                  <TrendingUp size={16} />
                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">最受欢迎</span>
@@ -57,7 +57,7 @@ export default function Stats({ usageStats, onBack }: StatsProps) {
               <p className="text-xs text-slate-400 mt-1 font-medium">累计使用了 {mostUsed?.count || 0} 次</p>
             </div>
 
-            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+            <div className="motion-lift bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
               <div className="flex items-center gap-2 text-sky-500 mb-4">
                  <Clock size={16} />
                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">活跃状态</span>
