@@ -15,6 +15,66 @@ let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 const store = new Store()
 
+// 外部打开 .md 文件(md 文件关联)相关状态
+const pendingOpenFiles = new Set<string>()
+let rendererReady = false
+const OPEN_FILE_EXTS = new Set(['.md', '.markdown'])
+
+// 从命令行参数中提取可打开的 Markdown 文件路径
+// (绝对路径 + md/markdown 扩展名 + 真实存在的文件,可自然排除 dev 下的 --no-sandbox 等参数)
+function extractFilePaths(argv: string[]): string[] {
+  return argv.filter((arg) => {
+    if (!path.isAbsolute(arg)) return false
+    if (!OPEN_FILE_EXTS.has(path.extname(arg).toLowerCase())) return false
+    try {
+      return fs.statSync(arg).isFile()
+    } catch {
+      return false
+    }
+  })
+}
+
+// 把待打开文件推送给渲染层;渲染层未就绪时先入队
+function flushOpenFiles() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    // 窗口不存在(如 macOS 运行中窗口全关)时重建,ready 后会再次 flush
+    if (!mainWindow) {
+      createMainWindow()
+    }
+    return
+  }
+  if (!rendererReady) return
+
+  for (const filePath of [...pendingOpenFiles]) {
+    const name = path.basename(filePath)
+    let payload: {
+      path: string
+      name: string
+      content?: string
+      mtimeMs?: number
+      error?: string
+    }
+    try {
+      payload = {
+        path: filePath,
+        name,
+        content: fs.readFileSync(filePath, 'utf-8'),
+        mtimeMs: fs.statSync(filePath).mtimeMs,
+      }
+    } catch (error) {
+      console.warn('Failed to read opened file:', filePath, error)
+      payload = { path: filePath, name, error: String(error) }
+    }
+    mainWindow.webContents.send('notes:open-file-request', payload)
+    pendingOpenFiles.delete(filePath)
+  }
+}
+
+function queueOpenFile(filePath: string) {
+  pendingOpenFiles.add(filePath)
+  flushOpenFiles()
+}
+
 function loadRendererWindow(window: BrowserWindow, toolName?: string) {
   const query = toolName ? `?tool=${encodeURIComponent(toolName)}` : ''
 
@@ -55,6 +115,7 @@ function createMainWindow() {
 
   mainWindow.on('closed', () => {
     mainWindow = null
+    rendererReady = false
   })
 }
 
@@ -199,6 +260,14 @@ function setupIpc() {
     return testGoogleTranslate(store)
   })
 
+  // 渲染层就绪信号:仅接受主窗口(每个窗口都会挂载 NotesProvider,需防 tool 窗口抢占)
+  ipcMain.handle('notes-renderer-ready', (event) => {
+    if (event.sender === mainWindow?.webContents) {
+      rendererReady = true
+      flushOpenFiles()
+    }
+  })
+
   // Markdown 笔记：打开本地文件
   ipcMain.handle('notes-open-file', async () => {
     const result = await dialog.showOpenDialog({
@@ -220,6 +289,7 @@ function setupIpc() {
       path: filePath,
       name: path.basename(filePath),
       content,
+      mtimeMs: fs.statSync(filePath).mtimeMs,
     }
   })
 
@@ -255,11 +325,40 @@ function setupIpc() {
   )
 }
 
+// 单实例锁:二次启动(如 Windows 双击关联文件)时把文件转发给已有实例
+// dev 下跳过,避免 vite-plugin-electron 热重启时的锁竞争
+const gotLock = app.isPackaged || app.requestSingleInstanceLock()
+if (!gotLock) {
+  app.quit()
+} else {
+  app.on('second-instance', (_, argv) => {
+    extractFilePaths(argv).forEach(queueOpenFile)
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      mainWindow.show()
+      mainWindow.focus()
+    } else {
+      createMainWindow()
+    }
+  })
+}
+
+// macOS:双击关联文件 / open -a 打开文件(冷启动时该事件先于 ready 触发,靠队列兜底)
+app.on('will-finish-launching', () => {
+  app.on('open-file', (event, filePath) => {
+    event.preventDefault()
+    queueOpenFile(filePath)
+  })
+})
+
 app.whenReady().then(async () => {
   await applyProxyConfig(store)
   createMainWindow()
   createTray()
   setupIpc()
+
+  // 处理启动参数中的文件(Windows 关联启动 / 命令行直接传路径)
+  extractFilePaths(process.argv).forEach(queueOpenFile)
 
   globalShortcut.register('Alt+Shift+F', () => {
     if (mainWindow) {

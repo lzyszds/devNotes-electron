@@ -34,6 +34,7 @@ interface Window {
       path: string
       name: string
       content: string
+      mtimeMs?: number
     } | null>
     notesSaveFile?: (options: {
       content: string
@@ -42,5 +43,15 @@ interface Window {
       path: string
       name: string
     } | null>
+    onOpenFileRequest?: (
+      callback: (payload: {
+        path: string
+        name: string
+        content?: string
+        mtimeMs?: number
+        error?: string
+      }) => void
+    ) => () => void
+    notifyRendererReady?: () => Promise<void>
   }
 }

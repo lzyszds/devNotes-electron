@@ -21,10 +21,15 @@ import {
   PlusCircle,
   GitBranch,
   Clock,
+  Cloud,
+  CloudUpload,
+  CloudDownload,
+  Loader2,
 } from 'lucide-react'
 import { tools, toolCategories } from '../../types'
 import ToolPage from '../../pages/ToolPage'
 import { useNotes } from '../../context/NotesContext'
+import CloudflareSyncModal from '../modals/CloudflareSyncModal'
 
 interface DashboardLayoutProps {
   openTabIds: string[]
@@ -71,6 +76,11 @@ export default function DashboardLayout({
     handleDelete: handleDeleteNote,
     handleExport: handleExportNote,
     insertText,
+    cfConfig,
+    cfSyncStatus,
+    setIsCfModalOpen,
+    triggerCfBackup,
+    triggerCfPull,
   } = useNotes()
 
   const isMarkdownActive = activeTabId === 'markdown-notes'
@@ -157,6 +167,33 @@ export default function DashboardLayout({
         onOpenTool('markdown-notes')
         const demo = `\n::: timeline 时间线\n:: [done] 2024-01-15 项目立项\n  完成需求评审\n:: [doing] 2024-03-20 Alpha 版本\n  正在联调\n:: [todo] 2024-06-01 正式上线\n:: [error] 2024-07-01 严重回滚事件\n:: [milestone] 2024-08-01 用户破万\n:::\n`
         insertText(demo, '')
+      },
+    },
+    {
+      id: 'cmd-cf-settings',
+      title: 'Cloudflare 云端同步设置',
+      shortcut: '⌘U',
+      icon: Cloud,
+      action: () => {
+        setIsCfModalOpen(true)
+      },
+    },
+    {
+      id: 'cmd-cf-backup',
+      title: '立即备份至 Cloudflare 云端',
+      shortcut: '',
+      icon: CloudUpload,
+      action: () => {
+        void triggerCfBackup()
+      },
+    },
+    {
+      id: 'cmd-cf-pull',
+      title: '从 Cloudflare 同步拉取并合并笔记',
+      shortcut: '',
+      icon: CloudDownload,
+      action: () => {
+        void triggerCfPull('merge')
       },
     },
     {
@@ -288,6 +325,25 @@ export default function DashboardLayout({
               <span>{saveMessage}</span>
             </div>
           )}
+
+          {/* Cloudflare 云同步状态微按钮 */}
+          <button
+            onClick={() => setIsCfModalOpen(true)}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium transition-all ${
+              cfConfig.enabled
+                ? 'border-orange-200 dark:border-orange-900/50 bg-orange-50/70 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-900/40 shadow-2xs'
+                : 'border-slate-200/80 dark:border-dark-border text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-dark-hover'
+            }`}
+            title="Cloudflare 云端备份与同步"
+          >
+            <Cloud className="w-3.5 h-3.5 text-orange-500" />
+            <span>{cfConfig.enabled ? 'CF 云同步' : 'CF 同步'}</span>
+            {cfSyncStatus === 'syncing' ? (
+              <Loader2 className="w-3 h-3 animate-spin text-orange-500" />
+            ) : cfSyncStatus === 'success' ? (
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            ) : null}
+          </button>
 
           {/* 深色/浅色模式切换 */}
           <button
@@ -712,6 +768,9 @@ export default function DashboardLayout({
           </div>
         </div>
       )}
+
+      {/* Cloudflare 同步管理模态框 */}
+      <CloudflareSyncModal />
     </div>
   )
 }

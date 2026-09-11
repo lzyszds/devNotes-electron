@@ -42,7 +42,26 @@ contextBridge.exposeInMainWorld('electronAPI', {
   notesOpenFile: () => ipcRenderer.invoke('notes-open-file'),
   notesSaveFile: (options: { content: string; defaultPath?: string }) =>
     ipcRenderer.invoke('notes-save-file', options),
+
+  // Markdown 文件关联:外部打开文件请求(双击 .md 文件)
+  onOpenFileRequest: (callback: (payload: OpenFilePayload) => void) => {
+    const listener = (_: unknown, payload: OpenFilePayload) => callback(payload)
+    ipcRenderer.on('notes:open-file-request', listener)
+    return () => {
+      ipcRenderer.removeListener('notes:open-file-request', listener)
+    }
+  },
+  notifyRendererReady: () => ipcRenderer.invoke('notes-renderer-ready'),
 })
+
+// 外部打开文件的消息负载
+export interface OpenFilePayload {
+  path: string
+  name: string
+  content?: string
+  mtimeMs?: number
+  error?: string
+}
 
 // Type definitions for the exposed API
 declare global {
@@ -90,6 +109,10 @@ declare global {
         path: string
         name: string
       } | null>
+      onOpenFileRequest: (
+        callback: (payload: OpenFilePayload) => void
+      ) => () => void
+      notifyRendererReady: () => Promise<void>
     }
   }
 }

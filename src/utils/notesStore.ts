@@ -4,6 +4,9 @@ export interface NoteItem {
   content: string
   createdAt: number
   updatedAt: number
+  // 来源磁盘文件(通过文件关联/导入打开时记录,用于去重与磁盘更新检测)
+  sourcePath?: string
+  sourceMtime?: number
 }
 
 export interface NotesState {
@@ -68,6 +71,8 @@ export function createEmptyNote(partial?: Partial<NoteItem>): NoteItem {
     content: partial?.content ?? DEFAULT_CONTENT,
     createdAt: partial?.createdAt ?? now,
     updatedAt: partial?.updatedAt ?? now,
+    sourcePath: partial?.sourcePath,
+    sourceMtime: partial?.sourceMtime,
   }
 }
 
@@ -101,6 +106,9 @@ function normalizeState(raw: unknown): NotesState {
           content: typeof item.content === 'string' ? item.content : '',
           createdAt: item.createdAt || Date.now(),
           updatedAt: item.updatedAt || Date.now(),
+          // 透传来源文件字段,否则保存重载后去重信息会丢失
+          ...(typeof item.sourcePath === 'string' ? { sourcePath: item.sourcePath } : {}),
+          ...(typeof item.sourceMtime === 'number' ? { sourceMtime: item.sourceMtime } : {}),
         }))
     : []
 

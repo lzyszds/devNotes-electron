@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build && node scripts/run-electron-builder.cjs",
+    "build:all": "tsc && vite build && node scripts/run-electron-builder.cjs --mac --win",
     "build:web": "tsc && vite build",
     "preview": "vite preview",
     "electron:dev": "vite",
@@ -47,12 +48,33 @@
       "dist/**/*",
       "dist-electron/**/*"
     ],
+    "fileAssociations": [
+      {
+        "ext": "md",
+        "name": "Markdown 文档",
+        "role": "Editor",
+        "icon": "assets/icon"
+      },
+      {
+        "ext": "markdown",
+        "name": "Markdown 文档",
+        "role": "Editor",
+        "icon": "assets/icon"
+      }
+    ],
     "mac": {
       "category": "public.app-category.developer-tools",
-      "icon": "assets/icon.icns"
+      "icon": "assets/icon.icns",
+      "target": [
+        { "target": "dmg", "arch": ["arm64"] },
+        { "target": "zip", "arch": ["arm64"] }
+      ]
     },
     "win": {
-      "target": "nsis"
+      "target": [
+        { "target": "nsis", "arch": ["x64"] }
+      ],
+      "icon": "assets/icon.ico"
     }
   }
 }

@@ -70,8 +70,17 @@ function App() {
   const navigateToHub = () => setViewMode('hub')
   const navigateToStats = () => setViewMode('stats')
 
+  // 外部打开 md 文件导入成功后,切回 Markdown 笔记页并选中
+  const navigateToNotes = () => {
+    setOpenTabIds((prev) =>
+      prev.includes('markdown-notes') ? prev : [...prev, 'markdown-notes']
+    )
+    setActiveTabId('markdown-notes')
+    setViewMode('dashboard')
+  }
+
   return (
-    <NotesProvider>
+    <NotesProvider onFileOpenNavigate={navigateToNotes}>
       {viewMode === 'stats' && (
         <Stats usageStats={usageStats} onBack={navigateToHub} />
       )}
