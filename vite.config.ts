@@ -48,8 +48,33 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src')
     }
   },
+  optimizeDeps: {
+    include: ['cherry-markdown']
+  },
   build: {
     outDir: 'dist',
-    emptyOutDir: true
-  }
+    emptyOutDir: true,
+    commonjsOptions: {
+      include: [/cherry-markdown/, /node_modules/]
+    }
+  },
+  server: {
+    proxy: {
+      '/api/gtx-translate-html': {
+        target: 'https://translate-pa.googleapis.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/gtx-translate-html/, '/v1/translateHtml'),
+      },
+      '/api/gtx-element-html': {
+        target: 'https://translate.google.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/gtx-element-html/, '/translate_a/elementHtml'),
+      },
+      '/api/gtx-single': {
+        target: 'https://translate.googleapis.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/gtx-single/, '/translate_a/single'),
+      },
+    },
+  },
 })

@@ -1,5 +1,6 @@
-import React from 'react'
+import React, { Suspense, lazy } from 'react'
 import JsonFormatTool from '../components/tools/JsonFormatTool'
+import JsonI18nTool from '../components/tools/JsonI18nTool'
 import QrCodeTool from '../components/tools/QrCodeTool'
 import EncodeTool from '../components/tools/EncodeTool'
 import TimestampTool from '../components/tools/TimestampTool'
@@ -8,9 +9,13 @@ import PasswordTool from '../components/tools/PasswordTool'
 import WebsocketTool from '../components/tools/WebsocketTool'
 import { tools } from '../types'
 
+const NotesTool = lazy(() => import('../components/tools/NotesTool'))
+
 const toolComponents: Record<string, React.ComponentType<any>> = {
+  'markdown-notes': NotesTool,
   'json-format': () => <JsonFormatTool mode="format" />,
   'json-diff': () => <JsonFormatTool mode="diff" />,
+  'json-i18n': JsonI18nTool,
   'qr-code': QrCodeTool,
   'en-decode': EncodeTool,
   'timestamp': TimestampTool,
@@ -19,6 +24,14 @@ const toolComponents: Record<string, React.ComponentType<any>> = {
   'base64': EncodeTool,
   'url': EncodeTool,
   'websocket': WebsocketTool,
+}
+
+function ToolLoading() {
+  return (
+    <div className="flex h-full items-center justify-center bg-white text-slate-400 text-sm font-medium">
+      正在加载工具…
+    </div>
+  )
 }
 
 export default function ToolPage({ toolId }: { toolId: string }) {
@@ -39,7 +52,9 @@ export default function ToolPage({ toolId }: { toolId: string }) {
     <div className="app-scene h-full w-full bg-white flex flex-col overflow-hidden">
       {/* 移除 ToolPage 层的滚动和内边距，让内部工具组件控制其布局和滚动 */}
       <div className="flex-1 h-full overflow-hidden">
-        <ToolComponent />
+        <Suspense fallback={<ToolLoading />}>
+          <ToolComponent />
+        </Suspense>
       </div>
     </div>
   )

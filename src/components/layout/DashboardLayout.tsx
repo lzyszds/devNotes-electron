@@ -1,14 +1,30 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import {
-  X,
-  Minus,
+  PanelLeft,
+  ChevronRight,
   Search,
-  ChevronLeft,
-  BarChart3,
+  Moon,
+  Sun,
+  Download,
+  FileText,
+  Braces,
+  Radio,
+  QrCode,
   LayoutGrid,
+  BarChart3,
+  Plus,
+  Trash2,
+  FileCode,
+  ArrowLeftRight,
+  Languages,
+  X,
+  PlusCircle,
+  GitBranch,
+  Clock,
 } from 'lucide-react'
 import { tools, toolCategories } from '../../types'
 import ToolPage from '../../pages/ToolPage'
+import { useNotes } from '../../context/NotesContext'
 
 interface DashboardLayoutProps {
   openTabIds: string[]
@@ -18,6 +34,8 @@ interface DashboardLayoutProps {
   onOpenTool: (id: string) => void
   onBackToHub: () => void
   onOpenStats: () => void
+  theme: 'light' | 'dark'
+  onToggleTheme: () => void
 }
 
 export default function DashboardLayout({
@@ -27,183 +45,673 @@ export default function DashboardLayout({
   onCloseTab,
   onOpenTool,
   onBackToHub,
-  onOpenStats
+  onOpenStats,
+  theme,
+  onToggleTheme,
 }: DashboardLayoutProps) {
-  const [searchQuery, setSearchQuery] = useState('')
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const [isCmdOpen, setIsCmdOpen] = useState(false)
+  const [cmdSearch, setCmdSearch] = useState('')
+  const [toolFilter, setToolFilter] = useState('')
   const [activeCategory, setActiveCategory] = useState('all')
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const isDragging = useRef(false)
-  const startX = useRef(0)
-  const scrollLeft = useRef(0)
 
+  const cmdInputRef = useRef<HTMLInputElement>(null)
+  const tabScrollRef = useRef<HTMLDivElement>(null)
+
+  // 获取全局 Notes 状态
+  const {
+    activeNote,
+    saveStatus,
+    message: saveMessage,
+    keyword: noteKeyword,
+    setKeyword: setNoteKeyword,
+    filteredNotes,
+    handleCreate: handleCreateNote,
+    handleSelect: handleSelectNote,
+    handleDelete: handleDeleteNote,
+    handleExport: handleExportNote,
+    insertText,
+  } = useNotes()
+
+  const isMarkdownActive = activeTabId === 'markdown-notes'
+
+  // 快捷键监听：⌘K (命令面板), ⌘B (折叠侧边栏)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isCmd = e.metaKey || e.ctrlKey
+
+      if (isCmd && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault()
+        setIsCmdOpen((prev) => !prev)
+      } else if (isCmd && (e.key === 'b' || e.key === 'B')) {
+        e.preventDefault()
+        setIsSidebarOpen((prev) => !prev)
+      } else if (isCmd && (e.key === 'n' || e.key === 'N')) {
+        e.preventDefault()
+        if (isMarkdownActive) {
+          handleCreateNote()
+        } else {
+          onOpenTool('markdown-notes')
+        }
+      } else if (e.key === 'Escape' && isCmdOpen) {
+        setIsCmdOpen(false)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [handleCreateNote, isCmdOpen, isMarkdownActive, onOpenTool])
+
+  // 打开指令面板时自动聚焦
+  useEffect(() => {
+    if (isCmdOpen) {
+      setTimeout(() => cmdInputRef.current?.focus(), 50)
+    } else {
+      setCmdSearch('')
+    }
+  }, [isCmdOpen])
+
+  // 窗口控制
+  const handleMinimize = () => window.electronAPI?.minimizeWindow()
+  const handleMaximize = () => window.electronAPI?.maximizeWindow()
+  const handleClose = () => window.electronAPI?.closeWindow()
+
+  // 侧边栏所有组件过滤
   const filteredTools = tools.filter((tool) => {
     const matchesSearch =
-      tool.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      tool.description.toLowerCase().includes(searchQuery.toLowerCase())
+      tool.name.toLowerCase().includes(toolFilter.toLowerCase()) ||
+      tool.description.toLowerCase().includes(toolFilter.toLowerCase())
     const matchesCategory = activeCategory === 'all' || tool.category === activeCategory
     return matchesSearch && matchesCategory
   })
 
-  // Drag to scroll logic
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (!scrollRef.current) return
-    isDragging.current = true
-    startX.current = e.pageX - scrollRef.current.offsetLeft
-    scrollLeft.current = scrollRef.current.scrollLeft
-  }
+  // 指令面板指令过滤
+  const commandList = [
+    {
+      id: 'cmd-new-note',
+      title: '新建 Markdown 笔记',
+      shortcut: '⌘N',
+      icon: PlusCircle,
+      action: () => {
+        onOpenTool('markdown-notes')
+        handleCreateNote()
+      },
+    },
+    {
+      id: 'cmd-mermaid',
+      title: '插入 Mermaid 时序图',
+      shortcut: '/mermaid',
+      icon: GitBranch,
+      action: () => {
+        onOpenTool('markdown-notes')
+        const demo = `\n\`\`\`mermaid\nsequenceDiagram\n    autonumber\n    A->>B: 发送数据请求\n    B-->>A: 返回处理结果\n\`\`\`\n`
+        insertText(demo, '')
+      },
+    },
+    {
+      id: 'cmd-timeline',
+      title: '插入 Timeline 时间线',
+      shortcut: '/timeline',
+      icon: Clock,
+      action: () => {
+        onOpenTool('markdown-notes')
+        const demo = `\n::: timeline 时间线\n:: [done] 2024-01-15 项目立项\n  完成需求评审\n:: [doing] 2024-03-20 Alpha 版本\n  正在联调\n:: [todo] 2024-06-01 正式上线\n:: [error] 2024-07-01 严重回滚事件\n:: [milestone] 2024-08-01 用户破万\n:::\n`
+        insertText(demo, '')
+      },
+    },
+    {
+      id: 'cmd-export-md',
+      title: '导出为 .md 文件',
+      shortcut: '⌘E',
+      icon: Download,
+      action: () => {
+        handleExportNote()
+      },
+    },
+    {
+      id: 'cmd-toggle-theme',
+      title: theme === 'dark' ? '切换为浅色主题' : '切换为深色主题',
+      shortcut: '⌘D',
+      icon: theme === 'dark' ? Sun : Moon,
+      action: () => {
+        onToggleTheme()
+      },
+    },
+    ...tools.map((tool) => ({
+      id: `cmd-tool-${tool.id}`,
+      title: `打开 ${tool.name}`,
+      shortcut: '',
+      icon: FileCode,
+      action: () => {
+        onOpenTool(tool.id)
+      },
+    })),
+  ].filter((item) => item.title.toLowerCase().includes(cmdSearch.toLowerCase()))
 
-  const handleMouseLeave = () => {
-    isDragging.current = false
-  }
-
-  const handleMouseUp = () => {
-    isDragging.current = false
-  }
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging.current || !scrollRef.current) return
-    e.preventDefault()
-    const x = e.pageX - scrollRef.current.offsetLeft
-    const walk = (x - startX.current) * 2 // Scroll speed
-    scrollRef.current.scrollLeft = scrollLeft.current - walk
-  }
+  const currentTool = tools.find((t) => t.id === activeTabId)
 
   return (
-    <div className="app-scene flex h-screen bg-white overflow-hidden text-slate-900">
-      {/* Sidebar - Prevent squeezing with shrink-0 */}
-      <aside className="w-[240px] flex-shrink-0 flex flex-col bg-slate-50 border-r border-slate-200 shadow-inner">
-        <div className="p-4 flex items-center gap-2 border-b border-slate-200 bg-white h-[56px]">
-          <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center text-white shadow-sm">
-            <LayoutGrid size={18} />
-          </div>
-          <span className="font-bold text-sm tracking-tight">FeHelper Pro</span>
-        </div>
-
-        <div className="flex-1 overflow-y-auto py-4">
-          <div className="px-3 mb-6">
-            <p className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">分类筛选</p>
-            <div className="space-y-1">
-              {toolCategories.map(cat => (
-                <button
-                  key={cat.id}
-                  onClick={() => setActiveCategory(cat.id)}
-                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
-                    activeCategory === cat.id ? 'bg-slate-200 text-slate-900 shadow-sm' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
-                  }`}
-                >
-                  {cat.name}
-                </button>
-              ))}
-            </div>
+    <div className="h-screen w-screen overflow-hidden bg-white dark:bg-dark-bg text-slate-800 dark:text-slate-200 font-sans flex flex-col antialiased select-none transition-colors duration-200">
+      {/* ================= 1. 顶部栏 (Unified Topbar - 44px) ================= */}
+      <header className="drag-region h-11 bg-white/95 dark:bg-dark-panel/95 backdrop-blur border-b border-slate-200/80 dark:border-dark-border px-4 flex items-center justify-between z-30 flex-shrink-0">
+        {/* macOS 风格窗口红绿灯与状态 */}
+        <div className="no-drag flex items-center gap-3">
+          <div className="flex items-center gap-1.5 mr-1">
+            <div
+              onClick={handleClose}
+              className="w-3 h-3 rounded-full bg-rose-500/80 hover:brightness-110 cursor-pointer transition-transform active:scale-90"
+              title="关闭窗口"
+            />
+            <div
+              onClick={handleMinimize}
+              className="w-3 h-3 rounded-full bg-amber-500/80 hover:brightness-110 cursor-pointer transition-transform active:scale-90"
+              title="最小化"
+            />
+            <div
+              onClick={handleMaximize}
+              className="w-3 h-3 rounded-full bg-emerald-500/80 hover:brightness-110 cursor-pointer transition-transform active:scale-90"
+              title="最大化 / 还原"
+            />
           </div>
 
-          <div className="px-3">
-            <p className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">全部组件</p>
-            <div className="space-y-1">
-              {filteredTools.map(tool => (
-                <button
-                  key={tool.id}
-                  onClick={() => onOpenTool(tool.id)}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-all ${
-                    activeTabId === tool.id ? 'bg-white shadow-sm ring-1 ring-slate-200 font-bold text-slate-900' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900 font-medium'
-                  }`}
-                >
-                  <div className="flex items-center gap-2 overflow-hidden">
-                    <span className="flex-shrink-0 w-4 h-4 flex items-center justify-center bg-slate-100 rounded text-[10px]">{tool.icon.length <= 3 ? tool.icon : tool.icon.charAt(0)}</span>
-                    <span className="truncate">{tool.name}</span>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
+          <button
+            onClick={() => setIsSidebarOpen((prev) => !prev)}
+            className="p-1 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-dark-hover transition-colors"
+            title={isSidebarOpen ? '折叠侧边栏 (⌘B)' : '展开侧边栏 (⌘B)'}
+          >
+            <PanelLeft className="w-4 h-4" />
+          </button>
 
-        <div className="p-4 border-t border-slate-200 bg-white">
-           <button 
-            onClick={onOpenStats}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition text-xs font-semibold"
-           >
-              <BarChart3 size={16} />
-              使用统计
-           </button>
-        </div>
-      </aside>
+          <div className="h-4 w-[1px] bg-slate-200 dark:bg-dark-border" />
 
-      {/* Main View Area */}
-      <div className="flex-1 flex flex-col min-w-0 bg-white">
-        {/* Global Top Navigation Bar */}
-        <header className="drag-region h-[56px] border-b border-slate-200 flex items-center justify-between px-4 bg-white z-10 flex-shrink-0">
-          <div className="no-drag flex items-center gap-4 flex-1">
-            <button 
+          {/* 面包屑 */}
+          <div className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+            <span
               onClick={onBackToHub}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition text-xs font-semibold"
+              className="hover:text-slate-900 dark:hover:text-white cursor-pointer transition-colors"
             >
-              <ChevronLeft size={16} />
-              返回首页
+              FeHelper Pro
+            </span>
+            <ChevronRight className="w-3 h-3 text-slate-400" />
+            <span className="text-slate-900 dark:text-white font-semibold flex items-center gap-1.5 max-w-[200px] truncate">
+              {isMarkdownActive ? (
+                <>
+                  <FileCode className="w-3.5 h-3.5 text-brand-600 dark:text-indigo-400 flex-shrink-0" />
+                  <span className="truncate">{activeNote?.title || '欢迎使用 Markdown 笔记'}</span>
+                </>
+              ) : (
+                <>
+                  <span className="text-brand-600 dark:text-indigo-400 font-bold text-xs flex-shrink-0">
+                    {currentTool?.icon.length || 0 <= 3 ? currentTool?.icon : currentTool?.icon.charAt(0)}
+                  </span>
+                  <span className="truncate">{currentTool?.name || '工具'}</span>
+                </>
+              )}
+            </span>
+          </div>
+        </div>
+
+        {/* 中部全局指令触发器 (⌘K) */}
+        <div className="no-drag flex-1 max-w-sm mx-6">
+          <button
+            onClick={() => setIsCmdOpen(true)}
+            className="w-full flex items-center justify-between px-3 py-1 bg-slate-100/80 dark:bg-dark-hover/60 hover:bg-slate-100 dark:hover:bg-dark-hover border border-slate-200/60 dark:border-dark-border rounded-lg text-xs text-slate-400 transition-all shadow-2xs group"
+          >
+            <span className="flex items-center gap-2">
+              <Search className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300" />
+              <span className="text-slate-500 dark:text-slate-400">搜索功能或笔记...</span>
+            </span>
+            <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-white dark:bg-dark-panel border border-slate-200 dark:border-dark-border rounded text-slate-400">
+              ⌘K
+            </kbd>
+          </button>
+        </div>
+
+        {/* 右侧功能区 */}
+        <div className="no-drag flex items-center gap-2.5 text-xs">
+          {/* 自动保存微呼吸状态胶囊 */}
+          {isMarkdownActive && (
+            <div
+              className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border transition-all font-medium ${
+                saveStatus === 'saving'
+                  ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border-amber-200/50 dark:border-amber-900/50'
+                  : 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200/50 dark:border-emerald-900/50'
+              }`}
+            >
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${
+                  saveStatus === 'saving'
+                    ? 'bg-amber-500 animate-ping'
+                    : 'bg-emerald-500 animate-pulse'
+                }`}
+              />
+              <span>{saveMessage}</span>
+            </div>
+          )}
+
+          {/* 深色/浅色模式切换 */}
+          <button
+            onClick={onToggleTheme}
+            className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-dark-hover rounded-lg transition-colors"
+            title={theme === 'dark' ? '切换浅色模式' : '切换深色模式'}
+          >
+            {theme === 'dark' ? (
+              <Moon className="w-4 h-4 text-indigo-400" />
+            ) : (
+              <Sun className="w-4 h-4 text-amber-500" />
+            )}
+          </button>
+
+          <div className="h-4 w-[1px] bg-slate-200 dark:bg-dark-border" />
+
+          {/* 右侧主操作动作 */}
+          {isMarkdownActive ? (
+            <button
+              onClick={handleExportNote}
+              className="flex items-center gap-1.5 px-3 py-1 bg-brand-600 hover:bg-brand-700 text-white font-medium rounded-lg shadow-xs shadow-brand-500/20 transition-all"
+              title="导出当前 Markdown 文件"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>导出 .md</span>
+            </button>
+          ) : (
+            <button
+              onClick={onBackToHub}
+              className="flex items-center gap-1.5 px-3 py-1 bg-slate-100 dark:bg-dark-hover hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-medium rounded-lg border border-slate-200 dark:border-dark-border transition-all"
+            >
+              <span>工具中心</span>
+            </button>
+          )}
+        </div>
+      </header>
+
+      {/* ================= 2. 主体三栏布局 ================= */}
+      <div className="flex flex-1 overflow-hidden relative">
+        {/* 2.1 工具箱极简侧边栏 (56px / w-14) */}
+        <aside className="w-14 bg-slate-50 dark:bg-dark-sidebar border-r border-slate-200/80 dark:border-dark-border flex flex-col items-center py-3 gap-4 flex-shrink-0 z-20">
+          {/* Fe 品牌渐变 Logo */}
+          <div
+            onClick={onBackToHub}
+            className="w-8 h-8 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-400 flex items-center justify-center shadow-sm shadow-brand-500/20 text-white font-bold text-sm cursor-pointer transition-transform hover:scale-105 active:scale-95"
+            title="FeHelper 工具中心"
+          >
+            Fe
+          </div>
+
+          {/* 常用小工具 Rail 导航 */}
+          <nav className="flex-1 flex flex-col gap-2 w-full px-2">
+            {/* Markdown 笔记 */}
+            <button
+              onClick={() => onOpenTool('markdown-notes')}
+              className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${
+                activeTabId === 'markdown-notes'
+                  ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-indigo-400'
+                  : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
+              }`}
+              title="Markdown 笔记"
+            >
+              <FileText className="w-4 h-4" />
+              {activeTabId === 'markdown-notes' && (
+                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-brand-600 rounded-r-md" />
+              )}
             </button>
 
-            <div className="relative max-w-sm w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+            {/* JSON 格式化 */}
+            <button
+              onClick={() => onOpenTool('json-format')}
+              className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${
+                activeTabId === 'json-format'
+                  ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-indigo-400'
+                  : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
+              }`}
+              title="JSON 格式化"
+            >
+              <Braces className="w-4 h-4" />
+              {activeTabId === 'json-format' && (
+                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-brand-600 rounded-r-md" />
+              )}
+            </button>
+
+            {/* WebSocket 测试 */}
+            <button
+              onClick={() => onOpenTool('websocket')}
+              className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${
+                activeTabId === 'websocket'
+                  ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-indigo-400'
+                  : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
+              }`}
+              title="WebSocket 测试"
+            >
+              <Radio className="w-4 h-4" />
+              {activeTabId === 'websocket' && (
+                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-brand-600 rounded-r-md" />
+              )}
+            </button>
+
+            {/* 二维码工具 */}
+            <button
+              onClick={() => onOpenTool('qr-code')}
+              className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${
+                activeTabId === 'qr-code'
+                  ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-indigo-400'
+                  : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
+              }`}
+              title="二维码工具"
+            >
+              <QrCode className="w-4 h-4" />
+              {activeTabId === 'qr-code' && (
+                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-brand-600 rounded-r-md" />
+              )}
+            </button>
+
+            {/* 编码转换 */}
+            <button
+              onClick={() => onOpenTool('en-decode')}
+              className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${
+                activeTabId === 'en-decode'
+                  ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-indigo-400'
+                  : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
+              }`}
+              title="编码转换"
+            >
+              <ArrowLeftRight className="w-4 h-4" />
+              {activeTabId === 'en-decode' && (
+                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-brand-600 rounded-r-md" />
+              )}
+            </button>
+
+            {/* JSON 翻译 */}
+            <button
+              onClick={() => onOpenTool('json-i18n')}
+              className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${
+                activeTabId === 'json-i18n'
+                  ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-indigo-400'
+                  : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
+              }`}
+              title="JSON 翻译"
+            >
+              <Languages className="w-4 h-4" />
+              {activeTabId === 'json-i18n' && (
+                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-brand-600 rounded-r-md" />
+              )}
+            </button>
+          </nav>
+
+          {/* 底部使用统计与全部组件按钮 */}
+          <div className="flex flex-col gap-2 w-full px-2">
+            <button
+              onClick={onOpenStats}
+              className="w-full aspect-square flex items-center justify-center rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover transition-all"
+              title="使用统计"
+            >
+              <BarChart3 className="w-4 h-4" />
+            </button>
+            <button
+              onClick={onBackToHub}
+              className="w-full aspect-square flex items-center justify-center rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover transition-all"
+              title="全部小工具库"
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+          </div>
+        </aside>
+
+        {/* 2.2 二级侧边栏 (240px / w-60，可折叠) */}
+        <section
+          className={`${
+            isSidebarOpen ? 'w-60 opacity-100' : 'w-0 opacity-0 overflow-hidden border-r-0'
+          } bg-white dark:bg-dark-panel border-r border-slate-200/80 dark:border-dark-border flex flex-col flex-shrink-0 transition-all duration-300`}
+        >
+          {isMarkdownActive ? (
+            /* Markdown 知识库文档列表视图 */
+            <>
+              <div className="p-3 border-b border-slate-100 dark:border-dark-border space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    知识库文档
+                  </span>
+                  <button
+                    onClick={handleCreateNote}
+                    className="flex items-center gap-1 px-2 py-1 bg-slate-100 dark:bg-dark-hover hover:bg-brand-50 hover:text-brand-600 dark:hover:text-indigo-400 rounded-md text-xs font-medium transition-all"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> 新建
+                  </button>
+                </div>
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+                  <input
+                    type="text"
+                    value={noteKeyword}
+                    onChange={(e) => setNoteKeyword(e.target.value)}
+                    placeholder="过滤文档..."
+                    className="w-full pl-8 pr-3 py-1 text-xs bg-slate-50 dark:bg-dark-sidebar border border-slate-200 dark:border-dark-border rounded-lg outline-none focus:border-brand-500 dark:focus:border-indigo-500 transition-all text-slate-800 dark:text-slate-200 placeholder-slate-400"
+                  />
+                </div>
+              </div>
+
+              {/* 动态文档列表流 */}
+              <div className="flex-1 overflow-y-auto p-2 space-y-1">
+                {filteredNotes.map((note) => {
+                  const isActive = note.id === activeNote?.id
+                  return (
+                    <div
+                      key={note.id}
+                      onClick={() => handleSelectNote(note.id)}
+                      className={`group p-2.5 rounded-xl cursor-pointer transition-all border ${
+                        isActive
+                          ? 'bg-brand-50/70 dark:bg-brand-500/10 border-brand-100 dark:border-indigo-500/20'
+                          : 'hover:bg-slate-50 dark:hover:bg-dark-hover/60 border-transparent'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <h4
+                          className={`text-xs ${
+                            isActive
+                              ? 'font-semibold text-slate-900 dark:text-white'
+                              : 'font-medium text-slate-700 dark:text-slate-300'
+                          } truncate`}
+                        >
+                          {note.title || '未命名笔记'}
+                        </h4>
+                        <div className="flex items-center gap-1">
+                          {isActive && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
+                          )}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDeleteNote(note.id)
+                            }}
+                            className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-rose-500 text-slate-400 transition-opacity"
+                            title="删除笔记"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                      <p className="text-[11px] text-slate-400 line-clamp-1 font-mono">
+                        {note.content.substring(0, 40)}...
+                      </p>
+                      <div className="flex items-center justify-between mt-2 text-[10px] text-slate-400">
+                        <span>{new Date(note.updatedAt).toLocaleDateString()}</span>
+                        <span className="font-mono">{note.content.length} 字</span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </>
+          ) : (
+            /* 其它工具时的侧边栏：分类与工具列表导航 */
+            <>
+              <div className="p-3 border-b border-slate-100 dark:border-dark-border space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    组件工具库
+                  </span>
+                  <span className="text-[10px] text-slate-400">{filteredTools.length} 个</span>
+                </div>
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+                  <input
+                    type="text"
+                    value={toolFilter}
+                    onChange={(e) => setToolFilter(e.target.value)}
+                    placeholder="搜索组件..."
+                    className="w-full pl-8 pr-3 py-1 text-xs bg-slate-50 dark:bg-dark-sidebar border border-slate-200 dark:border-dark-border rounded-lg outline-none focus:border-brand-500 dark:focus:border-indigo-500 transition-all text-slate-800 dark:text-slate-200 placeholder-slate-400"
+                  />
+                </div>
+                <div className="flex gap-1 overflow-x-auto scrollbar-hide py-1">
+                  {toolCategories.map((cat) => (
+                    <button
+                      key={cat.id}
+                      onClick={() => setActiveCategory(cat.id)}
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap transition-all ${
+                        activeCategory === cat.id
+                          ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
+                          : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-dark-hover'
+                      }`}
+                    >
+                      {cat.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-2 space-y-1">
+                {filteredTools.map((tool) => {
+                  const isActive = tool.id === activeTabId
+                  return (
+                    <div
+                      key={tool.id}
+                      onClick={() => onOpenTool(tool.id)}
+                      className={`group p-2 rounded-xl cursor-pointer transition-all border flex items-center justify-between ${
+                        isActive
+                          ? 'bg-brand-50/70 dark:bg-brand-500/10 border-brand-100 dark:border-indigo-500/20 text-slate-900 dark:text-white font-semibold'
+                          : 'hover:bg-slate-50 dark:hover:bg-dark-hover/60 border-transparent text-slate-600 dark:text-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <span className="w-5 h-5 flex items-center justify-center rounded-md bg-slate-100 dark:bg-dark-sidebar text-[10px] font-mono flex-shrink-0">
+                          {tool.icon.length <= 3 ? tool.icon : tool.icon.charAt(0)}
+                        </span>
+                        <span className="text-xs truncate">{tool.name}</span>
+                      </div>
+                      {isActive && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />}
+                    </div>
+                  )
+                })}
+              </div>
+            </>
+          )}
+        </section>
+
+        {/* 2.3 编辑器 / 工具主工作台 (Editor Workspace) */}
+        <main className="flex-1 flex flex-col bg-white dark:bg-dark-panel overflow-hidden min-w-0">
+          {/* Tab 栏（如果打开了多个工具） */}
+          {openTabIds.length > 1 && (
+            <div
+              ref={tabScrollRef}
+              className="h-8 bg-slate-50/70 dark:bg-dark-sidebar/60 border-b border-slate-200/70 dark:border-dark-border flex items-center px-2 gap-1 overflow-x-auto scrollbar-hide flex-shrink-0"
+            >
+              {openTabIds.map((id) => {
+                const tool = tools.find((t) => t.id === id)
+                if (!tool) return null
+                const isActive = activeTabId === id
+                return (
+                  <div
+                    key={id}
+                    onClick={() => setActiveTabId(id)}
+                    className={`group flex items-center gap-1.5 h-6 px-2.5 rounded-md cursor-pointer text-xs transition-all border ${
+                      isActive
+                        ? 'bg-white dark:bg-dark-panel border-slate-200 dark:border-dark-border text-slate-900 dark:text-white font-semibold shadow-2xs'
+                        : 'border-transparent text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
+                    }`}
+                  >
+                    <span className="text-[10px] font-mono">
+                      {tool.icon.length <= 3 ? tool.icon : tool.icon.charAt(0)}
+                    </span>
+                    <span className="truncate max-w-[100px]">{tool.name}</span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onCloseTab(id)
+                      }}
+                      className="ml-1 p-0.5 rounded hover:bg-slate-200 dark:hover:bg-dark-hover text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition"
+                    >
+                      <X className="w-2.5 h-2.5" />
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* 渲染当前工具内容 */}
+          <div className="flex-1 overflow-hidden relative">
+            <ToolPage toolId={activeTabId} />
+          </div>
+        </main>
+      </div>
+
+      {/* ================= 3. ⌘K 全局指令面板 (Command Palette Modal) ================= */}
+      {isCmdOpen && (
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsCmdOpen(false)
+          }}
+          className="fixed inset-0 bg-slate-900/40 dark:bg-black/60 backdrop-blur-xs z-50 flex items-start justify-center pt-24 animate-in fade-in duration-150"
+        >
+          <div className="w-full max-w-lg bg-white dark:bg-dark-panel rounded-2xl shadow-2xl border border-slate-200 dark:border-dark-border overflow-hidden">
+            {/* 搜索框 */}
+            <div className="p-3.5 border-b border-slate-100 dark:border-dark-border flex items-center gap-3">
+              <Search className="w-4 h-4 text-slate-400" />
               <input
+                ref={cmdInputRef}
                 type="text"
-                placeholder="全局搜索工具..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-9 pl-9 pr-3 bg-slate-50 rounded-lg border border-slate-200 focus:bg-white focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 transition-all text-xs outline-none"
+                value={cmdSearch}
+                onChange={(e) => setCmdSearch(e.target.value)}
+                placeholder="输入指令或搜索动作..."
+                className="flex-1 text-sm bg-transparent outline-none text-slate-800 dark:text-white placeholder-slate-400"
               />
+              <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-slate-100 dark:bg-dark-hover border border-slate-200 dark:border-dark-border rounded text-slate-400">
+                ESC
+              </kbd>
+            </div>
+
+            {/* 指令列表 */}
+            <div className="p-2 max-h-72 overflow-y-auto space-y-1 text-xs">
+              {commandList.map((item) => {
+                const IconComponent = item.icon
+                return (
+                  <div
+                    key={item.id}
+                    onClick={() => {
+                      item.action()
+                      setIsCmdOpen(false)
+                    }}
+                    className="flex items-center justify-between p-2 rounded-lg hover:bg-brand-50 dark:hover:bg-dark-hover hover:text-brand-600 dark:hover:text-indigo-400 cursor-pointer transition-colors"
+                  >
+                    <span className="flex items-center gap-2.5 text-slate-700 dark:text-slate-200 group-hover:text-inherit">
+                      <IconComponent className="w-4 h-4 text-slate-400" />
+                      <span>{item.title}</span>
+                    </span>
+                    {item.shortcut && (
+                      <span className="text-[10px] text-slate-400 font-mono bg-slate-50 dark:bg-dark-sidebar px-1.5 py-0.5 rounded border border-slate-100 dark:border-dark-border">
+                        {item.shortcut}
+                      </span>
+                    )}
+                  </div>
+                )
+              })}
+
+              {commandList.length === 0 && (
+                <div className="p-4 text-center text-xs text-slate-400">未找到匹配的动作</div>
+              )}
             </div>
           </div>
-
-          <div className="no-drag flex items-center gap-1 ml-4">
-             <button onClick={() => window.electronAPI?.minimizeWindow()} className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 transition">
-                <Minus size={16} />
-              </button>
-              <button onClick={() => window.electronAPI?.closeWindow()} className="p-2 rounded-lg hover:bg-rose-50 hover:text-rose-500 text-slate-400 transition">
-                <X size={16} />
-              </button>
-          </div>
-        </header>
-
-        {/* Tab Bar - Drag to scroll supported */}
-        <div 
-          ref={scrollRef}
-          onMouseDown={handleMouseDown}
-          onMouseLeave={handleMouseLeave}
-          onMouseUp={handleMouseUp}
-          onMouseMove={handleMouseMove}
-          className="h-10 bg-slate-50 border-b border-slate-200 flex items-center px-4 gap-1 overflow-x-auto scrollbar-hide select-none flex-shrink-0 cursor-grab active:cursor-grabbing"
-        >
-          {openTabIds.map(id => {
-            const tool = tools.find(t => t.id === id)
-            if (!tool) return null
-            return (
-              <div
-                key={id}
-                onClick={() => setActiveTabId(id)}
-                className={`group flex items-center gap-2 h-8 min-w-[120px] max-w-[240px] px-3 rounded-t-lg cursor-default border-x border-t flex-shrink-0 transition-all ${
-                  activeTabId === id 
-                  ? 'bg-white border-slate-200 text-slate-900 font-bold -mb-[1px] shadow-sm' 
-                  : 'bg-transparent border-transparent text-slate-500 hover:bg-slate-100'
-                }`}
-              >
-                <span className="text-[10px] text-nowrap pointer-events-none">{tool.icon.length <= 3 ? tool.icon : tool.icon.charAt(0)}</span>
-                <span className="truncate text-xs pointer-events-none">{tool.name}</span>
-                <button
-                  onClick={(e) => { e.stopPropagation(); onCloseTab(id); }}
-                  className="ml-auto p-0.5 rounded-md hover:bg-slate-200 transition"
-                >
-                  <X size={10} />
-                </button>
-              </div>
-            )
-          })}
         </div>
-
-        {/* Content Workspace */}
-        <div className="flex-1 overflow-hidden relative bg-white">
-           <ToolPage toolId={activeTabId} />
-        </div>
-      </div>
+      )}
     </div>
   )
 }

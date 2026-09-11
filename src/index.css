@@ -4,31 +4,36 @@
 
 :root {
   color-scheme: light;
-  font-family: 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Inter', 'Segoe UI', sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  background: linear-gradient(180deg, #f7efe7 0%, #f5f8fc 42%, #f3f6fb 100%);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
+html.dark {
+  color-scheme: dark;
+}
+
 html,
 body,
 #root {
   margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
+  width: 100%;
+  height: 100vh;
   overflow: hidden;
 }
 
 body {
-  background:
-    radial-gradient(circle at top left, rgba(251, 191, 36, 0.16), transparent 24%),
-    radial-gradient(circle at top right, rgba(59, 130, 246, 0.12), transparent 30%),
-    linear-gradient(180deg, #f8f4ee 0%, #f3f7fb 52%, #f1f5f9 100%);
-  color: #172033;
+  background-color: #ffffff;
+  color: #1e293b;
+}
+
+html.dark body {
+  background-color: #090a0f;
+  color: #e2e8f0;
 }
 
 button,
@@ -42,9 +47,10 @@ textarea {
   tab-size: 2;
 }
 
+/* 极致细腻自定义滚动条 */
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
@@ -52,16 +58,39 @@ textarea {
 }
 
 ::-webkit-scrollbar-thumb {
-  border: 2px solid transparent;
-  border-radius: 999px;
-  background: rgba(148, 163, 184, 0.8);
-  background-clip: padding-box;
+  background: rgba(148, 163, 184, 0.25);
+  border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(100, 116, 139, 0.95);
-  background-clip: padding-box;
+  background: rgba(148, 163, 184, 0.45);
 }
+
+html.dark ::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.18);
+}
+
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.35);
+}
+
+/* Markdown 预览区排版增强样式 */
+.markdown-body h1 { font-size: 1.65rem; font-weight: 800; margin-bottom: 0.75rem; color: inherit; }
+.markdown-body h2 { font-size: 1.35rem; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.5rem; border-bottom: 1px solid rgba(148, 163, 184, 0.2); padding-bottom: 0.3rem; }
+.markdown-body h3 { font-size: 1.15rem; font-weight: 600; margin-top: 1.25rem; margin-bottom: 0.4rem; }
+.markdown-body p { margin-bottom: 0.85rem; line-height: 1.7; font-size: 0.875rem; }
+.markdown-body ul { list-style-type: disc; padding-left: 1.25rem; margin-bottom: 0.85rem; font-size: 0.875rem; }
+.markdown-body ol { list-style-type: decimal; padding-left: 1.25rem; margin-bottom: 0.85rem; font-size: 0.875rem; }
+.markdown-body li { margin-bottom: 0.25rem; line-height: 1.6; }
+.markdown-body code:not(pre code) { background: rgba(99, 102, 241, 0.1); color: #4f46e5; padding: 0.15rem 0.35rem; border-radius: 0.35rem; font-size: 0.8rem; font-family: monospace; }
+.dark .markdown-body code:not(pre code) { background: rgba(129, 140, 248, 0.15); color: #a5b4fc; }
+.markdown-body pre { background: #0f172a; color: #f8fafc; padding: 1rem; border-radius: 0.75rem; margin-bottom: 1rem; overflow-x: auto; font-size: 0.8rem; border: 1px solid rgba(255, 255, 255, 0.08); }
+.markdown-body blockquote { border-left: 3px solid #6366f1; padding-left: 0.75rem; color: #64748b; margin-bottom: 0.85rem; font-style: italic; }
+.dark .markdown-body blockquote { color: #94a3b8; }
+.markdown-body table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; font-size: 0.85rem; }
+.markdown-body th, .markdown-body td { border: 1px solid rgba(148, 163, 184, 0.2); padding: 0.5rem 0.75rem; }
+.markdown-body th { background: rgba(148, 163, 184, 0.08); font-weight: 600; }
+.markdown-body hr { border: 0; border-top: 1px solid rgba(148, 163, 184, 0.2); margin: 1.5rem 0; }
 
 .drag-region {
   -webkit-app-region: drag;
@@ -204,4 +233,29 @@ textarea {
   .tool-panel:hover {
     transform: none !important;
   }
+}
+
+/* Cherry Markdown 笔记编辑器容器规则 */
+.cherry-notes-editor,
+.cherry-notes-editor > div,
+.cherry-notes-editor .cherry {
+  height: 100% !important;
+  width: 100% !important;
+  box-sizing: border-box;
+}
+
+.cherry-notes-editor .cherry {
+  border: none !important;
+  border-radius: 0 !important;
+}
+
+.cherry-notes-editor .cherry-toolbar {
+  border-radius: 0 !important;
+  flex-wrap: nowrap !important;
+  overflow-x: auto !important;
+  scrollbar-width: none !important;
+}
+
+.cherry-notes-editor .cherry-toolbar::-webkit-scrollbar {
+  display: none !important;
 }

@@ -1,108 +1,138 @@
-import { useState } from 'react'
-import {
-  Search,
-  BarChart3,
-  X,
-  Minus,
-  LayoutGrid,
-} from 'lucide-react'
-import { tools, toolCategories } from '../types'
+import { useState } from "react";
+import { Search, BarChart3, X, Minus } from "lucide-react";
+import { tools, toolCategories } from "../types";
 
 interface HomeProps {
-  onOpenTool: (id: string) => void
-  onOpenStats: () => void
-  usageStats: Record<string, number>
+  onOpenTool: (id: string) => void;
+  onOpenStats: () => void;
+  usageStats: Record<string, number>;
 }
 
-export default function Home({ onOpenTool, onOpenStats, usageStats }: HomeProps) {
-  const [searchQuery, setSearchQuery] = useState('')
-  const [activeCategory, setActiveCategory] = useState('all')
+export default function Home({
+  onOpenTool,
+  onOpenStats,
+  usageStats,
+}: HomeProps) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeCategory, setActiveCategory] = useState("all");
 
   const filteredTools = tools.filter((tool) => {
     const matchesSearch =
       tool.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      tool.description.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesCategory = activeCategory === 'all' || tool.category === activeCategory
-    return matchesSearch && matchesCategory
-  })
+      tool.description.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory =
+      activeCategory === "all" || tool.category === activeCategory;
+    return matchesSearch && matchesCategory;
+  });
 
   return (
-    <div className="app-scene h-screen flex flex-col bg-white overflow-hidden text-slate-900">
+    <div className="app-scene h-screen flex flex-col bg-white dark:bg-dark-bg overflow-hidden text-slate-900 dark:text-slate-100 transition-colors">
       {/* Discreet Window Controls (Overlay) */}
-      <div className="drag-region absolute top-0 left-0 right-0 h-12 flex justify-end items-center px-4 z-50 pointer-events-none">
-        <div className="no-drag flex items-center gap-1 pointer-events-auto">
-          <button onClick={() => window.electronAPI?.minimizeWindow()} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 transition">
+      <div className="drag-region absolute top-0 left-0 right-0 h-11 flex justify-between items-center px-4 z-50">
+        <div className="no-drag flex items-center gap-1.5">
+          <div
+            onClick={() => window.electronAPI?.closeWindow()}
+            className="w-3 h-3 rounded-full bg-rose-500/80 hover:brightness-110 cursor-pointer"
+          />
+          <div
+            onClick={() => window.electronAPI?.minimizeWindow()}
+            className="w-3 h-3 rounded-full bg-amber-500/80 hover:brightness-110 cursor-pointer"
+          />
+          <div
+            onClick={() => window.electronAPI?.maximizeWindow()}
+            className="w-3 h-3 rounded-full bg-emerald-500/80 hover:brightness-110 cursor-pointer"
+          />
+        </div>
+        <div className="no-drag flex items-center gap-1">
+          <button
+            onClick={() => window.electronAPI?.minimizeWindow()}
+            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-dark-hover text-slate-400 transition"
+          >
             <Minus size={14} />
           </button>
-          <button onClick={() => window.electronAPI?.closeWindow()} className="p-1.5 rounded-lg hover:bg-rose-50 hover:text-rose-500 text-slate-400 transition">
+          <button
+            onClick={() => window.electronAPI?.closeWindow()}
+            className="p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30 hover:text-rose-500 text-slate-400 transition"
+          >
             <X size={14} />
           </button>
         </div>
       </div>
 
-      <main className="flex-1 overflow-y-scroll px-10 pb-20">
-        <div className="max-w-4xl mx-auto pt-20">
+      <main className="flex-1 overflow-y-auto px-10 pb-20">
+        <div className="max-w-4xl mx-auto pt-16">
           {/* Header */}
-          <div className="text-center mb-16">
-            <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-slate-900 text-white mb-6 shadow-lg">
-              <LayoutGrid size={24} />
+          <div className="text-center mb-2">
+            <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-brand-600 to-indigo-400 text-white mb-6 shadow-lg shadow-brand-500/20">
+              <span className="font-bold text-lg">Fe</span>
             </div>
-            <h1 className="text-3xl font-bold text-slate-900 mb-2 tracking-tight">FeHelper 工具中心</h1>
-            <p className="text-slate-500 text-sm font-medium">极致简洁的开发者生产力工具箱</p>
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2 tracking-tight">
+              FeHelper 工具中心
+            </h1>
+            <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">
+              极致简洁的现代前端开发者工作台
+            </p>
           </div>
 
           {/* Search */}
-          <div className="relative mb-12 max-w-xl mx-auto">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+          <div className="relative mb-10 max-w-xl mx-auto">
+            <Search
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+              size={18}
+            />
             <input
               type="text"
               placeholder="搜索小工具 (支持拼音或描述)..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-14 pl-12 pr-4 bg-slate-50 rounded-xl border-none ring-1 ring-slate-200/60 focus:ring-2 focus:ring-slate-900 transition-all text-sm outline-none shadow-sm"
+              className="w-full h-12 pl-12 pr-4 bg-slate-50 dark:bg-dark-panel rounded-xl border border-slate-200/80 dark:border-dark-border text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-brand-500 transition-all text-sm outline-none shadow-2xs placeholder-slate-400"
             />
           </div>
 
           {/* Categories Bar */}
-          <div className="flex items-center justify-between mb-8 border-b border-slate-100 pb-4">
-             <div className="flex gap-1 overflow-x-auto scrollbar-hide">
-                {toolCategories.map(cat => (
-                  <button
-                    key={cat.id}
-                    onClick={() => setActiveCategory(cat.id)}
-                    className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
-                      activeCategory === cat.id ? 'bg-slate-900 text-white' : 'text-slate-400 hover:text-slate-900'
-                    }`}
-                  >
-                    {cat.name}
-                  </button>
-                ))}
-             </div>
-             <button 
+          <div className="flex items-center justify-between mb-8 border-b border-slate-100 dark:border-dark-border pb-4">
+            <div className="flex gap-1 overflow-x-auto scrollbar-hide">
+              {toolCategories.map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => setActiveCategory(cat.id)}
+                  className={`px-3.5 py-1 rounded-full text-xs font-semibold transition-all ${
+                    activeCategory === cat.id
+                      ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-2xs"
+                      : "text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                  }`}
+                >
+                  {cat.name}
+                </button>
+              ))}
+            </div>
+            <button
               onClick={onOpenStats}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100 transition text-[11px] font-bold uppercase tracking-wider"
-             >
-                <BarChart3 size={14} />
-                统计面板
-             </button>
+              className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-50 dark:bg-dark-hover text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-dark-border transition text-xs font-semibold"
+            >
+              <BarChart3 size={14} />
+              统计面板
+            </button>
           </div>
 
           {/* Compact Grid of Small Cards */}
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4">
-            {filteredTools.map(tool => (
+            {filteredTools.map((tool) => (
               <button
                 key={tool.id}
                 onClick={() => onOpenTool(tool.id)}
-                className="motion-lift group flex flex-col items-center justify-center p-5 rounded-xl bg-white ring-1 ring-slate-100 hover:ring-slate-900 hover:shadow-xl hover:shadow-slate-100 transition-all"
+                className="motion-lift group flex flex-col items-center justify-center p-5 rounded-2xl bg-white dark:bg-dark-panel border border-slate-200/80 dark:border-dark-border hover:border-brand-500 dark:hover:border-indigo-500 hover:shadow-lg transition-all"
               >
-                <div className="h-10 w-10 flex items-center justify-center rounded-lg bg-slate-50 text-base font-bold text-slate-900 mb-3 group-hover:bg-slate-900 group-hover:text-white transition-colors">
+                <div className="h-10 w-10 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-dark-sidebar text-base font-bold text-slate-800 dark:text-slate-200 mb-3 group-hover:bg-brand-600 group-hover:text-white transition-colors">
                   {tool.icon.length <= 3 ? tool.icon : tool.icon.charAt(0)}
                 </div>
-                <span className="text-[11px] font-bold text-slate-900 text-center truncate w-full">{tool.name}</span>
+                <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 text-center truncate w-full">
+                  {tool.name}
+                </span>
                 {usageStats[tool.id] > 0 && (
-                   <span className="mt-1 text-[9px] text-slate-300 font-bold uppercase tracking-tighter">
-                     已用 {usageStats[tool.id]} 次
-                   </span>
+                  <span className="mt-1 text-[10px] text-slate-400 font-mono">
+                    已用 {usageStats[tool.id]} 次
+                  </span>
                 )}
               </button>
             ))}
@@ -117,8 +147,10 @@ export default function Home({ onOpenTool, onOpenStats, usageStats }: HomeProps)
       </main>
 
       <footer className="py-6 border-t border-slate-50 text-center">
-         <p className="text-[9px] font-bold text-slate-300 uppercase tracking-[0.4em]">FeHelper • v2026.4.2920 • 稳定版</p>
+        <p className="text-[9px] font-bold text-slate-300 uppercase tracking-[0.4em]">
+          FeHelper • v2026.4.2920 • 稳定版
+        </p>
       </footer>
     </div>
-  )
+  );
 }

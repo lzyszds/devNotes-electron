@@ -1,7 +1,15 @@
-import { app, BrowserWindow, ipcMain, Menu, Tray, globalShortcut, Notification, nativeImage } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, Tray, globalShortcut, Notification, nativeImage } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import Store from 'electron-store'
+import {
+  applyProxyConfig,
+  fetchViaNet,
+  getProxyConfig,
+  setProxyConfig,
+  testGoogleTranslate,
+  type ProxyConfig,
+} from './proxy'
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
@@ -159,9 +167,96 @@ function setupIpc() {
   ipcMain.handle('store-delete', (_, key: string) => {
     store.delete(key)
   })
+
+  // 翻译 API 代理：使用 Electron net 模块，自动走系统/手动代理
+  ipcMain.handle(
+    'translate-fetch',
+    async (
+      _,
+      options: {
+        url: string
+        method?: string
+        headers?: Record<string, string>
+        body?: string
+        timeout?: number
+      }
+    ) => {
+      return fetchViaNet(options)
+    }
+  )
+
+  ipcMain.handle('get-proxy-config', () => {
+    return getProxyConfig(store)
+  })
+
+  ipcMain.handle('set-proxy-config', async (_, config: ProxyConfig) => {
+    const saved = setProxyConfig(store, config)
+    await applyProxyConfig(store)
+    return saved
+  })
+
+  ipcMain.handle('test-proxy', async () => {
+    return testGoogleTranslate(store)
+  })
+
+  // Markdown 笔记：打开本地文件
+  ipcMain.handle('notes-open-file', async () => {
+    const result = await dialog.showOpenDialog({
+      title: '导入 Markdown 笔记',
+      properties: ['openFile'],
+      filters: [
+        { name: 'Markdown', extensions: ['md', 'markdown', 'txt'] },
+        { name: 'All Files', extensions: ['*'] },
+      ],
+    })
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return null
+    }
+
+    const filePath = result.filePaths[0]
+    const content = fs.readFileSync(filePath, 'utf-8')
+    return {
+      path: filePath,
+      name: path.basename(filePath),
+      content,
+    }
+  })
+
+  // Markdown 笔记：导出本地文件
+  ipcMain.handle(
+    'notes-save-file',
+    async (
+      _,
+      options: {
+        content: string
+        defaultPath?: string
+      }
+    ) => {
+      const result = await dialog.showSaveDialog({
+        title: '导出 Markdown 笔记',
+        defaultPath: options.defaultPath || 'untitled.md',
+        filters: [
+          { name: 'Markdown', extensions: ['md', 'markdown'] },
+          { name: 'Text', extensions: ['txt'] },
+        ],
+      })
+
+      if (result.canceled || !result.filePath) {
+        return null
+      }
+
+      fs.writeFileSync(result.filePath, options.content ?? '', 'utf-8')
+      return {
+        path: result.filePath,
+        name: path.basename(result.filePath),
+      }
+    }
+  )
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  await applyProxyConfig(store)
   createMainWindow()
   createTray()
   setupIpc()
