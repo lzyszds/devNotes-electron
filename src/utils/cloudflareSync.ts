@@ -276,7 +276,7 @@ export async function pushToCloudflare(
     const payload: SyncPayload = {
       version: 1,
       updatedAt: Date.now(),
-      deviceInfo: 'FeHelper Desktop Pro',
+      deviceInfo: 'DevNotes Desktop',
       encrypted: isEncrypted,
       data: payloadData,
     }
@@ -533,7 +533,7 @@ export function createSnapshotFromState(
 
 // ================= 6. 1分钟部署 Cloudflare Worker 代码模板 =================
 export const CLOUDFLARE_WORKER_SCRIPT = `/**
- * FeHelper Notes Cloudflare Worker 同步网关
+ * DevNotes Cloudflare Worker 同步网关
  * 部署指南：
  * 1. 登录 Cloudflare Dashboard -> Workers & Pages -> Create Worker
  * 2. 将此代码全选替换并点击 Deploy 保存发布
@@ -569,7 +569,7 @@ export default {
 
     // 健康检查探针
     if (url.pathname === '/health') {
-      return new Response(JSON.stringify({ status: 'ok', service: 'FeHelper CF Sync' }), {
+      return new Response(JSON.stringify({ status: 'ok', service: 'DevNotes CF Sync' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -606,7 +606,7 @@ export default {
       }
     }
 
-    return new Response('FeHelper Cloudflare Sync Worker is running', { headers: corsHeaders });
+    return new Response('DevNotes Cloudflare Sync Worker is running', { headers: corsHeaders });
   },
 };
 `

@@ -29,3 +29,6 @@ npm-debug.log*
 .cache/
 .parcel-cache/
 .vite/
+
+# E2E 测试的隔离 userData（临时笔记数据，绝不入库）
+tests/e2e/.userdata/

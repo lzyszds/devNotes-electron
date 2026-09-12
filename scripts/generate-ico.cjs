@@ -6,10 +6,24 @@ const path = require('node:path')
 const root = path.join(__dirname, '..')
 const sizes = [16, 32, 64, 128, 256]
 
-const pngs = sizes.map((size) => {
+// 读取 PNG 并校验实际边长,避免错误尺寸的图标集被静默打进 ico
+function readPng(size) {
   const file = path.join(root, 'assets/icon.iconset', `icon_${size}x${size}.png`)
-  return { size, data: fs.readFileSync(file) }
-})
+  const data = fs.readFileSync(file)
+  if (data.toString('hex', 0, 8) !== '89504e470d0a1a0a') {
+    console.error(`不是 PNG: ${file}`)
+    process.exit(1)
+  }
+  const width = data.readUInt32BE(16)
+  const height = data.readUInt32BE(20)
+  if (width !== size || height !== size) {
+    console.error(`尺寸不符: ${file} 实际 ${width}x${height},期望 ${size}x${size}`)
+    process.exit(1)
+  }
+  return { size, data }
+}
+
+const pngs = sizes.map(readPng)
 
 // ICO 头:6 字节 + 每个条目 16 字节目录项 + PNG 数据
 const headerSize = 6 + pngs.length * 16

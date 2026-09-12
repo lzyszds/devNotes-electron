@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Search, Copy, Trash2, History, Clock, ChevronRight, Binary, Code2, ListTree, Sparkles, Filter, X } from 'lucide-react'
 import { useToolHistory } from '../../hooks/useToolHistory'
+import { useHistoryContextMenu } from '../../hooks/useHistoryContextMenu'
 
 const templates = [
   { name: '手机号', pattern: '1[3-9]\\d{9}', desc: '中国大陆手机号' },
@@ -21,7 +22,23 @@ export default function RegexpTool() {
   const [error, setError] = useState('')
   const [showHistory, setShowHistory] = useState(false)
 
-  const { history, saveHistory, clearHistory } = useToolHistory<{ pattern: string, flags: string, text: string }>('regexp')
+  const { history, saveHistory, clearHistory, removeHistoryItem } = useToolHistory<{ pattern: string, flags: string, text: string }>('regexp')
+  // 历史记录右键菜单
+  const openHistoryMenu = useHistoryContextMenu<{
+    pattern: string
+    flags: string
+    text: string
+  }>({
+    onUse: (item) => {
+      setPattern(item.data.pattern)
+      setFlags(item.data.flags)
+      setTestText(item.data.text)
+      setShowHistory(false)
+    },
+    // 复制时还原成可直接粘贴的正则字面量
+    toText: (data) => `/${data.pattern}/${data.flags}`,
+    onRemove: removeHistoryItem,
+  })
 
   const testRegex = () => {
     if (!pattern || !testText) return
@@ -223,6 +240,7 @@ export default function RegexpTool() {
                history.map((item) => (
                 <button
                   key={item.id}
+                  onContextMenu={(e) => openHistoryMenu(e, item)}
                   onClick={() => { setPattern(item.data.pattern); setFlags(item.data.flags); setTestText(item.data.text); setShowHistory(false); }}
                   className="w-full text-left p-5 rounded-2xl bg-white border border-slate-200/60 shadow-sm hover:border-sky-600 hover:shadow-sky-500/10 transition-all group"
                 >

@@ -1,6 +1,6 @@
-# FeHelper Electron
+# DevNotes
 
-将 Chrome 扩展 **FeHelper (前端助手)** 转换为 Electron 桌面应用的实验性项目。
+基于 Chrome 扩展 **FeHelper (前端助手)** 改造的 Electron 桌面应用，原名 FeHelper Electron。
 
 ## 功能特性
 

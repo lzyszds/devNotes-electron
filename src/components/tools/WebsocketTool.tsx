@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { useToolHistory } from "../../hooks/useToolHistory";
+import { useHistoryContextMenu } from "../../hooks/useHistoryContextMenu";
 
 type MessageLog = {
   id: number;
@@ -36,8 +37,16 @@ export default function WebsocketTool() {
   const logIdRef = useRef(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const { history, saveHistory, clearHistory } =
+  const { history, saveHistory, clearHistory, removeHistoryItem } =
     useToolHistory<string>("websocket");
+  // 历史记录右键菜单
+  const openHistoryMenu = useHistoryContextMenu<string>({
+    onUse: (item) => {
+      setUrl(item.data);
+      setShowHistory(false);
+    },
+    onRemove: removeHistoryItem,
+  });
 
   const appendLog = (type: MessageLog["type"], text: string) => {
     logIdRef.current += 1;
@@ -363,6 +372,7 @@ export default function WebsocketTool() {
             history.map((item) => (
               <button
                 key={item.id}
+                  onContextMenu={(e) => openHistoryMenu(e, item)}
                 onClick={() => {
                   setUrl(item.data);
                   setShowHistory(false);

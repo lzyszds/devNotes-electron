@@ -29,6 +29,9 @@ import {
   type CloudflareSyncConfig,
   type BackupSnapshot,
 } from '../../utils/cloudflareSync'
+import { useContextMenu } from '../ui/ContextMenu'
+import { useToast } from '../ui/Toast'
+import { copyText } from '../../utils/clipboard'
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return bytes + ' B'
@@ -77,6 +80,9 @@ export default function CloudflareSyncModal() {
   const [isTesting, setIsTesting] = useState(false)
   const [isOperating, setIsOperating] = useState(false)
   const [snapshotMsg, setSnapshotMsg] = useState<{ ok: boolean; text: string } | null>(null)
+
+  const { openContextMenu } = useContextMenu()
+  const { showToast } = useToast()
 
   // 当外部配置改变时同步到本地表单
   useEffect(() => {
@@ -188,6 +194,37 @@ export default function CloudflareSyncModal() {
   const handleDeleteSnapshot = async (id: string) => {
     if (!window.confirm('确定删除该历史快照吗？')) return
     await deleteSnapshot(id)
+  }
+
+  // 快照项的右键菜单:恢复 / 复制标题清单 / 删除
+  const handleSnapshotContextMenu = (e: React.MouseEvent, snap: BackupSnapshot) => {
+    const titles = (snap.noteTitles || []).join('\n')
+    openContextMenu(e, [
+      {
+        id: 'snap-restore',
+        label: '回滚恢复',
+        icon: <RotateCcw className="w-3.5 h-3.5" />,
+        onSelect: () => handleRestore(snap),
+      },
+      {
+        id: 'snap-copy-titles',
+        label: '复制笔记标题',
+        icon: <Copy className="w-3.5 h-3.5" />,
+        disabled: !titles,
+        onSelect: async () => {
+          const ok = await copyText(titles)
+          showToast(ok ? '已复制标题清单' : '复制失败', ok ? 'default' : 'error')
+        },
+      },
+      { id: 'snap-sep', separator: true },
+      {
+        id: 'snap-delete',
+        label: '删除此快照',
+        icon: <Trash2 className="w-3.5 h-3.5" />,
+        danger: true,
+        onSelect: () => handleDeleteSnapshot(snap.id),
+      },
+    ])
   }
 
   // 清空全部快照
@@ -526,7 +563,7 @@ export default function CloudflareSyncModal() {
                         软件启动时自动拉取
                       </div>
                       <div className="text-[11px] text-slate-400">
-                        每次打开 FeHelper 时，自动拉取云端笔记并智能合并
+                        每次打开 DevNotes 时，自动拉取云端笔记并智能合并
                       </div>
                     </div>
                     <input
@@ -635,6 +672,7 @@ export default function CloudflareSyncModal() {
                     return (
                       <div
                         key={snap.id}
+                        onContextMenu={(e) => void handleSnapshotContextMenu(e, snap)}
                         className="p-3 bg-white dark:bg-dark-sidebar/40 border border-slate-200/80 dark:border-dark-border rounded-xl hover:border-orange-300 dark:hover:border-orange-800 transition-all space-y-2 group shadow-2xs"
                       >
                         <div className="flex items-center justify-between">

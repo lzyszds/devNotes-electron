@@ -51,7 +51,7 @@ sequenceDiagram
 
 \`\`\`javascript
 // 简单示例代码
-const app = new FeHelper({
+const app = new DevNotes({
   theme: 'modern-slate',
   autoSave: true
 });

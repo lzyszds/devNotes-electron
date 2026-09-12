@@ -22,6 +22,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   storeSet: (key: string, value: any) => ipcRenderer.invoke('store-set', key, value),
   storeDelete: (key: string) => ipcRenderer.invoke('store-delete', key),
 
+  // 剪贴板读写(右键菜单的复制/粘贴使用)
+  clipboardRead: () => ipcRenderer.invoke('clipboard-read'),
+  clipboardWrite: (text: string) => ipcRenderer.invoke('clipboard-write', text),
+
   // 翻译 API 代理（绕过 CORS，走系统/手动代理）
   translateFetch: (options: {
     url: string
@@ -76,6 +80,8 @@ declare global {
       storeGet: (key: string) => Promise<any>
       storeSet: (key: string, value: any) => Promise<void>
       storeDelete: (key: string) => Promise<void>
+      clipboardRead: () => Promise<string>
+      clipboardWrite: (text: string) => Promise<void>
       translateFetch: (options: {
         url: string
         method?: string

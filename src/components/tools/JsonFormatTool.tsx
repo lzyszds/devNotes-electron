@@ -19,6 +19,7 @@ import {
   Type,
 } from "lucide-react";
 import { useToolHistory } from "../../hooks/useToolHistory";
+import { useHistoryContextMenu } from "../../hooks/useHistoryContextMenu";
 
 type JsonFormatToolProps = {
   mode?: "format" | "diff";
@@ -210,9 +211,31 @@ export default function JsonFormatTool({
   const [rightInput, setRightInput] = useState("");
   const [showHistory, setShowHistory] = useState(false);
 
-  const { history, saveHistory, clearHistory } = useToolHistory<string>(
+  const { history, saveHistory, clearHistory, removeHistoryItem } = useToolHistory<string>(
     mode === "diff" ? "json-diff" : "json-format",
   );
+  // 两个面板共用同一份 history,但回填逻辑不同,各自一份右键菜单
+  const openDiffHistoryMenu = useHistoryContextMenu<string>({
+    onUse: (item) => {
+      try {
+        const data = JSON.parse(item.data);
+        setLeftInput(data.left || item.data);
+        setRightInput(data.right || "");
+      } catch {
+        setLeftInput(item.data);
+      }
+      setShowHistory(false);
+    },
+    onRemove: removeHistoryItem,
+  });
+
+  const openFormatHistoryMenu = useHistoryContextMenu<string>({
+    onUse: (item) => {
+      setInput(item.data);
+      setShowHistory(false);
+    },
+    onRemove: removeHistoryItem,
+  });
 
   const parsedOutput = useMemo(() => {
     if (!output) return null;
@@ -512,6 +535,7 @@ export default function JsonFormatTool({
                   history.map((item) => (
                     <button
                       key={item.id}
+                      onContextMenu={(e) => openDiffHistoryMenu(e, item)}
                       onClick={() => {
                         try {
                           const data = JSON.parse(item.data);
@@ -769,6 +793,7 @@ export default function JsonFormatTool({
                 history.map((item) => (
                   <button
                     key={item.id}
+                    onContextMenu={(e) => openFormatHistoryMenu(e, item)}
                     onClick={() => {
                       setInput(item.data);
                       setShowHistory(false);

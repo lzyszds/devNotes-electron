@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Lock, Copy, RefreshCw, Eye, EyeOff, History, Clock, ChevronRight, ShieldCheck, Settings2, Zap, X } from 'lucide-react'
 import { useToolHistory } from '../../hooks/useToolHistory'
+import { useHistoryContextMenu } from '../../hooks/useHistoryContextMenu'
 
 const CHAR_SETS = {
   uppercase: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
@@ -22,7 +23,16 @@ export default function PasswordTool() {
   const [strength, setStrength] = useState(0)
   const [showHistory, setShowHistory] = useState(false)
 
-  const { history, saveHistory, clearHistory } = useToolHistory<string>('password')
+  const { history, saveHistory, clearHistory, removeHistoryItem } = useToolHistory<string>('password')
+  // 历史记录右键菜单
+  const openHistoryMenu = useHistoryContextMenu<string>({
+    onUse: (item) => {
+      setPassword(item.data)
+      calculateStrength(item.data)
+      setShowHistory(false)
+    },
+    onRemove: removeHistoryItem,
+  })
 
   const generatePassword = () => {
     let chars = ''
@@ -242,6 +252,7 @@ export default function PasswordTool() {
                history.map((item) => (
                 <button
                   key={item.id}
+                  onContextMenu={(e) => openHistoryMenu(e, item)}
                   onClick={() => { setPassword(item.data); calculateStrength(item.data); setShowHistory(false); }}
                   className="w-full text-left p-5 rounded-2xl bg-white border border-slate-200/60 shadow-sm hover:border-slate-900 hover:shadow-slate-500/10 transition-all group"
                 >

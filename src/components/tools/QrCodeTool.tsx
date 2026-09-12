@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Download, Copy, RefreshCw, History, Clock, ChevronRight, QrCode, Type, Move, Palette, X } from 'lucide-react'
 import { useToolHistory } from '../../hooks/useToolHistory'
+import { useHistoryContextMenu } from '../../hooks/useHistoryContextMenu'
 
 export default function QrCodeTool() {
   const [text, setText] = useState('https://fehelper.com')
@@ -12,7 +13,15 @@ export default function QrCodeTool() {
   
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
-  const { history, saveHistory, clearHistory } = useToolHistory<string>('qr-code')
+  const { history, saveHistory, clearHistory, removeHistoryItem } = useToolHistory<string>('qr-code')
+  // 历史记录右键菜单
+  const openHistoryMenu = useHistoryContextMenu<string>({
+    onUse: (item) => {
+      setText(item.data)
+      setShowHistory(false)
+    },
+    onRemove: removeHistoryItem,
+  })
 
   // Simple QR code generator
   const generateQR = () => {
@@ -246,6 +255,7 @@ export default function QrCodeTool() {
                history.map((item) => (
                 <button
                   key={item.id}
+                  onContextMenu={(e) => openHistoryMenu(e, item)}
                   onClick={() => { setText(item.data); setShowHistory(false); }}
                   className="w-full text-left p-5 rounded-2xl bg-white border border-slate-200/60 shadow-sm hover:border-indigo-600 hover:shadow-indigo-500/10 transition-all group"
                 >

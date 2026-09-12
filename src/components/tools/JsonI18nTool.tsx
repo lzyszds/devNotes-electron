@@ -19,6 +19,7 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import { useToolHistory } from "../../hooks/useToolHistory";
+import { useHistoryContextMenu } from "../../hooks/useHistoryContextMenu";
 import { resetGtxCache } from "../../utils/translateFetch";
 import {
   extractStrings,
@@ -272,9 +273,17 @@ export default function JsonI18nTool() {
   const [settings, setSettings] = useState<JsonI18nSettings>(DEFAULT_SETTINGS);
   const resultsRef = useRef<HTMLDivElement>(null);
 
-  const { history, saveHistory, clearHistory } = useToolHistory<string>(
+  const { history, saveHistory, clearHistory, removeHistoryItem } = useToolHistory<string>(
     "json-i18n"
   );
+  // 历史记录右键菜单
+  const openHistoryMenu = useHistoryContextMenu<string>({
+    onUse: (item) => {
+      setInput(item.data);
+      setShowHistory(false);
+    },
+    onRemove: removeHistoryItem,
+  });
 
   useEffect(() => {
     window.electronAPI?.getProxyConfig?.().then((config) => {
@@ -1250,6 +1259,7 @@ export default function JsonI18nTool() {
                 history.map((item) => (
                   <button
                     key={item.id}
+                  onContextMenu={(e) => openHistoryMenu(e, item)}
                     onClick={() => {
                       setInput(item.data);
                       setShowHistory(false);

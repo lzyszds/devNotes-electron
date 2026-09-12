@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Clock, Copy, History, ChevronRight, Timer, Calendar, ArrowRight, Sparkles, Hash, X } from 'lucide-react'
 import { useToolHistory } from '../../hooks/useToolHistory'
+import { useHistoryContextMenu } from '../../hooks/useHistoryContextMenu'
 
 export default function TimestampTool() {
   const [currentTime, setCurrentTime] = useState(new Date())
@@ -10,7 +11,19 @@ export default function TimestampTool() {
   const [dateResult, setDateResult] = useState('')
   const [showHistory, setShowHistory] = useState(false)
 
-  const { history, saveHistory, clearHistory } = useToolHistory<string>('timestamp')
+  const { history, saveHistory, clearHistory, removeHistoryItem } = useToolHistory<string>('timestamp')
+  // 历史记录右键菜单
+  const openHistoryMenu = useHistoryContextMenu<string>({
+    onUse: (item) => {
+      if (item.data.includes('-') || item.data.includes('T')) {
+        setInputDate(item.data)
+      } else {
+        setInputTimestamp(item.data)
+      }
+      setShowHistory(false)
+    },
+    onRemove: removeHistoryItem,
+  })
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
@@ -201,6 +214,7 @@ export default function TimestampTool() {
                history.map((item) => (
                 <button
                   key={item.id}
+                  onContextMenu={(e) => openHistoryMenu(e, item)}
                   onClick={() => {
                     if (item.data.includes('-') || item.data.includes('T')) { setInputDate(item.data); } else { setInputTimestamp(item.data); }
                     setShowHistory(false);

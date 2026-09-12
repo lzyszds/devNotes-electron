@@ -3,6 +3,8 @@ import Home from './pages/Home'
 import DashboardLayout from './components/layout/DashboardLayout'
 import Stats from './pages/Stats'
 import { NotesProvider } from './context/NotesContext'
+import { ContextMenuProvider } from './components/ui/ContextMenu'
+import { ToastProvider } from './components/ui/Toast'
 
 export type ViewMode = 'hub' | 'dashboard' | 'stats'
 
@@ -67,6 +69,19 @@ function App() {
     }
   }
 
+  // 关闭其他标签页:仅保留目标页
+  const closeOtherTabs = (toolId: string) => {
+    setOpenTabIds([toolId])
+    setActiveTabId(toolId)
+  }
+
+  // 关闭全部标签页:回到工具中心
+  const closeAllTabs = () => {
+    setOpenTabIds([])
+    setActiveTabId('')
+    setViewMode('hub')
+  }
+
   const navigateToHub = () => setViewMode('hub')
   const navigateToStats = () => setViewMode('stats')
 
@@ -80,33 +95,39 @@ function App() {
   }
 
   return (
-    <NotesProvider onFileOpenNavigate={navigateToNotes}>
-      {viewMode === 'stats' && (
-        <Stats usageStats={usageStats} onBack={navigateToHub} />
-      )}
+    <ToastProvider>
+      <ContextMenuProvider>
+        <NotesProvider onFileOpenNavigate={navigateToNotes}>
+          {viewMode === 'stats' && (
+            <Stats usageStats={usageStats} onBack={navigateToHub} />
+          )}
 
-      {viewMode === 'dashboard' && (
-        <DashboardLayout
-          openTabIds={openTabIds}
-          activeTabId={activeTabId || 'markdown-notes'}
-          setActiveTabId={setActiveTabId}
-          onCloseTab={closeTab}
-          onOpenTool={openTool}
-          onBackToHub={navigateToHub}
-          onOpenStats={navigateToStats}
-          theme={theme}
-          onToggleTheme={toggleTheme}
-        />
-      )}
+          {viewMode === 'dashboard' && (
+            <DashboardLayout
+              openTabIds={openTabIds}
+              activeTabId={activeTabId || 'markdown-notes'}
+              setActiveTabId={setActiveTabId}
+              onCloseTab={closeTab}
+              onCloseOtherTabs={closeOtherTabs}
+              onCloseAllTabs={closeAllTabs}
+              onOpenTool={openTool}
+              onBackToHub={navigateToHub}
+              onOpenStats={navigateToStats}
+              theme={theme}
+              onToggleTheme={toggleTheme}
+            />
+          )}
 
-      {viewMode === 'hub' && (
-        <Home
-          onOpenTool={openTool}
-          onOpenStats={navigateToStats}
-          usageStats={usageStats}
-        />
-      )}
-    </NotesProvider>
+          {viewMode === 'hub' && (
+            <Home
+              onOpenTool={openTool}
+              onOpenStats={navigateToStats}
+              usageStats={usageStats}
+            />
+          )}
+        </NotesProvider>
+      </ContextMenuProvider>
+    </ToastProvider>
   )
 }
 

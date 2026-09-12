@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, Tray, globalShortcut, Notification, nativeImage } from 'electron'
+import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, Tray, globalShortcut, Notification, nativeImage } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import Store from 'electron-store'
@@ -10,9 +10,15 @@ import {
   testGoogleTranslate,
   type ProxyConfig,
 } from './proxy'
+import { migrateUserDataIfNeeded } from './migrateUserData'
+import type { IpcMainInvokeEvent } from 'electron'
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
+
+// 必须在 new Store() 之前执行:迁移会决定本次启动读哪个 userData 目录
+migrateUserDataIfNeeded()
+
 const store = new Store()
 
 // 外部打开 .md 文件(md 文件关联)相关状态
@@ -88,13 +94,46 @@ function loadRendererWindow(window: BrowserWindow, toolName?: string) {
   })
 }
 
+/**
+ * 无边框窗口没有菜单栏可挂，Menu.setApplicationMenu(null) 之后默认菜单里的快捷键
+ * （重载、开发者工具）也一并没了 —— 而顶部只剩应用自绘的那条 bar，再没有别的入口。
+ * 这里把真正会用到的几个显式补回来，不依赖菜单内部实现。
+ */
+function registerWindowShortcuts(window: BrowserWindow) {
+  window.webContents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown') return
+    const key = input.key.toLowerCase()
+    const mod = input.control || input.meta
+
+    // F12 / Ctrl+Shift+I：开发者工具
+    if (key === 'f12' || (mod && input.shift && key === 'i')) {
+      event.preventDefault()
+      window.webContents.toggleDevTools()
+      return
+    }
+
+    // Ctrl+R / Ctrl+Shift+R：重载（笔记是落盘的，重载不会丢内容）
+    if (mod && (key === 'r' || key === 'f5')) {
+      event.preventDefault()
+      if (input.shift) {
+        window.webContents.reloadIgnoringCache()
+      } else {
+        window.webContents.reload()
+      }
+    }
+  })
+}
+
 function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
     minWidth: 1000,
     minHeight: 600,
-    title: 'FeHelper - 前端助手',
+    title: 'DevNotes',
+    // 无边框：系统的标题栏和菜单栏都不要，顶部只保留应用自绘的那条 bar。
+    // 代价是拖拽、双击最大化、最小化/最大化/关闭全部落到渲染层的 drag-region 与三个圆点上。
+    frame: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -103,6 +142,7 @@ function createMainWindow() {
     show: false
   })
 
+  registerWindowShortcuts(mainWindow)
   loadRendererWindow(mainWindow)
 
   if (process.env.VITE_DEV_SERVER_URL) {
@@ -125,7 +165,8 @@ function createToolWindow(toolName: string) {
     height: 800,
     minWidth: 1000,
     minHeight: 600,
-    title: `FeHelper - ${toolName}`,
+    title: `DevNotes - ${toolName}`,
+    frame: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -134,6 +175,7 @@ function createToolWindow(toolName: string) {
     show: false
   })
 
+  registerWindowShortcuts(toolWindow)
   loadRendererWindow(toolWindow, toolName)
 
   toolWindow.once('ready-to-show', () => {
@@ -143,7 +185,8 @@ function createToolWindow(toolName: string) {
 
 function createTray() {
   const iconDir = path.join(__dirname, '../assets')
-  const iconFiles = ['icon.png', 'icon.jpg', 'icon.jpeg', 'icon.ico']
+  // 只认带透明通道的格式:jpg 无 alpha,会把透明背景渲成不透明
+  const iconFiles = ['icon.png', 'icon.ico']
   let icon: nativeImage | null = null
   
   for (const file of iconFiles) {
@@ -170,12 +213,12 @@ function createTray() {
   }
   
   const contextMenu = Menu.buildFromTemplate([
-    { label: '显示 FeHelper', click: () => mainWindow?.show() },
+    { label: '显示 DevNotes', click: () => mainWindow?.show() },
     { type: 'separator' },
     { label: '退出', click: () => app.quit() }
   ])
   
-  tray.setToolTip('FeHelper - 前端助手')
+  tray.setToolTip('DevNotes')
   tray.setContextMenu(contextMenu)
   
   tray.on('click', () => {
@@ -185,21 +228,38 @@ function createTray() {
   })
 }
 
+// 无边框之后窗口控制完全由渲染层的自绘按钮负责，必须作用在「发出请求的那个窗口」上。
+// 原来三个 handler 都写死 mainWindow，工具窗口点自己的圆点会去动主窗口。
+function windowOf(event: IpcMainInvokeEvent): BrowserWindow | null {
+  const window = BrowserWindow.fromWebContents(event.sender)
+  return window && !window.isDestroyed() ? window : null
+}
+
 function setupIpc() {
-  ipcMain.handle('window-minimize', () => {
-    mainWindow?.minimize()
+  ipcMain.handle('window-minimize', (event) => {
+    windowOf(event)?.minimize()
   })
 
-  ipcMain.handle('window-maximize', () => {
-    if (mainWindow?.isMaximized()) {
-      mainWindow.unmaximize()
+  ipcMain.handle('window-maximize', (event) => {
+    const window = windowOf(event)
+    if (!window) return
+    if (window.isMaximized()) {
+      window.unmaximize()
     } else {
-      mainWindow?.maximize()
+      window.maximize()
     }
   })
 
-  ipcMain.handle('window-close', () => {
-    mainWindow?.hide()
+  ipcMain.handle('window-close', (event) => {
+    const window = windowOf(event)
+    if (!window) return
+    // 主窗口的关闭是「收进托盘」，托盘菜单还能再唤出来；
+    // 其余窗口关掉就是关掉，否则会留下一个看不见也唤不回的僵尸窗口
+    if (window === mainWindow) {
+      window.hide()
+    } else {
+      window.close()
+    }
   })
 
   ipcMain.handle('show-notification', (_, title: string, body: string) => {
@@ -227,6 +287,15 @@ function setupIpc() {
 
   ipcMain.handle('store-delete', (_, key: string) => {
     store.delete(key)
+  })
+
+  // 剪贴板读写:打包后 file:// 环境下渲染进程 navigator.clipboard 不可靠,由主进程兜底
+  ipcMain.handle('clipboard-read', () => {
+    return clipboard.readText()
+  })
+
+  ipcMain.handle('clipboard-write', (_, text: string) => {
+    clipboard.writeText(typeof text === 'string' ? text : String(text ?? ''))
   })
 
   // 翻译 API 代理：使用 Electron net 模块，自动走系统/手动代理
@@ -352,6 +421,9 @@ app.on('will-finish-launching', () => {
 })
 
 app.whenReady().then(async () => {
+  // 无边框窗口没有菜单栏可挂，默认菜单留着只会提供一批用不上的快捷键
+  Menu.setApplicationMenu(null)
+
   await applyProxyConfig(store)
   createMainWindow()
   createTray()

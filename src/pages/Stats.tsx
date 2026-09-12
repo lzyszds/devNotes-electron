@@ -1,5 +1,7 @@
+import type { MouseEvent as ReactMouseEvent } from 'react'
 import { ArrowLeft, BarChart3, TrendingUp, Clock, Zap } from 'lucide-react'
 import { tools } from '../types'
+import WindowControls from '../components/layout/WindowControls'
 
 interface StatsProps {
   usageStats: Record<string, number>
@@ -19,9 +21,19 @@ export default function Stats({ usageStats, onBack }: StatsProps) {
   const totalUsage = Object.values(usageStats).reduce((a, b) => a + b, 0)
   const mostUsed = sortedStats[0]
 
+  // 无边框窗口没有系统标题栏，「双击标题栏最大化」这条系统行为得自己补回来。
+  // 落在交互控件上时不触发（返回按钮与红绿灯都带 no-drag）。
+  const handleTopbarDoubleClick = (event: ReactMouseEvent) => {
+    if ((event.target as HTMLElement).closest('.no-drag')) return
+    void window.electronAPI?.maximizeWindow()
+  }
+
   return (
     <div className="app-scene h-screen bg-slate-50 flex flex-col overflow-hidden text-slate-900">
-      <header className="drag-region bg-white border-b border-slate-200 h-[56px] px-6 flex items-center justify-between shrink-0 shadow-sm">
+      <header
+        onDoubleClick={handleTopbarDoubleClick}
+        className="drag-region bg-white border-b border-slate-200 h-[56px] px-6 flex items-center justify-between shrink-0 shadow-sm"
+      >
         <div className="flex items-center gap-4">
           <button 
             onClick={onBack}
@@ -31,6 +43,8 @@ export default function Stats({ usageStats, onBack }: StatsProps) {
           </button>
           <h1 className="text-sm font-bold tracking-tight">使用统计与分析</h1>
         </div>
+        {/* 无边框之后系统标题栏没了，这一页原本一条窗口控制都没有，等于关不掉也最小化不了 */}
+        <WindowControls />
       </header>
 
       <main className="flex-1 overflow-y-auto p-8">

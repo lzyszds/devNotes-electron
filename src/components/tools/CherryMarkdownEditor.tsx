@@ -1,7 +1,9 @@
-import { useEffect, useId, useRef } from 'react'
+import { useCallback, useEffect, useId, useRef } from 'react'
+import type { MouseEvent as ReactMouseEvent } from 'react'
 import Cherry from 'cherry-markdown'
 import 'cherry-markdown/dist/cherry-markdown.css'
 import { useNotes } from '../../context/NotesContext'
+import { useCherryContextMenu } from '../../hooks/useCherryContextMenu'
 
 type CherryInstance = InstanceType<typeof Cherry>
 
@@ -9,6 +11,8 @@ export type CherryMarkdownEditorProps = {
   value: string
   onChange?: (markdown: string) => void
   className?: string
+  /** 当前笔记标题，供右键菜单的「Front Matter」「当前文档信息」使用 */
+  title?: string
 }
 
 function fileToDataUrl(file: File): Promise<string> {
@@ -24,6 +28,7 @@ export default function CherryMarkdownEditor({
   value,
   onChange,
   className = '',
+  title = '',
 }: CherryMarkdownEditorProps) {
   const { registerInsertHandler } = useNotes()
   const reactId = useId().replace(/:/g, '')
@@ -33,6 +38,31 @@ export default function CherryMarkdownEditor({
   const onChangeRef = useRef(onChange)
   const suppressChangeRef = useRef(false)
   const latestValueRef = useRef(value)
+
+  const { onEditorContextMenu, onPreviewContextMenu } = useCherryContextMenu({
+    cherryRef,
+    title,
+  })
+
+  /**
+   * 编辑区与预览区同在这个容器里，按事件目标分流：
+   * - .cm-editor      → 可编辑菜单（真正能改文档）
+   * - .cherry-previewer → 只读菜单（复制/导出）
+   * 工具栏、TOC 侧栏等其它区域不接管，交给浏览器默认行为。
+   */
+  const handleContextMenu = useCallback(
+    (event: ReactMouseEvent) => {
+      const target = event.target as HTMLElement
+      if (target.closest('.cm-editor')) {
+        onEditorContextMenu(event)
+        return
+      }
+      if (target.closest('.cherry-previewer')) {
+        onPreviewContextMenu(event)
+      }
+    },
+    [onEditorContextMenu, onPreviewContextMenu]
+  )
 
   useEffect(() => {
     registerInsertHandler((prefix: string, suffix = '') => {
@@ -204,7 +234,10 @@ export default function CherryMarkdownEditor({
   }, [value])
 
   return (
-    <div className={`cherry-notes-editor h-full min-h-0 ${className}`}>
+    <div
+      className={`cherry-notes-editor h-full min-h-0 ${className}`}
+      onContextMenu={handleContextMenu}
+    >
       <div id={containerId} ref={mountRef} className="h-full w-full" />
     </div>
   )

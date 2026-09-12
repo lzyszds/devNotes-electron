@@ -2,29 +2,15 @@ import { useMemo } from 'react'
 import { useNotes } from '../../context/NotesContext'
 import CherryMarkdownEditor from './CherryMarkdownEditor'
 import { Loader2 } from 'lucide-react'
+import { computeDocStats } from '../../utils/markdownStats'
 
 export default function NotesTool() {
   const { ready, activeNote, handleContentChange } = useNotes()
 
   const content = activeNote?.content || ''
 
-  // 实时精细化统计
-  const stats = useMemo(() => {
-    const chineseChars = (content.match(/[\u4e00-\u9fa5]/g) || []).length
-    const englishWords = (content.match(/[a-zA-Z0-9_-]+/g) || []).length
-    const totalWords = chineseChars + englishWords
-    const totalChars = content.length
-    const totalLines = content ? content.split('\n').length : 0
-    const readingTime = Math.max(1, Math.ceil(totalWords / 300))
-    return {
-      chineseChars,
-      englishWords,
-      totalWords,
-      totalChars,
-      totalLines,
-      readingTime,
-    }
-  }, [content])
+  // 实时精细化统计（与右键菜单的「当前文档信息」共用同一套口径）
+  const stats = useMemo(() => computeDocStats(content), [content])
 
   if (!ready) {
     return (
@@ -52,6 +38,7 @@ export default function NotesTool() {
         key={activeNote.id}
         value={activeNote.content}
         onChange={handleContentChange}
+        title={activeNote.title}
       />
 
       {/* 淡淡悬浮在右下角内容背景上的字数与多维统计微胶囊 */}

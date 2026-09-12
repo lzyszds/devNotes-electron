@@ -1,6 +1,10 @@
 import { useState } from "react";
-import { Search, BarChart3, X, Minus } from "lucide-react";
+import { Search, BarChart3, X, Minus, FolderOpen, Copy } from "lucide-react";
 import { tools, toolCategories } from "../types";
+import { useContextMenu } from "../components/ui/ContextMenu";
+import { useToast } from "../components/ui/Toast";
+import { copyText } from "../utils/clipboard";
+import logo from "../assets/logo.png";
 
 interface HomeProps {
   onOpenTool: (id: string) => void;
@@ -16,6 +20,19 @@ export default function Home({
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
 
+  const { openContextMenu } = useContextMenu();
+  const { showToast } = useToast();
+
+  // 复制并给出轻量提示:提示为 fixed 浮层,不参与布局
+  const copyWithToast = async (text: string, label = "已复制") => {
+    if (!text) {
+      showToast("没有可复制的内容", "error");
+      return;
+    }
+    const ok = await copyText(text);
+    showToast(ok ? label : "复制失败", ok ? "default" : "error");
+  };
+
   const filteredTools = tools.filter((tool) => {
     const matchesSearch =
       tool.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -28,7 +45,14 @@ export default function Home({
   return (
     <div className="app-scene h-screen flex flex-col bg-white dark:bg-dark-bg overflow-hidden text-slate-900 dark:text-slate-100 transition-colors">
       {/* Discreet Window Controls (Overlay) */}
-      <div className="drag-region absolute top-0 left-0 right-0 h-11 flex justify-between items-center px-4 z-50">
+      <div
+        onDoubleClick={(event) => {
+          // 无边框窗口没有系统标题栏，双击标题栏最大化这条系统行为得自己补回来
+          if ((event.target as HTMLElement).closest('.no-drag')) return
+          window.electronAPI?.maximizeWindow()
+        }}
+        className="drag-region absolute top-0 left-0 right-0 h-11 flex justify-between items-center px-4 z-50"
+      >
         <div className="no-drag flex items-center gap-1.5">
           <div
             onClick={() => window.electronAPI?.closeWindow()}
@@ -63,11 +87,13 @@ export default function Home({
         <div className="max-w-4xl mx-auto pt-16">
           {/* Header */}
           <div className="text-center mb-2">
-            <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-brand-600 to-indigo-400 text-white mb-6 shadow-lg shadow-brand-500/20">
-              <span className="font-bold text-lg">Fe</span>
-            </div>
+            <img
+              src={logo}
+              alt="DevNotes"
+              className="inline-block h-12 w-12 object-contain mb-6"
+            />
             <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2 tracking-tight">
-              FeHelper 工具中心
+              DevNotes 工具中心
             </h1>
             <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">
               极致简洁的现代前端开发者工作台
@@ -121,6 +147,36 @@ export default function Home({
               <button
                 key={tool.id}
                 onClick={() => onOpenTool(tool.id)}
+                onContextMenu={(e) =>
+                  openContextMenu(e, [
+                    {
+                      id: "card-open",
+                      label: "打开",
+                      icon: <FolderOpen className="w-3.5 h-3.5" />,
+                      onSelect: () => onOpenTool(tool.id),
+                    },
+                    { id: "card-sep", separator: true },
+                    {
+                      id: "card-copy-name",
+                      label: "复制名称",
+                      icon: <Copy className="w-3.5 h-3.5" />,
+                      onSelect: () => void copyWithToast(tool.name, "已复制名称"),
+                    },
+                    {
+                      id: "card-copy-desc",
+                      label: "复制描述",
+                      icon: <Copy className="w-3.5 h-3.5" />,
+                      disabled: !tool.description,
+                      onSelect: () => void copyWithToast(tool.description, "已复制描述"),
+                    },
+                    {
+                      id: "card-copy-id",
+                      label: "复制 ID",
+                      icon: <Copy className="w-3.5 h-3.5" />,
+                      onSelect: () => void copyWithToast(tool.id, "已复制 ID"),
+                    },
+                  ])
+                }
                 className="motion-lift group flex flex-col items-center justify-center p-5 rounded-2xl bg-white dark:bg-dark-panel border border-slate-200/80 dark:border-dark-border hover:border-brand-500 dark:hover:border-indigo-500 hover:shadow-lg transition-all"
               >
                 <div className="h-10 w-10 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-dark-sidebar text-base font-bold text-slate-800 dark:text-slate-200 mb-3 group-hover:bg-brand-600 group-hover:text-white transition-colors">
@@ -148,7 +204,7 @@ export default function Home({
 
       <footer className="py-6 border-t border-slate-50 text-center">
         <p className="text-[9px] font-bold text-slate-300 uppercase tracking-[0.4em]">
-          FeHelper • v2026.4.2920 • 稳定版
+          DevNotes • v2026.4.2920 • 稳定版
         </p>
       </footer>
     </div>

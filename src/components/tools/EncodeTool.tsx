@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Copy, Trash2, History, Clock, ChevronRight, Shuffle, ArrowRightLeft, Sparkles, X } from 'lucide-react'
 import { useToolHistory } from '../../hooks/useToolHistory'
+import { useHistoryContextMenu } from '../../hooks/useHistoryContextMenu'
 
 const encodeTypes = [
   { id: 'base64', name: 'Base64', icon: 'B64', encode: (s: string) => btoa(unescape(encodeURIComponent(s))), decode: (s: string) => decodeURIComponent(escape(atob(s))) },
@@ -24,7 +25,15 @@ export default function EncodeTool() {
   const [error, setError] = useState('')
   const [showHistory, setShowHistory] = useState(false)
 
-  const { history, saveHistory, clearHistory } = useToolHistory<string>('encode')
+  const { history, saveHistory, clearHistory, removeHistoryItem } = useToolHistory<string>('encode')
+  // 历史记录右键菜单
+  const openHistoryMenu = useHistoryContextMenu<string>({
+    onUse: (item) => {
+      setInput(item.data)
+      setShowHistory(false)
+    },
+    onRemove: removeHistoryItem,
+  })
 
   const handleEncode = () => {
     if (!input.trim()) return
@@ -192,6 +201,7 @@ export default function EncodeTool() {
                history.map((item) => (
                 <button
                   key={item.id}
+                  onContextMenu={(e) => openHistoryMenu(e, item)}
                   onClick={() => { setInput(item.data); setShowHistory(false); }}
                   className="w-full text-left p-5 rounded-2xl bg-white border border-slate-200/60 shadow-sm hover:border-amber-500 hover:shadow-amber-500/10 transition-all group"
                 >

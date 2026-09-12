@@ -57,8 +57,9 @@ interface NotesContextType {
   handleCreate: () => void
   handleSelect: (id: string) => void
   handleDelete: (id: string) => void
+  handleRename: (id: string, title: string) => void
   handleContentChange: (content: string) => void
-  handleExport: () => Promise<void>
+  handleExport: (note?: NoteItem) => Promise<void>
   handleImport: () => Promise<void>
   viewMode: ViewMode
   setViewMode: (mode: ViewMode) => void
@@ -390,6 +391,23 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
     [notes, updateState]
   )
 
+  // 重命名文档:标题一旦手动指定,此后不再随正文首行变化
+  const handleRename = useCallback(
+    (id: string, title: string) => {
+      const next = title.trim().slice(0, 80)
+      const target = stateRef.current.notes.find((note) => note.id === id)
+      if (!target || !next || target.title === next) return
+      updateState(
+        (prev) => ({
+          ...prev,
+          notes: prev.notes.map((note) => (note.id === id ? { ...note, title: next } : note)),
+        }),
+        true
+      )
+    },
+    [updateState]
+  )
+
   const handleContentChange = useCallback(
     (content: string) => {
       if (!activeId) return
@@ -400,7 +418,6 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
             ? {
                 ...note,
                 content,
-                title: deriveTitleFromMarkdown(content, note.title || '未命名笔记'),
                 updatedAt: Date.now(),
               }
             : note
@@ -410,20 +427,22 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
     [activeId, updateState]
   )
 
-  const handleExport = useCallback(async () => {
-    if (!activeNote) return
-    const defaultName = `${activeNote.title || '未命名笔记'}.md`
+  // 未传参时导出当前文档;右键菜单可显式指定要导出的文档
+  const handleExport = useCallback(async (target?: NoteItem) => {
+    const note = target ?? activeNote
+    if (!note) return
+    const defaultName = `${note.title || '未命名笔记'}.md`
     try {
       if (window.electronAPI?.notesSaveFile) {
         const result = await window.electronAPI.notesSaveFile({
-          content: activeNote.content,
+          content: note.content,
           defaultPath: defaultName,
         })
         if (!result) return
         return
       }
 
-      const blob = new Blob([activeNote.content], { type: 'text/markdown;charset=utf-8;' })
+      const blob = new Blob([note.content], { type: 'text/markdown;charset=utf-8;' })
       const link = document.createElement('a')
       link.href = URL.createObjectURL(blob)
       link.download = defaultName
@@ -445,7 +464,9 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
 
       const content = file.content
       const mtime = file.mtimeMs ?? Date.now()
-      const fallbackTitle = file.name.replace(/\.(md|markdown|txt)$/i, '')
+      // 标题优先取文件名(而非正文首行),导入后用户也可随时自定义
+      const nameTitle = file.name.replace(/\.(md|markdown|txt)$/i, '').trim()
+      const fallbackTitle = nameTitle || deriveTitleFromMarkdown(content, '未命名笔记')
       const existing = stateRef.current.notes.find((note) => note.sourcePath === file.path)
 
       if (existing) {
@@ -463,7 +484,7 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
                   ? {
                       ...note,
                       content,
-                      title: deriveTitleFromMarkdown(content, note.title || fallbackTitle),
+                      title: note.title || fallbackTitle,
                       sourceMtime: mtime,
                       updatedAt: Date.now(),
                     }
@@ -475,7 +496,7 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
         }
       } else {
         const note = createEmptyNote({
-          title: deriveTitleFromMarkdown(content, fallbackTitle),
+          title: fallbackTitle,
           content,
           sourcePath: file.path,
           sourceMtime: mtime,
@@ -536,8 +557,9 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
         const file = input.files?.[0]
         if (!file) return
         const content = await file.text()
+        const fileNameTitle = file.name.replace(/\.(md|markdown|txt)$/i, '').trim()
         const note = createEmptyNote({
-          title: deriveTitleFromMarkdown(content, file.name.replace(/\.(md|markdown|txt)$/i, '')),
+          title: fileNameTitle || deriveTitleFromMarkdown(content, '未命名笔记'),
           content,
         })
         updateState(
@@ -697,6 +719,7 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
         handleCreate,
         handleSelect,
         handleDelete,
+        handleRename,
         handleContentChange,
         handleExport,
         handleImport,

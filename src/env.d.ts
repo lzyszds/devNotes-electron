@@ -1,3 +1,9 @@
+// Vite 会把图片资源解析成 URL 字符串,这里补上模块声明供 TS 识别
+declare module '*.png' {
+  const src: string
+  export default src
+}
+
 interface Window {
   electronAPI?: {
     minimizeWindow: () => Promise<void>
@@ -9,6 +15,9 @@ interface Window {
     storeGet: (key: string) => Promise<any>
     storeSet: (key: string, value: any) => Promise<void>
     storeDelete: (key: string) => Promise<void>
+    /** 主进程剪贴板读写(可选,浏览器环境下不存在) */
+    clipboardRead?: () => Promise<string>
+    clipboardWrite?: (text: string) => Promise<void>
     translateFetch?: (options: {
       url: string
       method?: string
