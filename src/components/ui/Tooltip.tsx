@@ -9,13 +9,7 @@ import {
 } from 'react'
 import type { ReactElement, ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-
-/** 气泡与触发元素之间的间距 */
-const GAP = 8
-/** 气泡与视口边缘的最小留白 */
-const VIEWPORT_MARGIN = 8
-/** 默认打开延迟：鼠标扫过一排工具栏按钮时不至于闪出一串提示 */
-const DEFAULT_DELAY = 240
+import { TOOLTIP_DELAY, computeTooltipPosition } from './tooltipPosition'
 
 export type TooltipProps = {
   /** 提示文案。传空字符串则完全不显示 */
@@ -46,7 +40,7 @@ export type TooltipProps = {
 export default function Tooltip({
   content,
   children,
-  delay = DEFAULT_DELAY,
+  delay = TOOLTIP_DELAY,
   disabled = false,
 }: TooltipProps) {
   const triggerRef = useRef<HTMLElement | null>(null)
@@ -106,18 +100,7 @@ export default function Tooltip({
   useLayoutEffect(() => {
     const bubble = bubbleRef.current
     if (!anchor || !bubble) return
-    const { width, height } = bubble.getBoundingClientRect()
-
-    // 默认在触发元素上方；顶到视口上沿就翻到下方
-    let top = anchor.top - GAP - height
-    if (top < VIEWPORT_MARGIN) top = anchor.bottom + GAP
-
-    // 与触发元素水平居中，再夹进视口范围
-    const centered = anchor.left + anchor.width / 2 - width / 2
-    const maxLeft = window.innerWidth - VIEWPORT_MARGIN - width
-    const left = Math.max(VIEWPORT_MARGIN, Math.min(centered, maxLeft))
-
-    setPos({ top, left })
+    setPos(computeTooltipPosition(anchor, bubble.getBoundingClientRect()))
   }, [anchor])
 
   if (!isValidElement(children)) return children

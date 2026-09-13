@@ -34,6 +34,7 @@ import ToolPage from '../../pages/ToolPage'
 import { useNotes } from '../../context/NotesContext'
 import SettingsModal, { type SettingsSection } from '../modals/SettingsModal'
 import { useContextMenu } from '../ui/ContextMenu'
+import Tooltip from '../ui/Tooltip'
 import { useToast } from '../ui/Toast'
 import { copyText } from '../../utils/clipboard'
 import { subscribeAppSettings } from '../../utils/settingsBus'
@@ -455,13 +456,14 @@ export default function DashboardLayout({
         <div className="flex items-center gap-3 flex-shrink-0">
           <WindowControls className="mr-1" />
 
-          <button
-            onClick={() => setIsSidebarOpen((prev) => !prev)}
-            className="no-drag p-1 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-dark-hover transition-colors"
-            title={isSidebarOpen ? '折叠侧边栏 (⌘B)' : '展开侧边栏 (⌘B)'}
-          >
-            <PanelLeft className="w-4 h-4" />
-          </button>
+          <Tooltip content={isSidebarOpen ? '折叠侧边栏 (⌘B)' : '展开侧边栏 (⌘B)'}>
+            <button
+              onClick={() => setIsSidebarOpen((prev) => !prev)}
+              className="no-drag p-1 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-dark-hover transition-colors"
+            >
+              <PanelLeft className="w-4 h-4" />
+            </button>
+          </Tooltip>
 
           <div className="h-4 w-[1px] bg-slate-200 dark:bg-dark-border" />
 
@@ -511,30 +513,32 @@ export default function DashboardLayout({
         {/* 右侧功能区 */}
         <div className="flex items-center gap-2.5 text-xs">
           {/* 深色/浅色模式切换 */}
-          <button
-            onClick={onToggleTheme}
-            className="no-drag p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-dark-hover rounded-lg transition-colors"
-            title={theme === 'dark' ? '切换浅色模式' : '切换深色模式'}
-          >
-            {theme === 'dark' ? (
-              <Moon className="w-4 h-4 text-indigo-400" />
-            ) : (
-              <Sun className="w-4 h-4 text-amber-500" />
-            )}
-          </button>
+          <Tooltip content={theme === 'dark' ? '切换浅色模式' : '切换深色模式'}>
+            <button
+              onClick={onToggleTheme}
+              className="no-drag p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-dark-hover rounded-lg transition-colors"
+            >
+              {theme === 'dark' ? (
+                <Moon className="w-4 h-4 text-indigo-400" />
+              ) : (
+                <Sun className="w-4 h-4 text-amber-500" />
+              )}
+            </button>
+          </Tooltip>
 
           <div className="h-4 w-[1px] bg-slate-200 dark:bg-dark-border" />
 
           {/* 右侧主操作动作 */}
           {isMarkdownActive ? (
-            <button
-              onClick={() => void handleExportNote()}
-              className="no-drag flex items-center gap-1.5 px-3 py-1 bg-brand-600 hover:bg-brand-700 text-white font-medium rounded-lg shadow-xs shadow-brand-500/20 transition-all"
-              title="导出当前 Markdown 文件"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>导出 .md</span>
-            </button>
+            <Tooltip content="导出当前 Markdown 文件">
+              <button
+                onClick={() => void handleExportNote()}
+                className="no-drag flex items-center gap-1.5 px-3 py-1 bg-brand-600 hover:bg-brand-700 text-white font-medium rounded-lg shadow-xs shadow-brand-500/20 transition-all"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>导出 .md</span>
+              </button>
+            </Tooltip>
           ) : (
             <button
               onClick={onBackToHub}
@@ -551,155 +555,164 @@ export default function DashboardLayout({
         {/* 2.1 工具箱极简侧边栏 (56px / w-14) */}
         <aside className="w-14 bg-slate-50 dark:bg-dark-sidebar border-r border-slate-200/80 dark:border-dark-border flex flex-col items-center py-3 gap-4 flex-shrink-0 z-20">
           {/* 品牌 Logo */}
-          <img
-            src={logo}
-            alt="DevNotes"
-            onClick={onBackToHub}
-            title="DevNotes 工具中心"
-            className="w-8 h-8 object-contain cursor-pointer transition-transform hover:scale-105 active:scale-95"
-          />
+          <Tooltip content="DevNotes 工具中心">
+            <img
+              src={logo}
+              alt="DevNotes"
+              onClick={onBackToHub}
+              className="w-8 h-8 object-contain cursor-pointer transition-transform hover:scale-105 active:scale-95"
+            />
+          </Tooltip>
 
           {/* 常用小工具 Rail 导航 */}
           <nav className="flex-1 flex flex-col gap-2 w-full px-2">
             {/* Markdown 笔记 */}
-            <button
-              onClick={() => onOpenTool('markdown-notes')}
-              className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${activeTabId === 'markdown-notes'
-                ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-indigo-400'
-                : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
-                }`}
-              title="Markdown 笔记"
-            >
-              <FileText className="w-4 h-4" />
-              {activeTabId === 'markdown-notes' && (
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-brand-600 rounded-r-md" />
-              )}
-            </button>
-
+            <Tooltip content="Markdown 笔记">
+              <button
+                onClick={() => onOpenTool('markdown-notes')}
+                className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${activeTabId === 'markdown-notes'
+                  ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-indigo-400'
+                  : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
+                  }`}
+              >
+                <FileText className="w-4 h-4" />
+                {activeTabId === 'markdown-notes' && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-brand-600 rounded-r-md" />
+                )}
+              </button>
+            </Tooltip>
+            {/* 文本翻译 */}
+            <Tooltip content="文本翻译">
+              <button
+                onClick={() => onOpenTool('text-translate')}
+                className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${activeTabId === 'text-translate'
+                  ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-indigo-400'
+                  : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
+                  }`}
+              >
+                <Languages className="w-4 h-4" />
+                {activeTabId === 'text-translate' && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-brand-600 rounded-r-md" />
+                )}
+              </button>
+            </Tooltip>
             {/* JSON 格式化 */}
-            <button
-              onClick={() => onOpenTool('json-format')}
-              className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${activeTabId === 'json-format'
-                ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-indigo-400'
-                : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
-                }`}
-              title="JSON 格式化"
-            >
-              <Braces className="w-4 h-4" />
-              {activeTabId === 'json-format' && (
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-brand-600 rounded-r-md" />
-              )}
-            </button>
+            <Tooltip content="JSON 格式化">
+              <button
+                onClick={() => onOpenTool('json-format')}
+                className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${activeTabId === 'json-format'
+                  ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-indigo-400'
+                  : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
+                  }`}
+              >
+                <Braces className="w-4 h-4" />
+                {activeTabId === 'json-format' && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-brand-600 rounded-r-md" />
+                )}
+              </button>
+            </Tooltip>
 
             {/* WebSocket 测试 */}
-            <button
-              onClick={() => onOpenTool('websocket')}
-              className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${activeTabId === 'websocket'
-                ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-indigo-400'
-                : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
-                }`}
-              title="WebSocket 测试"
-            >
-              <Radio className="w-4 h-4" />
-              {activeTabId === 'websocket' && (
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-brand-600 rounded-r-md" />
-              )}
-            </button>
+            <Tooltip content="WebSocket 测试">
+              <button
+                onClick={() => onOpenTool('websocket')}
+                className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${activeTabId === 'websocket'
+                  ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-indigo-400'
+                  : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
+                  }`}
+              >
+                <Radio className="w-4 h-4" />
+                {activeTabId === 'websocket' && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-brand-600 rounded-r-md" />
+                )}
+              </button>
+            </Tooltip>
 
             {/* 二维码工具 */}
-            <button
-              onClick={() => onOpenTool('qr-code')}
-              className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${activeTabId === 'qr-code'
-                ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-indigo-400'
-                : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
-                }`}
-              title="二维码工具"
-            >
-              <QrCode className="w-4 h-4" />
-              {activeTabId === 'qr-code' && (
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-brand-600 rounded-r-md" />
-              )}
-            </button>
+            <Tooltip content="二维码工具">
+              <button
+                onClick={() => onOpenTool('qr-code')}
+                className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${activeTabId === 'qr-code'
+                  ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-indigo-400'
+                  : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
+                  }`}
+              >
+                <QrCode className="w-4 h-4" />
+                {activeTabId === 'qr-code' && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-brand-600 rounded-r-md" />
+                )}
+              </button>
+            </Tooltip>
 
             {/* 编码转换 */}
-            <button
-              onClick={() => onOpenTool('en-decode')}
-              className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${activeTabId === 'en-decode'
-                ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-indigo-400'
-                : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
-                }`}
-              title="编码转换"
-            >
-              <ArrowLeftRight className="w-4 h-4" />
-              {activeTabId === 'en-decode' && (
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-brand-600 rounded-r-md" />
-              )}
-            </button>
+            <Tooltip content="编码转换">
+              <button
+                onClick={() => onOpenTool('en-decode')}
+                className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${activeTabId === 'en-decode'
+                  ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-indigo-400'
+                  : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
+                  }`}
+              >
+                <ArrowLeftRight className="w-4 h-4" />
+                {activeTabId === 'en-decode' && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-brand-600 rounded-r-md" />
+                )}
+              </button>
+            </Tooltip>
 
-            {/* JSON 翻译 */}
-            <button
-              onClick={() => onOpenTool('json-i18n')}
-              className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${activeTabId === 'json-i18n'
-                ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-indigo-400'
-                : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
-                }`}
-              title="JSON 翻译"
-            >
-              <Languages className="w-4 h-4" />
-              {activeTabId === 'json-i18n' && (
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-brand-600 rounded-r-md" />
-              )}
-            </button>
+
           </nav>
 
           {/* 底部：云同步状态灯 + 统计 + 工具库 + 设置 */}
           <div className="flex flex-col gap-2 w-full px-2">
             {/* 云同步状态灯（开启云同步后才出现），点击进入云同步设置 */}
             {cfConfig.enabled && (
-              <button
-                onClick={() => openSettings('cloud-sync')}
-                className={`relative w-full aspect-square flex items-center justify-center rounded-xl transition-all ${
-                  cfSyncStatus === 'error'
+              <Tooltip content={cfSyncMessage || 'Cloudflare 云同步'}>
+                <button
+                  onClick={() => openSettings('cloud-sync')}
+                  className={`relative w-full aspect-square flex items-center justify-center rounded-xl transition-all ${cfSyncStatus === 'error'
                     ? 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/30'
                     : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
-                }`}
-                title={cfSyncMessage || 'Cloudflare 云同步'}
-              >
-                <Cloud className="w-4 h-4" />
-                <span
-                  className={`absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full ${
-                    cfSyncStatus === 'syncing'
+                    }`}
+                >
+                  <Cloud className="w-4 h-4" />
+                  <span
+                    className={`absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full ${cfSyncStatus === 'syncing'
                       ? 'bg-orange-500 animate-pulse'
                       : cfSyncStatus === 'error'
                         ? 'bg-rose-500'
                         : 'bg-emerald-500'
-                  }`}
-                />
-              </button>
+                      }`}
+                  />
+                </button>
+              </Tooltip>
             )}
 
-            <button
-              onClick={onOpenStats}
-              className="w-full aspect-square flex items-center justify-center rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover transition-all"
-              title="使用统计"
-            >
-              <BarChart3 className="w-4 h-4" />
-            </button>
-            <button
-              onClick={onBackToHub}
-              className="w-full aspect-square flex items-center justify-center rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover transition-all"
-              title="全部小工具库"
-            >
-              <LayoutGrid className="w-4 h-4" />
-            </button>
+            <Tooltip content="使用统计">
+              <button
+                onClick={onOpenStats}
+                className="w-full aspect-square flex items-center justify-center rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover transition-all"
+              >
+                <BarChart3 className="w-4 h-4" />
+              </button>
+            </Tooltip>
+            <Tooltip content="全部小工具库">
+              <button
+                onClick={onBackToHub}
+                className="w-full aspect-square flex items-center justify-center rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover transition-all"
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </button>
+            </Tooltip>
             {/* 全局设置入口：云同步、翻译接口、外观等统一收在这里 */}
-            <button
-              onClick={() => openSettings('general')}
-              className="w-full aspect-square flex items-center justify-center rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover transition-all"
-              title="设置 (⌘,)"
-            >
-              <Settings className="w-4 h-4" />
-            </button>
+            <Tooltip content="设置 (⌘,)">
+              <button
+                onClick={() => openSettings('general')}
+                className="w-full aspect-square flex items-center justify-center rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover transition-all"
+              >
+                <Settings className="w-4 h-4" />
+              </button>
+            </Tooltip>
           </div>
         </aside>
 
@@ -942,15 +955,16 @@ export default function DashboardLayout({
 
         {/* 2.2.1 文档目录宽度分割线：负边距覆盖在侧边栏右边框上，不挤占主工作台 */}
         {isSidebarOpen && (
-          <div
-            onMouseDown={handleSidebarResizeStart}
-            onDoubleClick={resetSidebarWidth}
-            title="拖动调整文档目录宽度，双击恢复默认"
-            className={`-ml-[5px] w-[5px] flex-shrink-0 cursor-col-resize relative z-30 transition-colors ${isResizingSidebar
-              ? 'bg-brand-500 dark:bg-indigo-500'
-              : 'hover:bg-brand-400/70 dark:hover:bg-indigo-500/70'
-              }`}
-          />
+          <Tooltip content="拖动调整文档目录宽度，双击恢复默认">
+            <div
+              onMouseDown={handleSidebarResizeStart}
+              onDoubleClick={resetSidebarWidth}
+              className={`-ml-[5px] w-[5px] flex-shrink-0 cursor-col-resize relative z-30 transition-colors ${isResizingSidebar
+                ? 'bg-brand-500 dark:bg-indigo-500'
+                : 'hover:bg-brand-400/70 dark:hover:bg-indigo-500/70'
+                }`}
+            />
+          </Tooltip>
         )}
 
         {/* 2.3 编辑器 / 工具主工作台 (Editor Workspace) */}

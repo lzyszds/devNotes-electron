@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react'
 import { Columns2, PenLine, Type } from 'lucide-react'
+import Tooltip from '../ui/Tooltip'
 
 /** cherry = 双栏源码+预览(旧行为,默认) / ir = 即时渲染(类 Typora) / wysiwyg = 富文本(类 Word) */
 const MODES = ['cherry', 'ir', 'wysiwyg'] as const
@@ -55,22 +56,22 @@ export default function EditorModeSwitch({ value, onChange }: EditorModeSwitchPr
         const active = item.key === value
         const Icon = item.icon
         return (
-          <button
-            key={item.key}
-            type="button"
-            onClick={() => onChange(item.key)}
-            title={item.hint}
-            aria-pressed={active}
-            data-editor-mode={item.key}
-            className={`flex items-center gap-1 px-2 py-0.5 rounded-md transition-all ${
-              active
-                ? 'bg-white dark:bg-dark-panel shadow-2xs font-semibold text-slate-900 dark:text-white'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-white'
-            }`}
-          >
-            <Icon className="w-3 h-3" />
-            <span>{item.label}</span>
-          </button>
+          <Tooltip key={item.key} content={item.hint}>
+            <button
+              type="button"
+              onClick={() => onChange(item.key)}
+              aria-pressed={active}
+              data-editor-mode={item.key}
+              className={`flex items-center gap-1 px-2 py-0.5 rounded-md transition-all ${
+                active
+                  ? 'bg-white dark:bg-dark-panel shadow-2xs font-semibold text-slate-900 dark:text-white'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-white'
+              }`}
+            >
+              <Icon className="w-3 h-3" />
+              <span>{item.label}</span>
+            </button>
+          </Tooltip>
         )
       })}
     </div>

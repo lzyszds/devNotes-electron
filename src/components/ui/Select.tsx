@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Check, ChevronDown } from "lucide-react";
+import Tooltip from "./Tooltip";
 
 export interface SelectOption<T extends string | number = string> {
   value: T;
@@ -67,24 +68,27 @@ export default function Select<T extends string | number = string>({
   };
 
   return (
-    <div ref={rootRef} className={`relative ${className}`} title={title}>
-      <button
-        type="button"
-        disabled={disabled}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-controls={listboxId}
-        onClick={() => !disabled && setOpen((v) => !v)}
-        className={`${triggerBase} w-full ${open ? "border-indigo-400 ring-2 ring-indigo-500/10" : ""}`}
-      >
-        <span className={`truncate ${selected ? "text-slate-700" : "text-slate-400"}`}>
-          {displayLabel}
-        </span>
-        <ChevronDown
-          size={14}
-          className={`text-slate-400 shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
-        />
-      </button>
+    <div ref={rootRef} className={`relative ${className}`}>
+      {/* title 交给自绘 Tooltip，且只包在触发按钮上：挂到根 div 会把下方展开的选项列表也算进悬停区 */}
+      <Tooltip content={title}>
+        <button
+          type="button"
+          disabled={disabled}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-controls={listboxId}
+          onClick={() => !disabled && setOpen((v) => !v)}
+          className={`${triggerBase} w-full ${open ? "border-indigo-400 ring-2 ring-indigo-500/10" : ""}`}
+        >
+          <span className={`truncate ${selected ? "text-slate-700" : "text-slate-400"}`}>
+            {displayLabel}
+          </span>
+          <ChevronDown
+            size={14}
+            className={`text-slate-400 shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
+          />
+        </button>
+      </Tooltip>
 
       {open && (
         <ul

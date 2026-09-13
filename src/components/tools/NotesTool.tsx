@@ -124,14 +124,15 @@ export default function NotesTool() {
         <div className="flex-shrink-0 flex items-start gap-2 px-3 py-2 border-b border-amber-200/70 dark:border-amber-500/20 bg-amber-50/80 dark:bg-amber-500/10 text-[11px] leading-relaxed text-amber-700 dark:text-amber-300">
           <TriangleAlert className="w-3.5 h-3.5 mt-px flex-shrink-0" />
           <span className="min-w-0 flex-1">{warning}</span>
-          <button
-            type="button"
-            onClick={() => setWarning('')}
-            title="关闭提醒"
-            className="flex-shrink-0 p-0.5 rounded hover:bg-amber-200/50 dark:hover:bg-amber-500/20 transition-colors"
-          >
-            <X className="w-3 h-3" />
-          </button>
+          <Tooltip content="关闭提醒">
+            <button
+              type="button"
+              onClick={() => setWarning('')}
+              className="flex-shrink-0 p-0.5 rounded hover:bg-amber-200/50 dark:hover:bg-amber-500/20 transition-colors"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </Tooltip>
         </div>
       )}
 

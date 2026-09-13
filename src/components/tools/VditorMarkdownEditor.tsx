@@ -3,6 +3,7 @@ import Vditor from 'vditor'
 import 'vditor/dist/index.css'
 import { useNotes } from '../../context/NotesContext'
 import { resolveVditorCdn } from '../../utils/vditorAssets'
+import { attachDomTooltips } from '../ui/domTooltip'
 
 export type VditorEditorMode = 'ir' | 'wysiwyg'
 
@@ -193,6 +194,20 @@ export default function VditorMarkdownEditor({
       vditorRef.current = null
     }
   }, [containerId, mode])
+
+  // 工具栏提示改成和全站一致的自绘气泡。
+  // Vditor 的按钮自带 aria-label + 一套 CSS 黑底气泡,这里只关掉它的视觉气泡,
+  // aria-label 保留(读屏要用)。工具栏是异步建出来的,由 attachDomTooltips 内部的
+  // MutationObserver 兜底,所以不必等 after 回调。
+  useEffect(() => {
+    const container = mountRef.current
+    if (!container) return
+
+    return attachDomTooltips(container, {
+      selector: '.vditor-toolbar [aria-label], .vditor-panel [aria-label]',
+      nativeOffClass: 'no-native-tip',
+    })
+  }, [containerId])
 
   useEffect(() => {
     const vditor = vditorRef.current

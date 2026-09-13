@@ -9,6 +9,7 @@ import {
   type TranslateProvider,
 } from '../../utils/translateConfig'
 import { probeProvider } from '../../utils/translateProviders'
+import Tooltip from '../ui/Tooltip'
 
 const INPUT_CLASS =
   'w-full px-3 py-1.5 text-xs bg-white dark:bg-dark-panel border border-slate-200 dark:border-dark-border rounded-lg outline-none focus:border-indigo-500 text-slate-800 dark:text-white placeholder:text-slate-400'
@@ -117,14 +118,15 @@ export default function TranslateApiPanel() {
                 placeholder="sk-..."
                 className={`${INPUT_CLASS} pr-9 font-mono`}
               />
-              <button
-                type="button"
-                onClick={() => setShowKey((v) => !v)}
-                className="p-1 text-slate-400 hover:text-slate-600 absolute right-2 top-1/2 -translate-y-1/2"
-                title={showKey ? '隐藏' : '显示'}
-              >
-                {showKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-              </button>
+              <Tooltip content={showKey ? '隐藏' : '显示'}>
+                <button
+                  type="button"
+                  onClick={() => setShowKey((v) => !v)}
+                  className="p-1 text-slate-400 hover:text-slate-600 absolute right-2 top-1/2 -translate-y-1/2"
+                >
+                  {showKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                </button>
+              </Tooltip>
             </div>
           </div>
 
@@ -165,14 +167,15 @@ export default function TranslateApiPanel() {
                 placeholder="公共实例通常无需填写"
                 className={`${INPUT_CLASS} pr-9 font-mono`}
               />
-              <button
-                type="button"
-                onClick={() => setShowKey((v) => !v)}
-                className="p-1 text-slate-400 hover:text-slate-600 absolute right-2 top-1/2 -translate-y-1/2"
-                title={showKey ? '隐藏' : '显示'}
-              >
-                {showKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-              </button>
+              <Tooltip content={showKey ? '隐藏' : '显示'}>
+                <button
+                  type="button"
+                  onClick={() => setShowKey((v) => !v)}
+                  className="p-1 text-slate-400 hover:text-slate-600 absolute right-2 top-1/2 -translate-y-1/2"
+                >
+                  {showKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                </button>
+              </Tooltip>
             </div>
           </div>
         </div>

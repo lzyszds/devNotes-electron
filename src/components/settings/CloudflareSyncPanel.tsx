@@ -550,15 +550,16 @@ export default function CloudflareSyncPanel() {
                   </button>
 
                   {snapshots.length > 0 && (
-                    <button
-                      type="button"
-                      disabled={isOperating}
-                      onClick={handleClearAllSnapshots}
-                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg text-xs transition-colors"
-                      title="清空所有快照"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <Tooltip content="清空所有快照">
+                      <button
+                        type="button"
+                        disabled={isOperating}
+                        onClick={handleClearAllSnapshots}
+                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg text-xs transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </Tooltip>
                   )}
                 </div>
               </div>
@@ -663,14 +664,15 @@ export default function CloudflareSyncPanel() {
                             <span>回滚恢复</span>
                           </button>
 
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteSnapshot(snap.id)}
-                            className="p-1 text-slate-300 hover:text-rose-500 rounded transition-colors"
-                            title="删除此快照"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          <Tooltip content="删除此快照">
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteSnapshot(snap.id)}
+                              className="p-1 text-slate-300 hover:text-rose-500 rounded transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </Tooltip>
                         </div>
                       </div>
 
@@ -955,22 +957,24 @@ export default function CloudflareSyncPanel() {
             <div className="relative">
               <div className="flex items-center justify-between pb-1.5 text-xs text-slate-400">
                 <span>Worker 完整网关脚本</span>
-                <button
-                  onClick={handleCopyWorkerScript}
-                  className="flex items-center gap-1 px-2.5 py-1 bg-slate-100 dark:bg-dark-hover hover:bg-slate-200 rounded-md text-xs font-medium text-slate-700 dark:text-slate-300 transition-colors"
-                >
-                  {copied ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-emerald-600" />
-                      <span className="text-emerald-600 font-bold">已复制</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5" />
-                      <span>复制代码</span>
-                    </>
-                  )}
-                </button>
+                <Tooltip content="复制 Worker 脚本">
+                  <button
+                    onClick={handleCopyWorkerScript}
+                    className="flex items-center gap-1 px-2.5 py-1 bg-slate-100 dark:bg-dark-hover hover:bg-slate-200 rounded-md text-xs font-medium text-slate-700 dark:text-slate-300 transition-colors"
+                  >
+                    {copied ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        <span className="text-emerald-600 font-bold">已复制</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>复制代码</span>
+                      </>
+                    )}
+                  </button>
+                </Tooltip>
               </div>
 
               <pre className="p-3.5 bg-slate-900 text-slate-200 rounded-xl font-mono text-[11px] leading-5 max-h-72 overflow-y-auto border border-slate-800">

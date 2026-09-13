@@ -440,3 +440,20 @@ html.dark ::-webkit-scrollbar-thumb:hover {
   user-select: text !important;
   -webkit-user-select: text !important;
 }
+
+/*
+ * 工具栏提示已由 domTooltip.ts 接管(改成和全站一致的自绘气泡),
+ * 这里关掉 Vditor 自带的黑底气泡 —— 它是靠 :hover 切 display 显示的,
+ * 且没有 !important,所以下面这套能稳稳压住。
+ * 注意只关视觉气泡,aria-label 要保留(那是读屏用的无障碍名称)。
+ */
+.no-native-tip .vditor-tooltipped:hover::before,
+.no-native-tip .vditor-tooltipped:hover::after,
+.no-native-tip .vditor-tooltipped--hover::before,
+.no-native-tip .vditor-tooltipped--hover::after,
+.no-native-tip .vditor-tooltipped:focus::before,
+.no-native-tip .vditor-tooltipped:focus::after,
+.no-native-tip .vditor-tooltipped:active::before,
+.no-native-tip .vditor-tooltipped:active::after {
+  display: none !important;
+}

@@ -3,6 +3,7 @@ import type { MouseEvent as ReactMouseEvent } from 'react'
 import Cherry from 'cherry-markdown'
 import 'cherry-markdown/dist/cherry-markdown.css'
 import { useNotes } from '../../context/NotesContext'
+import { attachDomTooltips } from '../ui/domTooltip'
 import { useCherryContextMenu } from '../../hooks/useCherryContextMenu'
 
 type CherryInstance = InstanceType<typeof Cherry>
@@ -213,6 +214,26 @@ export default function CherryMarkdownEditor({
       }
       cherryRef.current = null
     }
+  }, [containerId])
+
+  // 工具栏提示改成和全站一致的自绘气泡。
+  // Cherry 的按钮把文案挂在原生 title 上(取自它的 zh_CN locale),attachDomTooltips 会把它
+  // 搬进 data-qtip 并摘掉 title,否则系统灰框会和自绘气泡一起冒出来。
+  // 覆盖四类:顶部工具栏、下拉项、选中文字后的气泡工具栏、块级浮动菜单 —— 后三类都是
+  // 用到时才渲染,靠内部的 MutationObserver 兜底。它们都挂在 .cherry(wrapperDom) 子树里,
+  // 所以容器内查询扫得到。
+  useEffect(() => {
+    const container = mountRef.current
+    if (!container) return
+
+    return attachDomTooltips(container, {
+      selector: [
+        '.cherry-toolbar [title]',
+        '.cherry-dropdown-item[title]',
+        '.cherry-bubble [title]',
+        '.cherry-floatmenu [title]',
+      ].join(', '),
+    })
   }, [containerId])
 
   useEffect(() => {

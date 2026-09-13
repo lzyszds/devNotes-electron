@@ -46,6 +46,7 @@ import {
   type TranslateApiConfig,
 } from "../../utils/translateConfig";
 import { openAppSettings } from "../../utils/settingsBus";
+import { LANGUAGES, langName } from "../../utils/languages";
 import { Select } from "../ui";
 import Tooltip from "../ui/Tooltip";
 
@@ -62,34 +63,8 @@ interface LangResultState extends LangTranslateResult {
   translating?: boolean;
 }
 
-const LANGUAGES = [
-  { code: "zh", name: "中文" },
-  { code: "zh-TW", name: "繁体中文" },
-  { code: "en", name: "英文" },
-  { code: "ja", name: "日语" },
-  { code: "ko", name: "韩语" },
-  { code: "fr", name: "法语" },
-  { code: "de", name: "德语" },
-  { code: "es", name: "西班牙语" },
-  { code: "ru", name: "俄语" },
-  { code: "pt", name: "葡萄牙语" },
-  { code: "it", name: "意大利语" },
-  { code: "ar", name: "阿拉伯语" },
-  { code: "vi", name: "越南语" },
-  { code: "th", name: "泰语" },
-  { code: "id", name: "印尼语" },
-  { code: "ms", name: "马来语" },
-  { code: "tr", name: "土耳其语" },
-  { code: "pl", name: "波兰语" },
-  { code: "nl", name: "荷兰语" },
-  { code: "hi", name: "印地语" },
-];
-
 const PROTECTED_TERMS_STORAGE_KEY = "json-i18n-protected-terms";
 const DEFAULT_PROTECTED_TERMS = ["QQlink", "QQLink"];
-
-const langName = (code: string) =>
-  LANGUAGES.find((l) => l.code === code)?.name || code;
 
 /** 统一控件尺寸：高度 36px、圆角、字号 */
 const UI = {
@@ -850,14 +825,15 @@ export default function JsonI18nTool() {
             {/* 选中自定义引擎但没填配置时给出明确出口，而不是等翻译时才失败 */}
             {isProvider(translationApi) &&
               !isProviderConfigured(translateConfig) && (
-                <button
-                  onClick={() => openAppSettings("translate-api")}
-                  className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-amber-300 bg-amber-50 text-xs font-semibold text-amber-700 transition hover:bg-amber-100 shrink-0"
-                  title="打开顶栏的翻译接口设置"
-                >
-                  <AlertTriangle size={14} />
-                  未配置，点此填写接口
-                </button>
+                <Tooltip content="打开顶栏的翻译接口设置">
+                  <button
+                    onClick={() => openAppSettings("translate-api")}
+                    className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-amber-300 bg-amber-50 text-xs font-semibold text-amber-700 transition hover:bg-amber-100 shrink-0"
+                  >
+                    <AlertTriangle size={14} />
+                    未配置，点此填写接口
+                  </button>
+                </Tooltip>
               )}
 
             <Select
