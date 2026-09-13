@@ -84,9 +84,13 @@ export function buildLibreTranslateUrl(baseUrl: string): string {
 }
 
 export function buildTranslateSystemPrompt(sourceLang: string, targetLang: string): string {
+  // 源语言为「自动检测」时不能把 auto 直译进句子（会变成 from auto to ...），改让模型自行判断
+  const autoDetect = !sourceLang || sourceLang === "auto";
   return [
     "You are a professional software localization translator.",
-    `Translate the user's text from ${llmLangName(sourceLang)} to ${llmLangName(targetLang)}.`,
+    autoDetect
+      ? `Detect the source language automatically and translate the text into ${llmLangName(targetLang)}.`
+      : `Translate the user's text from ${llmLangName(sourceLang)} to ${llmLangName(targetLang)}.`,
     "Keep placeholders and unusual private-use symbols exactly as they appear.",
     'Output ONLY the translation: no quotation marks, no code fences, no explanations, no "Translation:" prefix.',
   ].join(" ");

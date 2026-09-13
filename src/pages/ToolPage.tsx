@@ -7,6 +7,7 @@ import TimestampTool from '../components/tools/TimestampTool'
 import RegexpTool from '../components/tools/RegexpTool'
 import PasswordTool from '../components/tools/PasswordTool'
 import WebsocketTool from '../components/tools/WebsocketTool'
+import TextTranslateTool from '../components/tools/TextTranslateTool'
 import { tools } from '../types'
 
 const NotesTool = lazy(() => import('../components/tools/NotesTool'))
@@ -16,6 +17,7 @@ const toolComponents: Record<string, React.ComponentType<any>> = {
   'json-format': () => <JsonFormatTool mode="format" />,
   'json-diff': () => <JsonFormatTool mode="diff" />,
   'json-i18n': JsonI18nTool,
+  'text-translate': TextTranslateTool,
   'qr-code': QrCodeTool,
   'en-decode': EncodeTool,
   'timestamp': TimestampTool,
