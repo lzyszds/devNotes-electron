@@ -36,6 +36,16 @@ import {
   type JsonI18nSettings,
   type AutoExpandMode,
 } from "../../utils/jsonI18nSettings";
+import {
+  getCachedTranslateConfig,
+  isProvider,
+  isProviderConfigured,
+  loadTranslateConfig,
+  providerLabel,
+  subscribeTranslateConfig,
+  type TranslateApiConfig,
+} from "../../utils/translateConfig";
+import { openAppSettings } from "../../utils/settingsBus";
 import { Select } from "../ui";
 
 type TranslationMode = "full" | "path" | "key-mapping";
@@ -248,6 +258,10 @@ export default function JsonI18nTool() {
   const [translationMode, setTranslationMode] =
     useState<TranslationMode>("full");
   const [translationApi, setTranslationApi] = useState<TranslationAPI>("gtx");
+  // 用户自填的在线翻译接口配置（openai / libretranslate 两个引擎共用）
+  const [translateConfig, setTranslateConfig] = useState<TranslateApiConfig>(
+    getCachedTranslateConfig()
+  );
   const [jsonPath, setJsonPath] = useState("");
   const [keyMappings, setKeyMappings] = useState<KeyMapping[]>([]);
   const [newMappingOriginal, setNewMappingOriginal] = useState("");
@@ -302,6 +316,9 @@ export default function JsonI18nTool() {
         setSettings(mergeSettings(saved as Partial<JsonI18nSettings>));
       }
     });
+    // 自定义在线翻译接口配置：读入一次，之后靠订阅同步顶栏弹窗的保存结果
+    loadTranslateConfig().then(setTranslateConfig);
+    return subscribeTranslateConfig(setTranslateConfig);
   }, []);
 
   const updateSettings = useCallback(async (patch: Partial<JsonI18nSettings>) => {
@@ -477,6 +494,15 @@ export default function JsonI18nTool() {
   const translateJson = async () => {
     if (!input.trim() || targetLangs.length === 0) return;
 
+    // 自定义引擎没配好就别开跑：否则每条文本都白跑一次请求再报错
+    if (isProvider(translationApi) && !isProviderConfigured(translateConfig)) {
+      setError(
+        `尚未配置「${providerLabel(translationApi)}」接口。\n\n` +
+          "请点击上方「未配置，点此填写接口」按钮，或从顶栏进入「翻译接口」设置填写后重试。"
+      );
+      return;
+    }
+
     setIsTranslating(true);
     setError("");
     setLangResults({});
@@ -524,6 +550,7 @@ export default function JsonI18nTool() {
         sourceLang,
         targetLangs,
         api: translationApi,
+        providerConfig: translateConfig,
         textConcurrency,
         langConcurrency: Math.min(3, targetLangs.length),
         protectedTerms,
@@ -562,9 +589,14 @@ export default function JsonI18nTool() {
 
       const successCount = results.filter((r) => r.translatedCount > 0).length;
       if (successCount === 0) {
+        // 自定义接口的失败原因必须原样呈现：配置错误（401 / 模型名写错）不能被
+        // 「换个 API 试试」这种通用文案盖过去，否则用户不知道该去改配置。
+        const providerError = results.find((r) => r.error)?.error;
         setError(
-          "所有翻译 API 都未能返回有效结果。\n\n" +
-            "建议：配置代理后点击「测试 Google」，或切换到 MyMemory API。"
+          isProvider(translationApi) && providerError
+            ? `「${providerLabel(translationApi)}」翻译失败。\n\n${providerError}`
+            : "所有翻译 API 都未能返回有效结果。\n\n" +
+              "建议：配置代理后点击「测试 Google」，或切换到 MyMemory API。"
         );
       } else {
         if (settings.autoExpand === "first" || settings.autoExpand === "allWhenDone") {
@@ -807,8 +839,23 @@ export default function JsonI18nTool() {
               options={[
                 { value: "gtx", label: "GTX" },
                 { value: "mymemory", label: "MyMemory" },
+                { value: "openai", label: "OpenAI 兼容" },
+                { value: "libretranslate", label: "LibreTranslate" },
               ]}
             />
+
+            {/* 选中自定义引擎但没填配置时给出明确出口，而不是等翻译时才失败 */}
+            {isProvider(translationApi) &&
+              !isProviderConfigured(translateConfig) && (
+                <button
+                  onClick={() => openAppSettings("translate-api")}
+                  className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-amber-300 bg-amber-50 text-xs font-semibold text-amber-700 transition hover:bg-amber-100 shrink-0"
+                  title="打开顶栏的翻译接口设置"
+                >
+                  <AlertTriangle size={14} />
+                  未配置，点此填写接口
+                </button>
+              )}
 
             <Select
               value={textConcurrency}

@@ -6,8 +6,16 @@ import {
 } from "./translateFetch";
 import { runPool } from "./concurrencyPool";
 import { translateWithProtection } from "./termProtection";
+import {
+  isProvider,
+  isProviderConfigured,
+  providerLabel,
+  type TranslateApiConfig,
+  type TranslateProvider,
+} from "./translateConfig";
+import { translateWithLibreTranslate, translateWithOpenAI } from "./translateProviders";
 
-export type TranslationAPI = "gtx" | "mymemory";
+export type TranslationAPI = "gtx" | "mymemory" | "openai" | "libretranslate";
 
 export const LANG_CODE_MAP: Record<string, string> = {
   zh: "zh-CN",
@@ -112,23 +120,48 @@ export interface TranslateBatchOptions {
   sourceLang: string;
   targetLang: string;
   api: TranslationAPI;
+  /** 自定义接口（openai / libretranslate）所需配置 */
+  providerConfig?: TranslateApiConfig;
   textConcurrency?: number;
   protectedTerms?: string[];
   onProgress?: (done: number, total: number) => void;
 }
 
+export interface TranslateBatchResult {
+  results: string[];
+  apiUsed: string;
+  /** 是否全部条目都翻译成功 */
+  ok: boolean;
+  error?: string;
+}
+
 export async function translateTextBatch(
   options: TranslateBatchOptions
-): Promise<{ results: string[]; apiUsed: string }> {
+): Promise<TranslateBatchResult> {
   const {
     texts,
     sourceLang,
     targetLang,
     api,
+    providerConfig,
     textConcurrency = DEFAULT_TEXT_CONCURRENCY,
     protectedTerms = [],
     onProgress,
   } = options;
+
+  // 自定义接口走独立路径：失败即报错，绝不改道 MyMemory
+  if (isProvider(api)) {
+    return translateBatchWithProvider(
+      texts,
+      sourceLang,
+      targetLang,
+      api,
+      providerConfig,
+      textConcurrency,
+      protectedTerms,
+      onProgress
+    );
+  }
 
   const translateOne = (text: string) =>
     translateWithProtection(text, protectedTerms, (t) =>
@@ -152,7 +185,7 @@ export async function translateTextBatch(
         );
         const hasAny = results.some((r, i) => r && r.trim() && r !== texts[i]);
         if (hasAny) {
-          return { results, apiUsed: "GTX Single (并发)" };
+          return { results, apiUsed: "GTX Single (并发)", ok: true };
         }
       } catch (e) {
         console.warn("[翻译] GTX 并发失败:", (e as Error).message);
@@ -169,10 +202,84 @@ export async function translateTextBatch(
   );
   const hasAny = results.some((r, i) => r && r.trim() && r !== texts[i]);
   if (hasAny) {
-    return { results, apiUsed: "MyMemory (并发)" };
+    return { results, apiUsed: "MyMemory (并发)", ok: true };
   }
 
-  return { results: texts.map((t) => t), apiUsed: "失败（原文保留）" };
+  return {
+    results: texts.map((t) => t),
+    apiUsed: "失败（原文保留）",
+    ok: false,
+    error: "GTX 与 MyMemory 均不可用",
+  };
+}
+
+async function translateBatchWithProvider(
+  texts: string[],
+  sourceLang: string,
+  targetLang: string,
+  provider: TranslateProvider,
+  config: TranslateApiConfig | undefined,
+  textConcurrency: number,
+  protectedTerms: string[],
+  onProgress?: (done: number, total: number) => void
+): Promise<TranslateBatchResult> {
+  const label = providerLabel(provider);
+
+  if (!config || config.provider !== provider || !isProviderConfigured(config)) {
+    return {
+      results: texts.map((t) => t),
+      apiUsed: "未配置",
+      ok: false,
+      error: `尚未配置「${label}」接口，请先在顶栏「翻译接口」设置中填写。`,
+    };
+  }
+
+  const errors: string[] = [];
+  let failed = 0;
+
+  const translateOne = (text: string) =>
+    translateWithProtection(text, protectedTerms, async (t) => {
+      const outcome =
+        provider === "openai"
+          ? await translateWithOpenAI(t, sourceLang, targetLang, config.openai)
+          : await translateWithLibreTranslate(
+              t,
+              sourceLang,
+              targetLang,
+              config.libretranslate
+            );
+
+      if (!outcome.ok || !outcome.text) {
+        failed++;
+        const reason = outcome.error || "翻译失败";
+        if (!errors.includes(reason)) errors.push(reason);
+        return t;
+      }
+      return outcome.text;
+    });
+
+  // 第三方实例与 LLM 普遍限流，压低并发
+  const results = await runPool(
+    texts,
+    translateOne,
+    Math.min(4, textConcurrency),
+    onProgress
+  );
+
+  if (failed === 0) {
+    return { results, apiUsed: `${label} (${texts.length})`, ok: true };
+  }
+
+  const succeeded = texts.length - failed;
+  return {
+    results,
+    apiUsed: `${label} (${succeeded}/${texts.length})`,
+    ok: false,
+    error:
+      succeeded > 0
+        ? `部分条目翻译失败（${succeeded}/${texts.length} 成功）：${errors[0]}`
+        : errors[0] || "全部条目翻译失败",
+  };
 }
 
 export interface JsonNode {
@@ -259,6 +366,8 @@ export interface MultiLangTranslateOptions {
   sourceLang: string;
   targetLangs: string[];
   api: TranslationAPI;
+  /** 自定义接口（openai / libretranslate）所需配置 */
+  providerConfig?: TranslateApiConfig;
   textConcurrency?: number;
   langConcurrency?: number;
   protectedTerms?: string[];
@@ -277,6 +386,7 @@ export async function translateMultiLang(
     sourceLang,
     targetLangs,
     api,
+    providerConfig,
     textConcurrency = DEFAULT_TEXT_CONCURRENCY,
     langConcurrency = DEFAULT_LANG_CONCURRENCY,
     protectedTerms = [],
@@ -294,11 +404,12 @@ export async function translateMultiLang(
     onLangStart?.(targetLang);
 
     try {
-      const { results, apiUsed } = await translateTextBatch({
+      const { results, apiUsed, ok, error } = await translateTextBatch({
         texts,
         sourceLang,
         targetLang,
         api,
+        providerConfig,
         textConcurrency,
         protectedTerms,
         onProgress: (done, total) => {
@@ -328,7 +439,8 @@ export async function translateMultiLang(
         apiUsed,
         translatedCount,
         totalCount: stringsToTranslate.length,
-        status: "done",
+        status: ok ? "done" : "error",
+        error: ok ? undefined : error,
       };
       onLangComplete?.(result);
       return result;

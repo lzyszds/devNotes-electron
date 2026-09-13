@@ -34,9 +34,11 @@ import { tools, toolCategories } from '../../types'
 import ToolPage from '../../pages/ToolPage'
 import { useNotes } from '../../context/NotesContext'
 import CloudflareSyncModal from '../modals/CloudflareSyncModal'
+import TranslateApiSettingsModal from '../modals/TranslateApiSettingsModal'
 import { useContextMenu } from '../ui/ContextMenu'
 import { useToast } from '../ui/Toast'
 import { copyText } from '../../utils/clipboard'
+import { subscribeAppSettings } from '../../utils/settingsBus'
 import logo from '../../assets/logo.png'
 import WindowControls from './WindowControls'
 
@@ -69,6 +71,7 @@ export default function DashboardLayout({
 }: DashboardLayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [isCmdOpen, setIsCmdOpen] = useState(false)
+  const [isTranslateSettingsOpen, setIsTranslateSettingsOpen] = useState(false)
   const [cmdSearch, setCmdSearch] = useState('')
   const [toolFilter, setToolFilter] = useState('')
   const [activeCategory, setActiveCategory] = useState('all')
@@ -177,6 +180,13 @@ export default function DashboardLayout({
     }
   }, [isCmdOpen])
 
+  // 工具内部想打开全局设置（如翻译工具提示「去配置」）时，通过事件总线通知这里
+  useEffect(() => {
+    return subscribeAppSettings((topic) => {
+      if (topic === 'translate-api') setIsTranslateSettingsOpen(true)
+    })
+  }, [])
+
   // 窗口控制（顶栏三个圆点由 WindowControls 自己调 IPC，这里只留双击要用的最大化）
   const handleMaximize = () => window.electronAPI?.maximizeWindow()
 
@@ -237,6 +247,15 @@ export default function DashboardLayout({
       icon: Cloud,
       action: () => {
         setIsCfModalOpen(true)
+      },
+    },
+    {
+      id: 'cmd-translate-api-settings',
+      title: '在线翻译接口设置',
+      shortcut: '',
+      icon: Languages,
+      action: () => {
+        setIsTranslateSettingsOpen(true)
       },
     },
     {
@@ -453,6 +472,16 @@ export default function DashboardLayout({
             ) : cfSyncStatus === 'success' ? (
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
             ) : null}
+          </button>
+
+          {/* 在线翻译接口设置 */}
+          <button
+            onClick={() => setIsTranslateSettingsOpen(true)}
+            className="no-drag flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200/80 dark:border-dark-border text-xs font-medium text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-dark-hover transition-all"
+            title="配置在线翻译接口（OpenAI 兼容 / LibreTranslate）"
+          >
+            <Languages className="w-3.5 h-3.5 text-indigo-500" />
+            <span>翻译接口</span>
           </button>
 
           {/* 深色/浅色模式切换 */}
@@ -1025,6 +1054,12 @@ export default function DashboardLayout({
 
       {/* Cloudflare 同步管理模态框 */}
       <CloudflareSyncModal />
+
+      {/* 在线翻译接口设置模态框 */}
+      <TranslateApiSettingsModal
+        open={isTranslateSettingsOpen}
+        onClose={() => setIsTranslateSettingsOpen(false)}
+      />
     </div>
   )
 }
