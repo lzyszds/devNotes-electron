@@ -5,12 +5,6 @@
   "description": "DevNotes (React + TypeScript + Tailwind)",
   "main": "dist-electron/main.js",
   "scripts": {
-    "sync:vditor": "node scripts/sync-vditor-assets.cjs",
-    "predev": "npm run sync:vditor",
-    "preelectron:dev": "npm run sync:vditor",
-    "prebuild": "npm run sync:vditor",
-    "prebuild:all": "npm run sync:vditor",
-    "prebuild:web": "npm run sync:vditor",
     "dev": "vite",
     "build": "tsc && vite build && node scripts/run-electron-builder.cjs",
     "build:all": "tsc && vite build && node scripts/run-electron-builder.cjs --mac --win",
@@ -21,16 +15,19 @@
     "icons": "node scripts/generate-iconset.cjs && node scripts/generate-ico.cjs && node scripts/generate-icns.cjs"
   },
   "dependencies": {
+    "@milkdown/kit": "^7.22.1",
+    "@milkdown/plugin-highlight": "^7.22.1",
     "cherry-markdown": "^0.11.10",
     "electron-log": "^5.2.4",
     "electron-store": "^11.0.2",
+    "highlight.js": "^11.12.0",
+    "lowlight": "^3.3.0",
     "lucide-react": "^0.460.0",
     "marked": "^18.0.12",
     "mermaid": "^12.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.28.0",
-    "vditor": "^3.11.3"
+    "react-router-dom": "^6.28.0"
   },
   "devDependencies": {
     "@codemirror/state": "^6.7.4",

@@ -1,9 +1,9 @@
 import type { ComponentType } from 'react'
-import { Columns2, PenLine, Type } from 'lucide-react'
+import { Columns2, PenLine } from 'lucide-react'
 import Tooltip from '../ui/Tooltip'
 
-/** cherry = 双栏源码+预览(旧行为,默认) / ir = 即时渲染(类 Typora) / wysiwyg = 富文本(类 Word) */
-const MODES = ['cherry', 'ir', 'wysiwyg'] as const
+/** cherry = 双栏源码+预览 / milkdown = 所见即所得(类 Typora,基于 Milkdown,默认) */
+const MODES = ['cherry', 'milkdown'] as const
 export type EditorMode = (typeof MODES)[number]
 
 const STORAGE_KEY = 'fehelper-editor-mode'
@@ -17,27 +17,26 @@ const MODE_ITEMS: {
   {
     key: 'cherry',
     label: '双栏',
-    hint: 'Cherry 双栏:左侧源码、右侧预览',
+    hint: 'Cherry 双栏:左侧源码、右侧预览,支持 ::: 面板/时间线等专有语法',
     icon: Columns2,
   },
   {
-    key: 'ir',
-    label: '即时渲染',
-    hint: '类 Typora:光标所在行显示 Markdown 标记,离开即渲染成标题、列表',
+    key: 'milkdown',
+    label: '所见即所得',
+    hint: '类 Typora:直接排版,不显示 Markdown 标记。不支持 Cherry 的 ::: 专有语法',
     icon: PenLine,
-  },
-  {
-    key: 'wysiwyg',
-    label: '富文本',
-    hint: '类 Word:任何时刻都不显示 Markdown 标记',
-    icon: Type,
   },
 ]
 
-/** 读取上次选择的模式;值非法(旧版本残留、手改过 localStorage)时回退到双栏 */
+/**
+ * 读取上次选择的模式。
+ * 没选过时默认所见即所得(直接排版,对新手最省事)。
+ * 值非法时也走同一个默认值 —— 这同时兜住了老版本存下的 'ir' / 'wysiwyg'
+ * (Vditor 时代的两个模式已被替换成 Milkdown 的所见即所得)。
+ */
 export function readEditorMode(): EditorMode {
   const saved = localStorage.getItem(STORAGE_KEY)
-  return MODES.find((mode) => mode === saved) ?? 'cherry'
+  return MODES.find((mode) => mode === saved) ?? 'milkdown'
 }
 
 export function persistEditorMode(mode: EditorMode): void {

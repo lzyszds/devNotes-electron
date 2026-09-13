@@ -180,7 +180,7 @@ export default function ModernMarkdownWorkbench() {
     return (
       <div className="flex h-full items-center justify-center bg-white dark:bg-dark-panel text-slate-400">
         <div className="flex items-center gap-2 text-xs font-medium">
-          <Loader2 className="w-4 h-4 animate-spin text-brand-600" />
+          <Loader2 className="w-4 h-4 animate-spin text-logo-500" />
           正在载入文档...
         </div>
       </div>
@@ -206,7 +206,7 @@ export default function ModernMarkdownWorkbench() {
           </div>
           <button
             onClick={() => setUseCherry(false)}
-            className="flex items-center gap-1 px-2.5 py-0.5 bg-white dark:bg-dark-panel border border-slate-200 dark:border-dark-border rounded-md text-[11px] font-medium text-slate-600 dark:text-slate-300 hover:text-brand-600 dark:hover:text-indigo-400 shadow-2xs transition-all hover:bg-slate-50"
+            className="flex items-center gap-1 px-2.5 py-0.5 bg-white dark:bg-dark-panel border border-slate-200 dark:border-dark-border rounded-md text-[11px] font-medium text-slate-600 dark:text-slate-300 hover:text-brand-600 dark:hover:text-brand-400 shadow-2xs transition-all hover:bg-slate-50"
           >
             <ArrowLeft className="w-3 h-3" />
             <span>返回现代工作台</span>
@@ -219,6 +219,9 @@ export default function ModernMarkdownWorkbench() {
             key={activeNote.id}
             value={activeNote.content}
             onChange={handleContentChange}
+            // NotesContext 的 ViewMode 用 'code' 表示纯编辑，编辑器外壳用 'edit'，这里对一下
+            viewMode={viewMode === 'code' ? 'edit' : viewMode}
+            onViewModeChange={(next) => setViewMode(next === 'edit' ? 'code' : next)}
           />
         </div>
       </div>
@@ -286,7 +289,7 @@ export default function ModernMarkdownWorkbench() {
           <div className="h-3.5 w-[1px] bg-slate-200 dark:bg-dark-border mx-1" />
           <button
             onClick={insertMermaidDemo}
-            className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-brand-600 dark:text-indigo-400 bg-brand-50 dark:bg-brand-500/10 hover:bg-brand-100 dark:hover:bg-brand-500/20 font-medium transition-colors"
+            className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-500/10 hover:bg-brand-100 dark:hover:bg-brand-500/20 font-medium transition-colors"
             title="插入 Mermaid 时序图示例"
           >
             <GitMerge className="w-3.5 h-3.5" /> 插入 Mermaid 时序图
@@ -367,7 +370,7 @@ export default function ModernMarkdownWorkbench() {
           {viewMode === 'split' && (
             <div
               onMouseDown={handleMouseDown}
-              className="w-[5px] hover:w-[7px] bg-slate-200 dark:bg-dark-border hover:bg-brand-500 dark:hover:bg-indigo-500 cursor-col-resize transition-all duration-150 relative z-20 flex items-center justify-center group flex-shrink-0"
+              className="w-[5px] hover:w-[7px] bg-slate-200 dark:bg-dark-border hover:bg-brand-500 dark:hover:bg-brand-500 cursor-col-resize transition-all duration-150 relative z-20 flex items-center justify-center group flex-shrink-0"
               title="按住拖动调整分栏比例"
             >
               <div className="w-[1px] h-6 bg-slate-400 group-hover:bg-white rounded-full pointer-events-none" />
@@ -385,7 +388,7 @@ export default function ModernMarkdownWorkbench() {
               <div className="max-w-3xl mx-auto mb-6 flex items-center justify-between pb-3 border-b border-slate-200/80 dark:border-dark-border">
                 <button
                   onClick={() => setViewMode('split')}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-dark-panel border border-slate-200 dark:border-dark-border rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-brand-600 dark:hover:text-indigo-400 hover:border-brand-300 dark:hover:border-indigo-500/30 shadow-2xs transition-all hover:bg-brand-50/50 dark:hover:bg-dark-hover"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-dark-panel border border-slate-200 dark:border-dark-border rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-brand-600 dark:hover:text-brand-400 hover:border-brand-300 dark:hover:border-brand-500/30 shadow-2xs transition-all hover:bg-brand-50/50 dark:hover:bg-dark-hover"
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
                   <span>返回编辑</span>

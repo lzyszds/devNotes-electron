@@ -4,6 +4,13 @@ declare module '*.png' {
   export default src
 }
 
+// Vite 的 ?inline 后缀:把资源文件当字符串导入(不走 URL/文件),这里用于内联
+// highlight.js 的主题 CSS。项目没有引入 vite/client,所以自己补一条最小声明。
+declare module '*?inline' {
+  const content: string
+  export default content
+}
+
 // Vite 注入的环境变量。只声明本项目用得到的字段:
 // dev 下 BASE_URL 是 "/",生产构建是 "./"(项目用相对 base,便于 file:// 加载)
 interface ImportMetaEnv {

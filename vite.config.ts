@@ -50,7 +50,7 @@ export default defineConfig({
   },
   optimizeDeps: {
     // NotesTool 走 lazy() 边界，预打包可避免首次进入笔记页触发依赖发现 → 整页 reload
-    include: ['cherry-markdown', 'vditor']
+    include: ['cherry-markdown', '@milkdown/kit', '@milkdown/plugin-highlight']
   },
   build: {
     outDir: 'dist',

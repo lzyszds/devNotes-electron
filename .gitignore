@@ -6,9 +6,6 @@ dist/
 dist-electron/
 release/
 
-# Vditor 运行时资源(由 scripts/sync-vditor-assets.cjs 从 node_modules 生成,不入库)
-public/vditor/
-
 # IDE
 .idea/
 .vscode/
