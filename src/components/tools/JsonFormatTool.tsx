@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useToolHistory } from "../../hooks/useToolHistory";
 import { useHistoryContextMenu } from "../../hooks/useHistoryContextMenu";
+import Tooltip from "../ui/Tooltip";
 
 type JsonFormatToolProps = {
   mode?: "format" | "diff";
@@ -515,12 +516,14 @@ export default function JsonFormatTool({
                   >
                     清空
                   </button>
-                  <button
-                    onClick={() => setShowHistory(false)}
-                    className="p-2 rounded-xl hover:bg-slate-100 text-slate-400"
-                  >
-                    <X size={14} />
-                  </button>
+                  <Tooltip content="关闭历史记录">
+                    <button
+                      onClick={() => setShowHistory(false)}
+                      className="p-2 rounded-xl hover:bg-slate-100 text-slate-400"
+                    >
+                      <X size={14} />
+                    </button>
+                  </Tooltip>
                 </div>
               </div>
               <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50">
@@ -618,16 +621,18 @@ export default function JsonFormatTool({
               >
                 <ArrowUpDown size={16} /> 排序
               </button>
-              <button
-                onClick={() => {
-                  setInput("");
-                  setOutput("");
-                  setError("");
-                }}
-                className="tool-button-secondary h-10 w-10 p-0 text-rose-500"
-              >
-                <Trash2 size={16} />
-              </button>
+              <Tooltip content="清空输入与结果">
+                <button
+                  onClick={() => {
+                    setInput("");
+                    setOutput("");
+                    setError("");
+                  }}
+                  className="tool-button-secondary h-10 w-10 p-0 text-rose-500"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </Tooltip>
             </div>
           </div>
         </div>
@@ -650,12 +655,14 @@ export default function JsonFormatTool({
                   className="tool-textarea h-full border-slate-200 shadow-sm focus:shadow-indigo-500/5 group-hover:border-slate-300"
                 />
                 {input && (
-                  <button
-                    onClick={() => setInput("")}
-                    className="absolute right-4 top-4 p-2 rounded-lg bg-slate-100 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-50 hover:text-rose-500"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  <Tooltip content="清空输入">
+                    <button
+                      onClick={() => setInput("")}
+                      className="absolute right-4 top-4 p-2 rounded-lg bg-slate-100 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-50 hover:text-rose-500"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </Tooltip>
                 )}
               </div>
             </div>
@@ -681,20 +688,24 @@ export default function JsonFormatTool({
                   </div>
                 </div>
                 <div className="flex gap-1.5">
-                  <button
-                    onClick={copyOutput}
-                    disabled={!output}
-                    className="p-1.5 rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-900 hover:text-white transition-all"
-                  >
-                    <Copy size={14} />
-                  </button>
-                  <button
-                    onClick={downloadOutput}
-                    disabled={!output}
-                    className="p-1.5 rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-900 hover:text-white transition-all"
-                  >
-                    <Download size={14} />
-                  </button>
+                  <Tooltip content="复制结果">
+                    <button
+                      onClick={copyOutput}
+                      disabled={!output}
+                      className="p-1.5 rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-900 hover:text-white transition-all"
+                    >
+                      <Copy size={14} />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content="下载结果">
+                    <button
+                      onClick={downloadOutput}
+                      disabled={!output}
+                      className="p-1.5 rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-900 hover:text-white transition-all"
+                    >
+                      <Download size={14} />
+                    </button>
+                  </Tooltip>
                 </div>
               </div>
 
@@ -773,12 +784,14 @@ export default function JsonFormatTool({
                 >
                   清空
                 </button>
-                <button
-                  onClick={() => setShowHistory(false)}
-                  className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-900 transition-colors"
-                >
-                  <X size={16} />
-                </button>
+                <Tooltip content="关闭历史记录">
+                  <button
+                    onClick={() => setShowHistory(false)}
+                    className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-900 transition-colors"
+                  >
+                    <X size={16} />
+                  </button>
+                </Tooltip>
               </div>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50">

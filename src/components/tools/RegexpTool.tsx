@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Search, Copy, Trash2, History, Clock, ChevronRight, Binary, Code2, ListTree, Sparkles, Filter, X } from 'lucide-react'
 import { useToolHistory } from '../../hooks/useToolHistory'
 import { useHistoryContextMenu } from '../../hooks/useHistoryContextMenu'
+import Tooltip from '../ui/Tooltip'
 
 const templates = [
   { name: '手机号', pattern: '1[3-9]\\d{9}', desc: '中国大陆手机号' },
@@ -160,9 +161,11 @@ export default function RegexpTool() {
                           <Code2 size={14} className="text-slate-400" />
                           <label className="tool-label mb-0">待测试文本</label>
                     </div>
-                       <button onClick={() => { setTestText(''); setMatches([]); }} className="p-1 text-slate-300 hover:text-rose-500 transition-colors">
-                          <Trash2 size={14} />
-                       </button>
+                       <Tooltip content="清空测试文本">
+                         <button onClick={() => { setTestText(''); setMatches([]); }} className="p-1 text-slate-300 hover:text-rose-500 transition-colors">
+                            <Trash2 size={14} />
+                         </button>
+                       </Tooltip>
                     </div>
                     <textarea
                       value={testText}
@@ -227,7 +230,9 @@ export default function RegexpTool() {
             </div>
             <div className="flex items-center gap-2">
               <button onClick={clearHistory} className="text-[10px] font-black text-slate-400 hover:text-rose-500 transition uppercase">清空</button>
-              <button onClick={() => setShowHistory(false)} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400"><X size={14}/></button>
+              <Tooltip content="关闭历史记录">
+                <button onClick={() => setShowHistory(false)} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400"><X size={14}/></button>
+              </Tooltip>
             </div>
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50">

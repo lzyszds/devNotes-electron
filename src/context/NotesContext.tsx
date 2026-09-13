@@ -73,8 +73,6 @@ interface NotesContextType {
   cfConfig: CloudflareSyncConfig
   cfSyncStatus: CfSyncStatus
   cfSyncMessage: string
-  isCfModalOpen: boolean
-  setIsCfModalOpen: (open: boolean) => void
   updateCfConfig: (cfg: Partial<CloudflareSyncConfig>) => Promise<void>
   triggerCfTest: (customConfig?: CloudflareSyncConfig) => Promise<{ ok: boolean; message: string }>
   triggerCfBackup: () => Promise<SyncResult>
@@ -110,7 +108,6 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
   const [cfConfig, setCfConfig] = useState<CloudflareSyncConfig>(DEFAULT_CF_CONFIG)
   const [cfSyncStatus, setCfSyncStatus] = useState<CfSyncStatus>('idle')
   const [cfSyncMessage, setCfSyncMessage] = useState<string>('')
-  const [isCfModalOpen, setIsCfModalOpen] = useState(false)
   const [snapshots, setSnapshots] = useState<BackupSnapshot[]>([])
 
   const saveTimerRef = useRef<number | null>(null)
@@ -735,8 +732,6 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
         cfConfig,
         cfSyncStatus,
         cfSyncMessage,
-        isCfModalOpen,
-        setIsCfModalOpen,
         updateCfConfig,
         triggerCfTest,
         triggerCfBackup,

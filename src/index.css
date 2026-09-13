@@ -174,6 +174,16 @@ html.dark ::-webkit-scrollbar-thumb:hover {
   }
 }
 
+/* 只做淡入:气泡可能在触发元素上方或下方,加位移方向就不对了 */
+@keyframes tooltip-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 @layer components {
   .app-scene {
     animation: scene-enter 320ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -334,6 +344,15 @@ html.dark ::-webkit-scrollbar-thumb:hover {
   .toast-item[data-tone='error'] {
     @apply text-rose-600 dark:text-rose-400;
   }
+
+  /*
+   * 悬浮提示气泡。外层容器(在 Tooltip.tsx 里)负责 fixed 定位,
+   * 这里只管外观,所以不能带定位属性 —— 带 fixed 会和外层的 top/left 打架。
+   */
+  .tooltip-bubble {
+    @apply inline-block max-w-[260px] rounded-lg border border-slate-200/80 bg-white/[0.98] px-2 py-1 text-[11px] font-medium leading-relaxed text-slate-700 shadow-[0_10px_30px_-10px_rgba(15,23,42,0.35)] backdrop-blur-xl dark:border-dark-border dark:bg-dark-panel/[0.98] dark:text-slate-200;
+    animation: tooltip-in 120ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -342,6 +361,7 @@ html.dark ::-webkit-scrollbar-thumb:hover {
   .app-scene,
   .history-overlay,
   .toast-item,
+  .tooltip-bubble,
   .history-overlay-panel {
     animation: none !important;
   }

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Clock, Copy, History, ChevronRight, Timer, Calendar, ArrowRight, Sparkles, Hash, X } from 'lucide-react'
 import { useToolHistory } from '../../hooks/useToolHistory'
 import { useHistoryContextMenu } from '../../hooks/useHistoryContextMenu'
+import Tooltip from '../ui/Tooltip'
 
 export default function TimestampTool() {
   const [currentTime, setCurrentTime] = useState(new Date())
@@ -143,9 +144,11 @@ export default function TimestampTool() {
                              <span className="text-[9px] font-black text-indigo-400 uppercase mb-1">本地时间</span>
                              <span className="text-sm font-black text-indigo-900">{timestampResult}</span>
                           </div>
-                          <button onClick={() => copyToClipboard(timestampResult)} className="p-2 rounded-lg bg-white shadow-sm text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all">
-                             <Copy size={14} />
-                          </button>
+                          <Tooltip content="复制本地时间">
+                            <button onClick={() => copyToClipboard(timestampResult)} className="p-2 rounded-lg bg-white shadow-sm text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all">
+                               <Copy size={14} />
+                            </button>
+                          </Tooltip>
                        </div>
                     ) : (
                        <div className="mt-auto h-[60px] border border-dashed border-slate-200 rounded-xl flex items-center justify-center text-[10px] font-bold text-slate-300 uppercase tracking-widest italic">等待输入...</div>
@@ -177,9 +180,11 @@ export default function TimestampTool() {
                              <span className="text-[9px] font-black text-sky-400 uppercase mb-1">UNIX 时间戳</span>
                              <span className="text-sm font-black text-sky-900">{dateResult}</span>
                           </div>
-                          <button onClick={() => copyToClipboard(dateResult)} className="p-2 rounded-lg bg-white shadow-sm text-sky-600 hover:bg-sky-600 hover:text-white transition-all">
-                             <Copy size={14} />
-                          </button>
+                          <Tooltip content="复制 UNIX 时间戳">
+                            <button onClick={() => copyToClipboard(dateResult)} className="p-2 rounded-lg bg-white shadow-sm text-sky-600 hover:bg-sky-600 hover:text-white transition-all">
+                               <Copy size={14} />
+                            </button>
+                          </Tooltip>
                        </div>
                     ) : (
                        <div className="mt-auto h-[60px] border border-dashed border-slate-200 rounded-xl flex items-center justify-center text-[10px] font-bold text-slate-300 uppercase tracking-widest italic">等待选择日期...</div>
@@ -201,7 +206,9 @@ export default function TimestampTool() {
             </div>
             <div className="flex items-center gap-2">
               <button onClick={clearHistory} className="text-[10px] font-black text-slate-400 hover:text-rose-500 transition uppercase">清空</button>
-              <button onClick={() => setShowHistory(false)} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400"><X size={14}/></button>
+              <Tooltip content="关闭历史记录">
+                <button onClick={() => setShowHistory(false)} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400"><X size={14}/></button>
+              </Tooltip>
             </div>
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50">

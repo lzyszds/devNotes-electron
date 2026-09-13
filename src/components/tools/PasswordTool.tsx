@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Lock, Copy, RefreshCw, Eye, EyeOff, History, Clock, ChevronRight, ShieldCheck, Settings2, Zap, X } from 'lucide-react'
 import { useToolHistory } from '../../hooks/useToolHistory'
 import { useHistoryContextMenu } from '../../hooks/useHistoryContextMenu'
+import Tooltip from '../ui/Tooltip'
 
 const CHAR_SETS = {
   uppercase: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
@@ -135,12 +136,16 @@ export default function PasswordTool() {
                              {showPassword ? password : password.replace(/./g, '•')}
                           </div>
                           <div className="flex flex-col gap-2 shrink-0">
-                             <button onClick={() => setShowPassword(!showPassword)} className="p-3 rounded-xl bg-slate-50 text-slate-400 hover:text-slate-900 transition-all border border-slate-100 hover:border-slate-300">
-                                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                             </button>
-                             <button onClick={copyPassword} className="p-3 rounded-xl bg-slate-50 text-slate-400 hover:text-slate-900 transition-all border border-slate-100 hover:border-slate-300">
-                                <Copy size={20} />
-                             </button>
+                             <Tooltip content={showPassword ? '隐藏密码' : '显示密码'}>
+                                <button onClick={() => setShowPassword(!showPassword)} className="p-3 rounded-xl bg-slate-50 text-slate-400 hover:text-slate-900 transition-all border border-slate-100 hover:border-slate-300">
+                                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                                </button>
+                             </Tooltip>
+                             <Tooltip content="复制密码">
+                                <button onClick={copyPassword} className="p-3 rounded-xl bg-slate-50 text-slate-400 hover:text-slate-900 transition-all border border-slate-100 hover:border-slate-300">
+                                   <Copy size={20} />
+                                </button>
+                             </Tooltip>
                           </div>
                        </div>
                     </div>
@@ -239,7 +244,9 @@ export default function PasswordTool() {
             </div>
             <div className="flex items-center gap-2">
               <button onClick={clearHistory} className="text-[10px] font-black text-slate-400 hover:text-rose-500 transition uppercase">清空</button>
-              <button onClick={() => setShowHistory(false)} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400"><X size={14}/></button>
+              <Tooltip content="关闭历史记录">
+                <button onClick={() => setShowHistory(false)} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400"><X size={14}/></button>
+              </Tooltip>
             </div>
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50">

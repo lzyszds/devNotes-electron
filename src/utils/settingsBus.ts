@@ -1,6 +1,9 @@
-/** 极简事件总线：让工具内部能打开顶栏的全局设置弹窗，只传「打开哪个设置」 */
+/**
+ * 极简事件总线：让工具内部能打开全局设置弹窗，只传「打开哪个设置分类」。
+ * 取值需与 SettingsModal 的 SettingsSection 保持一致。
+ */
 
-export type AppSettingsTopic = "translate-api";
+export type AppSettingsTopic = "general" | "cloud-sync" | "translate-api";
 
 type Listener = (topic: AppSettingsTopic) => void;
 

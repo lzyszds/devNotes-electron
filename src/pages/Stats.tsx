@@ -2,6 +2,7 @@ import type { MouseEvent as ReactMouseEvent } from 'react'
 import { ArrowLeft, BarChart3, TrendingUp, Clock, Zap } from 'lucide-react'
 import { tools } from '../types'
 import WindowControls from '../components/layout/WindowControls'
+import Tooltip from '../components/ui/Tooltip'
 
 interface StatsProps {
   usageStats: Record<string, number>
@@ -35,12 +36,14 @@ export default function Stats({ usageStats, onBack }: StatsProps) {
         className="drag-region bg-white border-b border-slate-200 h-[56px] px-6 flex items-center justify-between shrink-0 shadow-sm"
       >
         <div className="flex items-center gap-4">
-          <button 
-            onClick={onBack}
-            className="no-drag p-2 rounded-lg hover:bg-slate-100 transition"
-          >
-            <ArrowLeft size={18} className="text-slate-600" />
-          </button>
+          <Tooltip content="返回工具中心">
+            <button
+              onClick={onBack}
+              className="no-drag p-2 rounded-lg hover:bg-slate-100 transition"
+            >
+              <ArrowLeft size={18} className="text-slate-600" />
+            </button>
+          </Tooltip>
           <h1 className="text-sm font-bold tracking-tight">使用统计与分析</h1>
         </div>
         {/* 无边框之后系统标题栏没了，这一页原本一条窗口控制都没有，等于关不掉也最小化不了 */}

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Copy, Trash2, History, Clock, ChevronRight, Shuffle, ArrowRightLeft, Sparkles, X } from 'lucide-react'
 import { useToolHistory } from '../../hooks/useToolHistory'
 import { useHistoryContextMenu } from '../../hooks/useHistoryContextMenu'
+import Tooltip from '../ui/Tooltip'
 
 const encodeTypes = [
   { id: 'base64', name: 'Base64', icon: 'B64', encode: (s: string) => btoa(unescape(encodeURIComponent(s))), decode: (s: string) => decodeURIComponent(escape(atob(s))) },
@@ -112,9 +113,11 @@ export default function EncodeTool() {
                  <div className="space-y-3">
                     <div className="flex items-center justify-between px-1">
                        <label className="tool-label">原始内容 (输入)</label>
-                       <button onClick={() => { setInput(''); setOutput(''); setError(''); }} className="p-1 text-slate-300 hover:text-rose-500 transition-colors">
-                          <Trash2 size={14} />
-                       </button>
+                       <Tooltip content="清空输入与结果">
+                          <button onClick={() => { setInput(''); setOutput(''); setError(''); }} className="p-1 text-slate-300 hover:text-rose-500 transition-colors">
+                             <Trash2 size={14} />
+                          </button>
+                       </Tooltip>
                     </div>
                     <textarea
                       value={input}
@@ -135,9 +138,11 @@ export default function EncodeTool() {
                  <div className="space-y-3">
                     <div className="flex items-center justify-between px-1">
                        <label className="tool-label">处理结果 (输出)</label>
-                       <button onClick={copyOutput} disabled={!output} className="p-1.5 rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-900 hover:text-white transition-all disabled:opacity-30">
-                          <Copy size={14} />
-                       </button>
+                       <Tooltip content="复制结果">
+                          <button onClick={copyOutput} disabled={!output} className="p-1.5 rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-900 hover:text-white transition-all disabled:opacity-30">
+                             <Copy size={14} />
+                          </button>
+                       </Tooltip>
                     </div>
                     <div className="relative">
                        {error ? (
@@ -188,7 +193,9 @@ export default function EncodeTool() {
             </div>
             <div className="flex items-center gap-2">
               <button onClick={clearHistory} className="text-[10px] font-black text-slate-400 hover:text-rose-500 transition uppercase">清空</button>
-              <button onClick={() => setShowHistory(false)} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400"><X size={14}/></button>
+              <Tooltip content="关闭历史记录">
+                <button onClick={() => setShowHistory(false)} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400"><X size={14}/></button>
+              </Tooltip>
             </div>
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50">

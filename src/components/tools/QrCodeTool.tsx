@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Download, Copy, RefreshCw, History, Clock, ChevronRight, QrCode, Type, Move, Palette, X } from 'lucide-react'
 import { useToolHistory } from '../../hooks/useToolHistory'
 import { useHistoryContextMenu } from '../../hooks/useHistoryContextMenu'
+import Tooltip from '../ui/Tooltip'
 
 export default function QrCodeTool() {
   const [text, setText] = useState('https://fehelper.com')
@@ -242,7 +243,9 @@ export default function QrCodeTool() {
             </div>
             <div className="flex items-center gap-2">
               <button onClick={clearHistory} className="text-[10px] font-black text-slate-400 hover:text-rose-500 transition uppercase">清空</button>
-              <button onClick={() => setShowHistory(false)} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400"><X size={14}/></button>
+              <Tooltip content="关闭历史记录">
+                <button onClick={() => setShowHistory(false)} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400"><X size={14}/></button>
+              </Tooltip>
             </div>
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50">

@@ -10,7 +10,6 @@ export type ViewMode = 'hub' | 'dashboard' | 'stats'
 
 function App() {
   const [viewMode, setViewMode] = useState<ViewMode>('dashboard')
-  const [openTabIds, setOpenTabIds] = useState<string[]>(['markdown-notes'])
   const [activeTabId, setActiveTabId] = useState<string>('markdown-notes')
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const saved = localStorage.getItem('fehelper-theme')
@@ -48,38 +47,8 @@ function App() {
       [toolId]: (prev[toolId] || 0) + 1,
     }))
 
-    // 添加到已打开的 tabs
-    if (!openTabIds.includes(toolId)) {
-      setOpenTabIds((prev) => [...prev, toolId])
-    }
-
     setActiveTabId(toolId)
     setViewMode('dashboard')
-  }
-
-  const closeTab = (toolId: string) => {
-    const remaining = openTabIds.filter((id) => id !== toolId)
-    setOpenTabIds(remaining)
-
-    if (remaining.length === 0) {
-      setViewMode('hub')
-      setActiveTabId('')
-    } else if (activeTabId === toolId) {
-      setActiveTabId(remaining[remaining.length - 1])
-    }
-  }
-
-  // 关闭其他标签页:仅保留目标页
-  const closeOtherTabs = (toolId: string) => {
-    setOpenTabIds([toolId])
-    setActiveTabId(toolId)
-  }
-
-  // 关闭全部标签页:回到工具中心
-  const closeAllTabs = () => {
-    setOpenTabIds([])
-    setActiveTabId('')
-    setViewMode('hub')
   }
 
   const navigateToHub = () => setViewMode('hub')
@@ -87,9 +56,6 @@ function App() {
 
   // 外部打开 md 文件导入成功后,切回 Markdown 笔记页并选中
   const navigateToNotes = () => {
-    setOpenTabIds((prev) =>
-      prev.includes('markdown-notes') ? prev : [...prev, 'markdown-notes']
-    )
     setActiveTabId('markdown-notes')
     setViewMode('dashboard')
   }
@@ -104,12 +70,7 @@ function App() {
 
           {viewMode === 'dashboard' && (
             <DashboardLayout
-              openTabIds={openTabIds}
               activeTabId={activeTabId || 'markdown-notes'}
-              setActiveTabId={setActiveTabId}
-              onCloseTab={closeTab}
-              onCloseOtherTabs={closeOtherTabs}
-              onCloseAllTabs={closeAllTabs}
               onOpenTool={openTool}
               onBackToHub={navigateToHub}
               onOpenStats={navigateToStats}

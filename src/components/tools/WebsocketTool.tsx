@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useToolHistory } from "../../hooks/useToolHistory";
 import { useHistoryContextMenu } from "../../hooks/useHistoryContextMenu";
+import Tooltip from "../ui/Tooltip";
 
 type MessageLog = {
   id: number;
@@ -262,18 +263,22 @@ export default function WebsocketTool() {
                   </span>
                 </div>
                 <div className="flex gap-1.5">
-                  <button
-                    onClick={copyLogs}
-                    className="p-1.5 rounded-lg hover:bg-white border border-transparent hover:border-slate-200 transition-all text-slate-400 hover:text-slate-900"
-                  >
-                    <Copy size={14} />
-                  </button>
-                  <button
-                    onClick={() => setLogs([])}
-                    className="p-1.5 rounded-lg hover:bg-rose-50 border border-transparent hover:border-rose-100 transition-all text-slate-400 hover:text-rose-500"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  <Tooltip content="复制日志">
+                    <button
+                      onClick={copyLogs}
+                      className="p-1.5 rounded-lg hover:bg-white border border-transparent hover:border-slate-200 transition-all text-slate-400 hover:text-slate-900"
+                    >
+                      <Copy size={14} />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content="清空日志">
+                    <button
+                      onClick={() => setLogs([])}
+                      className="p-1.5 rounded-lg hover:bg-rose-50 border border-transparent hover:border-rose-100 transition-all text-slate-400 hover:text-rose-500"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </Tooltip>
                 </div>
               </div>
 
@@ -352,12 +357,14 @@ export default function WebsocketTool() {
             >
               清空
             </button>
-            <button
-              onClick={() => setShowHistory(false)}
-              className="p-2 rounded-xl hover:bg-slate-100 text-slate-400"
-            >
-              <X size={14} />
-            </button>
+            <Tooltip content="关闭历史记录">
+              <button
+                onClick={() => setShowHistory(false)}
+                className="p-2 rounded-xl hover:bg-slate-100 text-slate-400"
+              >
+                <X size={14} />
+              </button>
+            </Tooltip>
           </div>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50">

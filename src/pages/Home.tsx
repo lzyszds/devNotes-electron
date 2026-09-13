@@ -3,6 +3,7 @@ import { Search, BarChart3, X, Minus, FolderOpen, Copy } from "lucide-react";
 import { tools, toolCategories } from "../types";
 import { useContextMenu } from "../components/ui/ContextMenu";
 import { useToast } from "../components/ui/Toast";
+import Tooltip from "../components/ui/Tooltip";
 import { copyText } from "../utils/clipboard";
 import logo from "../assets/logo.png";
 
@@ -68,18 +69,22 @@ export default function Home({
           />
         </div>
         <div className="no-drag flex items-center gap-1">
-          <button
-            onClick={() => window.electronAPI?.minimizeWindow()}
-            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-dark-hover text-slate-400 transition"
-          >
-            <Minus size={14} />
-          </button>
-          <button
-            onClick={() => window.electronAPI?.closeWindow()}
-            className="p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30 hover:text-rose-500 text-slate-400 transition"
-          >
-            <X size={14} />
-          </button>
+          <Tooltip content="最小化窗口">
+            <button
+              onClick={() => window.electronAPI?.minimizeWindow()}
+              className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-dark-hover text-slate-400 transition"
+            >
+              <Minus size={14} />
+            </button>
+          </Tooltip>
+          <Tooltip content="关闭窗口">
+            <button
+              onClick={() => window.electronAPI?.closeWindow()}
+              className="p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30 hover:text-rose-500 text-slate-400 transition"
+            >
+              <X size={14} />
+            </button>
+          </Tooltip>
         </div>
       </div>
 

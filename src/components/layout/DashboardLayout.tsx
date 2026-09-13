@@ -19,22 +19,20 @@ import {
   FileCode,
   ArrowLeftRight,
   Languages,
-  X,
   PlusCircle,
   GitBranch,
   Clock,
   Cloud,
   CloudUpload,
   CloudDownload,
-  Loader2,
   FolderOpen,
   Copy,
+  Settings,
 } from 'lucide-react'
 import { tools, toolCategories } from '../../types'
 import ToolPage from '../../pages/ToolPage'
 import { useNotes } from '../../context/NotesContext'
-import CloudflareSyncModal from '../modals/CloudflareSyncModal'
-import TranslateApiSettingsModal from '../modals/TranslateApiSettingsModal'
+import SettingsModal, { type SettingsSection } from '../modals/SettingsModal'
 import { useContextMenu } from '../ui/ContextMenu'
 import { useToast } from '../ui/Toast'
 import { copyText } from '../../utils/clipboard'
@@ -56,12 +54,7 @@ function readSidebarWidth(): number {
 }
 
 interface DashboardLayoutProps {
-  openTabIds: string[]
   activeTabId: string
-  setActiveTabId: (id: string) => void
-  onCloseTab: (id: string) => void
-  onCloseOtherTabs: (id: string) => void
-  onCloseAllTabs: () => void
   onOpenTool: (id: string) => void
   onBackToHub: () => void
   onOpenStats: () => void
@@ -70,12 +63,7 @@ interface DashboardLayoutProps {
 }
 
 export default function DashboardLayout({
-  openTabIds,
   activeTabId,
-  setActiveTabId,
-  onCloseTab,
-  onCloseOtherTabs,
-  onCloseAllTabs,
   onOpenTool,
   onBackToHub,
   onOpenStats,
@@ -87,7 +75,9 @@ export default function DashboardLayout({
   const [sidebarWidth, setSidebarWidth] = useState(readSidebarWidth)
   const [isResizingSidebar, setIsResizingSidebar] = useState(false)
   const [isCmdOpen, setIsCmdOpen] = useState(false)
-  const [isTranslateSettingsOpen, setIsTranslateSettingsOpen] = useState(false)
+  // 全局设置弹窗：打开时停在哪个分类
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [settingsSection, setSettingsSection] = useState<SettingsSection>('general')
   const [cmdSearch, setCmdSearch] = useState('')
   const [toolFilter, setToolFilter] = useState('')
   const [activeCategory, setActiveCategory] = useState('all')
@@ -96,7 +86,6 @@ export default function DashboardLayout({
   const [renameDraft, setRenameDraft] = useState('')
 
   const cmdInputRef = useRef<HTMLInputElement>(null)
-  const tabScrollRef = useRef<HTMLDivElement>(null)
   const sidebarRef = useRef<HTMLElement>(null)
   // Esc 取消时置位，避免随后的 blur 把旧草稿又提交回去
   const skipRenameCommitRef = useRef(false)
@@ -104,8 +93,6 @@ export default function DashboardLayout({
   // 获取全局 Notes 状态
   const {
     activeNote,
-    saveStatus,
-    message: saveMessage,
     keyword: noteKeyword,
     setKeyword: setNoteKeyword,
     filteredNotes,
@@ -117,7 +104,7 @@ export default function DashboardLayout({
     insertText,
     cfConfig,
     cfSyncStatus,
-    setIsCfModalOpen,
+    cfSyncMessage,
     triggerCfBackup,
     triggerCfPull,
   } = useNotes()
@@ -198,6 +185,12 @@ export default function DashboardLayout({
     setRenamingNoteId(null)
   }
 
+  // 打开全局设置弹窗，并直接定位到指定分类
+  const openSettings = (section: SettingsSection = 'general') => {
+    setSettingsSection(section)
+    setIsSettingsOpen(true)
+  }
+
   // 快捷键监听：⌘K (命令面板), ⌘B (折叠侧边栏)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -206,6 +199,20 @@ export default function DashboardLayout({
       if (isCmd && (e.key === 'k' || e.key === 'K')) {
         e.preventDefault()
         setIsCmdOpen((prev) => !prev)
+      } else if (isCmd && e.key === ',') {
+        e.preventDefault()
+        setSettingsSection('general')
+        setIsSettingsOpen(true)
+      } else if (isCmd && (e.key === 'u' || e.key === 'U')) {
+        e.preventDefault()
+        setSettingsSection('cloud-sync')
+        setIsSettingsOpen(true)
+      } else if (isCmd && (e.key === 'd' || e.key === 'D')) {
+        e.preventDefault()
+        onToggleTheme()
+      } else if (isCmd && (e.key === 'e' || e.key === 'E')) {
+        e.preventDefault()
+        if (isMarkdownActive) void handleExportNote()
       } else if (isCmd && (e.key === 'b' || e.key === 'B')) {
         e.preventDefault()
         setIsSidebarOpen((prev) => !prev)
@@ -223,7 +230,14 @@ export default function DashboardLayout({
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handleCreateNote, isCmdOpen, isMarkdownActive, onOpenTool])
+  }, [
+    handleCreateNote,
+    handleExportNote,
+    isCmdOpen,
+    isMarkdownActive,
+    onOpenTool,
+    onToggleTheme,
+  ])
 
   // 打开指令面板时自动聚焦
   useEffect(() => {
@@ -236,9 +250,7 @@ export default function DashboardLayout({
 
   // 工具内部想打开全局设置（如翻译工具提示「去配置」）时，通过事件总线通知这里
   useEffect(() => {
-    return subscribeAppSettings((topic) => {
-      if (topic === 'translate-api') setIsTranslateSettingsOpen(true)
-    })
+    return subscribeAppSettings((topic) => openSettings(topic))
   }, [])
 
   // 窗口控制（顶栏三个圆点由 WindowControls 自己调 IPC，这里只留双击要用的最大化）
@@ -295,12 +307,21 @@ export default function DashboardLayout({
       },
     },
     {
+      id: 'cmd-open-settings',
+      title: '打开全局设置',
+      shortcut: '⌘,',
+      icon: Settings,
+      action: () => {
+        openSettings('general')
+      },
+    },
+    {
       id: 'cmd-cf-settings',
       title: 'Cloudflare 云端同步设置',
       shortcut: '⌘U',
       icon: Cloud,
       action: () => {
-        setIsCfModalOpen(true)
+        openSettings('cloud-sync')
       },
     },
     {
@@ -309,7 +330,7 @@ export default function DashboardLayout({
       shortcut: '',
       icon: Languages,
       action: () => {
-        setIsTranslateSettingsOpen(true)
+        openSettings('translate-api')
       },
     },
     {
@@ -472,7 +493,7 @@ export default function DashboardLayout({
         </div>
 
         {/* 中部全局指令触发器 (⌘K) */}
-        <div className="flex-1 max-w-sm mx-6">
+        <div className="flex-1 max-w-[260px] mx-4">
           <button
             onClick={() => setIsCmdOpen(true)}
             className="no-drag w-full flex items-center justify-between px-3 py-1 bg-slate-100/80 dark:bg-dark-hover/60 hover:bg-slate-100 dark:hover:bg-dark-hover border border-slate-200/60 dark:border-dark-border rounded-lg text-xs text-slate-400 transition-all shadow-2xs group"
@@ -489,52 +510,6 @@ export default function DashboardLayout({
 
         {/* 右侧功能区 */}
         <div className="flex items-center gap-2.5 text-xs">
-          {/* 自动保存微呼吸状态胶囊 */}
-          {isMarkdownActive && (
-            <div
-              className={`flex items-center justify-center gap-1.5 w-[104px] px-2 py-0.5 rounded-full border transition-all font-medium ${saveStatus === 'saving'
-                ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border-amber-200/50 dark:border-amber-900/50'
-                : 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200/50 dark:border-emerald-900/50'
-                }`}
-            >
-              <span
-                className={`w-1.5 h-1.5 rounded-full ${saveStatus === 'saving'
-                  ? 'bg-amber-500 animate-ping'
-                  : 'bg-emerald-500 animate-pulse'
-                  }`}
-              />
-              <span className="min-w-0 truncate" title={saveMessage}>{saveMessage}</span>
-            </div>
-          )}
-
-          {/* Cloudflare 云同步状态微按钮 */}
-          <button
-            onClick={() => setIsCfModalOpen(true)}
-            className={`no-drag flex items-center justify-center gap-1.5 w-[124px] px-2.5 py-1 rounded-lg border text-xs font-medium transition-all ${cfConfig.enabled
-              ? 'border-orange-200 dark:border-orange-900/50 bg-orange-50/70 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-900/40 shadow-2xs'
-              : 'border-slate-200/80 dark:border-dark-border text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-dark-hover'
-              }`}
-            title="Cloudflare 云端备份与同步"
-          >
-            <Cloud className="w-3.5 h-3.5 text-orange-500" />
-            <span>{cfConfig.enabled ? 'CF 云同步' : 'CF 同步'}</span>
-            {cfSyncStatus === 'syncing' ? (
-              <Loader2 className="w-3 h-3 animate-spin text-orange-500" />
-            ) : cfSyncStatus === 'success' ? (
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            ) : null}
-          </button>
-
-          {/* 在线翻译接口设置 */}
-          <button
-            onClick={() => setIsTranslateSettingsOpen(true)}
-            className="no-drag flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200/80 dark:border-dark-border text-xs font-medium text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-dark-hover transition-all"
-            title="配置在线翻译接口（OpenAI 兼容 / LibreTranslate）"
-          >
-            <Languages className="w-3.5 h-3.5 text-indigo-500" />
-            <span>翻译接口</span>
-          </button>
-
           {/* 深色/浅色模式切换 */}
           <button
             onClick={onToggleTheme}
@@ -677,8 +652,32 @@ export default function DashboardLayout({
             </button>
           </nav>
 
-          {/* 底部使用统计与全部组件按钮 */}
+          {/* 底部：云同步状态灯 + 统计 + 工具库 + 设置 */}
           <div className="flex flex-col gap-2 w-full px-2">
+            {/* 云同步状态灯（开启云同步后才出现），点击进入云同步设置 */}
+            {cfConfig.enabled && (
+              <button
+                onClick={() => openSettings('cloud-sync')}
+                className={`relative w-full aspect-square flex items-center justify-center rounded-xl transition-all ${
+                  cfSyncStatus === 'error'
+                    ? 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/30'
+                    : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
+                }`}
+                title={cfSyncMessage || 'Cloudflare 云同步'}
+              >
+                <Cloud className="w-4 h-4" />
+                <span
+                  className={`absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full ${
+                    cfSyncStatus === 'syncing'
+                      ? 'bg-orange-500 animate-pulse'
+                      : cfSyncStatus === 'error'
+                        ? 'bg-rose-500'
+                        : 'bg-emerald-500'
+                  }`}
+                />
+              </button>
+            )}
+
             <button
               onClick={onOpenStats}
               className="w-full aspect-square flex items-center justify-center rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover transition-all"
@@ -692,6 +691,14 @@ export default function DashboardLayout({
               title="全部小工具库"
             >
               <LayoutGrid className="w-4 h-4" />
+            </button>
+            {/* 全局设置入口：云同步、翻译接口、外观等统一收在这里 */}
+            <button
+              onClick={() => openSettings('general')}
+              className="w-full aspect-square flex items-center justify-center rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover transition-all"
+              title="设置 (⌘,)"
+            >
+              <Settings className="w-4 h-4" />
             </button>
           </div>
         </aside>
@@ -948,70 +955,6 @@ export default function DashboardLayout({
 
         {/* 2.3 编辑器 / 工具主工作台 (Editor Workspace) */}
         <main className="flex-1 flex flex-col bg-white dark:bg-dark-panel overflow-hidden min-w-0">
-          {/* Tab 栏（如果打开了多个工具） */}
-          {openTabIds.length > 1 && (
-            <div
-              ref={tabScrollRef}
-              className="h-8 bg-slate-50/70 dark:bg-dark-sidebar/60 border-b border-slate-200/70 dark:border-dark-border flex items-center px-2 gap-1 overflow-x-auto scrollbar-hide flex-shrink-0"
-            >
-              {openTabIds.map((id) => {
-                const tool = tools.find((t) => t.id === id)
-                if (!tool) return null
-                const isActive = activeTabId === id
-                return (
-                  <div
-                    key={id}
-                    onClick={() => setActiveTabId(id)}
-                    onContextMenu={(e) =>
-                      openContextMenu(e, [
-                        {
-                          id: 'tab-close',
-                          label: '关闭',
-                          icon: <X className="w-3.5 h-3.5" />,
-                          disabled: openTabIds.length <= 1,
-                          onSelect: () => onCloseTab(id),
-                        },
-                        {
-                          id: 'tab-close-others',
-                          label: '关闭其他',
-                          icon: <X className="w-3.5 h-3.5" />,
-                          disabled: openTabIds.length <= 1,
-                          onSelect: () => onCloseOtherTabs(id),
-                        },
-                        { id: 'tab-sep', separator: true },
-                        {
-                          id: 'tab-close-all',
-                          label: '关闭全部',
-                          icon: <Trash2 className="w-3.5 h-3.5" />,
-                          danger: true,
-                          onSelect: onCloseAllTabs,
-                        },
-                      ])
-                    }
-                    className={`group flex items-center gap-1.5 h-6 px-2.5 rounded-md cursor-pointer text-xs transition-all border ${isActive
-                      ? 'bg-white dark:bg-dark-panel border-slate-200 dark:border-dark-border text-slate-900 dark:text-white font-semibold shadow-2xs'
-                      : 'border-transparent text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
-                      }`}
-                  >
-                    <span className="text-[10px] font-mono">
-                      {tool.icon.length <= 3 ? tool.icon : tool.icon.charAt(0)}
-                    </span>
-                    <span className="truncate max-w-[100px]">{tool.name}</span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onCloseTab(id)
-                      }}
-                      className="ml-1 p-0.5 rounded hover:bg-slate-200 dark:hover:bg-dark-hover text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition"
-                    >
-                      <X className="w-2.5 h-2.5" />
-                    </button>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-
           {/* 渲染当前工具内容 */}
           <div className="flex-1 overflow-hidden relative">
             <ToolPage toolId={activeTabId} />
@@ -1078,13 +1021,15 @@ export default function DashboardLayout({
         </div>
       )}
 
-      {/* Cloudflare 同步管理模态框 */}
-      <CloudflareSyncModal />
-
-      {/* 在线翻译接口设置模态框 */}
-      <TranslateApiSettingsModal
-        open={isTranslateSettingsOpen}
-        onClose={() => setIsTranslateSettingsOpen(false)}
+      {/* 全局设置弹窗：云同步 / AI 与翻译 / 通用外观 */}
+      <SettingsModal
+        open={isSettingsOpen}
+        section={settingsSection}
+        onSectionChange={setSettingsSection}
+        onClose={() => setIsSettingsOpen(false)}
+        theme={theme}
+        onToggleTheme={onToggleTheme}
+        onResetSidebarWidth={resetSidebarWidth}
       />
     </div>
   )

@@ -47,6 +47,7 @@ import {
 } from "../../utils/translateConfig";
 import { openAppSettings } from "../../utils/settingsBus";
 import { Select } from "../ui";
+import Tooltip from "../ui/Tooltip";
 
 type TranslationMode = "full" | "path" | "key-mapping";
 type ProxyMode = "system" | "manual" | "direct";
@@ -681,17 +682,19 @@ export default function JsonI18nTool() {
               <History size={14} />
               历史
             </button>
-            <button
-              onClick={() => {
-                setInput("");
-                setError("");
-                setLangResults({});
-                setExpandedLangs(new Set());
-              }}
-              className={`${UI.btnIcon} !text-rose-500 hover:!bg-rose-50 hover:!border-rose-200`}
-            >
-              <Trash2 size={14} />
-            </button>
+            <Tooltip content="清空工作区">
+              <button
+                onClick={() => {
+                  setInput("");
+                  setError("");
+                  setLangResults({});
+                  setExpandedLangs(new Set());
+                }}
+                className={`${UI.btnIcon} !text-rose-500 hover:!bg-rose-50 hover:!border-rose-200`}
+              >
+                <Trash2 size={14} />
+              </button>
+            </Tooltip>
           </div>
         </div>
 
@@ -995,9 +998,11 @@ export default function JsonI18nTool() {
                   className="h-7 inline-flex items-center gap-1 px-2 bg-white border border-amber-200 text-amber-800 rounded-lg text-xs font-mono"
                 >
                   {term}
-                  <button onClick={() => removeProtectedTerm(term)} className="text-amber-400 hover:text-rose-500">
-                    <X size={12} />
-                  </button>
+                  <Tooltip content="删除保护词">
+                    <button onClick={() => removeProtectedTerm(term)} className="text-amber-400 hover:text-rose-500">
+                      <X size={12} />
+                    </button>
+                  </Tooltip>
                 </span>
               ))}
             </div>
@@ -1094,9 +1099,11 @@ export default function JsonI18nTool() {
             {keyMappings.map((m, i) => (
               <span key={i} className="h-7 inline-flex items-center gap-1 px-2 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-medium">
                 {m.original} → {m.translated}
-                <button onClick={() => removeKeyMapping(i)} className="hover:text-rose-500">
-                  <X size={12} />
-                </button>
+                <Tooltip content="删除键名映射">
+                  <button onClick={() => removeKeyMapping(i)} className="hover:text-rose-500">
+                    <X size={12} />
+                  </button>
+                </Tooltip>
               </span>
             ))}
           </div>
@@ -1199,12 +1206,16 @@ export default function JsonI18nTool() {
                           </div>
                           {!result.translating && result.data != null ? (
                             <div className="flex gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                              <button onClick={() => copyLangResult(lang)} className={UI.btnIcon}>
-                                <Copy size={12} />
-                              </button>
-                              <button onClick={() => downloadLangResult(lang)} className={UI.btnIcon}>
-                                <Download size={12} />
-                              </button>
+                              <Tooltip content="复制该语言的翻译结果">
+                                <button onClick={() => copyLangResult(lang)} className={UI.btnIcon}>
+                                  <Copy size={12} />
+                                </button>
+                              </Tooltip>
+                              <Tooltip content="下载该语言的翻译结果">
+                                <button onClick={() => downloadLangResult(lang)} className={UI.btnIcon}>
+                                  <Download size={12} />
+                                </button>
+                              </Tooltip>
                             </div>
                           ) : null}
                         </button>
@@ -1294,9 +1305,11 @@ export default function JsonI18nTool() {
                 <button onClick={clearHistory} className="text-[10px] text-slate-400 hover:text-rose-500">
                   清空
                 </button>
-                <button onClick={() => setShowHistory(false)} className="p-2 hover:bg-slate-100 rounded-xl">
-                  <X size={14} />
-                </button>
+                <Tooltip content="关闭历史记录">
+                  <button onClick={() => setShowHistory(false)} className="p-2 hover:bg-slate-100 rounded-xl">
+                    <X size={14} />
+                  </button>
+                </Tooltip>
               </div>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
