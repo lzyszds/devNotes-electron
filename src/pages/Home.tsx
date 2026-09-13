@@ -92,10 +92,12 @@ export default function Home({
         <div className="max-w-4xl mx-auto pt-16">
           {/* Header */}
           <div className="text-center mb-2">
+            {/* 首屏是唯一的品牌露出位：logo 外面罩一层 logo 青蓝的光晕，
+                与主色 indigo 拉开层次，也点明 #50BDCF 这个来源色 */}
             <img
               src={logo}
               alt="DevNotes"
-              className="inline-block h-12 w-12 object-contain mb-6"
+              className="inline-block h-12 w-12 object-contain mb-6 drop-shadow-[0_0_22px_rgba(80,189,207,0.45)]"
             />
             <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2 tracking-tight">
               DevNotes 工具中心
@@ -182,7 +184,7 @@ export default function Home({
                     },
                   ])
                 }
-                className="motion-lift group flex flex-col items-center justify-center p-5 rounded-2xl bg-white dark:bg-dark-panel border border-slate-200/80 dark:border-dark-border hover:border-brand-500 dark:hover:border-indigo-500 hover:shadow-lg transition-all"
+                className="motion-lift group flex flex-col items-center justify-center p-5 rounded-2xl bg-white dark:bg-dark-panel border border-slate-200/80 dark:border-dark-border hover:border-brand-500 dark:hover:border-brand-500 hover:shadow-lg transition-all"
               >
                 <div className="h-10 w-10 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-dark-sidebar text-base font-bold text-slate-800 dark:text-slate-200 mb-3 group-hover:bg-brand-600 group-hover:text-white transition-colors">
                   {tool.icon.length <= 3 ? tool.icon : tool.icon.charAt(0)}

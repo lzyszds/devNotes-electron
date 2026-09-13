@@ -70,7 +70,7 @@ export default function RegexpTool() {
         {/* Action Header */}
         <div className="px-8 py-5 flex items-center justify-between border-b border-slate-100">
            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-2xl bg-sky-600 text-white flex items-center justify-center shadow-lg shadow-sky-100">
+              <div className="h-12 w-12 rounded-2xl bg-brand-600 text-white flex items-center justify-center shadow-lg shadow-brand-100">
                 <Binary size={24} />
               </div>
               <div>
@@ -82,13 +82,13 @@ export default function RegexpTool() {
            <div className="flex items-center gap-3">
               <button
                 onClick={() => setShowHistory(!showHistory)}
-                className={`tool-button-secondary h-10 px-4 ${showHistory ? 'ring-2 ring-sky-500/20 border-sky-200 text-sky-600' : ''}`}
+                className={`tool-button-secondary h-10 px-4 ${showHistory ? 'ring-2 ring-brand-500/20 border-brand-200 text-brand-600' : ''}`}
               >
                 <History size={16} />
                 <span>匹配历史</span>
               </button>
               <div className="w-px h-6 bg-slate-100" />
-              <button onClick={testRegex} className="tool-button-primary h-10 bg-sky-600 hover:bg-sky-700 shadow-sky-100 px-8">
+              <button onClick={testRegex} className="tool-button-primary h-10 bg-brand-600 hover:bg-brand-700 shadow-brand-100 px-8">
                 <Search size={16} /> 运行测试
               </button>
            </div>
@@ -99,7 +99,7 @@ export default function RegexpTool() {
               {/* Pattern Input Card */}
               <div className="workspace-card p-6">
                  <div className="flex items-center gap-4">
-                    <div className="flex-1 flex items-center gap-3 bg-[#F8FAFC] rounded-2xl px-6 py-4 border border-slate-200 focus-within:border-sky-400 focus-within:ring-4 focus-within:ring-sky-500/[0.03] transition-all shadow-sm">
+                    <div className="flex-1 flex items-center gap-3 bg-[#F8FAFC] rounded-2xl px-6 py-4 border border-slate-200 focus-within:border-brand-400 focus-within:ring-4 focus-within:ring-brand-500/[0.03] transition-all shadow-sm">
                        <span className="text-2xl font-mono text-slate-300">/</span>
                        <input
                           type="text"
@@ -114,7 +114,7 @@ export default function RegexpTool() {
                           value={flags}
                           onChange={(e) => setFlags(e.target.value)}
                           placeholder="修饰符"
-                          className="w-16 bg-transparent border-none outline-none font-mono text-xl font-black text-sky-600 text-center placeholder:text-slate-200"
+                          className="w-16 bg-transparent border-none outline-none font-mono text-xl font-black text-brand-600 text-center placeholder:text-slate-200"
                        />
                     </div>
                     <div className="flex flex-col gap-1.5 shrink-0">
@@ -123,7 +123,7 @@ export default function RegexpTool() {
                              <button 
                               key={f} 
                               onClick={() => setFlags(flags.includes(f) ? flags.replace(f, '') : flags + f)}
-                              className={`w-8 h-8 rounded-lg text-[10px] font-black uppercase transition-all ${flags.includes(f) ? 'bg-sky-600 text-white shadow-sm' : 'bg-white border border-slate-100 text-slate-400 hover:bg-slate-50'}`}
+                              className={`w-8 h-8 rounded-lg text-[10px] font-black uppercase transition-all ${flags.includes(f) ? 'bg-brand-600 text-white shadow-sm' : 'bg-white border border-slate-100 text-slate-400 hover:bg-slate-50'}`}
                              >
                                {f}
                              </button>
@@ -143,7 +143,7 @@ export default function RegexpTool() {
                           <button
                              key={t.name}
                              onClick={() => useTemplate(t.pattern)}
-                             className="px-3 py-1.5 rounded-lg border border-slate-100 bg-white text-[10px] font-bold text-slate-500 hover:border-sky-500 hover:text-sky-600 hover:shadow-sm transition-all whitespace-nowrap"
+                             className="px-3 py-1.5 rounded-lg border border-slate-100 bg-white text-[10px] font-bold text-slate-500 hover:border-brand-500 hover:text-brand-600 hover:shadow-sm transition-all whitespace-nowrap"
                           >
                              {t.name}
                           </button>
@@ -201,7 +201,7 @@ export default function RegexpTool() {
                           <div className="divide-y divide-slate-50 overflow-y-auto h-full scrollbar-hide">
                              {matches.map((match, i) => (
                                 <div key={i} className="px-6 py-4 flex items-start gap-4 hover:bg-slate-50 transition-colors group">
-                                   <span className="text-[10px] font-mono font-black text-slate-200 group-hover:text-sky-400 transition-colors mt-1 w-6 shrink-0">#{i + 1}</span>
+                                   <span className="text-[10px] font-mono font-black text-slate-200 group-hover:text-brand-400 transition-colors mt-1 w-6 shrink-0">#{i + 1}</span>
                                    <div className="flex-1 font-mono text-[13px] leading-relaxed text-slate-700 whitespace-pre-wrap break-all">{match}</div>
                                 </div>
                              ))}
@@ -225,7 +225,7 @@ export default function RegexpTool() {
           <div className="history-overlay-panel" onClick={(e) => e.stopPropagation()}>
           <div className="p-6 border-b border-slate-200/70 bg-white/80 flex items-center justify-between">
             <div className="flex items-center gap-2 text-slate-900 font-black text-xs uppercase tracking-widest">
-              <Code2 size={18} className="text-sky-600" />
+              <Code2 size={18} className="text-brand-600" />
               历史表达式库
             </div>
             <div className="flex items-center gap-2">
@@ -247,12 +247,12 @@ export default function RegexpTool() {
                   key={item.id}
                   onContextMenu={(e) => openHistoryMenu(e, item)}
                   onClick={() => { setPattern(item.data.pattern); setFlags(item.data.flags); setTestText(item.data.text); setShowHistory(false); }}
-                  className="w-full text-left p-5 rounded-2xl bg-white border border-slate-200/60 shadow-sm hover:border-sky-600 hover:shadow-sky-500/10 transition-all group"
+                  className="w-full text-left p-5 rounded-2xl bg-white border border-slate-200/60 shadow-sm hover:border-brand-600 hover:shadow-brand-500/10 transition-all group"
                 >
                   <p className="text-[11px] font-mono font-black text-slate-800 mb-2 truncate pr-4">/{item.data.pattern}/</p>
                   <div className="flex items-center justify-between">
                     <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{new Date(item.timestamp).toLocaleDateString()}</span>
-                    <ChevronRight size={10} className="text-slate-300 group-hover:text-sky-600 transition-colors" />
+                    <ChevronRight size={10} className="text-slate-300 group-hover:text-brand-600 transition-colors" />
                   </div>
                 </button>
                ))

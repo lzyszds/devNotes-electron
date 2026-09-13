@@ -74,7 +74,7 @@ const UI = {
   btnActive: "inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-lg border text-xs font-semibold shrink-0",
   btnIcon: "inline-flex items-center justify-center h-9 w-9 rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:border-slate-300 shrink-0",
   select: "shrink-0",
-  input: "h-9 px-3 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/10",
+  input: "h-9 px-3 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-700 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-500/10",
   segment: "flex h-9 p-0.5 bg-slate-100 rounded-lg shrink-0",
   segmentItem: "h-full px-3 rounded-md text-xs font-semibold transition-all",
   panel: "px-6 py-3 border-b border-slate-100 flex items-center gap-2 flex-wrap min-h-[52px]",
@@ -101,7 +101,7 @@ const SettingToggle = ({
       aria-checked={checked}
       onClick={() => onChange(!checked)}
       className={`relative mt-0.5 h-5 w-9 rounded-full transition shrink-0 ${
-        checked ? "bg-indigo-600" : "bg-slate-200"
+        checked ? "bg-brand-600" : "bg-slate-200"
       }`}
     >
       <span
@@ -637,7 +637,7 @@ export default function JsonI18nTool() {
         {/* Header */}
         <div className="px-6 h-16 flex items-center justify-between border-b border-slate-100 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-100">
+            <div className="h-10 w-10 rounded-xl bg-brand-600 text-white flex items-center justify-center shadow-md shadow-brand-100">
               <Languages size={20} />
             </div>
             <div>
@@ -652,7 +652,7 @@ export default function JsonI18nTool() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowHistory(!showHistory)}
-              className={`${UI.btn} ${showHistory ? "!border-indigo-200 !bg-indigo-50 !text-indigo-600" : ""}`}
+              className={`${UI.btn} ${showHistory ? "!border-brand-200 !bg-brand-50 !text-brand-600" : ""}`}
             >
               <History size={14} />
               历史
@@ -690,7 +690,7 @@ export default function JsonI18nTool() {
                   onClick={() => setTranslationMode(mode.id)}
                   className={`${UI.segmentItem} ${
                     translationMode === mode.id
-                      ? "bg-white text-indigo-600 shadow-sm"
+                      ? "bg-white text-brand-600 shadow-sm"
                       : "text-slate-500 hover:text-slate-700"
                   }`}
                 >
@@ -724,7 +724,7 @@ export default function JsonI18nTool() {
                           setShowSourceDropdown(false);
                         }}
                         className={`w-full text-left px-3 py-2 text-xs hover:bg-slate-50 ${
-                          sourceLang === lang.code ? "bg-indigo-50 text-indigo-600 font-semibold" : ""
+                          sourceLang === lang.code ? "bg-brand-50 text-brand-600 font-semibold" : ""
                         }`}
                       >
                         {lang.name}
@@ -741,11 +741,11 @@ export default function JsonI18nTool() {
             <div className="relative">
               <button
                 onClick={() => setShowTargetDropdown(!showTargetDropdown)}
-                className={`${UI.btnActive} border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100`}
+                className={`${UI.btnActive} border-brand-200 bg-brand-50 text-brand-700 hover:bg-brand-100`}
               >
                 <Languages size={14} />
                 {targetLangs.length === 0 ? "选择语言" : `${targetLangs.length} 种`}
-                <ChevronDown size={14} className="text-indigo-400" />
+                <ChevronDown size={14} className="text-brand-400" />
               </button>
               {showTargetDropdown && (
                 <>
@@ -756,7 +756,7 @@ export default function JsonI18nTool() {
                         onClick={() =>
                           setTargetLangs(LANGUAGES.map((l) => l.code).filter((c) => c !== sourceLang))
                         }
-                        className="text-[10px] font-bold text-indigo-600 hover:underline"
+                        className="text-[10px] font-bold text-brand-600 hover:underline"
                       >
                         全选
                       </button>
@@ -774,12 +774,12 @@ export default function JsonI18nTool() {
                           key={lang.code}
                           onClick={() => toggleTargetLang(lang.code)}
                           className={`w-full text-left px-3 py-2 text-xs hover:bg-slate-50 flex items-center gap-2 ${
-                            selected ? "bg-indigo-50 text-indigo-600" : ""
+                            selected ? "bg-brand-50 text-brand-600" : ""
                           }`}
                         >
                           <span
                             className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 ${
-                              selected ? "bg-indigo-600 border-indigo-600 text-white" : "border-slate-300"
+                              selected ? "bg-brand-600 border-brand-600 text-white" : "border-slate-300"
                             }`}
                           >
                             {selected && <Check size={9} />}
@@ -877,7 +877,7 @@ export default function JsonI18nTool() {
             <button
               onClick={() => setShowProxyPanel(!showProxyPanel)}
               className={`${UI.btn} ${
-                showProxyPanel ? "!border-indigo-300 !bg-indigo-50 !text-indigo-600" : ""
+                showProxyPanel ? "!border-brand-300 !bg-brand-50 !text-brand-600" : ""
               }`}
             >
               <Settings2 size={14} />
@@ -1009,7 +1009,7 @@ export default function JsonI18nTool() {
                 key={mode}
                 onClick={() => setProxyMode(mode)}
                 className={`${UI.btn} ${
-                  proxyMode === mode ? "!border-indigo-600 !bg-indigo-600 !text-white" : ""
+                  proxyMode === mode ? "!border-brand-600 !bg-brand-600 !text-white" : ""
                 }`}
               >
                 {mode === "system" ? "系统" : mode === "manual" ? "手动" : "直连"}
@@ -1033,7 +1033,7 @@ export default function JsonI18nTool() {
             <button
               onClick={testProxyConnection}
               disabled={testingProxy}
-              className="h-9 px-3 rounded-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 disabled:opacity-50 inline-flex items-center gap-1.5"
+              className="h-9 px-3 rounded-lg bg-brand-600 text-white text-xs font-semibold hover:bg-brand-700 disabled:opacity-50 inline-flex items-center gap-1.5"
             >
               {testingProxy && <Loader2 size={12} className="animate-spin" />}
               测试
@@ -1068,12 +1068,12 @@ export default function JsonI18nTool() {
             />
             <button
               onClick={addKeyMapping}
-              className="h-9 px-3 rounded-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700"
+              className="h-9 px-3 rounded-lg bg-brand-600 text-white text-xs font-semibold hover:bg-brand-700"
             >
               添加
             </button>
             {keyMappings.map((m, i) => (
-              <span key={i} className="h-7 inline-flex items-center gap-1 px-2 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-medium">
+              <span key={i} className="h-7 inline-flex items-center gap-1 px-2 bg-brand-50 text-brand-600 rounded-lg text-xs font-medium">
                 {m.original} → {m.translated}
                 <Tooltip content="删除键名映射">
                   <button onClick={() => removeKeyMapping(i)} className="hover:text-rose-500">
@@ -1154,7 +1154,7 @@ export default function JsonI18nTool() {
                             {lang}
                           </span>
                           {result.translating ? (
-                            <Loader2 size={12} className="animate-spin text-indigo-500 shrink-0" />
+                            <Loader2 size={12} className="animate-spin text-brand-500 shrink-0" />
                           ) : result.translatedCount > 0 ? (
                             <CheckCircle2 size={12} className="text-emerald-500 shrink-0" />
                           ) : (
@@ -1165,7 +1165,7 @@ export default function JsonI18nTool() {
                               <div className="flex items-center gap-2">
                                 <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden max-w-[120px]">
                                   <div
-                                    className="h-full bg-indigo-500 transition-all"
+                                    className="h-full bg-brand-500 transition-all"
                                     style={{ width: `${pct}%` }}
                                   />
                                 </div>
@@ -1232,7 +1232,7 @@ export default function JsonI18nTool() {
               <div className="flex items-center gap-2">
                 <div className="w-28 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-indigo-600 transition-all"
+                    className="h-full bg-brand-600 transition-all"
                     style={{ width: `${(progress.current / progress.total) * 100}%` }}
                   />
                 </div>
@@ -1245,7 +1245,7 @@ export default function JsonI18nTool() {
           <button
             onClick={translateJson}
             disabled={!input.trim() || isTranslating || targetLangs.length === 0}
-            className="tool-button-primary h-9 px-5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
+            className="tool-button-primary h-9 px-5 bg-brand-600 hover:bg-brand-700 disabled:opacity-50"
           >
             {isTranslating ? (
               <>
@@ -1274,7 +1274,7 @@ export default function JsonI18nTool() {
           <div className="history-overlay-panel" onClick={(e) => e.stopPropagation()}>
             <div className="p-6 border-b border-slate-200/70 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <History size={18} className="text-indigo-600" />
+                <History size={18} className="text-brand-600" />
                 <p className="text-[11px] font-black uppercase">翻译历史</p>
               </div>
               <div className="flex gap-2">
@@ -1300,7 +1300,7 @@ export default function JsonI18nTool() {
                       setInput(item.data);
                       setShowHistory(false);
                     }}
-                    className="w-full text-left p-4 rounded-2xl bg-white border border-slate-200 hover:border-indigo-500 transition"
+                    className="w-full text-left p-4 rounded-2xl bg-white border border-slate-200 hover:border-brand-500 transition"
                   >
                     <span className="text-[9px] text-slate-300 font-mono">
                       {new Date(item.timestamp).toLocaleString()}

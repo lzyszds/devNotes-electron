@@ -372,29 +372,66 @@ html.dark ::-webkit-scrollbar-thumb:hover {
   }
 }
 
-/* Cherry Markdown 笔记编辑器容器规则 */
-.cherry-notes-editor,
-.cherry-notes-editor > div,
+/* ==========================================================================
+   笔记编辑器外壳（Cherry 双栏 / Milkdown 所见即所得，两个内核共用）
+
+   工具栏与状态栏已换成 React 自绘组件（src/components/tools/markdown/）。
+   Cherry 自带的那条工具栏并没有被删掉，而是「隐形但保留布局盒」：
+   它的下拉靠按钮的 offsetLeft/offsetTop 定位（内部 T$()），display:none 会让坐标归零，
+   所以只能让它不可见、不可点，不能让它的盒子消失。
+   Milkdown 没有原生工具栏，也就没有这一段。
+   ========================================================================== */
+
+/* ------------------------------------------------------------ 1. 容器骨架 */
+
+.cherry-notes-editor {
+  position: relative;
+  height: 100%;
+  width: 100%;
+  box-sizing: border-box;
+  background: #ffffff;
+}
+
+html.dark .cherry-notes-editor {
+  background: #12141a;
+}
+
 .cherry-notes-editor .cherry {
   height: 100% !important;
   width: 100% !important;
   box-sizing: border-box;
-}
-
-.cherry-notes-editor .cherry {
+  /*
+   * Cherry 用 --height-toolbar 算四处几何：editor/previewer 的 calc(100% - …)、
+   * .cherry-toolbar 的 min-height、.cherry-sidebar 与 .cherry-flex-toc 的 top。
+   * 原生工具栏已被移出文档流（见下），这里一并归零，四处数学一次对齐。
+   */
+  --height-toolbar: 0px;
+  --sidebar-list-height: 0px;
   border: none !important;
   border-radius: 0 !important;
+  box-shadow: none !important;
 }
+
+/* ---------------------------------------------- 2. 隐形原生工具栏（Cherry） */
 
 .cherry-notes-editor .cherry-toolbar {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
   border-radius: 0 !important;
-  flex-wrap: nowrap !important;
-  overflow-x: auto !important;
-  scrollbar-width: none !important;
-}
-
-.cherry-notes-editor .cherry-toolbar::-webkit-scrollbar {
-  display: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  overflow: visible !important;
+  z-index: 0 !important;
+  /* 关键：visibility 而不是 display —— 前者保留布局盒，下拉锚点才算得出来 */
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
 
 /*
@@ -407,53 +444,843 @@ html.dark ::-webkit-scrollbar-thumb:hover {
   -webkit-user-select: text !important;
 }
 
-/* Vditor 笔记编辑器容器规则(即时渲染 / 富文本两种内核共用) */
-.vditor-notes-editor,
-.vditor-notes-editor > div {
-  height: 100% !important;
-  width: 100% !important;
+/* Milkdown 笔记编辑器容器(所见即所得内核)。
+   Milkdown 就是一块 ProseMirror,Milkdown 自己不带任何视觉样式,
+   所以这里只给骨架,排版与配色见第 6、8 节 */
+.milkdown-notes-editor {
+  position: relative;
+  height: 100%;
+  width: 100%;
   box-sizing: border-box;
+  background: #ffffff;
 }
 
-/* Vditor 默认带整圈边框与圆角,这里要去掉才能和外壳无缝拼接 */
-.vditor-notes-editor .vditor {
-  border: none !important;
-  border-radius: 0 !important;
+html.dark .milkdown-notes-editor {
+  background: #12141a;
 }
 
-.vditor-notes-editor .vditor-toolbar {
-  border-radius: 0 !important;
-  flex-wrap: nowrap !important;
-  overflow-x: auto !important;
-  scrollbar-width: none !important;
+/* 同 cherry-notes-editor:在外层 select-none 之下恢复正文的文本选中 */
+.milkdown-notes-editor .milkdown-content {
+  user-select: text;
+  -webkit-user-select: text;
 }
 
-.vditor-notes-editor .vditor-toolbar::-webkit-scrollbar {
+/* ==========================================================================
+   4. Cherry 换肤
+   选择器带 html 前缀是为了压过第三方自带的 .cherry.theme__default / .cherry.theme__dark
+   —— 那两个也是 (0,2,0)，只靠文档顺序不可靠，加一级元素选择器就稳定胜出。
+   ========================================================================== */
+
+html .cherry-notes-editor .cherry {
+  --base-font-color: #334155;
+  --base-sub-font-color: #64748b;
+  --base-border-color: #e2e8f0;
+  --base-editor-bg: #ffffff;
+  --base-previewer-bg: #ffffff;
+  --primary-color: #4f46e5;
+  --secondary-color: #eef2ff;
+
+  /* 第三方引用了却从未定义的变量（var() 静默失效），这里补齐 */
+  --color-link-hover: #4338ca;
+  --color-primary-hover: #4338ca;
+  --radius-xs: 4px;
+  --border-color: var(--base-border-color);
+  --bg-color-lighter: #f8fafc;
+  --full-width-color: #cbd5e1;
+  --md-text-color: var(--base-font-color);
+
+  /* 工具栏 / 下拉 / 气泡（原生工具栏虽已隐形，下拉与气泡仍要好看） */
+  --toolbar-bg: #ffffff;
+  --toolbar-btn-color: #64748b;
+  --toolbar-btn-hover-color: #0f172a;
+  --toolbar-btn-hover-bg: #f1f5f9;
+  --toolbar-btn-active-bg: #eef2ff;
+  --dropdown-bg: #ffffff;
+  --dropdown-item-color: #475569;
+  --dropdown-item-hover-bg: #f1f5f9;
+  --dropdown-item-hover-color: #0f172a;
+  --dropdown-item-active-bg: #eef2ff;
+  --dropdown-item-active-color: #4f46e5;
+  --bubble-bg: #ffffff;
+
+  /* 编辑区（CodeMirror 6）。Cherry 只把语法映射到 header/url/comment 三个桶 */
+  --editor-header-color: #0f172a;
+  --editor-comment-color: #94a3b8;
+  --editor-quote-color: #4f46e5;
+  --editor-string-color: #334155;
+  --editor-link-color: #4f46e5;
+  --editor-url-color: #6366f1;
+  --editor-v2-color: #4f46e5;
+  --editor-v3-color: #c7d2fe;
+  --editor-keyword-color: #334155;
+  --editor-cursor-color: #4f46e5;
+  --editor-selection-bg: #e0e7ff;
+  --editor-line-number-color: #cbd5e1;
+  --editor-active-line-bg: #f8fafc;
+
+  /* 预览排版 */
+  --md-heading-color: #0f172a;
+  --md-paragraph-color: #334155;
+  --md-link-color: #4f46e5;
+  --md-link-hover-color: #4338ca;
+  --md-inline-code-color: #4338ca;
+  --md-inline-code-bg: #eef2ff;
+  --md-blockquote-bg: #f8fafc;
+  --md-blockquote-border: #cbd5e1;
+  --md-blockquote-color: #64748b;
+  --md-table-border: #e2e8f0;
+  --md-hr-border: #e2e8f0;
+  --md-toc-bg: #ffffff;
+  --md-toc-border-color: #e2e8f0;
+  --md-toc-link-color: #475569;
+  --md-toc-link-hover-bg: #f1f5f9;
+  --md-toc-link-active-bg: #eef2ff;
+  --md-toc-indicator-color: #cbd5e1;
+  --md-toc-indicator-hover-color: #4f46e5;
+
+  --drag-border-color: #e2e8f0;
+  --timeline-line-color: #e2e8f0;
+  --timeline-doing-color: #4f46e5;
+  --timeline-doing-shadow-color: rgba(79, 70, 229, 0.2);
+  --timeline-doing-pulse-from: rgba(79, 70, 229, 0.35);
+  --timeline-doing-pulse-to: rgba(79, 70, 229, 0);
+  --accordion-summary-bg: #4f46e5;
+  --accordion-summary-hover-bg: #4338ca;
+  --mermaid-container-border: #e2e8f0;
+}
+
+html.dark .cherry-notes-editor .cherry {
+  --base-font-color: #cbd5e1;
+  --base-sub-font-color: #94a3b8;
+  --base-border-color: #232733;
+  --base-editor-bg: #12141a;
+  --base-previewer-bg: #12141a;
+  --primary-color: #818cf8;
+  --secondary-color: rgba(99, 102, 241, 0.16);
+
+  --color-link-hover: #a5b4fc;
+  --color-primary-hover: #a5b4fc;
+  --border-color: var(--base-border-color);
+  --bg-color-lighter: #1b1f2b;
+  --full-width-color: #475569;
+  --md-text-color: var(--base-font-color);
+
+  --toolbar-bg: #12141a;
+  --toolbar-btn-color: #94a3b8;
+  --toolbar-btn-hover-color: #ffffff;
+  --toolbar-btn-hover-bg: #1b1f2b;
+  --toolbar-btn-active-bg: rgba(99, 102, 241, 0.18);
+  --dropdown-bg: #171a21;
+  --dropdown-item-color: #cbd5e1;
+  --dropdown-item-hover-bg: #1b1f2b;
+  --dropdown-item-hover-color: #ffffff;
+  --dropdown-item-active-bg: rgba(99, 102, 241, 0.18);
+  --dropdown-item-active-color: #a5b4fc;
+  --bubble-bg: #171a21;
+
+  --editor-header-color: #e2e8f0;
+  --editor-comment-color: #64748b;
+  --editor-quote-color: #a5b4fc;
+  --editor-string-color: #cbd5e1;
+  --editor-link-color: #a5b4fc;
+  --editor-url-color: #818cf8;
+  --editor-v2-color: #a5b4fc;
+  --editor-v3-color: #4f46e5;
+  --editor-keyword-color: #cbd5e1;
+  --editor-cursor-color: #a5b4fc;
+  --editor-selection-bg: rgba(99, 102, 241, 0.3);
+  --editor-line-number-color: #475569;
+  --editor-active-line-bg: #171a21;
+
+  --md-heading-color: #f1f5f9;
+  --md-paragraph-color: #cbd5e1;
+  --md-link-color: #a5b4fc;
+  --md-link-hover-color: #c7d2fe;
+  --md-inline-code-color: #a5b4fc;
+  --md-inline-code-bg: rgba(129, 140, 248, 0.15);
+  --md-blockquote-bg: rgba(148, 163, 184, 0.06);
+  --md-blockquote-border: #334155;
+  --md-blockquote-color: #94a3b8;
+  --md-table-border: #232733;
+  --md-hr-border: #232733;
+  --md-toc-bg: #12141a;
+  --md-toc-border-color: #232733;
+  --md-toc-link-color: #cbd5e1;
+  --md-toc-link-hover-bg: #1b1f2b;
+  --md-toc-link-active-bg: rgba(99, 102, 241, 0.18);
+  --md-toc-indicator-color: #334155;
+  --md-toc-indicator-hover-color: #818cf8;
+
+  --drag-border-color: #232733;
+  --timeline-line-color: #232733;
+  --timeline-doing-color: #818cf8;
+  --timeline-doing-shadow-color: rgba(129, 140, 248, 0.2);
+  --timeline-doing-pulse-from: rgba(129, 140, 248, 0.35);
+  --timeline-doing-pulse-to: rgba(129, 140, 248, 0);
+  --accordion-summary-bg: #4f46e5;
+  --accordion-summary-hover-bg: #6366f1;
+  --mermaid-container-border: #232733;
+}
+
+/* --------------------------------------------------------------------------
+   5. Cherry 硬编码补刀
+   下面这些在第三方样式表里是写死的字面值，变量管不到，只能按选择器覆盖。
+   -------------------------------------------------------------------------- */
+
+/* 预览区：原来右侧留 45px 是给 TOC 侧栏让位的，现在侧栏浮在内容之上，留着只是白边 */
+.cherry-notes-editor .cherry-previewer {
+  padding: 28px 40px 96px !important;
+  border-left: 1px solid var(--base-border-color) !important;
+}
+
+/* 编辑区：.cm-lineWrapping 就是 CM6 的 .cm-content */
+.cherry-notes-editor .cherry .cm-editor .cm-content,
+.cherry-notes-editor .cherry .cm-editor .cm-lineWrapping {
+  padding: 24px 28px 96px !important;
+}
+
+.cherry-notes-editor .cherry-markdown h1,
+.cherry-notes-editor .cherry-markdown h2,
+.cherry-notes-editor .cherry-markdown h3,
+.cherry-notes-editor .cherry-markdown h4,
+.cherry-notes-editor .cherry-markdown h5,
+.cherry-notes-editor .cherry-markdown h6 {
+  font-weight: 600 !important;
+  line-height: 1.3 !important;
+  margin-top: 1.6em !important;
+  margin-bottom: 0.6em !important;
+}
+
+.cherry-notes-editor .cherry-markdown h1 {
+  margin-top: 0 !important;
+}
+
+/* 代码块的底色与字色交给「设置 → 通用 → 代码块主题」选出的主题（Cherry 会把它写到
+   .cherry 的 data-code-block-theme 上），这里只统一外壳：圆角、内边距、字号。
+   Cherry 的主题把背景同时设在 code[class*=language-] 与 pre[class*=language-] 上，
+   所以 padding 留在 pre 上，内边距区域自然带主题底色。
+   边框用中性半透明色，深浅主题下都看得见。 */
+.cherry-notes-editor .cherry-markdown pre {
+  border: 1px solid rgba(127, 127, 127, 0.18) !important;
+  border-radius: 10px !important;
+  padding: 16px !important;
+  font-size: 12.5px !important;
+  line-height: 1.65 !important;
+}
+
+/* 下拉：Cherry 默认 width:130px + margin-left:-60px，把 left 当中心线用。
+   dispatch.ts 里的锚点校正按「左边缘」语义重算，所以这里要把中心线语义抹平。 */
+.cherry-notes-editor .cherry-dropdown {
+  width: auto !important;
+  min-width: 152px !important;
+  margin-left: 0 !important;
+  padding: 4px !important;
+  border-radius: 12px !important;
+  border: 1px solid var(--base-border-color) !important;
+  box-shadow: 0 12px 32px -8px rgba(15, 23, 42, 0.18), 0 2px 8px -2px rgba(15, 23, 42, 0.08) !important;
+}
+
+.cherry-notes-editor .cherry-dropdown-item {
+  border-radius: 8px !important;
+  font-size: 12.5px !important;
+  min-height: 30px !important;
+  line-height: 1.5 !important;
+  margin: 1px 2px !important;
+  width: calc(100% - 4px) !important;
+}
+
+/* --------------------------------------------------------------------------
+   TOC（大纲浮层）
+   原生样式是配 Cherry 默认皮肤的，落到本项目里处处打架：条目挂 5px 灰块（深色下
+   还会翻成橙色）、文字纯黑、头部虚线分隔、:hover 时宽度从 160px 突跳到 260px，
+   外加一条 transition: all 把 top/height 也一起过渡。这里按全站设计语言重做，
+   配色接上 --md-toc-* 那组变量。
+   注意原生的 display 声明会被下面带 !important 的规则盖掉（两个箭头、两个模式的
+   可见性），所以凡是靠 display 切换的地方都在这里显式写清两个方向。
+   -------------------------------------------------------------------------- */
+
+/* 展开态：贴边的安静卡片。用 flex 让高度随条目收缩，只有两三个标题时不会撑成一条空白 */
+.cherry-notes-editor .cherry-flex-toc {
+  top: 8px !important;
+  right: 8px !important;
+  margin-right: 0 !important;
+  height: auto !important;
+  max-height: calc(100% - 16px) !important;
+
+  display: flex !important;
+  flex-direction: column !important;
+  width: 208px !important; /* 钉死宽度，压掉原生 :hover 的 160 → 260 突跳 */
+  background: var(--md-toc-bg) !important;
+  border: 1px solid var(--md-toc-border-color) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 10px 30px -12px rgba(15, 23, 42, 0.25), 0 2px 6px -2px rgba(15, 23, 42, 0.08) !important;
+  transition: width 0.2s ease, background-color 0.2s ease !important;
+}
+
+html.dark .cherry-notes-editor .cherry-flex-toc {
+  box-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.02) !important;
+}
+
+.cherry-notes-editor .cherry-flex-toc .cherry-toc-head {
+  flex: 0 0 auto;
+  display: flex !important;
+  align-items: center;
+  height: 36px;
+  padding: 0 6px 0 12px !important;
+  border-bottom: 1px solid var(--md-toc-border-color) !important; /* 原生是虚线 */
+}
+
+/* 标题改成全站统一的 label 风格（小号 + 字距 + 次级灰），原生是主色粗体 */
+.cherry-notes-editor .cherry-flex-toc .cherry-toc-head .cherry-toc-title {
+  flex: 1;
+  min-width: 0;
+  padding-left: 0 !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.08em;
+  color: var(--base-sub-font-color) !important;
+}
+
+/* 展开/收起箭头：原生是绝对定位顶在右上角的裸图标，改成规整的 24px 方形按钮 */
+.cherry-notes-editor .cherry-flex-toc .cherry-toc-head i {
+  position: static !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0 !important;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--base-sub-font-color) !important;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.cherry-notes-editor .cherry-flex-toc .cherry-toc-head i:hover {
+  background: var(--md-toc-link-hover-bg) !important;
+  color: var(--md-toc-indicator-hover-color) !important;
+}
+
+/* 两个箭头谁可见由模式决定。上面的 display 带了 !important，会盖掉原生那条
+   .ch-icon-chevronsLeft { display: none }，因此这里两个方向都要显式写出来。 */
+.cherry-notes-editor .cherry-flex-toc:not(.cherry-flex-toc__pure) .cherry-toc-head .ch-icon-chevronsRight,
+.cherry-notes-editor .cherry-flex-toc.cherry-flex-toc__pure .cherry-toc-head .ch-icon-chevronsLeft {
+  display: inline-flex !important;
+}
+
+.cherry-notes-editor .cherry-flex-toc:not(.cherry-flex-toc__pure) .cherry-toc-head .ch-icon-chevronsLeft,
+.cherry-notes-editor .cherry-flex-toc.cherry-flex-toc__pure .cherry-toc-head .ch-icon-chevronsRight {
   display: none !important;
 }
 
-/* 同 cherry-notes-editor:在外层 select-none 之下恢复编辑区与预览区的文本选中 */
-.vditor-notes-editor .vditor-ir,
-.vditor-notes-editor .vditor-wysiwyg,
-.vditor-notes-editor .vditor-sv,
-.vditor-notes-editor .vditor-preview {
-  user-select: text !important;
-  -webkit-user-select: text !important;
+.cherry-notes-editor .cherry-flex-toc .cherry-toc-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto !important; /* 原生按 40px 的头部算出来的死高度，改成跟着 flex 走 */
+  padding: 6px 6px 8px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+.cherry-notes-editor .cherry-flex-toc .cherry-toc-list .cherry-toc-one-a {
+  display: block !important;
+  height: 26px !important;
+  line-height: 26px !important;
+  margin-bottom: 1px !important;
+  padding: 0 8px !important;
+  border: none !important;
+  border-left: 2px solid transparent !important; /* 原生是 5px 的灰块，深色下还会变橙 */
+  border-radius: 6px;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  color: var(--md-toc-link-color) !important;
+  white-space: nowrap !important; /* 原生的 break-all 会把省略号顶掉 */
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease !important;
+}
+
+/* 层级：原生是 10/20/40/60/80 的 padding 递增，跨度太大且没有引导线，收成每级 +10 */
+.cherry-notes-editor .cherry-flex-toc .cherry-toc-list .cherry-toc-one-a__1 {
+  padding-left: 8px !important;
+  font-weight: 600 !important;
+}
+
+.cherry-notes-editor .cherry-flex-toc .cherry-toc-list .cherry-toc-one-a__2 {
+  padding-left: 18px !important;
+}
+
+.cherry-notes-editor .cherry-flex-toc .cherry-toc-list .cherry-toc-one-a__3 {
+  padding-left: 28px !important;
+}
+
+.cherry-notes-editor .cherry-flex-toc .cherry-toc-list .cherry-toc-one-a__4 {
+  padding-left: 38px !important;
+}
+
+.cherry-notes-editor .cherry-flex-toc .cherry-toc-list .cherry-toc-one-a__5 {
+  padding-left: 48px !important;
+}
+
+/* 悬停只铺底，左侧指示条留给「当前」——否则鼠标划过时一片蓝色在跳 */
+.cherry-notes-editor .cherry-flex-toc .cherry-toc-list .cherry-toc-one-a:hover {
+  background: var(--md-toc-link-hover-bg) !important;
+  color: var(--md-toc-link-color) !important;
+}
+
+/* 必须排在 :hover 之后：两者特异度相同，靠顺序决出胜负 */
+.cherry-notes-editor .cherry-flex-toc .cherry-toc-list .cherry-toc-one-a.current {
+  background: var(--md-toc-link-active-bg) !important;
+  border-left-color: var(--md-toc-indicator-hover-color) !important;
+  color: var(--md-toc-indicator-hover-color) !important;
+  font-weight: 600 !important;
+}
+
+/* 标题若在引用块里，原生缀一个小箭头；跟着文字一起收敛 */
+.cherry-notes-editor .cherry-flex-toc .cherry-toc-list .cherry-toc-one-a .cherry-toc-in-blockquote {
+  font-size: 0.85em !important;
+  color: var(--md-toc-indicator-color) !important;
+  opacity: 0.8;
 }
 
 /*
- * 工具栏提示已由 domTooltip.ts 接管(改成和全站一致的自绘气泡),
- * 这里关掉 Vditor 自带的黑底气泡 —— 它是靠 :hover 切 display 显示的,
- * 且没有 !important,所以下面这套能稳稳压住。
- * 注意只关视觉气泡,aria-label 要保留(那是读屏用的无障碍名称)。
+ * 折叠态：原生收成一条 30px 竖条，每个条目被 JS 写成 3–10px 高的粗横杠
+ * （行内 height，只有 !important 压得住），粗细不一看着像噪点。
+ * 这里拉平成等高的细圆角刻度条，悬停/当前那一条变长变亮，整体像一条章节标尺。
  */
-.no-native-tip .vditor-tooltipped:hover::before,
-.no-native-tip .vditor-tooltipped:hover::after,
-.no-native-tip .vditor-tooltipped--hover::before,
-.no-native-tip .vditor-tooltipped--hover::after,
-.no-native-tip .vditor-tooltipped:focus::before,
-.no-native-tip .vditor-tooltipped:focus::after,
-.no-native-tip .vditor-tooltipped:active::before,
-.no-native-tip .vditor-tooltipped:active::after {
-  display: none !important;
+.cherry-notes-editor .cherry-flex-toc.cherry-flex-toc__pure {
+  width: 34px !important;
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.cherry-notes-editor .cherry-flex-toc.cherry-flex-toc__pure .cherry-toc-head {
+  height: 30px;
+  padding: 0 !important;
+  justify-content: center;
+  border-bottom-color: transparent !important;
+}
+
+.cherry-notes-editor .cherry-flex-toc.cherry-flex-toc__pure .cherry-toc-list {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 0 !important;
+}
+
+.cherry-notes-editor .cherry-flex-toc.cherry-flex-toc__pure .cherry-toc-list .cherry-toc-one-a {
+  flex: 0 0 auto;
+  width: 14px !important;
+  height: 3px !important;
+  min-height: 3px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 9999px !important;
+  background: var(--md-toc-indicator-color) !important;
+  font-size: 0 !important; /* 原生靠 width: 0 藏文字，这里直接把字号抹平 */
+  line-height: 0 !important;
+  transition: width 0.15s ease, background-color 0.15s ease !important;
+}
+
+.cherry-notes-editor .cherry-flex-toc.cherry-flex-toc__pure .cherry-toc-list .cherry-toc-one-a:hover,
+.cherry-notes-editor .cherry-flex-toc.cherry-flex-toc__pure .cherry-toc-list .cherry-toc-one-a.current {
+  width: 22px !important;
+  background: var(--md-toc-indicator-hover-color) !important;
+}
+
+/* 分栏中缝：平时是一条 5px 透明热区，拖动时才显形 */
+.cherry-notes-editor .cherry-drag.cherry-drag--show {
+  background: #6366f1 !important;
+  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.35) !important;
+}
+
+/* ==========================================================================
+   6. Milkdown 换肤
+   Milkdown 自带的样式只有 prosemirror.css 那点骨架(定位、断词、gapcursor)，
+   全部观感都在这里定。
+   注意 .milkdown-content 就是 contenteditable 本身 —— 所见即所得下编辑区与
+   「预览」是同一块 DOM，所以这一节既管编辑也管阅读，第 8 节的共用排版会再叠上来。
+   ========================================================================== */
+
+/* 画布：留白与限宽对齐 Cherry 的预览侧，让两种模式切换时正文的版心不跳 */
+.milkdown-notes-editor .milkdown-scroll {
+  background: #ffffff;
+}
+
+html.dark .milkdown-notes-editor .milkdown-scroll {
+  background: #12141a;
+}
+
+/* 不限宽：所见即所得是单栏内核，正文铺满整个编辑区 */
+.milkdown-notes-editor .milkdown-content {
+  box-sizing: border-box;
+  min-height: 100%;
+  padding: 28px 32px 96px;
+  /* contenteditable 聚焦时浏览器会给一圈默认描边，在全站观感里很突兀 */
+  outline: none;
+  caret-color: #4f46e5;
+}
+
+html.dark .milkdown-notes-editor .milkdown-content {
+  caret-color: #a5b4fc;
+}
+
+/*
+ * 任务清单：gfm 把勾选框做成 li 上的 data-item-type="task" / data-checked，
+ * 没有任何内置样式，不补的话就是一行普通列表项。
+ * 方框用 ::before 画，点击切换由编辑器里的 taskListClickPlugin 接管。
+ */
+.milkdown-notes-editor .milkdown-content li[data-item-type='task'] {
+  position: relative;
+  list-style: none;
+  padding-left: 1.6em;
+}
+
+.milkdown-notes-editor .milkdown-content li[data-item-type='task']::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.42em;
+  width: 13px;
+  height: 13px;
+  box-sizing: border-box;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 4px;
+  background-color: transparent;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.milkdown-notes-editor .milkdown-content li[data-item-type='task']:hover::before {
+  border-color: #6366f1;
+}
+
+.milkdown-notes-editor .milkdown-content li[data-item-type='task'][data-checked='true']::before {
+  border-color: #4f46e5;
+  /* 勾用内联 SVG，省一个图标依赖；%23 是 # 的转义 */
+  background-color: #4f46e5;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23ffffff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5l3 3 6-6'/%3E%3C/svg%3E");
+  background-size: 11px 11px;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.milkdown-notes-editor
+  .milkdown-content
+  li[data-item-type='task'][data-checked='true']
+  > p:first-child {
+  color: #94a3b8;
+  text-decoration: line-through;
+}
+
+html.dark .milkdown-notes-editor .milkdown-content li[data-item-type='task']::before {
+  border-color: #3b4152;
+}
+
+html.dark
+  .milkdown-notes-editor
+  .milkdown-content
+  li[data-item-type='task'][data-checked='true']::before {
+  border-color: #6366f1;
+  background-color: #6366f1;
+}
+
+/*
+ * 代码块的配色交给 hljs 主题（即「设置 → 通用 → 代码块主题」选的档位，
+ * Milkdown 靠替换 <style id="milkdown-hljs-style"> 换肤），这里只统一外壳。
+ *
+ * 两条要点：
+ * 1. hljs 把内边距写在 pre code.hljs 上（1em）而外层 pre 保持透明，
+ *    所以圆角、边框、内边距都要落在 code 上，否则代码块四周会露出页面底色。
+ * 2. 主题 CSS 是运行时 append 到 head 的，位置在我们这张表之后 ——
+ *    同等特异度它会赢。这里靠多裹一层作用域类把特异度抬到 (0,3,2) 稳压住 pre code.hljs 的 (0,1,2)。
+ */
+.milkdown-notes-editor .milkdown-content pre {
+  margin: 0 0 1em;
+  background-color: transparent;
+  border: 0;
+  padding: 0;
+  /* prosemirror.css 把 pre 设成 pre-wrap，代码块会被自动折行，这里改回横向滚动 */
+  white-space: pre;
+}
+
+.milkdown-notes-editor .milkdown-content pre > code {
+  display: block;
+  border: 1px solid rgba(127, 127, 127, 0.18);
+  border-radius: 10px;
+  padding: 16px;
+  overflow-x: auto;
+  font-family: 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.65;
+}
+
+/* 查找替换的命中高亮。
+   用 Decoration.inline 加的类，落在文本节点外裹的那层 span 上，是个行内元素 ——
+   不要给 padding-vertical，会把行高撑歪；圆角也只做视觉上的柔化。 */
+.milkdown-notes-editor .md-search-hit {
+  background-color: rgba(250, 204, 21, 0.35);
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(250, 204, 21, 0.5);
+}
+
+.milkdown-notes-editor .md-search-hit--current {
+  background-color: rgba(249, 115, 22, 0.45);
+  box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.7);
+}
+
+/* 深色下黄色底会把黑字压得更沉，改用半透明暖色叠加即可 */
+.dark .milkdown-notes-editor .md-search-hit {
+  background-color: rgba(250, 204, 21, 0.22);
+  box-shadow: 0 0 0 1px rgba(250, 204, 21, 0.3);
+}
+
+.dark .milkdown-notes-editor .md-search-hit--current {
+  background-color: rgba(249, 115, 22, 0.35);
+  box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.55);
+}
+
+/* 内联 HTML（<mark>/<sup>/<sub> 等）经 NodeView 渲染出来的元素。
+   标签本身由浏览器给默认样式，这里只补本项目需要的观感。 */
+.milkdown-notes-editor .milkdown-content sup,
+.milkdown-notes-editor .milkdown-content sub {
+  font-size: 0.75em;
+  line-height: 0;
+}
+
+.milkdown-notes-editor .milkdown-content mark {
+  background-color: rgba(250, 204, 21, 0.4);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+.dark .milkdown-notes-editor .milkdown-content mark {
+  background-color: rgba(250, 204, 21, 0.25);
+}
+
+/* 认不出的 HTML 片段：不装成正文，明确标出「这里是原始代码」 */
+.milkdown-notes-editor .milkdown-content .md-html-raw {
+  font-family: 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace;
+  font-size: 0.85em;
+  color: var(--md-toc-indicator-color);
+  border-bottom: 1px dashed currentColor;
+}
+
+/* ==========================================================================
+   7. 编辑区等宽字体（两个内核统一）
+   ========================================================================== */
+
+html .cherry-notes-editor .cherry .cm-editor,
+html .cherry-notes-editor .cherry .cm-editor .cm-scroller,
+html .cherry-notes-editor .cherry .cm-editor .cm-content {
+  font-family: 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace !important;
+}
+
+html .milkdown-notes-editor .milkdown-content pre,
+html .milkdown-notes-editor .milkdown-content pre > code {
+  font-family: 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace !important;
+}
+
+/* ==========================================================================
+   8. 正文排版（两个内核共用一份，特异度 (0,2,1) 稳赢第三方的 (0,1,1)）
+   Cherry 侧作用在预览区；Milkdown 侧作用在编辑区本身 ——
+   所见即所得下编辑与阅读是同一块 DOM，没有第二份要区分。
+   ========================================================================== */
+
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) {
+  font-size: 14.5px;
+  line-height: 1.75;
+  color: #334155;
+  word-break: break-word;
+}
+
+html.dark
+  :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) {
+  color: #cbd5e1;
+}
+
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) h1,
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) h2,
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) h3,
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) h4,
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) h5,
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) h6 {
+  font-weight: 600;
+  line-height: 1.35;
+  color: #0f172a;
+  margin: 1.5em 0 0.6em;
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+html.dark
+  :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content)
+  :is(h1, h2, h3, h4, h5, h6) {
+  color: #f1f5f9;
+}
+
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) h1 {
+  font-size: 1.7em;
+  margin-top: 0;
+}
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) h2 {
+  font-size: 1.35em;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 0.3em;
+}
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) h3 {
+  font-size: 1.15em;
+}
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) h4 {
+  font-size: 1em;
+}
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) h5,
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) h6 {
+  font-size: 0.9em;
+  color: #64748b;
+}
+
+html.dark
+  :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content)
+  h2 {
+  border-bottom-color: #232733;
+}
+
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) p {
+  margin: 0 0 0.9em;
+}
+
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) ul,
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) ol {
+  margin: 0 0 0.9em;
+  padding-left: 1.5em;
+}
+
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) li {
+  margin-bottom: 0.25em;
+}
+
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content)
+  blockquote {
+  margin: 0 0 0.9em;
+  padding: 0.2em 0 0.2em 0.9em;
+  border-left: 3px solid #6366f1;
+  border-radius: 0 6px 6px 0;
+  background: #f8fafc;
+  color: #64748b;
+  font-style: normal;
+}
+
+html.dark
+  :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content)
+  blockquote {
+  background: rgba(148, 163, 184, 0.06);
+  color: #94a3b8;
+}
+
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content)
+  :not(pre)
+  > code {
+  background: #eef2ff;
+  color: #4338ca;
+  border: 0;
+  border-radius: 5px;
+  padding: 0.12em 0.35em;
+  font-size: 0.88em;
+  font-family: 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace;
+}
+
+html.dark
+  :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content)
+  :not(pre)
+  > code {
+  background: rgba(129, 140, 248, 0.15);
+  color: #a5b4fc;
+}
+
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) a {
+  color: #4f46e5;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(79, 70, 229, 0.3);
+}
+
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content)
+  a:hover {
+  color: #4338ca;
+  border-bottom-color: currentColor;
+}
+
+html.dark
+  :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content)
+  a {
+  color: #a5b4fc;
+  border-bottom-color: rgba(165, 180, 252, 0.35);
+}
+
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) img {
+  max-width: 100%;
+  border-radius: 8px;
+}
+
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 1.1em;
+  font-size: 0.92em;
+}
+
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content)
+  :is(th, td) {
+  border: 1px solid #e2e8f0;
+  padding: 0.5em 0.75em;
+  text-align: left;
+}
+
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) th {
+  background: #f8fafc;
+  font-weight: 600;
+}
+
+html.dark
+  :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content)
+  :is(th, td) {
+  border-color: #232733;
+}
+
+html.dark
+  :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content)
+  th {
+  background: #1b1f2b;
+}
+
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) hr {
+  border: 0;
+  border-top: 1px solid #e2e8f0;
+  margin: 2em 0;
+}
+
+html.dark
+  :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content)
+  hr {
+  border-top-color: #232733;
+}
+
+/* ==========================================================================
+   9. 阅读限宽
+   Cherry 的 .cherry-previewer 自己就是 .cherry-markdown（同一个元素、也是滚动容器），
+   直接给它设 max-width 会破坏分栏，所以改成给它的每个直接子块限宽再居中 ——
+   这样拖中缝改变宽度时也始终是「内容不超过 48rem」。
+   Milkdown 侧不限宽，正文铺满编辑区，不需要这一段。
+   ========================================================================== */
+
+.cherry-notes-editor
+  .cherry-previewer
+  > *:not(.cherry-previewer-codeBlock-click-handler):not(.cherry-previewer-codeBlock-hover-handler) {
+  max-width: 48rem;
+  margin-left: auto;
+  margin-right: auto;
 }

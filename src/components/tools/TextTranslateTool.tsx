@@ -271,7 +271,7 @@ export default function TextTranslateTool() {
         {/* 顶部标题区 */}
         <div className="px-8 py-5 flex items-center justify-between border-b border-slate-100">
           <div className="flex items-center gap-4">
-            <div className="h-12 w-12 rounded-2xl bg-brand-600 text-white flex items-center justify-center shadow-lg shadow-indigo-100">
+            <div className="h-12 w-12 rounded-2xl bg-brand-600 text-white flex items-center justify-center shadow-lg shadow-brand-100">
               <Languages size={24} />
             </div>
             <div>
@@ -305,7 +305,7 @@ export default function TextTranslateTool() {
 
             <button
               onClick={() => setShowHistory(!showHistory)}
-              className={`tool-button-secondary h-10 px-4 ${showHistory ? 'ring-2 ring-indigo-500/20 border-indigo-200 text-indigo-600' : ''}`}
+              className={`tool-button-secondary h-10 px-4 ${showHistory ? 'ring-2 ring-brand-500/20 border-brand-200 text-brand-600' : ''}`}
             >
               <History size={16} />
               <span>翻译历史</span>
@@ -412,7 +412,7 @@ export default function TextTranslateTool() {
                   value={output}
                   readOnly
                   placeholder="译文将在此显示…"
-                  className="tool-textarea min-h-[400px] border-brand-100 bg-indigo-50/10 font-bold text-slate-800 placeholder:text-slate-300"
+                  className="tool-textarea min-h-[400px] border-brand-100 bg-brand-50/10 font-bold text-slate-800 placeholder:text-slate-300"
                 />
               </div>
             </div>
@@ -496,7 +496,7 @@ export default function TextTranslateTool() {
                       setInput(item.data)
                       setShowHistory(false)
                     }}
-                    className="w-full text-left p-5 rounded-2xl bg-white border border-slate-200/60 shadow-sm hover:border-brand-600 hover:shadow-indigo-500/10 transition-all group"
+                    className="w-full text-left p-5 rounded-2xl bg-white border border-slate-200/60 shadow-sm hover:border-brand-600 hover:shadow-brand-500/10 transition-all group"
                   >
                     <p className="text-[11px] font-black text-slate-800 mb-2 truncate pr-4">
                       {item.title || item.data}

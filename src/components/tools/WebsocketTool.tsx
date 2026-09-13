@@ -149,7 +149,7 @@ export default function WebsocketTool() {
         <div className="px-8 py-5 flex items-center justify-between border-b border-slate-100">
           <div className="flex items-center gap-4">
             <div
-              className={`h-12 w-12 rounded-2xl flex items-center justify-center shadow-lg transition-colors ${status === WebSocket.OPEN ? "bg-sky-600 text-white shadow-sky-100" : "bg-slate-100 text-slate-400"}`}
+              className={`h-12 w-12 rounded-2xl flex items-center justify-center shadow-lg transition-colors ${status === WebSocket.OPEN ? "bg-brand-600 text-white shadow-brand-100" : "bg-slate-100 text-slate-400"}`}
             >
               {status === WebSocket.OPEN ? (
                 <Wifi size={24} className="animate-pulse" />
@@ -177,7 +177,7 @@ export default function WebsocketTool() {
           <div className="flex items-center gap-3 ">
             <button
               onClick={() => setShowHistory(!showHistory)}
-              className={`tool-button-secondary h-10 px-4 ${showHistory ? "ring-2 ring-sky-500/20 border-sky-200 text-sky-600" : ""}`}
+              className={`tool-button-secondary h-10 px-4 ${showHistory ? "ring-2 ring-brand-500/20 border-brand-200 text-brand-600" : ""}`}
             >
               <History size={16} />
               <span>服务器历史</span>
@@ -186,7 +186,7 @@ export default function WebsocketTool() {
             {status === WebSocket.CLOSED ? (
               <button
                 onClick={connect}
-                className="tool-button-primary h-10 bg-sky-600 hover:bg-sky-700 shadow-sky-100 px-6"
+                className="tool-button-primary h-10 bg-brand-600 hover:bg-brand-700 shadow-brand-100 px-6"
               >
                 <Play size={16} /> 建立连接
               </button>
@@ -210,7 +210,7 @@ export default function WebsocketTool() {
                 <label className="tool-label">服务器地址 (Endpoint)</label>
                 <div className="relative group">
                   <Terminal
-                    className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-sky-500 transition-colors"
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-brand-500 transition-colors"
                     size={18}
                   />
                   <input
@@ -229,7 +229,7 @@ export default function WebsocketTool() {
                 <div className="flex items-center justify-between mb-4">
                   <label className="tool-label mb-0">消息编辑器</label>
                   <span
-                    className={`text-[9px] font-bold uppercase tracking-tighter ${status === WebSocket.OPEN ? "text-sky-500" : "text-slate-300"}`}
+                    className={`text-[9px] font-bold uppercase tracking-tighter ${status === WebSocket.OPEN ? "text-brand-500" : "text-slate-300"}`}
                   >
                     {status === WebSocket.OPEN ? "已就绪" : "请先连接服务器"}
                   </span>
@@ -303,7 +303,7 @@ export default function WebsocketTool() {
                         log.type === "received"
                           ? "border-emerald-100 bg-emerald-50/30 text-emerald-900 shadow-sm shadow-emerald-500/5"
                           : log.type === "sent"
-                            ? "border-sky-100 bg-sky-50/30 text-sky-900 shadow-sm shadow-sky-500/5"
+                            ? "border-brand-100 bg-brand-50/30 text-brand-900 shadow-sm shadow-brand-500/5"
                             : log.type === "error"
                               ? "border-rose-100 bg-rose-50/30 text-rose-900 shadow-sm shadow-rose-500/5"
                               : "border-slate-100 bg-slate-50/50 text-slate-600"
@@ -347,7 +347,7 @@ export default function WebsocketTool() {
         >
         <div className="p-6 border-b border-slate-200/70 bg-white/80 flex items-center justify-between">
           <div className="flex items-center gap-2 text-slate-900 font-black text-xs uppercase tracking-widest">
-            <Terminal size={18} className="text-sky-600" />
+            <Terminal size={18} className="text-brand-600" />
             已保存的节点
           </div>
           <div className="flex items-center gap-2">
@@ -384,7 +384,7 @@ export default function WebsocketTool() {
                   setUrl(item.data);
                   setShowHistory(false);
                 }}
-                className="w-full text-left p-5 rounded-2xl bg-white border border-slate-200/60 shadow-sm hover:border-sky-600 hover:shadow-sky-500/10 transition-all group"
+                className="w-full text-left p-5 rounded-2xl bg-white border border-slate-200/60 shadow-sm hover:border-brand-600 hover:shadow-brand-500/10 transition-all group"
               >
                 <p className="text-[11px] font-black text-slate-800 mb-2 truncate pr-4">
                   {item.title}
@@ -395,7 +395,7 @@ export default function WebsocketTool() {
                   </span>
                   <Wifi
                     size={10}
-                    className="text-slate-300 group-hover:text-sky-600 transition-colors"
+                    className="text-slate-300 group-hover:text-brand-600 transition-colors"
                   />
                 </div>
               </button>

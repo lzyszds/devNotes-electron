@@ -1,5 +1,19 @@
 import { useEffect, useState } from 'react'
-import { Check, Command, Moon, PanelLeft, Sun } from 'lucide-react'
+import { Check, Code2, Command, Moon, PanelLeft, Sun } from 'lucide-react'
+import Select from '../ui/Select'
+import {
+  CODE_BLOCK_THEMES,
+  getCachedCodeBlockTheme,
+  getCodeBlockPreset,
+  saveCodeBlockTheme,
+  type CodeBlockThemeId,
+} from '../../utils/codeBlockTheme'
+
+/** 8 个档位直接做成下拉项，label 就是档位名 */
+const CODE_THEME_OPTIONS = CODE_BLOCK_THEMES.map((preset) => ({
+  value: preset.id,
+  label: preset.label,
+}))
 
 export interface GeneralPanelProps {
   theme: 'light' | 'dark'
@@ -26,6 +40,16 @@ export default function GeneralPanel({
   onResetSidebarWidth,
 }: GeneralPanelProps) {
   const [version, setVersion] = useState('')
+
+  // 纯本地偏好，选完即生效，不需要「保存」按钮。
+  // 初值直接从模块缓存同步取：这个面板可能晚于编辑器挂载，那时缓存已是用户上次的值
+  const [codeTheme, setCodeTheme] = useState<CodeBlockThemeId>(() => getCachedCodeBlockTheme())
+  const activePreset = getCodeBlockPreset(codeTheme)
+
+  const handleCodeThemeChange = (next: CodeBlockThemeId) => {
+    setCodeTheme(next)
+    saveCodeBlockTheme(next)
+  }
 
   useEffect(() => {
     window.electronAPI
@@ -69,19 +93,19 @@ export default function GeneralPanel({
                 }}
                 className={`relative p-3.5 rounded-xl border text-left transition-all ${
                   active
-                    ? 'border-brand-500 dark:border-indigo-500 bg-brand-50/60 dark:bg-indigo-950/20'
+                    ? 'border-brand-500 bg-brand-50/60 dark:bg-brand-950/20'
                     : 'border-slate-200 dark:border-dark-border hover:bg-slate-50 dark:hover:bg-dark-hover'
                 }`}
               >
                 {active && (
-                  <span className="absolute top-2.5 right-2.5 text-brand-600 dark:text-indigo-400">
+                  <span className="absolute top-2.5 right-2.5 text-brand-600 dark:text-brand-400">
                     <Check className="w-3.5 h-3.5" />
                   </span>
                 )}
                 <Icon
                   className={`w-4 h-4 mb-2 ${
                     active
-                      ? 'text-brand-600 dark:text-indigo-400'
+                      ? 'text-brand-600 dark:text-brand-400'
                       : 'text-slate-400'
                   }`}
                 />
@@ -90,6 +114,41 @@ export default function GeneralPanel({
               </button>
             )
           })}
+        </div>
+      </section>
+
+      {/* 编辑器 */}
+      <section className="space-y-3">
+        <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+          编辑器
+        </h4>
+        <div className="flex items-center justify-between gap-3 p-3.5 rounded-xl border border-slate-200 dark:border-dark-border">
+          <div className="flex items-start gap-2.5 min-w-0">
+            <Code2 className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-bold text-slate-800 dark:text-white">代码块主题</span>
+                <span
+                  className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                    activePreset.tone === 'dark'
+                      ? 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                      : 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400'
+                  }`}
+                >
+                  {activePreset.tone === 'dark' ? '深色' : '浅色'}
+                </span>
+              </div>
+              <div className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                {activePreset.hint}。三种编辑器内核共用同一档位，各自映射到同名风格的主题。
+              </div>
+            </div>
+          </div>
+          <Select
+            value={codeTheme}
+            options={CODE_THEME_OPTIONS}
+            onChange={handleCodeThemeChange}
+            className="w-36 shrink-0"
+          />
         </div>
       </section>
 

@@ -479,12 +479,12 @@ export default function DashboardLayout({
             <span onContextMenu={handleBreadcrumbContextMenu} className="no-drag text-slate-900 dark:text-white font-semibold flex items-center gap-1.5 w-[200px] min-w-0">
               {isMarkdownActive ? (
                 <>
-                  <FileCode className="w-3.5 h-3.5 text-brand-600 dark:text-indigo-400 flex-shrink-0" />
+                  <FileCode className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400 flex-shrink-0" />
                   <span className="min-w-0 truncate">{activeNote?.title || '欢迎使用 Markdown 笔记'}</span>
                 </>
               ) : (
                 <>
-                  <span className="text-brand-600 dark:text-indigo-400 font-bold text-xs flex-shrink-0">
+                  <span className="text-brand-600 dark:text-brand-400 font-bold text-xs flex-shrink-0">
                     {currentTool?.icon.length || 0 <= 3 ? currentTool?.icon : currentTool?.icon.charAt(0)}
                   </span>
                   <span className="min-w-0 truncate">{currentTool?.name || '工具'}</span>
@@ -519,7 +519,7 @@ export default function DashboardLayout({
               className="no-drag p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-dark-hover rounded-lg transition-colors"
             >
               {theme === 'dark' ? (
-                <Moon className="w-4 h-4 text-indigo-400" />
+                <Moon className="w-4 h-4 text-brand-400" />
               ) : (
                 <Sun className="w-4 h-4 text-amber-500" />
               )}
@@ -560,7 +560,7 @@ export default function DashboardLayout({
               src={logo}
               alt="DevNotes"
               onClick={onBackToHub}
-              className="w-8 h-8 object-contain cursor-pointer transition-transform hover:scale-105 active:scale-95"
+              className="w-8 h-8 object-contain cursor-pointer transition-[transform,filter] duration-200 hover:scale-105 active:scale-95 drop-shadow-[0_0_10px_rgba(80,189,207,0.35)] hover:drop-shadow-[0_0_16px_rgba(80,189,207,0.6)]"
             />
           </Tooltip>
 
@@ -571,7 +571,7 @@ export default function DashboardLayout({
               <button
                 onClick={() => onOpenTool('markdown-notes')}
                 className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${activeTabId === 'markdown-notes'
-                  ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-indigo-400'
+                  ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-brand-400'
                   : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
                   }`}
               >
@@ -586,7 +586,7 @@ export default function DashboardLayout({
               <button
                 onClick={() => onOpenTool('text-translate')}
                 className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${activeTabId === 'text-translate'
-                  ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-indigo-400'
+                  ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-brand-400'
                   : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
                   }`}
               >
@@ -601,7 +601,7 @@ export default function DashboardLayout({
               <button
                 onClick={() => onOpenTool('json-format')}
                 className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${activeTabId === 'json-format'
-                  ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-indigo-400'
+                  ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-brand-400'
                   : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
                   }`}
               >
@@ -617,7 +617,7 @@ export default function DashboardLayout({
               <button
                 onClick={() => onOpenTool('websocket')}
                 className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${activeTabId === 'websocket'
-                  ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-indigo-400'
+                  ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-brand-400'
                   : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
                   }`}
               >
@@ -633,7 +633,7 @@ export default function DashboardLayout({
               <button
                 onClick={() => onOpenTool('qr-code')}
                 className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${activeTabId === 'qr-code'
-                  ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-indigo-400'
+                  ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-brand-400'
                   : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
                   }`}
               >
@@ -649,7 +649,7 @@ export default function DashboardLayout({
               <button
                 onClick={() => onOpenTool('en-decode')}
                 className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${activeTabId === 'en-decode'
-                  ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-indigo-400'
+                  ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-brand-400'
                   : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
                   }`}
               >
@@ -733,7 +733,7 @@ export default function DashboardLayout({
                   </span>
                   <button
                     onClick={handleCreateNote}
-                    className="flex items-center gap-1 px-2 py-1 bg-slate-100 dark:bg-dark-hover hover:bg-brand-50 hover:text-brand-600 dark:hover:text-indigo-400 rounded-md text-xs font-medium transition-all"
+                    className="flex items-center gap-1 px-2 py-1 bg-slate-100 dark:bg-dark-hover hover:bg-brand-50 hover:text-brand-600 dark:hover:text-brand-400 rounded-md text-xs font-medium transition-all"
                   >
                     <Plus className="w-3.5 h-3.5" /> 新建
                   </button>
@@ -745,7 +745,7 @@ export default function DashboardLayout({
                     value={noteKeyword}
                     onChange={(e) => setNoteKeyword(e.target.value)}
                     placeholder="过滤文档..."
-                    className="w-full pl-8 pr-3 py-1 text-xs bg-slate-50 dark:bg-dark-sidebar border border-slate-200 dark:border-dark-border rounded-lg outline-none focus:border-brand-500 dark:focus:border-indigo-500 transition-all text-slate-800 dark:text-slate-200 placeholder-slate-400"
+                    className="w-full pl-8 pr-3 py-1 text-xs bg-slate-50 dark:bg-dark-sidebar border border-slate-200 dark:border-dark-border rounded-lg outline-none focus:border-brand-500 dark:focus:border-brand-500 transition-all text-slate-800 dark:text-slate-200 placeholder-slate-400"
                   />
                 </div>
               </div>
@@ -805,7 +805,7 @@ export default function DashboardLayout({
                         ])
                       }
                       className={`group p-2.5 rounded-xl cursor-pointer transition-all border ${isActive
-                        ? 'bg-brand-50/70 dark:bg-brand-500/10 border-brand-100 dark:border-indigo-500/20'
+                        ? 'bg-brand-50/70 dark:bg-brand-500/10 border-brand-100 dark:border-brand-500/20'
                         : 'hover:bg-slate-50 dark:hover:bg-dark-hover/60 border-transparent'
                         }`}
                     >
@@ -829,7 +829,7 @@ export default function DashboardLayout({
                               }
                             }}
                             onBlur={commitRenameNote}
-                            className="flex-1 min-w-0 h-4 -mx-[5px] px-1 py-0 text-xs leading-none bg-white dark:bg-dark-sidebar border border-brand-400 dark:border-indigo-500 rounded-md outline-none text-slate-800 dark:text-slate-200 placeholder-slate-400"
+                            className="flex-1 min-w-0 h-4 -mx-[5px] px-1 py-0 text-xs leading-none bg-white dark:bg-dark-sidebar border border-brand-400 dark:border-brand-500 rounded-md outline-none text-slate-800 dark:text-slate-200 placeholder-slate-400"
                           />
                         ) : (
                           <h4
@@ -877,7 +877,7 @@ export default function DashboardLayout({
                     value={toolFilter}
                     onChange={(e) => setToolFilter(e.target.value)}
                     placeholder="搜索组件..."
-                    className="w-full pl-8 pr-3 py-1 text-xs bg-slate-50 dark:bg-dark-sidebar border border-slate-200 dark:border-dark-border rounded-lg outline-none focus:border-brand-500 dark:focus:border-indigo-500 transition-all text-slate-800 dark:text-slate-200 placeholder-slate-400"
+                    className="w-full pl-8 pr-3 py-1 text-xs bg-slate-50 dark:bg-dark-sidebar border border-slate-200 dark:border-dark-border rounded-lg outline-none focus:border-brand-500 dark:focus:border-brand-500 transition-all text-slate-800 dark:text-slate-200 placeholder-slate-400"
                   />
                 </div>
                 <div className="flex gap-1 overflow-x-auto scrollbar-hide py-1">
@@ -934,7 +934,7 @@ export default function DashboardLayout({
                         ])
                       }
                       className={`group p-2 rounded-xl cursor-pointer transition-all border flex items-center justify-between ${isActive
-                        ? 'bg-brand-50/70 dark:bg-brand-500/10 border-brand-100 dark:border-indigo-500/20 text-slate-900 dark:text-white font-semibold'
+                        ? 'bg-brand-50/70 dark:bg-brand-500/10 border-brand-100 dark:border-brand-500/20 text-slate-900 dark:text-white font-semibold'
                         : 'hover:bg-slate-50 dark:hover:bg-dark-hover/60 border-transparent text-slate-600 dark:text-slate-300'
                         }`}
                     >
@@ -960,8 +960,8 @@ export default function DashboardLayout({
               onMouseDown={handleSidebarResizeStart}
               onDoubleClick={resetSidebarWidth}
               className={`-ml-[5px] w-[5px] flex-shrink-0 cursor-col-resize relative z-30 transition-colors ${isResizingSidebar
-                ? 'bg-brand-500 dark:bg-indigo-500'
-                : 'hover:bg-brand-400/70 dark:hover:bg-indigo-500/70'
+                ? 'bg-brand-500'
+                : 'hover:bg-brand-400/70 dark:hover:bg-brand-500/70'
                 }`}
             />
           </Tooltip>
@@ -1012,7 +1012,7 @@ export default function DashboardLayout({
                       item.action()
                       setIsCmdOpen(false)
                     }}
-                    className="flex items-center justify-between p-2 rounded-lg hover:bg-brand-50 dark:hover:bg-dark-hover hover:text-brand-600 dark:hover:text-indigo-400 cursor-pointer transition-colors"
+                    className="flex items-center justify-between p-2 rounded-lg hover:bg-brand-50 dark:hover:bg-dark-hover hover:text-brand-600 dark:hover:text-brand-400 cursor-pointer transition-colors"
                   >
                     <span className="flex items-center gap-2.5 text-slate-700 dark:text-slate-200 group-hover:text-inherit">
                       <IconComponent className="w-4 h-4 text-slate-400" />

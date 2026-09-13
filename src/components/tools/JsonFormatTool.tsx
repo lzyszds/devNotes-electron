@@ -343,7 +343,7 @@ export default function JsonFormatTool({
           {/* Action Header */}
           <div className="px-8 py-5 flex items-center justify-between border-b border-slate-100 shrink-0 bg-white">
             <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-100">
+              <div className="h-12 w-12 rounded-2xl bg-brand-600 text-white flex items-center justify-center shadow-lg shadow-brand-100">
                 <GitCompareArrows size={24} />
               </div>
               <div>
@@ -359,7 +359,7 @@ export default function JsonFormatTool({
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowHistory(!showHistory)}
-                className={`tool-button-secondary h-10 px-4 ${showHistory ? "ring-2 ring-indigo-500/20 border-indigo-200 text-indigo-600" : ""}`}
+                className={`tool-button-secondary h-10 px-4 ${showHistory ? "ring-2 ring-brand-500/20 border-brand-200 text-brand-600" : ""}`}
               >
                 <History size={16} />
                 <span>比对历史</span>
@@ -383,7 +383,7 @@ export default function JsonFormatTool({
                     `比对: ${leftInput.slice(0, 10)}...`,
                   );
                 }}
-                className="tool-button-primary h-10 px-4 bg-indigo-600 hover:bg-indigo-700 shadow-indigo-100"
+                className="tool-button-primary h-10 px-4 bg-brand-600 hover:bg-brand-700 shadow-brand-100"
               >
                 <Copy size={16} />
                 <span>复制结果</span>
@@ -497,7 +497,7 @@ export default function JsonFormatTool({
             >
               <div className="p-6 border-b border-slate-200/70 bg-white/80 flex items-center justify-between shrink-0">
                 <div className="flex items-center gap-3 text-slate-900">
-                  <div className="h-10 w-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                  <div className="h-10 w-10 rounded-2xl bg-brand-50 text-brand-600 flex items-center justify-center">
                     <Clock size={18} />
                   </div>
                   <div>
@@ -549,7 +549,7 @@ export default function JsonFormatTool({
                         }
                         setShowHistory(false);
                       }}
-                      className="w-full text-left p-4 rounded-2xl bg-white border border-slate-200/70 shadow-sm hover:border-indigo-500 hover:shadow-indigo-500/10 transition-all group relative"
+                      className="w-full text-left p-4 rounded-2xl bg-white border border-slate-200/70 shadow-sm hover:border-brand-500 hover:shadow-brand-500/10 transition-all group relative"
                     >
                       <div className="flex justify-between items-center mb-2">
                         <span className="text-[9px] font-bold text-slate-300 font-mono">
@@ -557,7 +557,7 @@ export default function JsonFormatTool({
                         </span>
                         <ChevronRight
                           size={14}
-                          className="text-slate-200 group-hover:text-indigo-500 transition-colors"
+                          className="text-slate-200 group-hover:text-brand-500 transition-colors"
                         />
                       </div>
                       <p className="text-[11px] font-bold text-slate-700 truncate">
@@ -580,7 +580,7 @@ export default function JsonFormatTool({
         {/* Action Header */}
         <div className="px-8 py-5 flex items-center justify-between border-b border-slate-100 shrink-0">
           <div className="flex items-center gap-4">
-            <div className="h-12 w-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-100">
+            <div className="h-12 w-12 rounded-2xl bg-brand-600 text-white flex items-center justify-center shadow-lg shadow-brand-100">
               <Braces size={24} />
             </div>
             <div>
@@ -596,7 +596,7 @@ export default function JsonFormatTool({
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowHistory(!showHistory)}
-              className={`tool-button-secondary h-10 px-4 ${showHistory ? "ring-2 ring-indigo-500/20 border-indigo-200 text-indigo-600" : ""}`}
+              className={`tool-button-secondary h-10 px-4 ${showHistory ? "ring-2 ring-brand-500/20 border-brand-200 text-brand-600" : ""}`}
             >
               <History size={16} />
               <span>历史记录</span>
@@ -605,7 +605,7 @@ export default function JsonFormatTool({
             <div className="flex gap-2">
               <button
                 onClick={formatJson}
-                className="tool-button-primary h-10 bg-indigo-600 hover:bg-indigo-700 shadow-indigo-100"
+                className="tool-button-primary h-10 bg-brand-600 hover:bg-brand-700 shadow-brand-100"
               >
                 <Wand2 size={16} /> 美化
               </button>
@@ -652,7 +652,7 @@ export default function JsonFormatTool({
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder="请在此粘贴 JSON 内容..."
-                  className="tool-textarea h-full border-slate-200 shadow-sm focus:shadow-indigo-500/5 group-hover:border-slate-300"
+                  className="tool-textarea h-full border-slate-200 shadow-sm focus:shadow-brand-500/5 group-hover:border-slate-300"
                 />
                 {input && (
                   <Tooltip content="清空输入">
@@ -675,13 +675,13 @@ export default function JsonFormatTool({
                   <div className="flex items-center p-0.5 bg-slate-100 rounded-lg">
                     <button
                       onClick={() => setViewMode("text")}
-                      className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-[9px] font-black uppercase tracking-wider transition-all ${viewMode === "text" ? "bg-white text-indigo-600 shadow-sm" : "text-slate-400 hover:text-slate-600"}`}
+                      className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-[9px] font-black uppercase tracking-wider transition-all ${viewMode === "text" ? "bg-white text-brand-600 shadow-sm" : "text-slate-400 hover:text-slate-600"}`}
                     >
                       <Type size={11} /> 文本
                     </button>
                     <button
                       onClick={() => setViewMode("tree")}
-                      className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-[9px] font-black uppercase tracking-wider transition-all ${viewMode === "tree" ? "bg-white text-indigo-600 shadow-sm" : "text-slate-400 hover:text-slate-600"}`}
+                      className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-[9px] font-black uppercase tracking-wider transition-all ${viewMode === "tree" ? "bg-white text-brand-600 shadow-sm" : "text-slate-400 hover:text-slate-600"}`}
                     >
                       <ListTree size={11} /> 树形
                     </button>
@@ -719,13 +719,13 @@ export default function JsonFormatTool({
                     <p className="text-xs font-medium max-w-xs">{error}</p>
                   </div>
                 ) : output ? (
-                  <div className="h-full tool-panel border-indigo-100 bg-indigo-50/[0.02] overflow-hidden flex flex-col p-0 shadow-inner">
+                  <div className="h-full tool-panel border-brand-100 bg-brand-50/[0.02] overflow-hidden flex flex-col p-0 shadow-inner">
                     {viewMode === "text" ? (
                       <textarea
                         value={output}
                         readOnly
                         placeholder="格式化结果将在此显示..."
-                        className="w-full h-full border-none bg-transparent font-mono text-[13px] leading-relaxed p-6 resize-none outline-none text-indigo-900 placeholder:text-indigo-200"
+                        className="w-full h-full border-none bg-transparent font-mono text-[13px] leading-relaxed p-6 resize-none outline-none text-brand-900 placeholder:text-brand-200"
                       />
                     ) : (
                       <div className="h-full overflow-y-auto p-6 scrollbar-hide">
@@ -765,7 +765,7 @@ export default function JsonFormatTool({
           >
             <div className="p-6 border-b border-slate-200/70 bg-white/80 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-3 text-slate-900">
-                <div className="h-10 w-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                <div className="h-10 w-10 rounded-2xl bg-brand-50 text-brand-600 flex items-center justify-center">
                   <History size={18} />
                 </div>
                 <div>
@@ -811,7 +811,7 @@ export default function JsonFormatTool({
                       setInput(item.data);
                       setShowHistory(false);
                     }}
-                    className="w-full text-left p-5 rounded-2xl bg-white border border-slate-200/70 shadow-sm hover:border-indigo-600 hover:shadow-indigo-500/10 transition-all group"
+                    className="w-full text-left p-5 rounded-2xl bg-white border border-slate-200/70 shadow-sm hover:border-brand-600 hover:shadow-brand-500/10 transition-all group"
                   >
                     <p className="text-[11px] font-black text-slate-800 mb-3 truncate pr-4">
                       {item.title}
@@ -822,7 +822,7 @@ export default function JsonFormatTool({
                       </span>
                       <ChevronRight
                         size={12}
-                        className="text-slate-300 group-hover:text-indigo-600 transition-colors"
+                        className="text-slate-300 group-hover:text-brand-600 transition-colors"
                       />
                     </div>
                   </button>

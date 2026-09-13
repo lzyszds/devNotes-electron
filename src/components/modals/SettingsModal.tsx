@@ -119,7 +119,7 @@ export default function SettingsModal({
                 >
                   <Icon
                     className={`w-4 h-4 flex-shrink-0 ${
-                      active ? 'text-brand-600 dark:text-indigo-400' : 'text-slate-400'
+                      active ? 'text-brand-600 dark:text-brand-400' : 'text-slate-400'
                     }`}
                   />
                   <span className="flex-1 min-w-0">

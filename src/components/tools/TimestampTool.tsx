@@ -60,7 +60,7 @@ export default function TimestampTool() {
         {/* Action Header */}
         <div className="px-8 py-5 flex items-center justify-between border-b border-slate-100">
            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-100">
+              <div className="h-12 w-12 rounded-2xl bg-brand-600 text-white flex items-center justify-center shadow-lg shadow-brand-100">
                 <Clock size={24} />
               </div>
               <div>
@@ -72,7 +72,7 @@ export default function TimestampTool() {
            <div className="flex items-center gap-3">
               <button
                 onClick={() => setShowHistory(!showHistory)}
-                className={`tool-button-secondary h-10 px-4 ${showHistory ? 'ring-2 ring-indigo-500/20 border-indigo-200 text-indigo-600' : ''}`}
+                className={`tool-button-secondary h-10 px-4 ${showHistory ? 'ring-2 ring-brand-500/20 border-brand-200 text-brand-600' : ''}`}
               >
                 <History size={16} />
                 <span>转换日志</span>
@@ -106,7 +106,7 @@ export default function TimestampTool() {
                     <div className="flex gap-4">
                        <div className="px-4 py-2 rounded-xl bg-white/[0.05] border border-white/10 backdrop-blur-md">
                           <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1 text-center">秒 (Epoch)</p>
-                          <p className="text-sm font-mono font-bold text-indigo-300">{Math.floor(currentTime.getTime() / 1000)}</p>
+                          <p className="text-sm font-mono font-bold text-brand-300">{Math.floor(currentTime.getTime() / 1000)}</p>
                        </div>
                        <div className="px-4 py-2 rounded-xl bg-white/[0.05] border border-white/10 backdrop-blur-md">
                           <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1 text-center">毫秒 (Millis)</p>
@@ -121,7 +121,7 @@ export default function TimestampTool() {
                  {/* Epoch to Date */}
                  <div className="tool-panel group flex flex-col">
                     <div className="flex items-center gap-2 mb-6">
-                       <Hash size={16} className="text-indigo-400" />
+                       <Hash size={16} className="text-brand-400" />
                        <label className="tool-label mb-0">时间戳 转 日期</label>
                     </div>
                     <input
@@ -133,19 +133,19 @@ export default function TimestampTool() {
                     />
                     <button 
                       onClick={timestampToDate}
-                      className="tool-button-primary h-12 w-full bg-slate-900 group-hover:bg-indigo-600 shadow-lg shadow-slate-100 mb-6"
+                      className="tool-button-primary h-12 w-full bg-slate-900 group-hover:bg-brand-600 shadow-lg shadow-slate-100 mb-6"
                     >
                        开始转换 <ArrowRight size={14} className="ml-1" />
                     </button>
                     
                     {timestampResult ? (
-                       <div className="mt-auto p-4 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-between animate-in zoom-in-95 duration-200 shadow-sm">
+                       <div className="mt-auto p-4 rounded-xl bg-brand-50 border border-brand-100 flex items-center justify-between animate-in zoom-in-95 duration-200 shadow-sm">
                           <div className="flex flex-col">
-                             <span className="text-[9px] font-black text-indigo-400 uppercase mb-1">本地时间</span>
-                             <span className="text-sm font-black text-indigo-900">{timestampResult}</span>
+                             <span className="text-[9px] font-black text-brand-400 uppercase mb-1">本地时间</span>
+                             <span className="text-sm font-black text-brand-900">{timestampResult}</span>
                           </div>
                           <Tooltip content="复制本地时间">
-                            <button onClick={() => copyToClipboard(timestampResult)} className="p-2 rounded-lg bg-white shadow-sm text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all">
+                            <button onClick={() => copyToClipboard(timestampResult)} className="p-2 rounded-lg bg-white shadow-sm text-brand-600 hover:bg-brand-600 hover:text-white transition-all">
                                <Copy size={14} />
                             </button>
                           </Tooltip>
@@ -201,7 +201,7 @@ export default function TimestampTool() {
           <div className="history-overlay-panel" onClick={(e) => e.stopPropagation()}>
           <div className="p-6 border-b border-slate-200/70 bg-white/80 flex items-center justify-between">
             <div className="flex items-center gap-2 text-slate-900 font-black text-xs uppercase tracking-widest">
-              <History size={18} className="text-indigo-600" />
+              <History size={18} className="text-brand-600" />
               最近转换历史
             </div>
             <div className="flex items-center gap-2">
@@ -226,12 +226,12 @@ export default function TimestampTool() {
                     if (item.data.includes('-') || item.data.includes('T')) { setInputDate(item.data); } else { setInputTimestamp(item.data); }
                     setShowHistory(false);
                   }}
-                  className="w-full text-left p-5 rounded-2xl bg-white border border-slate-200/60 shadow-sm hover:border-indigo-600 hover:shadow-indigo-500/10 transition-all group"
+                  className="w-full text-left p-5 rounded-2xl bg-white border border-slate-200/60 shadow-sm hover:border-brand-600 hover:shadow-brand-500/10 transition-all group"
                 >
                   <p className="text-[11px] font-black text-slate-800 mb-2 truncate pr-4">{item.title || item.data}</p>
                   <div className="flex items-center justify-between">
                     <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{new Date(item.timestamp).toLocaleString()}</span>
-                    <ChevronRight size={10} className="text-slate-300 group-hover:text-indigo-600 transition-colors" />
+                    <ChevronRight size={10} className="text-slate-300 group-hover:text-brand-600 transition-colors" />
                   </div>
                 </button>
                ))

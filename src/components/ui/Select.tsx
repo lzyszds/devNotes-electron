@@ -21,7 +21,7 @@ export interface SelectProps<T extends string | number = string> {
 }
 
 const triggerBase =
-  "inline-flex items-center justify-between gap-2 h-9 min-w-[88px] pl-3 pr-2 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 outline-none transition shrink-0 hover:border-slate-300 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/10 disabled:opacity-50 disabled:pointer-events-none";
+  "inline-flex items-center justify-between gap-2 h-9 min-w-[88px] pl-3 pr-2 rounded-lg border border-slate-200 dark:border-dark-border bg-white dark:bg-dark-panel text-xs font-semibold text-slate-700 dark:text-slate-300 outline-none transition shrink-0 hover:border-slate-300 dark:hover:border-slate-600 focus:border-brand-400 dark:focus:border-brand-500 focus:ring-2 focus:ring-brand-500/10 disabled:opacity-50 disabled:pointer-events-none";
 
 export default function Select<T extends string | number = string>({
   value,
@@ -78,9 +78,11 @@ export default function Select<T extends string | number = string>({
           aria-expanded={open}
           aria-controls={listboxId}
           onClick={() => !disabled && setOpen((v) => !v)}
-          className={`${triggerBase} w-full ${open ? "border-indigo-400 ring-2 ring-indigo-500/10" : ""}`}
+          className={`${triggerBase} w-full ${open ? "border-brand-400 ring-2 ring-brand-500/10" : ""}`}
         >
-          <span className={`truncate ${selected ? "text-slate-700" : "text-slate-400"}`}>
+          <span
+            className={`truncate ${selected ? "text-slate-700 dark:text-slate-300" : "text-slate-400"}`}
+          >
             {displayLabel}
           </span>
           <ChevronDown
@@ -94,7 +96,7 @@ export default function Select<T extends string | number = string>({
         <ul
           id={listboxId}
           role="listbox"
-          className="absolute top-full left-0 mt-1 z-50 w-full bg-white rounded-lg shadow-lg border border-slate-200 py-1 max-h-60 overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-150"
+          className="absolute top-full left-0 mt-1 z-50 w-full bg-white dark:bg-dark-panel rounded-lg shadow-lg border border-slate-200 dark:border-dark-border py-1 max-h-60 overflow-y-auto"
           style={menuMinWidth ? { minWidth: menuMinWidth } : undefined}
         >
           {options.length === 0 ? (
@@ -110,10 +112,10 @@ export default function Select<T extends string | number = string>({
                     onClick={() => handleSelect(opt)}
                     className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2 transition ${
                       opt.disabled
-                        ? "text-slate-300 cursor-not-allowed"
+                        ? "text-slate-300 dark:text-slate-600 cursor-not-allowed"
                         : isSelected
-                          ? "bg-indigo-50 text-indigo-600 font-semibold"
-                          : "text-slate-700 hover:bg-slate-50"
+                          ? "bg-brand-50 dark:bg-brand-500/15 text-brand-600 dark:text-brand-400 font-semibold"
+                          : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-dark-hover"
                     }`}
                   >
                     <span className="w-3.5 shrink-0 flex items-center justify-center">

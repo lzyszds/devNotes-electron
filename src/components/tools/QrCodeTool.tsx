@@ -103,7 +103,7 @@ export default function QrCodeTool() {
         {/* Action Header */}
         <div className="px-8 py-5 flex items-center justify-between border-b border-slate-100">
            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-100">
+              <div className="h-12 w-12 rounded-2xl bg-brand-600 text-white flex items-center justify-center shadow-lg shadow-brand-100">
                 <QrCode size={24} />
               </div>
               <div>
@@ -115,13 +115,13 @@ export default function QrCodeTool() {
            <div className="flex items-center gap-3">
               <button
                 onClick={() => setShowHistory(!showHistory)}
-                className={`tool-button-secondary h-10 px-4 ${showHistory ? 'ring-2 ring-indigo-500/20 border-indigo-200 text-indigo-600' : ''}`}
+                className={`tool-button-secondary h-10 px-4 ${showHistory ? 'ring-2 ring-brand-500/20 border-brand-200 text-brand-600' : ''}`}
               >
                 <History size={16} />
                 <span>生成历史</span>
               </button>
               <div className="w-px h-6 bg-slate-100" />
-              <button onClick={downloadQR} disabled={!qrDataUrl} className="tool-button-primary h-10 bg-indigo-600 hover:bg-indigo-700 shadow-indigo-100 px-6">
+              <button onClick={downloadQR} disabled={!qrDataUrl} className="tool-button-primary h-10 bg-brand-600 hover:bg-brand-700 shadow-brand-100 px-6">
                 <Download size={16} /> 导出图片
               </button>
            </div>
@@ -144,7 +144,7 @@ export default function QrCodeTool() {
                       className="tool-textarea min-h-[160px] border-slate-200 shadow-sm"
                     />
                     <div className="flex justify-end">
-                       <button onClick={saveToHistoryManual} className="text-[10px] font-black text-slate-400 hover:text-indigo-600 transition-colors uppercase tracking-widest">
+                       <button onClick={saveToHistoryManual} className="text-[10px] font-black text-slate-400 hover:text-brand-600 transition-colors uppercase tracking-widest">
                           收藏到历史记录
                        </button>
                     </div>
@@ -170,7 +170,7 @@ export default function QrCodeTool() {
                              step="20"
                              value={size}
                              onChange={(e) => setSize(Number(e.target.value))}
-                             className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-slate-200 accent-indigo-600"
+                             className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-slate-200 accent-brand-600"
                           />
                        </div>
                     </div>
@@ -207,8 +207,8 @@ export default function QrCodeTool() {
 
               {/* Preview Column */}
               <div className="flex flex-col items-center">
-                 <div className="workspace-card p-10 bg-white shadow-2xl shadow-indigo-500/5 relative group">
-                    <div className="absolute inset-0 bg-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                 <div className="workspace-card p-10 bg-white shadow-2xl shadow-brand-500/5 relative group">
+                    <div className="absolute inset-0 bg-brand-500/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
                     <div className="relative border-4 border-slate-50 rounded-2xl overflow-hidden shadow-inner bg-slate-50 p-4">
                        <canvas ref={canvasRef} className="hidden" />
                        {qrDataUrl ? (
@@ -238,7 +238,7 @@ export default function QrCodeTool() {
           <div className="history-overlay-panel" onClick={(e) => e.stopPropagation()}>
           <div className="p-6 border-b border-slate-200/70 bg-white/80 flex items-center justify-between">
             <div className="flex items-center gap-2 text-slate-900 font-black text-xs uppercase tracking-widest">
-              <QrCode size={18} className="text-indigo-600" />
+              <QrCode size={18} className="text-brand-600" />
               历史内容库
             </div>
             <div className="flex items-center gap-2">
@@ -260,12 +260,12 @@ export default function QrCodeTool() {
                   key={item.id}
                   onContextMenu={(e) => openHistoryMenu(e, item)}
                   onClick={() => { setText(item.data); setShowHistory(false); }}
-                  className="w-full text-left p-5 rounded-2xl bg-white border border-slate-200/60 shadow-sm hover:border-indigo-600 hover:shadow-indigo-500/10 transition-all group"
+                  className="w-full text-left p-5 rounded-2xl bg-white border border-slate-200/60 shadow-sm hover:border-brand-600 hover:shadow-brand-500/10 transition-all group"
                 >
                   <p className="text-[11px] font-black text-slate-800 mb-2 truncate pr-4">{item.data}</p>
                   <div className="flex items-center justify-between">
                     <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{new Date(item.timestamp).toLocaleDateString()}</span>
-                    <ChevronRight size={10} className="text-slate-300 group-hover:text-indigo-600 transition-colors" />
+                    <ChevronRight size={10} className="text-slate-300 group-hover:text-brand-600 transition-colors" />
                   </div>
                 </button>
                ))

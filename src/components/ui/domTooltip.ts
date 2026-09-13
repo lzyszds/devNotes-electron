@@ -1,5 +1,5 @@
 /**
- * 命令式悬浮提示：接管**第三方组件自己渲染出来的 DOM**（Vditor / Cherry 的工具栏）。
+ * 命令式悬浮提示：接管**第三方组件自己渲染出来的 DOM**（Cherry 的工具栏与弹层）。
  *
  * 为什么不能直接用 Tooltip.tsx：那个组件靠 cloneElement 给「React 渲染出来的子元素」挂事件与 ref，
  * 而编辑器的按钮是它们自己 createElement 出来的，React 根本不认识这些节点，挂不上去。
@@ -9,16 +9,16 @@
  * 观感与 React 版完全一致。
  *
  * 两个必须处理的坑：
- * - Vditor 的 `aria-label` 是给读屏用的无障碍名称，**只能关掉它的视觉气泡，不能删属性**（靠调用方传 nativeOffClass）
+ * - 第三方用 `aria-label` 当无障碍名称时**只能关掉它的视觉气泡，不能删属性**（靠调用方传 nativeOffClass）
  * - Cherry 的原生 `title` 会弹出系统灰框，必须**摘掉**，否则和我们自己的气泡一起冒出来
  */
 
 import { TOOLTIP_DELAY, computeTooltipPosition } from './tooltipPosition'
 
 export interface AttachDomTooltipsOptions {
-  /** 命中这些元素才接管，例：'.vditor-toolbar [aria-label], .vditor-panel [aria-label]' */
+  /** 命中这些元素才接管，例：'.cherry-toolbar [title], .cherry-dropdown [title]' */
   selector: string
-  /** 加到容器根上的类名，用来关掉第三方自带的 CSS 气泡（Vditor 用） */
+  /** 加到容器根上的类名，用来关掉第三方自带的 CSS 气泡 */
   nativeOffClass?: string
 }
 
@@ -156,7 +156,7 @@ function onFocusOut(event: Event): void {
 }
 
 function startListening(): void {
-  // 挂在 document 上而不是容器上：Cherry 全屏 / Vditor 切内核时工具栏节点可能被整体搬走，
+  // 挂在 document 上而不是容器上：Cherry 全屏时工具栏节点可能被整体搬走，
   // 只认 data-qtip 标记就不会因此失灵
   document.addEventListener('mouseover', onMouseOver, true)
   document.addEventListener('mouseout', onMouseOut, true)
@@ -191,7 +191,7 @@ function prepare(session: Session, el: HTMLElement): void {
   if (el.dataset.qtip !== text) el.dataset.qtip = text
 
   if (title !== null) {
-    // Vditor 的 aria-label 要留着（读屏），Cherry 的 title 必须摘掉（否则叠加系统灰框）
+    // 原始 title 先存下来，Cherry 的那个必须摘掉，否则会和我们自己的气泡叠在一起弹系统灰框
     if (!session.processed.has(el)) session.processed.set(el, title)
     el.removeAttribute('title')
   } else if (!session.processed.has(el)) {
@@ -232,7 +232,7 @@ export function attachDomTooltips(
 
   if (options.nativeOffClass) container.classList.add(options.nativeOffClass)
 
-  // 工具栏可能是异步建出来的（Vditor 要等 lute 就绪），所以先扫一遍再挂观察者
+  // 工具栏可能是异步建出来的（Cherry 要等内核初始化），所以先扫一遍再挂观察者
   scan(session)
   session.observer.observe(container, {
     childList: true,

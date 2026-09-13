@@ -12,7 +12,7 @@ import { probeProvider } from '../../utils/translateProviders'
 import Tooltip from '../ui/Tooltip'
 
 const INPUT_CLASS =
-  'w-full px-3 py-1.5 text-xs bg-white dark:bg-dark-panel border border-slate-200 dark:border-dark-border rounded-lg outline-none focus:border-indigo-500 text-slate-800 dark:text-white placeholder:text-slate-400'
+  'w-full px-3 py-1.5 text-xs bg-white dark:bg-dark-panel border border-slate-200 dark:border-dark-border rounded-lg outline-none focus:border-brand-500 text-slate-800 dark:text-white placeholder:text-slate-400'
 
 const LABEL_CLASS = 'block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5'
 
@@ -81,7 +81,7 @@ export default function TranslateApiPanel() {
                 }}
                 className={`py-1.5 text-xs font-semibold rounded-lg transition-colors ${
                   active
-                    ? 'bg-white dark:bg-dark-panel text-indigo-600 dark:text-indigo-400 shadow-xs'
+                    ? 'bg-white dark:bg-dark-panel text-brand-600 dark:text-brand-400 shadow-xs'
                     : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
                 }`}
               >
@@ -217,7 +217,7 @@ export default function TranslateApiPanel() {
           <button
             type="button"
             onClick={handleSave}
-            className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors"
+            className="px-4 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors"
           >
             保存设置
           </button>
