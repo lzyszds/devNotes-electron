@@ -42,6 +42,19 @@ import { subscribeAppSettings } from '../../utils/settingsBus'
 import logo from '../../assets/logo.png'
 import WindowControls from './WindowControls'
 
+// 二级侧边栏（文档目录）宽度的持久化配置
+const SIDEBAR_WIDTH_KEY = 'fehelper-sidebar-width'
+const SIDEBAR_DEFAULT_WIDTH = 240
+const SIDEBAR_MIN_WIDTH = 180
+const SIDEBAR_MAX_WIDTH = 480
+
+/** 读取上次保存的侧边栏宽度，非法值时回退到默认宽度 */
+function readSidebarWidth(): number {
+  const saved = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY))
+  if (!Number.isFinite(saved) || saved <= 0) return SIDEBAR_DEFAULT_WIDTH
+  return Math.min(Math.max(saved, SIDEBAR_MIN_WIDTH), SIDEBAR_MAX_WIDTH)
+}
+
 interface DashboardLayoutProps {
   openTabIds: string[]
   activeTabId: string
@@ -70,6 +83,9 @@ export default function DashboardLayout({
   onToggleTheme,
 }: DashboardLayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  // 文档目录宽度与拖拽态
+  const [sidebarWidth, setSidebarWidth] = useState(readSidebarWidth)
+  const [isResizingSidebar, setIsResizingSidebar] = useState(false)
   const [isCmdOpen, setIsCmdOpen] = useState(false)
   const [isTranslateSettingsOpen, setIsTranslateSettingsOpen] = useState(false)
   const [cmdSearch, setCmdSearch] = useState('')
@@ -81,6 +97,7 @@ export default function DashboardLayout({
 
   const cmdInputRef = useRef<HTMLInputElement>(null)
   const tabScrollRef = useRef<HTMLDivElement>(null)
+  const sidebarRef = useRef<HTMLElement>(null)
   // Esc 取消时置位，避免随后的 blur 把旧草稿又提交回去
   const skipRenameCommitRef = useRef(false)
 
@@ -109,6 +126,43 @@ export default function DashboardLayout({
 
   const { openContextMenu } = useContextMenu()
   const { showToast } = useToast()
+
+  // 拖拽调整文档目录宽度：以侧边栏左边缘为基准计算指针横坐标
+  const handleSidebarResizeStart = (e: ReactMouseEvent) => {
+    const section = sidebarRef.current
+    if (!section) return
+
+    e.preventDefault()
+    const left = section.getBoundingClientRect().left
+    let latest = sidebarWidth
+    setIsResizingSidebar(true)
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+
+    const handleMouseMove = (ev: MouseEvent) => {
+      latest = Math.min(Math.max(ev.clientX - left, SIDEBAR_MIN_WIDTH), SIDEBAR_MAX_WIDTH)
+      setSidebarWidth(latest)
+    }
+
+    const handleMouseUp = () => {
+      setIsResizingSidebar(false)
+      document.body.style.cursor = 'default'
+      document.body.style.userSelect = 'auto'
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+      // 仅在拖拽结束时落盘，避免过程中高频写入
+      localStorage.setItem(SIDEBAR_WIDTH_KEY, String(latest))
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+  }
+
+  // 双击分割线恢复默认宽度
+  const resetSidebarWidth = () => {
+    setSidebarWidth(SIDEBAR_DEFAULT_WIDTH)
+    localStorage.setItem(SIDEBAR_WIDTH_KEY, String(SIDEBAR_DEFAULT_WIDTH))
+  }
 
   // 复制并给出轻量提示:提示是 fixed 浮层,不参与布局,因此不会造成任何位移
   const copyWithToast = async (text: string, label = '已复制') => {
@@ -355,13 +409,13 @@ export default function DashboardLayout({
       },
       ...(currentTool
         ? [
-            {
-              id: 'bc-copy-tool-name',
-              label: '复制工具名称',
-              icon: <Copy className="w-3.5 h-3.5" />,
-              onSelect: () => void copyWithToast(currentTool.name, '已复制名称'),
-            },
-          ]
+          {
+            id: 'bc-copy-tool-name',
+            label: '复制工具名称',
+            icon: <Copy className="w-3.5 h-3.5" />,
+            onSelect: () => void copyWithToast(currentTool.name, '已复制名称'),
+          },
+        ]
         : []),
     ])
   }
@@ -438,18 +492,16 @@ export default function DashboardLayout({
           {/* 自动保存微呼吸状态胶囊 */}
           {isMarkdownActive && (
             <div
-              className={`flex items-center justify-center gap-1.5 w-[104px] px-2 py-0.5 rounded-full border transition-all font-medium ${
-                saveStatus === 'saving'
-                  ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border-amber-200/50 dark:border-amber-900/50'
-                  : 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200/50 dark:border-emerald-900/50'
-              }`}
+              className={`flex items-center justify-center gap-1.5 w-[104px] px-2 py-0.5 rounded-full border transition-all font-medium ${saveStatus === 'saving'
+                ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border-amber-200/50 dark:border-amber-900/50'
+                : 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200/50 dark:border-emerald-900/50'
+                }`}
             >
               <span
-                className={`w-1.5 h-1.5 rounded-full ${
-                  saveStatus === 'saving'
-                    ? 'bg-amber-500 animate-ping'
-                    : 'bg-emerald-500 animate-pulse'
-                }`}
+                className={`w-1.5 h-1.5 rounded-full ${saveStatus === 'saving'
+                  ? 'bg-amber-500 animate-ping'
+                  : 'bg-emerald-500 animate-pulse'
+                  }`}
               />
               <span className="min-w-0 truncate" title={saveMessage}>{saveMessage}</span>
             </div>
@@ -458,11 +510,10 @@ export default function DashboardLayout({
           {/* Cloudflare 云同步状态微按钮 */}
           <button
             onClick={() => setIsCfModalOpen(true)}
-            className={`no-drag flex items-center justify-center gap-1.5 w-[124px] px-2.5 py-1 rounded-lg border text-xs font-medium transition-all ${
-              cfConfig.enabled
-                ? 'border-orange-200 dark:border-orange-900/50 bg-orange-50/70 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-900/40 shadow-2xs'
-                : 'border-slate-200/80 dark:border-dark-border text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-dark-hover'
-            }`}
+            className={`no-drag flex items-center justify-center gap-1.5 w-[124px] px-2.5 py-1 rounded-lg border text-xs font-medium transition-all ${cfConfig.enabled
+              ? 'border-orange-200 dark:border-orange-900/50 bg-orange-50/70 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-900/40 shadow-2xs'
+              : 'border-slate-200/80 dark:border-dark-border text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-dark-hover'
+              }`}
             title="Cloudflare 云端备份与同步"
           >
             <Cloud className="w-3.5 h-3.5 text-orange-500" />
@@ -538,11 +589,10 @@ export default function DashboardLayout({
             {/* Markdown 笔记 */}
             <button
               onClick={() => onOpenTool('markdown-notes')}
-              className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${
-                activeTabId === 'markdown-notes'
-                  ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-indigo-400'
-                  : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
-              }`}
+              className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${activeTabId === 'markdown-notes'
+                ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-indigo-400'
+                : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
+                }`}
               title="Markdown 笔记"
             >
               <FileText className="w-4 h-4" />
@@ -554,11 +604,10 @@ export default function DashboardLayout({
             {/* JSON 格式化 */}
             <button
               onClick={() => onOpenTool('json-format')}
-              className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${
-                activeTabId === 'json-format'
-                  ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-indigo-400'
-                  : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
-              }`}
+              className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${activeTabId === 'json-format'
+                ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-indigo-400'
+                : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
+                }`}
               title="JSON 格式化"
             >
               <Braces className="w-4 h-4" />
@@ -570,11 +619,10 @@ export default function DashboardLayout({
             {/* WebSocket 测试 */}
             <button
               onClick={() => onOpenTool('websocket')}
-              className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${
-                activeTabId === 'websocket'
-                  ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-indigo-400'
-                  : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
-              }`}
+              className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${activeTabId === 'websocket'
+                ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-indigo-400'
+                : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
+                }`}
               title="WebSocket 测试"
             >
               <Radio className="w-4 h-4" />
@@ -586,11 +634,10 @@ export default function DashboardLayout({
             {/* 二维码工具 */}
             <button
               onClick={() => onOpenTool('qr-code')}
-              className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${
-                activeTabId === 'qr-code'
-                  ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-indigo-400'
-                  : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
-              }`}
+              className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${activeTabId === 'qr-code'
+                ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-indigo-400'
+                : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
+                }`}
               title="二维码工具"
             >
               <QrCode className="w-4 h-4" />
@@ -602,11 +649,10 @@ export default function DashboardLayout({
             {/* 编码转换 */}
             <button
               onClick={() => onOpenTool('en-decode')}
-              className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${
-                activeTabId === 'en-decode'
-                  ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-indigo-400'
-                  : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
-              }`}
+              className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${activeTabId === 'en-decode'
+                ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-indigo-400'
+                : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
+                }`}
               title="编码转换"
             >
               <ArrowLeftRight className="w-4 h-4" />
@@ -618,11 +664,10 @@ export default function DashboardLayout({
             {/* JSON 翻译 */}
             <button
               onClick={() => onOpenTool('json-i18n')}
-              className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${
-                activeTabId === 'json-i18n'
-                  ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-indigo-400'
-                  : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
-              }`}
+              className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${activeTabId === 'json-i18n'
+                ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-indigo-400'
+                : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
+                }`}
               title="JSON 翻译"
             >
               <Languages className="w-4 h-4" />
@@ -651,11 +696,12 @@ export default function DashboardLayout({
           </div>
         </aside>
 
-        {/* 2.2 二级侧边栏 (240px / w-60，可折叠) */}
+        {/* 2.2 二级侧边栏（文档目录，宽度可拖拽调整 / 可折叠） */}
         <section
-          className={`${
-            isSidebarOpen ? 'w-60 opacity-100' : 'w-0 opacity-0 overflow-hidden border-r-0'
-          } bg-white dark:bg-dark-panel border-r border-slate-200/80 dark:border-dark-border flex flex-col flex-shrink-0 transition-all duration-300`}
+          ref={sidebarRef}
+          style={{ width: isSidebarOpen ? sidebarWidth : 0 }}
+          className={`${isSidebarOpen ? 'opacity-100' : 'w-0 opacity-0 overflow-hidden border-r-0'
+            } bg-white dark:bg-dark-panel border-r border-slate-200/80 dark:border-dark-border flex flex-col flex-shrink-0 ${isResizingSidebar ? '' : 'transition-all duration-300'}`}
         >
           {isMarkdownActive ? (
             /* Markdown 知识库文档列表视图 */
@@ -738,11 +784,10 @@ export default function DashboardLayout({
                           },
                         ])
                       }
-                      className={`group p-2.5 rounded-xl cursor-pointer transition-all border ${
-                        isActive
-                          ? 'bg-brand-50/70 dark:bg-brand-500/10 border-brand-100 dark:border-indigo-500/20'
-                          : 'hover:bg-slate-50 dark:hover:bg-dark-hover/60 border-transparent'
-                      }`}
+                      className={`group p-2.5 rounded-xl cursor-pointer transition-all border ${isActive
+                        ? 'bg-brand-50/70 dark:bg-brand-500/10 border-brand-100 dark:border-indigo-500/20'
+                        : 'hover:bg-slate-50 dark:hover:bg-dark-hover/60 border-transparent'
+                        }`}
                     >
                       <div className="flex items-center justify-between mb-1 gap-1">
                         {renamingNoteId === note.id ? (
@@ -773,44 +818,15 @@ export default function DashboardLayout({
                               startRenameNote(note.id, note.title)
                             }}
                             title={`${note.title || '未命名笔记'}（双击重命名）`}
-                            className={`flex-1 min-w-0 h-4 leading-4 truncate text-xs ${
-                              isActive
-                                ? 'font-semibold text-slate-900 dark:text-white'
-                                : 'font-medium text-slate-700 dark:text-slate-300'
-                            }`}
+                            className={`flex-1 min-w-0 h-4 leading-4 truncate text-xs ${isActive
+                              ? 'font-semibold text-slate-900 dark:text-white'
+                              : 'font-medium text-slate-700 dark:text-slate-300'
+                              }`}
                           >
                             {note.title || '未命名笔记'}
                           </h4>
                         )}
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                          {isActive && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
-                          )}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              startRenameNote(note.id, note.title)
-                            }}
-                            className={`p-0.5 hover:text-brand-600 dark:hover:text-indigo-400 text-slate-400 transition-opacity ${
-                              renamingNoteId === note.id
-                                ? 'invisible'
-                                : 'opacity-0 group-hover:opacity-100'
-                            }`}
-                            title="重命名文档"
-                          >
-                            <Pencil className="w-3 h-3" />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleDeleteNote(note.id)
-                            }}
-                            className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-rose-500 text-slate-400 transition-opacity"
-                            title="删除笔记"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        </div>
+
                       </div>
                       <p className="text-[11px] text-slate-400 line-clamp-1 font-mono">
                         {note.content.substring(0, 40)}...
@@ -849,11 +865,10 @@ export default function DashboardLayout({
                     <button
                       key={cat.id}
                       onClick={() => setActiveCategory(cat.id)}
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap transition-all ${
-                        activeCategory === cat.id
-                          ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
-                          : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-dark-hover'
-                      }`}
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap transition-all ${activeCategory === cat.id
+                        ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
+                        : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-dark-hover'
+                        }`}
                     >
                       {cat.name}
                     </button>
@@ -898,11 +913,10 @@ export default function DashboardLayout({
                           },
                         ])
                       }
-                      className={`group p-2 rounded-xl cursor-pointer transition-all border flex items-center justify-between ${
-                        isActive
-                          ? 'bg-brand-50/70 dark:bg-brand-500/10 border-brand-100 dark:border-indigo-500/20 text-slate-900 dark:text-white font-semibold'
-                          : 'hover:bg-slate-50 dark:hover:bg-dark-hover/60 border-transparent text-slate-600 dark:text-slate-300'
-                      }`}
+                      className={`group p-2 rounded-xl cursor-pointer transition-all border flex items-center justify-between ${isActive
+                        ? 'bg-brand-50/70 dark:bg-brand-500/10 border-brand-100 dark:border-indigo-500/20 text-slate-900 dark:text-white font-semibold'
+                        : 'hover:bg-slate-50 dark:hover:bg-dark-hover/60 border-transparent text-slate-600 dark:text-slate-300'
+                        }`}
                     >
                       <div className="flex items-center gap-2 truncate">
                         <span className="w-5 h-5 flex items-center justify-center rounded-md bg-slate-100 dark:bg-dark-sidebar text-[10px] font-mono flex-shrink-0">
@@ -918,6 +932,19 @@ export default function DashboardLayout({
             </>
           )}
         </section>
+
+        {/* 2.2.1 文档目录宽度分割线：负边距覆盖在侧边栏右边框上，不挤占主工作台 */}
+        {isSidebarOpen && (
+          <div
+            onMouseDown={handleSidebarResizeStart}
+            onDoubleClick={resetSidebarWidth}
+            title="拖动调整文档目录宽度，双击恢复默认"
+            className={`-ml-[5px] w-[5px] flex-shrink-0 cursor-col-resize relative z-30 transition-colors ${isResizingSidebar
+              ? 'bg-brand-500 dark:bg-indigo-500'
+              : 'hover:bg-brand-400/70 dark:hover:bg-indigo-500/70'
+              }`}
+          />
+        )}
 
         {/* 2.3 编辑器 / 工具主工作台 (Editor Workspace) */}
         <main className="flex-1 flex flex-col bg-white dark:bg-dark-panel overflow-hidden min-w-0">
@@ -961,11 +988,10 @@ export default function DashboardLayout({
                         },
                       ])
                     }
-                    className={`group flex items-center gap-1.5 h-6 px-2.5 rounded-md cursor-pointer text-xs transition-all border ${
-                      isActive
-                        ? 'bg-white dark:bg-dark-panel border-slate-200 dark:border-dark-border text-slate-900 dark:text-white font-semibold shadow-2xs'
-                        : 'border-transparent text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
-                    }`}
+                    className={`group flex items-center gap-1.5 h-6 px-2.5 rounded-md cursor-pointer text-xs transition-all border ${isActive
+                      ? 'bg-white dark:bg-dark-panel border-slate-200 dark:border-dark-border text-slate-900 dark:text-white font-semibold shadow-2xs'
+                      : 'border-transparent text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
+                      }`}
                   >
                     <span className="text-[10px] font-mono">
                       {tool.icon.length <= 3 ? tool.icon : tool.icon.charAt(0)}

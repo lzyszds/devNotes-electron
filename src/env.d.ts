@@ -4,6 +4,16 @@ declare module '*.png' {
   export default src
 }
 
+// Vite 注入的环境变量。只声明本项目用得到的字段:
+// dev 下 BASE_URL 是 "/",生产构建是 "./"(项目用相对 base,便于 file:// 加载)
+interface ImportMetaEnv {
+  readonly BASE_URL: string
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv
+}
+
 interface Window {
   electronAPI?: {
     minimizeWindow: () => Promise<void>

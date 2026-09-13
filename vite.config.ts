@@ -49,7 +49,8 @@ export default defineConfig({
     }
   },
   optimizeDeps: {
-    include: ['cherry-markdown']
+    // NotesTool 走 lazy() 边界，预打包可避免首次进入笔记页触发依赖发现 → 整页 reload
+    include: ['cherry-markdown', 'vditor']
   },
   build: {
     outDir: 'dist',

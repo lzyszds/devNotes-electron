@@ -6,6 +6,9 @@ dist/
 dist-electron/
 release/
 
+# Vditor 运行时资源(由 scripts/sync-vditor-assets.cjs 从 node_modules 生成,不入库)
+public/vditor/
+
 # IDE
 .idea/
 .vscode/
@@ -29,6 +32,3 @@ npm-debug.log*
 .cache/
 .parcel-cache/
 .vite/
-
-# E2E 测试的隔离 userData（临时笔记数据，绝不入库）
-tests/e2e/.userdata/

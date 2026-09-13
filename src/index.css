@@ -386,3 +386,37 @@ html.dark ::-webkit-scrollbar-thumb:hover {
   user-select: text !important;
   -webkit-user-select: text !important;
 }
+
+/* Vditor 笔记编辑器容器规则(即时渲染 / 富文本两种内核共用) */
+.vditor-notes-editor,
+.vditor-notes-editor > div {
+  height: 100% !important;
+  width: 100% !important;
+  box-sizing: border-box;
+}
+
+/* Vditor 默认带整圈边框与圆角,这里要去掉才能和外壳无缝拼接 */
+.vditor-notes-editor .vditor {
+  border: none !important;
+  border-radius: 0 !important;
+}
+
+.vditor-notes-editor .vditor-toolbar {
+  border-radius: 0 !important;
+  flex-wrap: nowrap !important;
+  overflow-x: auto !important;
+  scrollbar-width: none !important;
+}
+
+.vditor-notes-editor .vditor-toolbar::-webkit-scrollbar {
+  display: none !important;
+}
+
+/* 同 cherry-notes-editor:在外层 select-none 之下恢复编辑区与预览区的文本选中 */
+.vditor-notes-editor .vditor-ir,
+.vditor-notes-editor .vditor-wysiwyg,
+.vditor-notes-editor .vditor-sv,
+.vditor-notes-editor .vditor-preview {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}

@@ -22,7 +22,7 @@ export const toolCategories: ToolCategory[] = [
 ]
 
 export const tools: Tool[] = [
-  { id: 'markdown-notes', name: 'Markdown 笔记', icon: 'MD', description: '基于 Cherry Markdown 的本地笔记编辑器', category: 'productivity' },
+  { id: 'markdown-notes', name: 'Markdown 笔记', icon: 'MD', description: '本地笔记编辑器，支持双栏、即时渲染与富文本三种模式', category: 'productivity' },
   { id: 'json-format', name: 'JSON 美化', icon: '{ }', description: 'JSON 格式化、排序、压缩', category: 'dev' },
   { id: 'json-diff', name: 'JSON 比对', icon: 'GitCompare', description: 'JSON 结构化比较', category: 'dev' },
   { id: 'json-i18n', name: 'JSON 翻译', icon: 'Lang', description: 'JSON 多语言翻译，支持 JSONPath 和键名映射', category: 'dev' },
