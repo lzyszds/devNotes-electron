@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import type { MouseEvent as ReactMouseEvent, RefObject } from 'react'
+import type { MouseEvent as ReactMouseEvent } from 'react'
 import {
   AlignLeft,
   ArrowDownAZ,
@@ -66,33 +66,12 @@ import {
   UnfoldVertical,
   WandSparkles,
 } from 'lucide-react'
-import type { EditorView } from '@codemirror/view'
 import { useContextMenu } from '../components/ui/ContextMenu'
 import type { ContextMenuItem } from '../components/ui/ContextMenu'
 import { useToast } from '../components/ui/Toast'
 import { copyText, readText } from '../utils/clipboard'
-import {
-  dedupeLines,
-  escapeMarkdownChars,
-  getEditorView,
-  getFullText,
-  getSelection,
-  indentLines,
-  redo,
-  replaceRange,
-  selectAll,
-  setFullText,
-  setHeading,
-  sortLines,
-  stripInlineFormat,
-  toggleLinePrefix,
-  toggleOrderedList,
-  trimTrailingSpaces,
-  undo,
-  unescapeMarkdownChars,
-  unwrapSelection,
-  wrapSelection,
-} from '../utils/editorView'
+import type { EditorAdapter } from '../utils/editorAdapter'
+import { escapeMarkdownChars, stripMarkdownToPlain } from '../utils/editorText'
 import { normalizeMarkdown } from '../utils/markdownFormat'
 import {
   SNIPPETS,
@@ -106,54 +85,39 @@ import {
 } from '../utils/markdownSnippets'
 
 /**
- * Cherry 实例上我们真正用到的那部分能力。
- * 全部可选：Cherry 升级后某个字段改名也不会在类型层炸掉，运行时用 typeof 守卫。
+ * 编辑区右键菜单（两个内核共用）。
+ *
+ * 与改造前的区别：菜单项不再直接 import CM6 的操作，而是全部通过 EditorAdapter。
+ * 这样同一份 70 项菜单树能同时服务 Cherry（CM6）与 Milkdown（ProseMirror），
+ * 差异被关在两个 adapter 里（见 utils/editorAdapter.ts 的说明）。
+ *
+ * 菜单在打开那一刻构建，选区/全文按当时状态快照捕获 —— 点击菜单按钮会让内容区
+ * 失焦，届时再读选区可能已经不准。这条与改造前一致。
  */
-export interface CherryEditorApi {
-  getMarkdown?: () => string
-  getHtml?: () => string
-  toolbar?: { toolbarHandlers?: Record<string, unknown> }
-}
-
-interface Options {
-  cherryRef: RefObject<CherryEditorApi | null>
+export interface EditorContextMenuOptions {
+  adapter: EditorAdapter | null
   /** 当前笔记标题，用于 Front Matter 与「当前文档信息」 */
   title: string
+  /** 「切换编辑 / 预览模式」由宿主驱动（只有 Cherry 有三态视图） */
+  onRequestViewMode?: () => void
+  /** 「全屏」由宿主统一实现（Cherry 的原生全屏只是个 class，没法复用） */
+  onRequestFullscreen?: () => void
+  /** 「查找替换」由宿主分派：Cherry 走原生面板，Milkdown 走自绘面板 */
+  onRequestSearch?: () => void
+  /** 「大纲」由宿主分派：两端语义统一为「切换大纲浮层」 */
+  onRequestOutline?: () => void
 }
 
 const ICON = 'w-3.5 h-3.5'
 
-/** 把 Markdown 粗略转成纯文本，用于「复制全文（纯文本）」 */
-function stripMarkdownToPlain(markdown: string): string {
-  return stripInlineFormat(markdown)
-    .replace(/^[ \t]*#{1,6}[ \t]+/gm, '')
-    .replace(/^[ \t]*>[ \t]?/gm, '')
-    .replace(/^[ \t]*[-*+][ \t]+/gm, '')
-    .replace(/^[ \t]*\d+[.)][ \t]+/gm, '')
-    .replace(/^[ \t]*`{3,}.*$/gm, '')
-    .replace(/^[ \t]*~~~/gm, '')
-    .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
-    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
-    .replace(/^[ \t]*\|.*\|[ \t]*$/gm, (row) =>
-      row
-        .trim()
-        .replace(/^\||\|$/g, '')
-        .split('|')
-        .map((cell) => cell.trim())
-        .join('  ')
-    )
-    .replace(/^[ \t]*([-*_])([ \t]*\1){2,}[ \t]*$/gm, '')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
-}
-
-/**
- * Cherry 编辑区与预览区的右键菜单。
- *
- * 菜单项在打开菜单的那一刻构建，选区/全文都按当时的状态快照捕获 ——
- * 点击菜单按钮会让内容区失焦，届时再读选区可能已经不准。
- */
-export function useCherryContextMenu({ cherryRef, title }: Options) {
+export function useEditorContextMenu({
+  adapter,
+  title,
+  onRequestViewMode,
+  onRequestFullscreen,
+  onRequestSearch,
+  onRequestOutline,
+}: EditorContextMenuOptions) {
   const { openContextMenu } = useContextMenu()
   const { showToast } = useToast()
 
@@ -165,52 +129,14 @@ export function useCherryContextMenu({ cherryRef, title }: Options) {
     [showToast]
   )
 
-  /** 插入片段；cursor 是相对插入文本开头的偏移，默认落在末尾 */
-  const insertSnippet = useCallback(
-    (view: EditorView, text: string, cursorFromStart?: number) => {
-      const sel = getSelection(view)
-      const anchor = sel.from + (cursorFromStart ?? text.length)
-      view.dispatch({
-        changes: { from: sel.from, to: sel.to, insert: text },
-        selection: { anchor },
-      })
-      view.focus()
-    },
-    []
-  )
-
-  /* ---------------- 编辑区 ---------------- */
-
   const onEditorContextMenu = useCallback(
     (event: ReactMouseEvent) => {
-      const cherry = cherryRef.current
-      const view = getEditorView(cherry)
-      if (!view) return
+      if (!adapter) return
 
-      const sel = getSelection(view)
-      const fullText = getFullText(view)
+      const sel = adapter.getSelection()
+      const fullText = adapter.getFullText()
       const hasText = fullText.trim().length > 0
-
-      // Cherry 只在工具栏配置里出现过的菜单名才有 handler，取不到就把该项置灰
-      const handler = (name: string): (() => void) | null => {
-        const candidate = cherry?.toolbar?.toolbarHandlers?.[name]
-        return typeof candidate === 'function' ? (candidate as () => void) : null
-      }
-      const runHandler = (name: string) => () => {
-        const fn = handler(name)
-        if (!fn) {
-          showToast('该功能在当前版本不可用', 'error')
-          return
-        }
-        try {
-          fn()
-        } catch (error) {
-          console.error(`工具栏动作 ${name} 失败:`, error)
-          showToast('操作失败', 'error')
-        }
-      }
-
-      const disabledWithoutHandler = (name: string) => handler(name) === null
+      const isCherry = adapter.engine === 'cherry'
 
       const editorItems: ContextMenuItem[] = [
         {
@@ -224,7 +150,7 @@ export function useCherryContextMenu({ cherryRef, title }: Options) {
               showToast('剪切失败', 'error')
               return
             }
-            replaceRange(view, sel.from, sel.to, '')
+            adapter.replaceRange(sel.from, sel.to, '')
             showToast('已剪切')
           },
         },
@@ -247,8 +173,8 @@ export function useCherryContextMenu({ cherryRef, title }: Options) {
               showToast('剪贴板为空', 'error')
               return
             }
-            replaceRange(view, sel.from, sel.to, text)
-            view.focus()
+            adapter.replaceRange(sel.from, sel.to, text)
+            adapter.focus()
           },
         },
         {
@@ -263,8 +189,8 @@ export function useCherryContextMenu({ cherryRef, title }: Options) {
               return
             }
             // 转义 Markdown 特殊字符，粘进来的内容按字面渲染
-            replaceRange(view, sel.from, sel.to, escapeMarkdownChars(text))
-            view.focus()
+            adapter.replaceRange(sel.from, sel.to, escapeMarkdownChars(text))
+            adapter.focus()
           },
         },
         { id: 'sep-clip', separator: true },
@@ -274,7 +200,7 @@ export function useCherryContextMenu({ cherryRef, title }: Options) {
           shortcut: '⌘Z',
           icon: <Undo2 className={ICON} />,
           onSelect: () => {
-            if (!undo(view)) showToast('没有可撤销的操作')
+            if (!adapter.undo()) showToast('没有可撤销的操作')
           },
         },
         {
@@ -283,7 +209,7 @@ export function useCherryContextMenu({ cherryRef, title }: Options) {
           shortcut: '⌘⇧Z',
           icon: <Redo2 className={ICON} />,
           onSelect: () => {
-            if (!redo(view)) showToast('没有可重做的操作')
+            if (!adapter.redo()) showToast('没有可重做的操作')
           },
         },
         { id: 'sep-history', separator: true },
@@ -297,52 +223,52 @@ export function useCherryContextMenu({ cherryRef, title }: Options) {
               label: '加粗',
               shortcut: '⌘B',
               icon: <Bold className={ICON} />,
-              onSelect: () => wrapSelection(view, '**', '**', '粗体'),
+              onSelect: () => adapter.wrapSelection('**', '**', '粗体'),
             },
             {
               id: 'italic',
               label: '斜体',
               shortcut: '⌘I',
               icon: <Italic className={ICON} />,
-              onSelect: () => wrapSelection(view, '*', '*', '斜体'),
+              onSelect: () => adapter.wrapSelection('*', '*', '斜体'),
             },
             {
               id: 'strike',
               label: '删除线',
               icon: <Strikethrough className={ICON} />,
-              onSelect: () => wrapSelection(view, '~~', '~~', '删除线'),
+              onSelect: () => adapter.wrapSelection('~~', '~~', '删除线'),
             },
             {
               id: 'code-inline',
               label: '行内代码',
               shortcut: '⌘E',
               icon: <Code className={ICON} />,
-              onSelect: () => wrapSelection(view, '`', '`', 'code'),
+              onSelect: () => adapter.wrapSelection('`', '`', 'code'),
             },
             {
               id: 'highlight',
               label: '高亮',
               icon: <Highlighter className={ICON} />,
-              onSelect: () => wrapSelection(view, '==', '==', '高亮'),
+              onSelect: () => adapter.wrapSelection('==', '==', '高亮'),
             },
             {
               id: 'sup',
               label: '上标',
               icon: <Superscript className={ICON} />,
-              onSelect: () => wrapSelection(view, '<sup>', '</sup>'),
+              onSelect: () => adapter.wrapSelection('<sup>', '</sup>'),
             },
             {
               id: 'sub',
               label: '下标',
               icon: <Subscript className={ICON} />,
-              onSelect: () => wrapSelection(view, '<sub>', '</sub>'),
+              onSelect: () => adapter.wrapSelection('<sub>', '</sub>'),
             },
             { id: 'sep-format', separator: true },
             {
               id: 'clear-inline',
               label: '清除内联格式',
               icon: <Eraser className={ICON} />,
-              onSelect: () => unwrapSelection(view),
+              onSelect: () => adapter.unwrapSelection(),
             },
           ],
         },
@@ -355,68 +281,68 @@ export function useCherryContextMenu({ cherryRef, title }: Options) {
               id: 'p',
               label: '正文',
               icon: <AlignLeft className={ICON} />,
-              onSelect: () => setHeading(view, 0),
+              onSelect: () => adapter.setHeading(0),
             },
             {
               id: 'h1',
               label: '标题 1',
               icon: <Heading1 className={ICON} />,
-              onSelect: () => setHeading(view, 1),
+              onSelect: () => adapter.setHeading(1),
             },
             {
               id: 'h2',
               label: '标题 2',
               icon: <Heading2 className={ICON} />,
-              onSelect: () => setHeading(view, 2),
+              onSelect: () => adapter.setHeading(2),
             },
             {
               id: 'h3',
               label: '标题 3',
               icon: <Heading3 className={ICON} />,
-              onSelect: () => setHeading(view, 3),
+              onSelect: () => adapter.setHeading(3),
             },
             {
               id: 'h4',
               label: '标题 4',
               icon: <Heading4 className={ICON} />,
-              onSelect: () => setHeading(view, 4),
+              onSelect: () => adapter.setHeading(4),
             },
             {
               id: 'h5',
               label: '标题 5',
               icon: <Heading5 className={ICON} />,
-              onSelect: () => setHeading(view, 5),
+              onSelect: () => adapter.setHeading(5),
             },
             {
               id: 'h6',
               label: '标题 6',
               icon: <Heading6 className={ICON} />,
-              onSelect: () => setHeading(view, 6),
+              onSelect: () => adapter.setHeading(6),
             },
             { id: 'sep-para-1', separator: true },
             {
               id: 'ul',
               label: '无序列表',
               icon: <List className={ICON} />,
-              onSelect: () => toggleLinePrefix(view, '- '),
+              onSelect: () => adapter.toggleLinePrefix('- '),
             },
             {
               id: 'ol',
               label: '有序列表',
               icon: <ListOrdered className={ICON} />,
-              onSelect: () => toggleOrderedList(view),
+              onSelect: () => adapter.toggleOrderedList(),
             },
             {
               id: 'task',
               label: '待办清单',
               icon: <ListChecks className={ICON} />,
-              onSelect: () => toggleLinePrefix(view, '- [ ] '),
+              onSelect: () => adapter.toggleLinePrefix('- [ ] '),
             },
             {
               id: 'quote',
               label: '引用',
               icon: <Quote className={ICON} />,
-              onSelect: () => toggleLinePrefix(view, '> '),
+              onSelect: () => adapter.toggleLinePrefix('> '),
             },
             { id: 'sep-para-2', separator: true },
             {
@@ -424,35 +350,44 @@ export function useCherryContextMenu({ cherryRef, title }: Options) {
               label: '代码块',
               icon: <SquareCode className={ICON} />,
               onSelect: () =>
-                insertSnippet(view, SNIPPETS.codeBlock, SNIPPETS.codeBlock.indexOf('\n') + 1),
+                adapter.insertSnippet(SNIPPETS.codeBlock, SNIPPETS.codeBlock.indexOf('\n') + 1),
             },
             {
               id: 'table',
               label: '表格',
               icon: <Table className={ICON} />,
-              onSelect: () => insertSnippet(view, SNIPPETS.table),
+              onSelect: () => adapter.insertSnippet(SNIPPETS.table),
             },
             {
               id: 'hr',
               label: '分割线',
               icon: <Minus className={ICON} />,
-              onSelect: () => insertSnippet(view, SNIPPETS.hr),
+              onSelect: () => adapter.insertSnippet(SNIPPETS.hr),
             },
             { id: 'sep-para-3', separator: true },
-            {
-              id: 'detail',
-              label: '折叠面板',
-              icon: <UnfoldVertical className={ICON} />,
-              disabled: disabledWithoutHandler('detail'),
-              onSelect: runHandler('detail'),
-            },
-            {
-              id: 'timeline',
-              label: '时间线',
-              icon: <Timer className={ICON} />,
-              disabled: disabledWithoutHandler('timeline'),
-              onSelect: runHandler('timeline'),
-            },
+            // 折叠面板 / 时间线是 Cherry 私有 ::: 语法，ProseMirror 没有对应节点，
+            // 在所见即所得下直接不渲染（不是置灰 —— 置灰等于承认它能用）
+            ...(isCherry
+              ? [
+                  {
+                    id: 'detail',
+                    label: '折叠面板',
+                    icon: <UnfoldVertical className={ICON} />,
+                    onSelect: () => {
+                      if (!adapter.invokeNative('detail')) showToast('该功能在当前版本不可用', 'error')
+                    },
+                  },
+                  {
+                    id: 'timeline',
+                    label: '时间线',
+                    icon: <Timer className={ICON} />,
+                    onSelect: () => {
+                      if (!adapter.invokeNative('timeline'))
+                        showToast('该功能在当前版本不可用', 'error')
+                    },
+                  },
+                ]
+              : []),
           ],
         },
         {
@@ -464,21 +399,20 @@ export function useCherryContextMenu({ cherryRef, title }: Options) {
               id: 'upper',
               label: '转大写',
               icon: <CaseUpper className={ICON} />,
-              disabled: false,
-              onSelect: () => transformTarget(view, (text) => text.toUpperCase()),
+              onSelect: () => adapter.transformTarget((text) => text.toUpperCase()),
             },
             {
               id: 'lower',
               label: '转小写',
               icon: <CaseLower className={ICON} />,
-              onSelect: () => transformTarget(view, (text) => text.toLowerCase()),
+              onSelect: () => adapter.transformTarget((text) => text.toLowerCase()),
             },
             {
               id: 'capitalize',
               label: '首字母大写',
               icon: <CaseSensitive className={ICON} />,
               onSelect: () =>
-                transformTarget(view, (text) =>
+                adapter.transformTarget((text) =>
                   text.replace(/(^|\s)([a-zA-Z])/g, (_, space: string, char: string) =>
                     space + char.toUpperCase()
                   )
@@ -489,16 +423,14 @@ export function useCherryContextMenu({ cherryRef, title }: Options) {
               id: 'trim-tail',
               label: '去除行尾空格',
               icon: <Sparkles className={ICON} />,
-              onSelect: () => trimTrailingSpaces(view),
+              onSelect: () => adapter.trimTrailingSpaces(),
             },
             {
               id: 'collapse-blank',
               label: '合并多余空行',
               icon: <Rows3 className={ICON} />,
               onSelect: () => {
-                if (!setFullText(view, fullText.replace(/\n{3,}/g, '\n\n'))) {
-                  showToast('没有多余空行')
-                }
+                if (!adapter.collapseBlankLines()) showToast('没有多余空行')
               },
             },
             { id: 'sep-text-2', separator: true },
@@ -507,47 +439,50 @@ export function useCherryContextMenu({ cherryRef, title }: Options) {
               label: '行排序（升序）',
               icon: <ArrowUpAZ className={ICON} />,
               disabled: sel.empty,
-              onSelect: () => sortLines(view, false),
+              onSelect: () => adapter.sortLines(false),
             },
             {
               id: 'sort-desc',
               label: '行排序（降序）',
               icon: <ArrowDownAZ className={ICON} />,
               disabled: sel.empty,
-              onSelect: () => sortLines(view, true),
+              onSelect: () => adapter.sortLines(true),
             },
             {
               id: 'dedupe',
               label: '行去重',
               icon: <ArrowDownWideNarrow className={ICON} />,
               disabled: sel.empty,
-              onSelect: () => dedupeLines(view),
+              onSelect: () => adapter.dedupeLines(),
             },
             { id: 'sep-text-3', separator: true },
             {
               id: 'indent-more',
               label: '增加缩进',
               icon: <IndentIncrease className={ICON} />,
-              onSelect: () => indentLines(view, 1),
+              onSelect: () => adapter.indentLines(1),
             },
             {
               id: 'indent-less',
               label: '减少缩进',
               icon: <IndentDecrease className={ICON} />,
-              onSelect: () => indentLines(view, -1),
+              onSelect: () => adapter.indentLines(-1),
             },
             { id: 'sep-text-4', separator: true },
             {
               id: 'escape',
               label: '转义 Markdown 字符',
               icon: <Braces className={ICON} />,
-              onSelect: () => transformTarget(view, escapeMarkdownChars),
+              onSelect: () => adapter.transformTarget(escapeMarkdownChars),
             },
             {
               id: 'unescape',
               label: '反转义',
               icon: <Braces className={ICON} />,
-              onSelect: () => transformTarget(view, unescapeMarkdownChars),
+              onSelect: () =>
+                adapter.transformTarget((text) =>
+                  text.replace(/\\([\\`*_{}[\]()#+\-.!|>~])/g, '$1')
+                ),
             },
           ],
         },
@@ -561,14 +496,14 @@ export function useCherryContextMenu({ cherryRef, title }: Options) {
               label: '基础规范化',
               icon: <Sparkles className={ICON} />,
               disabled: !hasText,
-              onSelect: () => applyNormalize(view, fullText, 'basic'),
+              onSelect: () => applyNormalize(adapter, fullText, 'basic', showToast),
             },
             {
               id: 'normalize-full',
               label: '完整规范化（含标点与全角）',
               icon: <WandSparkles className={ICON} />,
               disabled: !hasText,
-              onSelect: () => applyNormalize(view, fullText, 'full'),
+              onSelect: () => applyNormalize(adapter, fullText, 'full', showToast),
             },
           ],
         },
@@ -586,114 +521,125 @@ export function useCherryContextMenu({ cherryRef, title }: Options) {
                   id: 'insert-date',
                   label: '日期（2026-09-13）',
                   icon: <CalendarDays className={ICON} />,
-                  onSelect: () => insertSnippet(view, formatDate()),
+                  onSelect: () => adapter.insertSnippet(formatDate()),
                 },
                 {
                   id: 'insert-date-cn',
                   label: '中文长日期',
                   icon: <CalendarDays className={ICON} />,
-                  onSelect: () => insertSnippet(view, formatDateCN()),
+                  onSelect: () => adapter.insertSnippet(formatDateCN()),
                 },
                 {
                   id: 'insert-time',
                   label: '时间（14:32）',
                   icon: <Clock className={ICON} />,
-                  onSelect: () => insertSnippet(view, formatTime()),
+                  onSelect: () => adapter.insertSnippet(formatTime()),
                 },
                 {
                   id: 'insert-datetime-full',
                   label: '日期 + 时间',
                   icon: <CalendarClock className={ICON} />,
-                  onSelect: () => insertSnippet(view, formatDateTime()),
+                  onSelect: () => adapter.insertSnippet(formatDateTime()),
                 },
                 {
                   id: 'insert-timestamp',
                   label: 'Unix 时间戳（秒）',
                   icon: <Hash className={ICON} />,
-                  onSelect: () => insertSnippet(view, formatTimestamp()),
+                  onSelect: () => adapter.insertSnippet(formatTimestamp()),
                 },
               ],
             },
-            {
-              id: 'insert-frontmatter',
-              label: 'Front Matter（插到文首）',
-              icon: <FileCode2 className={ICON} />,
-              onSelect: () => {
-                if (/^\s*---\r?\n/.test(fullText)) {
-                  showToast('文档开头已有 Front Matter')
-                  return
-                }
-                view.dispatch({
-                  changes: { from: 0, to: 0, insert: frontMatter(title) },
-                  selection: { anchor: 0 },
-                })
-                view.focus()
-              },
-            },
+            // Front Matter 在 Milkdown 下会毁文档：`---` 被 micromark 的
+            // setextUnderline / thematicBreak 构造吃掉，实测
+            //   ---\ntitle: x\n---\n  会变成  ***\n\ntitle: x\n---------\n
+            // 而 frontmatter 扩展没装（node_modules 里只有 gfm 系列）。
+            // 所以只给 Cherry 用，所见即所得下不渲染这一项。
+            ...(isCherry
+              ? [
+                  {
+                    id: 'insert-frontmatter',
+                    label: 'Front Matter（插到文首）',
+                    icon: <FileCode2 className={ICON} />,
+                    onSelect: () => {
+                      if (/^\s*---\r?\n/.test(fullText)) {
+                        showToast('文档开头已有 Front Matter')
+                        return
+                      }
+                      adapter.insertAtStart(frontMatter(title))
+                    },
+                  },
+                ]
+              : []),
             { id: 'sep-insert-1', separator: true },
             {
               id: 'insert-code',
               label: '代码块',
               icon: <SquareCode className={ICON} />,
               onSelect: () =>
-                insertSnippet(view, SNIPPETS.codeBlock, SNIPPETS.codeBlock.indexOf('\n') + 1),
+                adapter.insertSnippet(SNIPPETS.codeBlock, SNIPPETS.codeBlock.indexOf('\n') + 1),
             },
             {
               id: 'insert-table',
               label: '表格（3 列）',
               icon: <Table className={ICON} />,
-              onSelect: () => insertSnippet(view, SNIPPETS.table),
+              onSelect: () => adapter.insertSnippet(SNIPPETS.table),
             },
             {
               id: 'insert-hr',
               label: '分割线',
               icon: <Minus className={ICON} />,
-              onSelect: () => insertSnippet(view, SNIPPETS.hr),
+              onSelect: () => adapter.insertSnippet(SNIPPETS.hr),
             },
             {
               id: 'insert-toc',
               label: '目录 [TOC]',
               icon: <ListTree className={ICON} />,
-              onSelect: () => insertSnippet(view, SNIPPETS.toc),
+              onSelect: () => adapter.insertSnippet(SNIPPETS.toc),
             },
             { id: 'sep-insert-2', separator: true },
             {
               id: 'insert-todo',
               label: '待办项',
               icon: <SquareCheck className={ICON} />,
-              onSelect: () => insertSnippet(view, SNIPPETS.todo),
+              onSelect: () => adapter.insertSnippet(SNIPPETS.todo),
             },
             {
               id: 'insert-quote',
               label: '引用块',
               icon: <TextQuote className={ICON} />,
-              onSelect: () => insertSnippet(view, SNIPPETS.quote),
+              onSelect: () => adapter.insertSnippet(SNIPPETS.quote),
             },
-            {
-              id: 'insert-panel',
-              label: '提示块',
-              icon: <PanelTop className={ICON} />,
-              onSelect: () => insertSnippet(view, SNIPPETS.panel, '::: primary '.length),
-            },
+            // 提示块同理，是 Cherry 的 ::: 语法
+            ...(isCherry
+              ? [
+                  {
+                    id: 'insert-panel',
+                    label: '提示块',
+                    icon: <PanelTop className={ICON} />,
+                    onSelect: () =>
+                      adapter.insertSnippet(SNIPPETS.panel, '::: primary '.length),
+                  },
+                ]
+              : []),
             { id: 'sep-insert-3', separator: true },
             {
               id: 'insert-image',
               label: '图片',
               icon: <Image className={ICON} />,
-              onSelect: () => insertSnippet(view, SNIPPETS.image, 2),
+              onSelect: () => adapter.insertSnippet(SNIPPETS.image, 2),
             },
             {
               id: 'insert-link',
               label: '链接',
               icon: <Link2 className={ICON} />,
-              onSelect: () => insertSnippet(view, SNIPPETS.link, 1),
+              onSelect: () => adapter.insertSnippet(SNIPPETS.link, 1),
             },
             { id: 'sep-insert-4', separator: true },
             {
               id: 'insert-docinfo',
               label: '当前文档信息',
               icon: <FileText className={ICON} />,
-              onSelect: () => insertSnippet(view, `\n${documentInfo(fullText, title)}\n`),
+              onSelect: () => adapter.insertSnippet(`\n${documentInfo(fullText, title)}\n`),
             },
           ],
         },
@@ -723,17 +669,12 @@ export function useCherryContextMenu({ cherryRef, title }: Options) {
               label: '复制为 HTML',
               icon: <CodeXml className={ICON} />,
               onSelect: () => {
-                try {
-                  const html = cherry?.getHtml?.() || ''
-                  if (!html) {
-                    showToast('暂无渲染结果', 'error')
-                    return
-                  }
-                  void toastCopy(html, '已复制 HTML')
-                } catch (error) {
-                  console.error('复制 HTML 失败:', error)
-                  showToast('复制失败', 'error')
+                const html = adapter.getHtml()
+                if (!html) {
+                  showToast('暂无渲染结果', 'error')
+                  return
                 }
+                void toastCopy(html, '已复制 HTML')
               },
             },
           ],
@@ -743,7 +684,7 @@ export function useCherryContextMenu({ cherryRef, title }: Options) {
           label: '选中文本加引用',
           icon: <TextQuote className={ICON} />,
           disabled: sel.empty,
-          onSelect: () => toggleLinePrefix(view, '> '),
+          onSelect: () => adapter.toggleLinePrefix('> '),
         },
         {
           id: 'view-group',
@@ -756,39 +697,56 @@ export function useCherryContextMenu({ cherryRef, title }: Options) {
               shortcut: '⌘A',
               icon: <CopyCheck className={ICON} />,
               disabled: !hasText,
-              onSelect: () => {
-                selectAll(view)
-                view.focus()
-              },
+              onSelect: () => adapter.selectAll(),
             },
             {
               id: 'find',
               label: '查找替换',
               shortcut: '⌘F',
               icon: <Search className={ICON} />,
-              disabled: disabledWithoutHandler('search'),
-              onSelect: runHandler('search'),
+              onSelect: () => {
+                if (onRequestSearch) onRequestSearch()
+                else if (!adapter.invokeNative('search'))
+                  showToast('该功能在当前版本不可用', 'error')
+              },
             },
             {
-              id: 'switch-model',
-              label: '切换编辑 / 预览模式',
-              icon: <Columns2 className={ICON} />,
-              disabled: disabledWithoutHandler('switchModel'),
-              onSelect: runHandler('switchModel'),
+              id: 'outline',
+              label: '大纲',
+              icon: <ListTree className={ICON} />,
+              onSelect: () => onRequestOutline?.(),
+              disabled: !onRequestOutline,
             },
+            // 只有 Cherry 有「源码/预览」三态，所见即所得是无条件单栏
+            ...(isCherry
+              ? [
+                  {
+                    id: 'switch-model',
+                    label: '切换编辑 / 预览模式',
+                    icon: <Columns2 className={ICON} />,
+                    onSelect: () => onRequestViewMode?.(),
+                    disabled: !onRequestViewMode,
+                  },
+                ]
+              : []),
             {
               id: 'fullscreen',
               label: '全屏切换',
               icon: <Maximize2 className={ICON} />,
-              disabled: disabledWithoutHandler('fullScreen'),
-              onSelect: runHandler('fullScreen'),
+              onSelect: () => {
+                if (onRequestFullscreen) onRequestFullscreen()
+                else adapter.invokeNative('fullScreen')
+              },
+              disabled: !onRequestFullscreen && !adapter.hasNative('fullScreen'),
             },
             {
               id: 'export',
               label: '导出…',
               icon: <FileDown className={ICON} />,
-              disabled: disabledWithoutHandler('export'),
-              onSelect: runHandler('export'),
+              disabled: !adapter.hasNative('export'),
+              onSelect: () => {
+                if (!adapter.invokeNative('export')) showToast('该功能在当前版本不可用', 'error')
+              },
             },
           ],
         },
@@ -801,8 +759,8 @@ export function useCherryContextMenu({ cherryRef, title }: Options) {
           disabled: !hasText,
           onSelect: () => {
             if (!window.confirm('确定清空全文吗？清空后可以用 ⌘Z 撤销。')) return
-            setFullText(view, '')
-            view.focus()
+            adapter.setFullText('')
+            adapter.focus()
             showToast('已清空全文')
           },
         },
@@ -810,14 +768,24 @@ export function useCherryContextMenu({ cherryRef, title }: Options) {
 
       openContextMenu(event, editorItems)
     },
-    [cherryRef, insertSnippet, openContextMenu, showToast, title, toastCopy]
+    [
+      adapter,
+      openContextMenu,
+      onRequestFullscreen,
+      onRequestOutline,
+      onRequestSearch,
+      onRequestViewMode,
+      showToast,
+      title,
+      toastCopy,
+    ]
   )
 
-  /* ---------------- 预览区（只读） ---------------- */
+  /* ---------------- 预览区（只有 Cherry 有独立预览区） ---------------- */
 
   const onPreviewContextMenu = useCallback(
     (event: ReactMouseEvent) => {
-      const cherry = cherryRef.current
+      if (!adapter || adapter.engine !== 'cherry') return
       const target = event.target as HTMLElement
       const previewer = target.closest('.cherry-previewer') as HTMLElement | null
       if (!previewer) return
@@ -837,33 +805,9 @@ export function useCherryContextMenu({ cherryRef, title }: Options) {
         }
       })()
 
-      const fullMarkdown = (() => {
-        try {
-          return cherry?.getMarkdown?.() || ''
-        } catch {
-          return ''
-        }
-      })()
+      const fullMarkdown = adapter.getFullText()
       const fullPlain = previewer.innerText.trim() || stripMarkdownToPlain(fullMarkdown)
       const fullHtml = previewer.innerHTML
-
-      const handler = (name: string): (() => void) | null => {
-        const candidate = cherry?.toolbar?.toolbarHandlers?.[name]
-        return typeof candidate === 'function' ? (candidate as () => void) : null
-      }
-      const runHandler = (name: string) => () => {
-        const fn = handler(name)
-        if (!fn) {
-          showToast('该功能在当前版本不可用', 'error')
-          return
-        }
-        try {
-          fn()
-        } catch (error) {
-          console.error(`工具栏动作 ${name} 失败:`, error)
-          showToast('操作失败', 'error')
-        }
-      }
 
       const previewItems: ContextMenuItem[] = [
         {
@@ -920,53 +864,38 @@ export function useCherryContextMenu({ cherryRef, title }: Options) {
           id: 'pv-switch-model',
           label: '切换到编辑模式',
           icon: <Columns2 className={ICON} />,
-          disabled: handler('switchModel') === null,
-          onSelect: runHandler('switchModel'),
+          disabled: !onRequestViewMode,
+          onSelect: () => onRequestViewMode?.(),
         },
         {
           id: 'pv-export',
           label: '导出…',
           icon: <Download className={ICON} />,
-          disabled: handler('export') === null,
-          onSelect: runHandler('export'),
+          disabled: !adapter.hasNative('export'),
+          onSelect: () => adapter.invokeNative('export'),
         },
       ]
 
       openContextMenu(event, previewItems)
     },
-    [cherryRef, openContextMenu, showToast, toastCopy]
-  )
-
-  /* ---------------- 规范化排版 ---------------- */
-
-  const applyNormalize = useCallback(
-    (view: EditorView, source: string, level: 'basic' | 'full') => {
-      const result = normalizeMarkdown(source, level)
-      if (!result.changes.length) {
-        showToast('排版已规范，无需调整')
-        return
-      }
-      setFullText(view, result.text)
-      showToast(`已规范化：${result.changes.join('、')}`)
-    },
-    [showToast]
+    [adapter, openContextMenu, onRequestViewMode, toastCopy]
   )
 
   return { onEditorContextMenu, onPreviewContextMenu }
 }
 
-/**
- * 对选区（无选区时对当前行）做纯文本变换。
- * 放在 hook 外面，避免每次渲染重建。
- */
-function transformTarget(view: EditorView, fn: (value: string) => string): void {
-  const sel = getSelection(view)
-  if (!sel.empty) {
-    const next = fn(sel.text)
-    if (next !== sel.text) replaceRange(view, sel.from, sel.to, next)
+/** 智能规范化：整篇语义，正常走 adapter.setFullText（保留撤销历史） */
+function applyNormalize(
+  adapter: EditorAdapter,
+  source: string,
+  level: 'basic' | 'full',
+  showToast: (message: string, type?: 'default' | 'error') => void
+): void {
+  const result = normalizeMarkdown(source, level)
+  if (!result.changes.length) {
+    showToast('排版已规范，无需调整')
     return
   }
-  const line = view.state.doc.lineAt(sel.from)
-  const next = fn(line.text)
-  if (next !== line.text) replaceRange(view, line.from, line.to, next)
+  adapter.setFullText(result.text)
+  showToast(`已规范化：${result.changes.join('、')}`)
 }

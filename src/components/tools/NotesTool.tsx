@@ -1,18 +1,34 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNotes } from '../../context/NotesContext'
 import CherryMarkdownEditor from './CherryMarkdownEditor'
-import VditorMarkdownEditor from './VditorMarkdownEditor'
+import MilkdownMarkdownEditor from './MilkdownMarkdownEditor'
 import EditorModeSwitch, {
   persistEditorMode,
   readEditorMode,
   type EditorMode,
 } from './EditorModeSwitch'
+import MarkdownStatusBar from './markdown/MarkdownStatusBar'
+import {
+  persistViewMode,
+  readViewMode,
+  VIEW_MODE_LABEL,
+  type EditorViewMode,
+} from './markdown/ViewModeSwitch'
 import { ArrowUpToLine, Loader2, TriangleAlert, X } from 'lucide-react'
 import Tooltip from '../ui/Tooltip'
 import { computeDocStats } from '../../utils/markdownStats'
 
 /** 滚动超过这个距离才值得把「返回顶部」露出来 */
 const BACK_TO_TOP_THRESHOLD = 120
+
+/** 底部状态栏左端显示当前用的是哪套内核 */
+const ENGINE_LABEL: Record<EditorMode, string> = {
+  cherry: 'Cherry 双栏',
+  milkdown: 'Milkdown 所见即所得',
+}
+
+/** 所见即所得是无条件单栏内核，没有视图三态可言 */
+const SINGLE_COLUMN_LABEL = '单栏内核'
 
 export default function NotesTool() {
   const {
@@ -23,10 +39,14 @@ export default function NotesTool() {
     message: saveMessage,
   } = useNotes()
   const [mode, setMode] = useState<EditorMode>(readEditorMode)
+  // 视图三态只有 Cherry 认，但状态放在这里 —— 底部状态栏要显示它
+  const [viewMode, setViewMode] = useState<EditorViewMode>(readViewMode)
   const [warning, setWarning] = useState('')
   const [showBackToTop, setShowBackToTop] = useState(false)
+  // 全屏由宿主统一实现，两个内核共用 —— Cherry 那边本质上只是加一个 fullscreen 类
+  const [fullscreen, setFullscreen] = useState(false)
 
-  // 编辑器外壳：Cherry / Vditor 各自把滚动容器放在内部，统一从这里往下找
+  // 编辑器外壳：两个内核各自把滚动容器放在内部，统一从这里往下找
   const rootRef = useRef<HTMLDivElement>(null)
 
   const content = activeNote?.content || ''
@@ -63,7 +83,7 @@ export default function NotesTool() {
 
     root.addEventListener('scroll', handleScroll, true)
     return () => root.removeEventListener('scroll', handleScroll, true)
-  }, [mode, activeNote?.id, ready])
+  }, [mode, viewMode, activeNote?.id, ready])
 
   const handleBackToTop = () => {
     collectScrollers().forEach((el) => el.scrollTo({ top: 0, behavior: 'smooth' }))
@@ -87,11 +107,31 @@ export default function NotesTool() {
     persistEditorMode(next)
   }
 
+  const handleViewModeChange = (next: EditorViewMode) => {
+    setViewMode(next)
+    persistViewMode(next)
+  }
+
+  const toggleFullscreen = useCallback(() => setFullscreen((prev) => !prev), [])
+
+  // 全屏时按 Esc 退出。捕获阶段监听，免得被编辑器内部的 Esc（关浮层等）先吃掉
+  useEffect(() => {
+    if (!fullscreen) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.stopPropagation()
+        setFullscreen(false)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown, true)
+    return () => window.removeEventListener('keydown', onKeyDown, true)
+  }, [fullscreen])
+
   if (!ready) {
     return (
       <div className="flex h-full items-center justify-center bg-white dark:bg-dark-panel text-slate-400">
         <div className="flex items-center gap-2 text-xs font-medium">
-          <Loader2 className="w-4 h-4 animate-spin text-brand-600" />
+          <Loader2 className="w-4 h-4 animate-spin text-logo-500" />
           正在载入文档...
         </div>
       </div>
@@ -109,9 +149,11 @@ export default function NotesTool() {
   return (
     <div
       ref={rootRef}
-      className="w-full h-full min-h-0 flex flex-col bg-white dark:bg-dark-panel overflow-hidden relative select-none"
+      className={`w-full h-full min-h-0 flex flex-col bg-white dark:bg-dark-panel overflow-hidden relative select-none ${
+        fullscreen ? 'fixed inset-0 z-50' : ''
+      }`}
     >
-      {/* 顶部模式条：左显示当前文档名（列表滚动后仍能确认在编辑哪一篇），右为内核切换 */}
+      {/* 顶部文档条：左显示当前文档名（列表滚动后仍能确认在编辑哪一篇），右为内核切换 */}
       <div className="flex-shrink-0 h-9 px-3 flex items-center justify-between gap-3 border-b border-slate-200/80 dark:border-dark-border bg-slate-50/70 dark:bg-dark-hover/30">
         <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-slate-400 dark:text-slate-500">
           {activeNote.title || '未命名文档'}
@@ -119,7 +161,7 @@ export default function NotesTool() {
         <EditorModeSwitch value={mode} onChange={handleModeChange} />
       </div>
 
-      {/* 兼容性提醒条：只在切进 Vditor 且文档含 Cherry 专有语法时出现 */}
+      {/* 兼容性提醒条：只在切进所见即所得、且文档含 Cherry 专有语法时出现 */}
       {warning && (
         <div className="flex-shrink-0 flex items-start gap-2 px-3 py-2 border-b border-amber-200/70 dark:border-amber-500/20 bg-amber-50/80 dark:bg-amber-500/10 text-[11px] leading-relaxed text-amber-700 dark:text-amber-300">
           <TriangleAlert className="w-3.5 h-3.5 mt-px flex-shrink-0" />
@@ -136,101 +178,55 @@ export default function NotesTool() {
         </div>
       )}
 
-      {/* 编辑器主体：两种内核共享同一份 activeNote.content */}
+      {/* 编辑器主体：两个内核共享同一份 activeNote.content */}
       {mode === 'cherry' ? (
         <CherryMarkdownEditor
           key={activeNote.id}
           value={activeNote.content}
           onChange={handleContentChange}
           title={activeNote.title}
+          viewMode={viewMode}
+          onViewModeChange={handleViewModeChange}
+          onToggleFullscreen={toggleFullscreen}
+          className="flex-1"
         />
       ) : (
-        <VditorMarkdownEditor
+        <MilkdownMarkdownEditor
           key={activeNote.id}
           value={activeNote.content}
           onChange={handleContentChange}
-          mode={mode}
           onWarning={setWarning}
+          title={activeNote.title}
+          onToggleFullscreen={toggleFullscreen}
+          fullscreen={fullscreen}
+          className="flex-1"
         />
       )}
 
-      {/* 右下角悬浮区：返回顶部（滚动后才出现）+ 保存状态与字数微胶囊，两者同排底部对齐 */}
-      <div className="absolute bottom-3 right-6 z-20 flex items-end gap-2 pointer-events-none">
-        {showBackToTop && (
+      {/* 底部状态栏：保存状态 + 文档统计 + 当前内核/视图，原本是浮在右下角的胶囊 */}
+      <MarkdownStatusBar
+        stats={stats}
+        engineLabel={ENGINE_LABEL[mode]}
+        viewLabel={mode === 'cherry' ? VIEW_MODE_LABEL[viewMode] : SINGLE_COLUMN_LABEL}
+        saveStatus={saveStatus}
+        saveMessage={saveMessage}
+      />
+
+      {/* 右下角只留「返回顶部」，统计已挪到状态栏，避免同屏两处字数 */}
+      {showBackToTop && (
+        <div className="absolute bottom-10 right-6 z-20 pointer-events-none">
           <Tooltip content="返回顶部">
             <button
               type="button"
               onClick={handleBackToTop}
               aria-label="返回顶部"
-              className="pointer-events-auto flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full bg-white/40 dark:bg-dark-panel/40 hover:bg-white/90 dark:hover:bg-dark-panel/90 backdrop-blur-md border border-slate-200/50 dark:border-dark-border/50 text-slate-400 dark:text-slate-500 hover:text-brand-600 dark:hover:text-indigo-400 shadow-2xs hover:shadow-md transition-all duration-300 animate-in fade-in slide-in-from-bottom-1"
+              className="pointer-events-auto flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-slate-200/60 bg-white/70 text-slate-400 shadow-xs backdrop-blur-md transition-all duration-200 hover:bg-white hover:text-brand-600 hover:shadow-md dark:border-dark-border/60 dark:bg-dark-panel/70 dark:text-slate-500 dark:hover:bg-dark-panel dark:hover:text-brand-400"
             >
               <ArrowUpToLine className="w-3.5 h-3.5" />
             </button>
           </Tooltip>
-        )}
-
-        <div className="pointer-events-auto group">
-          {/* 淡淡悬浮在内容背景上的字数与多维统计微胶囊 */}
-          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/40 dark:bg-dark-panel/40 hover:bg-white/90 dark:hover:bg-dark-panel/90 backdrop-blur-md border border-slate-200/50 dark:border-dark-border/50 text-[11px] font-mono text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 shadow-2xs hover:shadow-md transition-all duration-300 opacity-80 hover:opacity-100 cursor-default">
-            {/* 保存状态：实色 + 彩色圆点，比后面的字数更抓眼 */}
-            <span
-              className={`flex items-center gap-1 font-sans font-semibold ${
-                saveStatus === 'saving'
-                  ? 'text-amber-600 dark:text-amber-400'
-                  : saveStatus === 'error'
-                    ? 'text-rose-600 dark:text-rose-400'
-                    : 'text-emerald-600 dark:text-emerald-400'
-              }`}
-            >
-              <span
-                className={`w-1.5 h-1.5 rounded-full ${
-                  saveStatus === 'saving'
-                    ? 'bg-amber-500 animate-ping'
-                    : saveStatus === 'error'
-                      ? 'bg-rose-500'
-                      : 'bg-emerald-500'
-                }`}
-              />
-              {saveMessage}
-            </span>
-            <span className="text-slate-300 dark:text-dark-border">·</span>
-            <span>{stats.totalWords.toLocaleString()} 字</span>
-            <span className="text-slate-300 dark:text-dark-border">·</span>
-            <span>{stats.totalLines.toLocaleString()} 行</span>
-            <span className="text-slate-300 dark:text-dark-border">·</span>
-            <span>约 {stats.readingTime} 分钟</span>
-          </div>
-
-          {/* 鼠标移入浮现详尽统计浮窗 */}
-          <div className="absolute bottom-full right-0 mb-2 hidden group-hover:flex flex-col gap-1.5 p-3 rounded-2xl bg-white/95 dark:bg-dark-panel/95 backdrop-blur-xl border border-slate-200/80 dark:border-dark-border shadow-xl text-[11px] font-mono text-slate-600 dark:text-slate-300 min-w-[170px] animate-in fade-in duration-150 z-30">
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5 border-b border-slate-100 dark:border-dark-border pb-1.5">
-              文档数据统计
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-400">中文字数</span>
-              <span className="font-semibold text-slate-800 dark:text-slate-200">{stats.chineseChars}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-400">英文词数</span>
-              <span className="font-semibold text-slate-800 dark:text-slate-200">{stats.englishWords}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-400">总字符数</span>
-              <span className="font-semibold text-slate-800 dark:text-slate-200">{stats.totalChars}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-400">总行数</span>
-              <span className="font-semibold text-slate-800 dark:text-slate-200">{stats.totalLines}</span>
-            </div>
-            <div className="flex justify-between border-t border-slate-100 dark:border-dark-border pt-1.5 mt-0.5 text-brand-600 dark:text-indigo-400">
-              <span>预估用时</span>
-              <span>{stats.readingTime} 分钟阅读</span>
-            </div>
-          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
-
-
