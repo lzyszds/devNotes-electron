@@ -516,9 +516,21 @@ export default function DashboardLayout({
   return (
     <div className="h-screen w-screen overflow-hidden bg-white dark:bg-dark-bg text-slate-800 dark:text-slate-200 font-sans flex flex-col antialiased select-none">
       {/* ================= 1. 顶部栏 (Unified Topbar - 44px) ================= */}
+      {/*
+        顶栏取 sidebar 色，而不是 bg-white/95：带透明度的类名（.bg-white\/95）
+        命中不了 html[data-theme='…'] .bg-white 那批主题覆盖，所以此前 20 套主题下顶栏恒为纯白。
+        同时去掉 backdrop-blur —— 顶栏是 flex 纵列里固定高度的子项，没有内容从它下面滚过，
+        模糊本来就不生效；背景转实色后更是纯开销。
+
+        z-50（原 40）是修主题面板被挡的关键：z-index 会创建层叠上下文，
+        顶栏内 ThemeQuickMenu 自己的 z-50 被锁死在顶栏这一层里，
+        而编辑器的各条工具栏是文档流里更靠后的 z-40，于是反过来盖住了主题面板。
+        50 仍低于浮动工具条(80)/块拖拽指示线(85)/Tooltip(90)；
+        需要盖住顶栏的浮层已同步提到 60：命令面板与 SettingsModal。
+      */}
       <header
         onDoubleClick={handleTopbarDoubleClick}
-        className="drag-region h-11 bg-white/95 dark:bg-dark-panel/95 backdrop-blur border-b border-slate-200/80 dark:border-dark-border px-4 flex items-center justify-between z-40 flex-shrink-0"
+        className="drag-region h-11 bg-slate-50 dark:bg-dark-sidebar border-b border-slate-200/80 dark:border-dark-border px-4 flex items-center justify-between z-50 flex-shrink-0"
       >
         {/*
           左侧这块不再整体 no-drag：无边框下这片空白是最好用的拖拽区，
@@ -1121,7 +1133,7 @@ export default function DashboardLayout({
             if (e.target === e.currentTarget) setIsCmdOpen(false)
           }}
           data-state={cmdState}
-          className="fe-fade fixed inset-0 bg-slate-900/40 dark:bg-black/60 backdrop-blur-xs z-50 flex items-start justify-center pt-24"
+          className="fe-fade fixed inset-0 bg-slate-900/40 dark:bg-black/60 backdrop-blur-xs z-[60] flex items-start justify-center pt-24"
         >
           <div
             data-state={cmdState}

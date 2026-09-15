@@ -79,6 +79,9 @@ export type MilkdownMarkdownEditorProps = {
   onToggleOutline?: () => void
   /** 宿主是否处于全屏态，用于短暂屏蔽 Esc 退出全屏之外的干扰 */
   fullscreen?: boolean
+  /** 全屏预览态（只读 + 铺满视口）。由宿主统一切换，两个内核共用同一份状态 */
+  preview?: boolean
+  onTogglePreview?: () => void
 }
 
 /** 标题下拉的选项。0 表示退回正文,与 Cherry 侧的「正文」项对齐 */
@@ -157,6 +160,8 @@ export default function MilkdownMarkdownEditor({
   onOpenSearch,
   onToggleOutline,
   fullscreen = false,
+  preview = false,
+  onTogglePreview,
 }: MilkdownMarkdownEditorProps) {
   const { registerInsertHandler, handleExport } = useNotes()
 
@@ -519,6 +524,23 @@ export default function MilkdownMarkdownEditor({
     [fullscreen, searchOpen, outlineExpanded]
   )
 
+  /*
+   * 全屏预览是只读的：把 ProseMirror 的 editable 关掉。
+   * 只这一处就够 —— 块手柄、插入浮条、选区浮条各自都有一条 `if (!view.editable)` 守卫
+   * （见 BlockHandle / InsertToolbar / SelectionToolbar），会跟着一起安静下来。
+   *
+   * editable 是 EditorView 的构造期 prop，建好之后要改只能走 setProps。
+   * 顺带在进入预览时收掉查找条，免得它悬在只读的正文上面。
+   */
+  useEffect(() => {
+    const editor = editorRef.current
+    if (!editor || !readyRef.current) return
+    if (preview) setSearchOpen(false)
+    editor.action((ctx) => {
+      ctx.get(editorViewCtx).setProps({ editable: () => !preview })
+    })
+  }, [preview, ready])
+
   // ================= 外部 value 回流 =================
   useEffect(() => {
     const editor = editorRef.current
@@ -585,6 +607,10 @@ export default function MilkdownMarkdownEditor({
         onToggleFullscreen?.()
         return
       }
+      if (command.id === 'preview') {
+        onTogglePreview?.()
+        return
+      }
       // 查找替换同理：宿主没接管时用编辑器自带的这条
       if (command.id === 'search') {
         if (onOpenSearch) onOpenSearch()
@@ -610,7 +636,7 @@ export default function MilkdownMarkdownEditor({
       runMilkdownCommand(editorRef.current, command.id)
       focusEditor()
     },
-    [focusEditor, onOpenSearch, onToggleFullscreen, onToggleOutline, toggleOutlinePanel]
+    [focusEditor, onOpenSearch, onToggleFullscreen, onToggleOutline, onTogglePreview, toggleOutlinePanel]
   )
 
   // Esc 关掉查找条。只在条子开着时挂监听，且不抢输入框自己的 Esc
@@ -683,12 +709,15 @@ export default function MilkdownMarkdownEditor({
         outlineItems.length ? 'has-outline' : ''
       } ${className}`}
     >
-      <MarkdownToolbar
-        engine="milkdown"
-        onCommand={handleCommand}
-        // Milkdown 不像 Cherry 那样把状态渲染进 DOM，active 态由这里给出
-        state={toolbarState}
-      />
+      {/* 预览态是只读的，工具栏上每一颗按钮都点不出效果 */}
+      {!preview && (
+        <MarkdownToolbar
+          engine="milkdown"
+          onCommand={handleCommand}
+          // Milkdown 不像 Cherry 那样把状态渲染进 DOM，active 态由这里给出
+          state={toolbarState}
+        />
+      )}
 
       <div className="relative min-h-0 flex-1 overflow-hidden">
         <div

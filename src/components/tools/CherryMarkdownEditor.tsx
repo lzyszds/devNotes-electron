@@ -39,6 +39,9 @@ export type CherryMarkdownEditorProps = {
   onToggleFullscreen?: () => void
   onOpenSearch?: () => void
   onToggleOutline?: () => void
+  /** 全屏预览态（只读 + 铺满视口）。由宿主统一切换，两个内核共用同一份状态 */
+  preview?: boolean
+  onTogglePreview?: () => void
 }
 
 function fileToDataUrl(file: File): Promise<string> {
@@ -73,6 +76,8 @@ export default function CherryMarkdownEditor({
   onToggleFullscreen,
   onOpenSearch,
   onToggleOutline,
+  preview = false,
+  onTogglePreview,
 }: CherryMarkdownEditorProps) {
   const { registerInsertHandler } = useNotes()
   const reactId = useId().replace(/:/g, '')
@@ -311,11 +316,15 @@ export default function CherryMarkdownEditor({
   // 视图三态。注意第二参必须留默认 true：
   // 传 false 会 emit('toolbarHide') → 给 wrapper 加 cherry--no-toolbar
   // → CSS 把 .cherry-toolbar 变成 display:none，隐形工具栏的布局盒消失，下拉定位就全废了。
+  //
+  // 全屏预览时钉在 previewOnly：源码区被 Cherry 自己收起，预览区拿到 --full 铺满，
+  // 整个界面也就没有可编辑的地方了。退出时这里会按 viewMode 再切回去，用户原来的
+  // 三态不受影响。
   useEffect(() => {
     const cherry = cherryRef.current
     if (!cherry) return
-    cherry.switchModel(MODEL_BY_VIEW[viewMode])
-  }, [viewMode])
+    cherry.switchModel(preview ? 'previewOnly' : MODEL_BY_VIEW[viewMode])
+  }, [viewMode, preview])
 
   // 设置面板里改了代码块主题，已经挂载的实例要立刻跟着变（Cherry 只换 .cherry 上的
   // data-code-block-theme 属性，纯 CSS 生效，不需要重建实例）
@@ -411,6 +420,10 @@ export default function CherryMarkdownEditor({
         onToggleFullscreen?.()
         return
       }
+      if (command.id === 'preview') {
+        onTogglePreview?.()
+        return
+      }
       if (command.id === 'search') {
         onOpenSearch?.()
         return
@@ -419,7 +432,7 @@ export default function CherryMarkdownEditor({
       if (!root || !command.cherry) return
       execCherryCommand(root, command.cherry, anchor)
     },
-    [onOpenSearch, onToggleFullscreen, toggleOutline]
+    [onOpenSearch, onToggleFullscreen, onTogglePreview, toggleOutline]
   )
 
   /**
@@ -441,12 +454,15 @@ export default function CherryMarkdownEditor({
       className={`cherry-notes-editor flex h-full min-h-0 flex-col ${className}`}
       onContextMenu={handleContextMenu}
     >
-      <MarkdownToolbar
-        engine="cherry"
-        onCommand={handleCommand}
-        state={toolbarState}
-        trailing={<ViewModeSwitch value={viewMode} onChange={onViewModeChange} />}
-      />
+      {/* 预览态是只读的，工具栏上每一颗按钮都点不出效果，连同视图切换一起收掉 */}
+      {!preview && (
+        <MarkdownToolbar
+          engine="cherry"
+          onCommand={handleCommand}
+          state={toolbarState}
+          trailing={<ViewModeSwitch value={viewMode} onChange={onViewModeChange} />}
+        />
+      )}
       <div className="relative min-h-0 flex-1">
         <div id={containerId} ref={mountRef} className="h-full w-full" />
       </div>

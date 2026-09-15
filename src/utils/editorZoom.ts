@@ -53,3 +53,23 @@ export function subscribeZoom(notify: (zoom: number) => void): () => void {
     listeners.delete(notify)
   }
 }
+
+/*
+ * 全屏预览的适配倍率。
+ *
+ * 与上面那份手动倍率互不相干：预览倍率不进 store、不落盘，由 NotesTool 按预览层
+ * 当下的宽度现算，所以退出预览不需要「恢复」什么 —— 手动倍率一直是原来那个。
+ *
+ * 为什么只放大不缩小：预览层比基准宽度窄时，80rem 的版心本来就快铺满了，
+ * 再往下缩只会让字变小，与「适配全屏」的目的相反。
+ */
+export const PREVIEW_BASE_WIDTH = 1600
+export const PREVIEW_MAX_ZOOM = 2
+
+/** 按预览层宽度算适配倍率。窄于基准宽度返回 1（不缩小），宽于则等比放大并封顶 */
+export function fitZoomFor(stageWidth: number): number {
+  if (!Number.isFinite(stageWidth) || stageWidth <= 0) return 1
+  const fit = Math.min(PREVIEW_MAX_ZOOM, Math.max(1, stageWidth / PREVIEW_BASE_WIDTH))
+  // 取三位小数：够表达倍率，又不会在 resize 时抖出 1.2000000000000002 这种值
+  return Math.round(fit * 1000) / 1000
+}

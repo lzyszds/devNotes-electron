@@ -25,6 +25,12 @@
   --brand-900-rgb: 13 57 69;
   --brand-950-rgb: 8 39 48;
 
+  /*
+   * 笔记正文最大宽度。所见即所得（.milkdown-content）与双栏（.cherry-previewer 子块）
+   * 共用这一个旋钮，避免两处魔数各改各的。
+   */
+  --fe-read-max-width: 80rem;
+
   /* 默认深色表面备用值 */
   --theme-dark-bg-rgb: 9 10 15;
   --theme-dark-panel-rgb: 18 20 26;
@@ -2091,14 +2097,14 @@ html.dark
    9. 阅读限宽
    Cherry 的 .cherry-previewer 自己就是 .cherry-markdown（同一个元素、也是滚动容器），
    直接给它设 max-width 会破坏分栏，所以改成给它的每个直接子块限宽再居中 ——
-   这样拖中缝改变宽度时也始终是「内容不超过 48rem」。
-   Milkdown 侧不限宽，正文铺满编辑区，不需要这一段。
+   这样拖中缝改变宽度时也始终是「内容不超过 --fe-read-max-width」。
+   Milkdown 侧是给 .milkdown-content 整体限宽，见 16.1。
    ========================================================================== */
 
 .cherry-notes-editor
   .cherry-previewer
   > *:not(.cherry-previewer-codeBlock-click-handler):not(.cherry-previewer-codeBlock-hover-handler) {
-  max-width: 48rem;
+  max-width: var(--fe-read-max-width);
   margin-left: auto;
   margin-right: auto;
 }
@@ -2735,13 +2741,16 @@ html.dark .fe-mermaid-tab.is-active {
 
 /* ---------------------------------------------------------- 16.1 版心与行长 */
 /*
- * 单栏阅读的最佳行长约 65~80 字符（≈750~880px）。之前正文铺满整个编辑区，
- * 大屏下每行过长、焦点涣散。这里限宽并居中 ——
+ * 正文限宽并居中，宽度由 --fe-read-max-width 统一控制（与 Cherry 同一个旋钮）。
+ * 早先取 56rem（896px）：编辑区实宽 = 窗口宽 - 56(工具侧栏) - 240(笔记列表) - 边框，
+ * 于是 1600px 窗口左右各空 200px 以上，1920px 更是超过 360px，正文被压成窄条。
+ * 放宽到 80rem（1280px）后，1600px 窗口两边只剩约 12px，1920px 约 170px ——
+ * 仍保留行长约束，但放大窗口时不再满屏空白。
  * 左右内边距不动：块手柄按 view.dom 的左边缘定位（BlockHandle 的 pinLeftOfEditor），
  * 而 view.dom 正是 .milkdown-content 本身，所以居中后手柄会跟着内容一起走。
  */
 .milkdown-notes-editor .milkdown-content {
-  max-width: 56rem;
+  max-width: var(--fe-read-max-width);
   margin-inline: auto;
 }
 
@@ -3264,14 +3273,25 @@ html.dark .fe-code-lang-option.is-active {
 /* ---------------------------------------------------------- 17.6 容器与标注精修 */
 /*
  * 图标此前用 vertical-align: baseline，而 SVG 的基线是它的**底边** ——
- * 于是图标整体浮在文字上方一截。inline-flex 盒取 middle 才和文字中线对齐。
+ * 于是图标整体浮在文字上方一截。
+ *
+ * 改成 middle 只是把问题挪了个位置：middle 的参照线是「基线 + x-height/2」，
+ * 那是**西文**小写字母的中线，汉字的中线比它高出约 0.2em，于是整行图标下沉半格。
+ *
+ * 所以做成同尺寸方盒（盒子一样高，中心才可能落在同一条线上），
+ * 再用一个明确的负偏移把盒中心顶到汉字中线上 —— 开合按钮用的是同一个值。
  */
 .fe-container-icon,
 .fe-alert-icon {
   display: inline-flex;
   align-items: center;
-  vertical-align: middle;
-  margin-right: 7px;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  /* 方盒比原先 14px 的图标宽出 2px，左右各收 2px，图标到文字的间距不变 */
+  margin-left: -2px;
+  margin-right: 5px;
+  vertical-align: -1.5px; /* 推导见 .fe-accordion-toggle */
 }
 
 .fe-container-icon .fe-ico,
@@ -3323,7 +3343,22 @@ html.dark .fe-code-lang-option.is-active {
   background: transparent;
   color: inherit; /* 跟随卡片主色 */
   cursor: pointer;
-  vertical-align: middle;
+  /*
+   * 与 17.6 的容器图标共用同一条中线。
+   *
+   * 这里只能用绝对长度，em 会踩两个坑：
+   *   1. <button> 不继承字号（Chrome 给的是 13.3333px），em 的基准与标题对不上；
+   *   2. 真正要对齐的目标 —— 汉字字形中线在基线之上 5.5px —— 是**绝对**量，
+   *      不随字号线性缩放，写 em 反而算不对。
+   *
+   * 5.5px 从哪来：middle 的参照线是「基线 + x-height/2」，那是**西文**小写字母的中线，
+   * 只有 3.7px，汉字（em 方框）的中线比它高近 2px，图标于是一整行往下沉。
+   * 而 inline-flex 盒的基线取的是内容底边（18px 盒里 14px 图标居中，距盒底 2px），
+   * 负值是在那条线上继续往下量，两个偏移合起来才是最终落点。
+   *
+   * 标题字号写死在 13.5px，所以这个值不会漂。
+   */
+  vertical-align: -1.5px;
   opacity: 0.5;
   transition: opacity 0.16s ease, background-color 0.16s ease,
     transform 0.26s cubic-bezier(0.34, 1.4, 0.64, 1);
@@ -3946,4 +3981,25 @@ html.dark .fe-toc-body {
 *::before,
 *::after {
   outline: none;
+}
+
+/* ==========================================================================
+   25. 全屏预览
+
+   预览态本身只做两件事，都不在这里：
+   - 铺满视口：NotesTool 根节点上的 `fe-preview fixed inset-0 z-[70]`
+   - 整体等比放大：复用第 21 节的 --editor-zoom，倍率由 NotesTool 按预览层宽度现算
+
+   之所以一个 zoom 就能同时把「宽度」和「字号」放大：CSS zoom 会把该子树的内部
+   坐标系按倍率缩小，于是 max-width: var(--fe-read-max-width) 与正文那套 px 字号
+   处在同一套坐标系里，吃的是同一个倍率。版心和字同步变大，留白按比例缩减。
+   ========================================================================== */
+
+/*
+ * 纯预览态下左侧没有编辑区了，Cherry 那条中缝分隔线成了贴着屏幕边的一条孤线。
+ * 原规则在「5. Cherry 硬编码补刀」里（.cherry-notes-editor .cherry-previewer），
+ * 两边都是 !important，靠这里多一级类名压过去。
+ */
+.fe-preview .cherry-notes-editor .cherry-previewer {
+  border-left: none !important;
 }

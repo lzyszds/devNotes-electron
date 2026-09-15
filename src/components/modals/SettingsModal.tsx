@@ -92,7 +92,7 @@ export default function SettingsModal({
         if (e.target === e.currentTarget) onClose()
       }}
       data-state={state}
-      className="fe-fade fixed inset-0 bg-slate-900/50 dark:bg-black/70 backdrop-blur-xs z-50 flex items-center justify-center p-4"
+      className="fe-fade fixed inset-0 bg-slate-900/50 dark:bg-black/70 backdrop-blur-xs z-[60] flex items-center justify-center p-4"
     >
       <div
         data-state={state}

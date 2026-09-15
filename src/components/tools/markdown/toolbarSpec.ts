@@ -16,6 +16,7 @@ import {
   ListTree,
   Maximize2,
   Minus,
+  Presentation,
   Redo2,
   Search,
   SquareCode,
@@ -102,6 +103,10 @@ export const MARKDOWN_COMMANDS: MarkdownCommand[] = [
   { id: 'outline', label: '大纲', icon: ListTree, group: 6, align: 'right', cherryHostOnly: true, milkdown: true },
   { id: 'search', label: '搜索替换', icon: Search, group: 6, align: 'right', cherry: 'search', milkdown: true },
   { id: 'fullscreen', label: '全屏', icon: Maximize2, group: 6, align: 'right', milkdown: true },
+  // 预览：全屏 + 只读 + 按窗口宽度整体等比放大。两个内核都走宿主实现
+  // （Cherry 用 switchModel('previewOnly')，Milkdown 用 setProps({editable:false})），
+  // 不经过 Cherry 的原生按钮，所以标 cherryHostOnly 而不是 cherry。
+  { id: 'preview', label: '预览', icon: Presentation, group: 6, align: 'right', cherryHostOnly: true, milkdown: true },
   { id: 'export', label: '导出', icon: Download, group: 6, align: 'right', cherry: 'export', milkdown: true },
 ]
 
