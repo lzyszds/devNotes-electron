@@ -18,6 +18,7 @@ import {
   Shield,
   SlidersHorizontal,
 } from "lucide-react";
+import { usePresence } from "../../hooks/usePresence";
 import { useToolHistory } from "../../hooks/useToolHistory";
 import { useHistoryContextMenu } from "../../hooks/useHistoryContextMenu";
 import { resetGtxCache } from "../../utils/translateFetch";
@@ -243,6 +244,8 @@ export default function JsonI18nTool() {
   const [newMappingOriginal, setNewMappingOriginal] = useState("");
   const [newMappingTranslated, setNewMappingTranslated] = useState("");
   const [showHistory, setShowHistory] = useState(false);
+  // 历史浮层退出动画：面板 180ms、遮罩 160ms，取长者
+  const { mounted: historyMounted, state: historyState } = usePresence(showHistory, 180);
   const [showSourceDropdown, setShowSourceDropdown] = useState(false);
   const [showTargetDropdown, setShowTargetDropdown] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
@@ -1263,15 +1266,15 @@ export default function JsonI18nTool() {
       </div>
 
       {/* History */}
-      {showHistory && (
-        <div className="history-overlay">
+      {historyMounted && (
+        <div className="history-overlay" data-state={historyState}>
           <button
             type="button"
             aria-label="关闭历史记录"
             className="history-overlay-backdrop"
             onClick={() => setShowHistory(false)}
           />
-          <div className="history-overlay-panel" onClick={(e) => e.stopPropagation()}>
+          <div className="history-overlay-panel" data-state={historyState} onClick={(e) => e.stopPropagation()}>
             <div className="p-6 border-b border-slate-200/70 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <History size={18} className="text-brand-600" />

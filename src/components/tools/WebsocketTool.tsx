@@ -14,6 +14,7 @@ import {
   AlertCircle,
   X,
 } from "lucide-react";
+import { usePresence } from "../../hooks/usePresence";
 import { useToolHistory } from "../../hooks/useToolHistory";
 import { useHistoryContextMenu } from "../../hooks/useHistoryContextMenu";
 import Tooltip from "../ui/Tooltip";
@@ -33,6 +34,8 @@ export default function WebsocketTool() {
   const [logs, setLogs] = useState<MessageLog[]>([]);
   const [status, setStatus] = useState<number>(WebSocket.CLOSED);
   const [showHistory, setShowHistory] = useState(false);
+  // 历史浮层退出动画：面板 180ms、遮罩 160ms，取长者
+  const { mounted: historyMounted, state: historyState } = usePresence(showHistory, 180);
 
   const socketRef = useRef<WebSocket | null>(null);
   const logIdRef = useRef(0);
@@ -338,11 +341,11 @@ export default function WebsocketTool() {
         </div>
       </div>
 
-      {showHistory && (
-      <div className="history-overlay">
+      {historyMounted && (
+      <div className="history-overlay" data-state={historyState}>
         <button type="button" aria-label="关闭历史记录" className="history-overlay-backdrop" onClick={() => setShowHistory(false)} />
         <div
-          className="history-overlay-panel"
+          className="history-overlay-panel" data-state={historyState}
           onClick={(e) => e.stopPropagation()}
         >
         <div className="p-6 border-b border-slate-200/70 bg-white/80 flex items-center justify-between">

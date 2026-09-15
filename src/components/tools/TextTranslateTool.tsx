@@ -10,6 +10,7 @@ import {
   TriangleAlert,
   X,
 } from 'lucide-react'
+import { usePresence } from '../../hooks/usePresence'
 import { useToolHistory } from '../../hooks/useToolHistory'
 import { useHistoryContextMenu } from '../../hooks/useHistoryContextMenu'
 import Tooltip from '../ui/Tooltip'
@@ -154,6 +155,8 @@ export default function TextTranslateTool() {
   const [progress, setProgress] = useState({ current: 0, total: 0 })
   const [error, setError] = useState('')
   const [showHistory, setShowHistory] = useState(false)
+  // 历史浮层退出动画：面板 180ms、遮罩 160ms，取长者
+  const { mounted: historyMounted, state: historyState } = usePresence(showHistory, 180)
 
   // 交换语言时用来回填目标语言：记住最近一次明确选过的源语言
   const lastSourceRef = useRef('en')
@@ -450,15 +453,15 @@ export default function TextTranslateTool() {
         </div>
       </div>
 
-      {showHistory && (
-        <div className="history-overlay">
+      {historyMounted && (
+        <div className="history-overlay" data-state={historyState}>
           <button
             type="button"
             aria-label="关闭历史记录"
             className="history-overlay-backdrop"
             onClick={() => setShowHistory(false)}
           />
-          <div className="history-overlay-panel" onClick={(e) => e.stopPropagation()}>
+          <div className="history-overlay-panel" data-state={historyState} onClick={(e) => e.stopPropagation()}>
             <div className="p-6 border-b border-slate-200/70 bg-white/80 flex items-center justify-between">
               <div className="flex items-center gap-2 text-slate-900 font-black text-xs uppercase tracking-widest">
                 <History size={18} className="text-brand-600" />
