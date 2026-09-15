@@ -68,8 +68,19 @@ export type SlashMenuProps = {
 export default function SlashMenu({ editor, onReady }: SlashMenuProps) {
   const [open, setOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(0)
-  // provider 需要的容器，得先渲染出来才拿得到
-  const [host, setHost] = useState<HTMLDivElement | null>(null)
+  /*
+   * provider 需要的容器，自己建、**不进 React 渲染树**。
+   *
+   * SlashProvider 初始化时会把它 appendChild 到 `view.dom.parentElement`（div.milkdown），
+   * 等于把节点挪出了 React 认定的父节点。此后 React 往它附近插同胞节点时
+   * （工具栏点「大纲」展开右侧胶囊就是这种情况）会拿它当 insertBefore 的参照物，浏览器抛
+   * NotFoundError，整棵 React 树跟着崩。理由与 FloatingBar.tsx 里那段完全相同。
+   */
+  const [host] = useState(() => {
+    const el = document.createElement('div')
+    el.className = 'pointer-events-none absolute left-0 top-0 z-40'
+    return el
+  })
   const providerRef = useRef<SlashProvider | null>(null)
   // 菜单项要能被键盘事件读到最新值，用 ref 兜一层避免反复重绑监听
   const activeIndexRef = useRef(0)
@@ -103,7 +114,7 @@ export default function SlashMenu({ editor, onReady }: SlashMenuProps) {
   )
 
   useEffect(() => {
-    if (!editor || !host) return
+    if (!editor) return
 
     const provider = new SlashProvider({
       content: host,
@@ -124,6 +135,8 @@ export default function SlashMenu({ editor, onReady }: SlashMenuProps) {
     return () => {
       provider.destroy()
       providerRef.current = null
+      // provider 只负责把它挂上去，摘下来是自己的事
+      host.remove()
     }
     // onReady 只在挂载时用一次；依赖它会让 StrictMode 双跑时反复重建
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -164,13 +177,10 @@ export default function SlashMenu({ editor, onReady }: SlashMenuProps) {
   return (
     <>
       {/*
-        provider 的挂载容器。定位由 floating-ui 接管，所以这里只是块占位，
+        菜单渲染进 hook 里建好的宿主容器。定位由 floating-ui 接管，
         真正的可见性靠 open 控制内层菜单的渲染。
       */}
-      <div ref={setHost} className="pointer-events-none absolute left-0 top-0 z-40" />
-
       {open &&
-        host &&
         createPortal(
           <div
             className="pointer-events-auto w-56 overflow-hidden rounded-xl border border-slate-200/80 bg-white py-1 shadow-lg dark:border-dark-border dark:bg-dark-panel"

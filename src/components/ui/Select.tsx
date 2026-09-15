@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { Fragment, useEffect, useId, useRef, useState } from "react";
 import { Check, ChevronDown } from "lucide-react";
 import Tooltip from "./Tooltip";
 
@@ -6,6 +6,11 @@ export interface SelectOption<T extends string | number = string> {
   value: T;
   label: string;
   disabled?: boolean;
+  /**
+   * 分组名。相邻且同名的项会被归到一个小标题底下，用来把长清单分段
+   * （如代码块主题按深色/浅色分开）。不必预先排好序，但同组的项要连在一起。
+   */
+  group?: string;
 }
 
 export interface SelectProps<T extends string | number = string> {
@@ -102,28 +107,41 @@ export default function Select<T extends string | number = string>({
           {options.length === 0 ? (
             <li className="px-3 py-2 text-xs text-slate-400">暂无选项</li>
           ) : (
-            options.map((opt) => {
+            options.map((opt, index) => {
               const isSelected = opt.value === value;
+              // 组名只在「和上一项不同」时打一次，所以同组的项必须连着放
+              const startsGroup = !!opt.group && opt.group !== options[index - 1]?.group;
               return (
-                <li key={String(opt.value)} role="option" aria-selected={isSelected}>
-                  <button
-                    type="button"
-                    disabled={opt.disabled}
-                    onClick={() => handleSelect(opt)}
-                    className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2 transition ${
-                      opt.disabled
-                        ? "text-slate-300 dark:text-slate-600 cursor-not-allowed"
-                        : isSelected
-                          ? "bg-brand-50 dark:bg-brand-500/15 text-brand-600 dark:text-brand-400 font-semibold"
-                          : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-dark-hover"
-                    }`}
-                  >
-                    <span className="w-3.5 shrink-0 flex items-center justify-center">
-                      {isSelected && <Check size={12} />}
-                    </span>
-                    <span className="truncate">{opt.label}</span>
-                  </button>
-                </li>
+                <Fragment key={String(opt.value)}>
+                  {startsGroup && (
+                    // sticky：清单长的时候滚到哪都能看见自己在哪一组
+                    <li
+                      role="presentation"
+                      className="sticky top-0 z-10 bg-slate-50 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:bg-dark-hover dark:text-slate-500"
+                    >
+                      {opt.group}
+                    </li>
+                  )}
+                  <li role="option" aria-selected={isSelected}>
+                    <button
+                      type="button"
+                      disabled={opt.disabled}
+                      onClick={() => handleSelect(opt)}
+                      className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2 transition ${
+                        opt.disabled
+                          ? "text-slate-300 dark:text-slate-600 cursor-not-allowed"
+                          : isSelected
+                            ? "bg-brand-50 dark:bg-brand-500/15 text-brand-600 dark:text-brand-400 font-semibold"
+                            : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-dark-hover"
+                      }`}
+                    >
+                      <span className="w-3.5 shrink-0 flex items-center justify-center">
+                        {isSelected && <Check size={12} />}
+                      </span>
+                      <span className="truncate">{opt.label}</span>
+                    </button>
+                  </li>
+                </Fragment>
               );
             })
           )}

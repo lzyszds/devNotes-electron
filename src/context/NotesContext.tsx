@@ -12,6 +12,7 @@ import {
   deriveTitleFromMarkdown,
   loadNotesState,
   saveNotesState,
+  DEFAULT_CONTENT,
   type NoteItem,
   type NotesState,
 } from '../utils/notesStore'
@@ -55,6 +56,7 @@ interface NotesContextType {
   setKeyword: (kw: string) => void
   filteredNotes: NoteItem[]
   handleCreate: () => void
+  handleOpenSampleNote: () => void
   handleSelect: (id: string) => void
   handleDelete: (id: string) => void
   handleRename: (id: string, title: string) => void
@@ -355,6 +357,32 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
     )
   }, [notes.length, updateState])
 
+  /** 快速打开或创建「全功能与工具支持全景样板」文档 */
+  const handleOpenSampleNote = useCallback(() => {
+    const existing = stateRef.current.notes.find(
+      (n) =>
+        n.title.includes('全景样板') ||
+        n.title.includes('全特性') ||
+        n.content.includes('Markdown 全特性与工具支持全景样板')
+    )
+    if (existing) {
+      updateState((prev) => ({ ...prev, activeId: existing.id }), true)
+      return
+    }
+
+    const sampleDoc = createEmptyNote({
+      title: '✨ Markdown 全特性与工具支持全景样板',
+      content: DEFAULT_CONTENT,
+    })
+    updateState(
+      (prev) => ({
+        notes: [sampleDoc, ...prev.notes],
+        activeId: sampleDoc.id,
+      }),
+      true
+    )
+  }, [updateState])
+
   const handleSelect = useCallback(
     (id: string) => {
       if (id === activeId) return
@@ -408,18 +436,27 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
   const handleContentChange = useCallback(
     (content: string) => {
       if (!activeId) return
-      updateState((prev) => ({
-        ...prev,
-        notes: prev.notes.map((note) =>
-          note.id === activeId
-            ? {
-                ...note,
-                content,
-                updatedAt: Date.now(),
-              }
-            : note
-        ),
-      }))
+      // 若当前笔记内容未发生任何改变，坚决不触发 updatedAt 更新与自动保存，防止切笔记时目录误跳动
+      const currentNote = stateRef.current.notes.find((note) => note.id === activeId)
+      if (currentNote && currentNote.content === content) return
+
+      updateState((prev) => {
+        const target = prev.notes.find((note) => note.id === activeId)
+        if (!target || target.content === content) return prev
+
+        return {
+          ...prev,
+          notes: prev.notes.map((note) =>
+            note.id === activeId
+              ? {
+                  ...note,
+                  content,
+                  updatedAt: Date.now(),
+                }
+              : note
+          ),
+        }
+      })
     },
     [activeId, updateState]
   )
@@ -714,6 +751,7 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
         setKeyword,
         filteredNotes,
         handleCreate,
+        handleOpenSampleNote,
         handleSelect,
         handleDelete,
         handleRename,

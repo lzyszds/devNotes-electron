@@ -6,6 +6,7 @@ import GeneralPanel from '../settings/GeneralPanel'
 import CloudflareSyncPanel from '../settings/CloudflareSyncPanel'
 import TranslateApiPanel from '../settings/TranslateApiPanel'
 import Tooltip from '../ui/Tooltip'
+import type { ThemeId } from '../../utils/theme'
 
 export type SettingsSection = 'general' | 'cloud-sync' | 'translate-api'
 
@@ -14,8 +15,9 @@ export interface SettingsModalProps {
   section: SettingsSection
   onSectionChange: (section: SettingsSection) => void
   onClose: () => void
-  theme: 'light' | 'dark'
+  theme: ThemeId
   onToggleTheme: () => void
+  onSelectTheme: (id: ThemeId) => void
   onResetSidebarWidth: () => void
 }
 
@@ -43,6 +45,7 @@ export default function SettingsModal({
   onClose,
   theme,
   onToggleTheme,
+  onSelectTheme,
   onResetSidebarWidth,
 }: SettingsModalProps) {
   const { cfConfig, cfSyncStatus } = useNotes()
@@ -145,6 +148,7 @@ export default function SettingsModal({
               <GeneralPanel
                 theme={theme}
                 onToggleTheme={onToggleTheme}
+                onSelectTheme={onSelectTheme}
                 onResetSidebarWidth={onResetSidebarWidth}
               />
             )}

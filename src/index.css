@@ -11,10 +11,276 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /* ================= 默认浅色品牌色 (Logo 青蓝) ================= */
+  --brand-50-rgb: 239 250 251;
+  --brand-100-rgb: 219 243 245;
+  --brand-200-rgb: 182 230 236;
+  --brand-300-rgb: 143 215 224;
+  --brand-400-rgb: 111 202 216;
+  --brand-500-rgb: 80 189 207;
+  --brand-600-rgb: 33 131 151;
+  --brand-700-rgb: 22 99 116;
+  --brand-800-rgb: 16 76 91;
+  --brand-900-rgb: 13 57 69;
+  --brand-950-rgb: 8 39 48;
+
+  /* 默认深色表面备用值 */
+  --theme-dark-bg-rgb: 9 10 15;
+  --theme-dark-panel-rgb: 18 20 26;
+  --theme-dark-sidebar-rgb: 14 16 21;
+  --theme-dark-border-rgb: 35 39 51;
+  --theme-dark-hover-rgb: 27 31 43;
 }
 
 html.dark {
   color-scheme: dark;
+}
+
+/* ================= 10 套主题 CSS 变量详细定义 ================= */
+
+/* 1. 经典浅色 (Light Default) */
+html[data-theme='light'] {
+  --brand-50-rgb: 239 250 251;
+  --brand-100-rgb: 219 243 245;
+  --brand-200-rgb: 182 230 236;
+  --brand-300-rgb: 143 215 224;
+  --brand-400-rgb: 111 202 216;
+  --brand-500-rgb: 80 189 207;
+  --brand-600-rgb: 33 131 151;
+  --brand-700-rgb: 22 99 116;
+  --brand-800-rgb: 16 76 91;
+  --brand-900-rgb: 13 57 69;
+  --brand-950-rgb: 8 39 48;
+}
+
+/* 2. 暖阳纸墨 (Warm Paper) - 羊皮纸暖白护眼底 */
+html[data-theme='paper'] {
+  --brand-50-rgb: 253 248 240;
+  --brand-100-rgb: 251 240 221;
+  --brand-200-rgb: 246 222 186;
+  --brand-300-rgb: 236 196 141;
+  --brand-400-rgb: 223 162 92;
+  --brand-500-rgb: 212 131 50;
+  --brand-600-rgb: 180 98 31;
+  --brand-700-rgb: 146 74 25;
+  --brand-800-rgb: 120 60 25;
+  --brand-900-rgb: 99 51 24;
+  --brand-950-rgb: 57 25 10;
+}
+html[data-theme='paper']:not(.dark) body {
+  background-color: #fbf8f2;
+  color: #2c2523;
+}
+html[data-theme='paper']:not(.dark) .bg-white {
+  background-color: #fcfbfa;
+}
+html[data-theme='paper']:not(.dark) .bg-slate-50 {
+  background-color: #f4eee2;
+}
+html[data-theme='paper']:not(.dark) :is(.border-slate-200, .border-slate-200\/80, .border-slate-200\/70, .border-slate-200\/60) {
+  border-color: #e6dbcd;
+}
+html[data-theme='paper']:not(.dark) :is(.hover\:bg-slate-100:hover, .hover\:bg-slate-50:hover) {
+  background-color: #eee4d6;
+}
+
+/* 3. 薄荷清夏 (Fresh Mint) - 清透自然淡绿底 */
+html[data-theme='mint'] {
+  --brand-50-rgb: 237 251 243;
+  --brand-100-rgb: 212 246 227;
+  --brand-200-rgb: 172 236 203;
+  --brand-300-rgb: 116 220 172;
+  --brand-400-rgb: 59 196 137;
+  --brand-500-rgb: 22 163 109;
+  --brand-600-rgb: 13 132 87;
+  --brand-700-rgb: 12 105 71;
+  --brand-800-rgb: 14 83 57;
+  --brand-900-rgb: 13 69 49;
+  --brand-950-rgb: 5 39 28;
+}
+html[data-theme='mint']:not(.dark) body {
+  background-color: #f1faf5;
+  color: #13382c;
+}
+html[data-theme='mint']:not(.dark) .bg-white {
+  background-color: #fcfefc;
+}
+html[data-theme='mint']:not(.dark) .bg-slate-50 {
+  background-color: #e4f5ec;
+}
+html[data-theme='mint']:not(.dark) :is(.border-slate-200, .border-slate-200\/80, .border-slate-200\/70, .border-slate-200\/60) {
+  border-color: #cce8d9;
+}
+html[data-theme='mint']:not(.dark) :is(.hover\:bg-slate-100:hover, .hover\:bg-slate-50:hover) {
+  background-color: #d8f0e3;
+}
+
+/* 4. 樱花绯梦 (Sakura Rose) - 柔粉暖白雅致底 */
+html[data-theme='sakura'] {
+  --brand-50-rgb: 255 241 244;
+  --brand-100-rgb: 255 228 233;
+  --brand-200-rgb: 254 205 215;
+  --brand-300-rgb: 253 164 184;
+  --brand-400-rgb: 251 113 147;
+  --brand-500-rgb: 244 63 110;
+  --brand-600-rgb: 222 33 82;
+  --brand-700-rgb: 187 19 64;
+  --brand-800-rgb: 156 19 57;
+  --brand-900-rgb: 132 20 53;
+  --brand-950-rgb: 75 4 25;
+}
+html[data-theme='sakura']:not(.dark) body {
+  background-color: #fff6f8;
+  color: #381e26;
+}
+html[data-theme='sakura']:not(.dark) .bg-white {
+  background-color: #fffdfd;
+}
+html[data-theme='sakura']:not(.dark) .bg-slate-50 {
+  background-color: #fae7ec;
+}
+html[data-theme='sakura']:not(.dark) :is(.border-slate-200, .border-slate-200\/80, .border-slate-200\/70, .border-slate-200\/60) {
+  border-color: #f3cede;
+}
+html[data-theme='sakura']:not(.dark) :is(.hover\:bg-slate-100:hover, .hover\:bg-slate-50:hover) {
+  background-color: #f8dce5;
+}
+
+/* 5. 碧海晴空 (Ocean Breeze) - 海盐天蓝开朗底 */
+html[data-theme='ocean'] {
+  --brand-50-rgb: 240 247 255;
+  --brand-100-rgb: 224 239 254;
+  --brand-200-rgb: 186 224 253;
+  --brand-300-rgb: 124 196 250;
+  --brand-400-rgb: 54 166 244;
+  --brand-500-rgb: 12 142 233;
+  --brand-600-rgb: 1 112 197;
+  --brand-700-rgb: 2 89 159;
+  --brand-800-rgb: 6 75 131;
+  --brand-900-rgb: 10 64 110;
+  --brand-950-rgb: 7 41 73;
+}
+html[data-theme='ocean']:not(.dark) body {
+  background-color: #f1f7fd;
+  color: #102a43;
+}
+html[data-theme='ocean']:not(.dark) .bg-white {
+  background-color: #fbfdff;
+}
+html[data-theme='ocean']:not(.dark) .bg-slate-50 {
+  background-color: #e3f0fc;
+}
+html[data-theme='ocean']:not(.dark) :is(.border-slate-200, .border-slate-200\/80, .border-slate-200\/70, .border-slate-200\/60) {
+  border-color: #cce2f7;
+}
+html[data-theme='ocean']:not(.dark) :is(.hover\:bg-slate-100:hover, .hover\:bg-slate-50:hover) {
+  background-color: #d8eafb;
+}
+
+/* 6. 极夜深色 (Midnight Dark) - 默认极客深黑 */
+html[data-theme='dark'] {
+  --brand-50-rgb: 239 250 251;
+  --brand-100-rgb: 219 243 245;
+  --brand-200-rgb: 182 230 236;
+  --brand-300-rgb: 143 215 224;
+  --brand-400-rgb: 111 202 216;
+  --brand-500-rgb: 80 189 207;
+  --brand-600-rgb: 33 131 151;
+  --brand-700-rgb: 22 99 116;
+  --brand-800-rgb: 16 76 91;
+  --brand-900-rgb: 13 57 69;
+  --brand-950-rgb: 8 39 48;
+
+  --theme-dark-bg-rgb: 9 10 15;
+  --theme-dark-panel-rgb: 18 20 26;
+  --theme-dark-sidebar-rgb: 14 16 21;
+  --theme-dark-border-rgb: 35 39 51;
+  --theme-dark-hover-rgb: 27 31 43;
+}
+
+/* 7. 东京暗夜 (Tokyo Night) - 霓虹夜蓝紫极客 */
+html[data-theme='tokyo-night'] {
+  --brand-50-rgb: 240 244 255;
+  --brand-100-rgb: 223 232 255;
+  --brand-200-rgb: 197 214 255;
+  --brand-300-rgb: 158 188 255;
+  --brand-400-rgb: 122 162 247;
+  --brand-500-rgb: 97 137 232;
+  --brand-600-rgb: 70 111 212;
+  --brand-700-rgb: 52 87 181;
+  --brand-800-rgb: 46 71 147;
+  --brand-900-rgb: 42 62 117;
+  --brand-950-rgb: 26 37 72;
+
+  --theme-dark-bg-rgb: 22 22 30;
+  --theme-dark-panel-rgb: 26 27 38;
+  --theme-dark-sidebar-rgb: 19 20 28;
+  --theme-dark-border-rgb: 41 46 66;
+  --theme-dark-hover-rgb: 35 40 59;
+}
+
+/* 8. 德古拉之夜 (Dracula Dark) - 高对比紫灰与品红 */
+html[data-theme='dracula'] {
+  --brand-50-rgb: 255 240 248;
+  --brand-100-rgb: 255 227 243;
+  --brand-200-rgb: 255 199 232;
+  --brand-300-rgb: 255 155 212;
+  --brand-400-rgb: 255 121 198;
+  --brand-500-rgb: 247 74 168;
+  --brand-600-rgb: 219 43 137;
+  --brand-700-rgb: 186 27 110;
+  --brand-800-rgb: 153 25 90;
+  --brand-900-rgb: 127 25 77;
+  --brand-950-rgb: 78 8 44;
+
+  --theme-dark-bg-rgb: 30 31 41;
+  --theme-dark-panel-rgb: 40 42 54;
+  --theme-dark-sidebar-rgb: 33 34 44;
+  --theme-dark-border-rgb: 68 71 90;
+  --theme-dark-hover-rgb: 56 58 76;
+}
+
+/* 9. 幽静深苔 (Forest Pine) - 深林暗苔与云杉青翠 */
+html[data-theme='forest'] {
+  --brand-50-rgb: 237 251 244;
+  --brand-100-rgb: 213 246 230;
+  --brand-200-rgb: 174 252 208;
+  --brand-300-rgb: 114 239 169;
+  --brand-400-rgb: 52 211 127;
+  --brand-500-rgb: 16 185 129;
+  --brand-600-rgb: 5 150 105;
+  --brand-700-rgb: 4 119 84;
+  --brand-800-rgb: 6 94 67;
+  --brand-900-rgb: 7 78 56;
+  --brand-950-rgb: 2 44 32;
+
+  --theme-dark-bg-rgb: 12 21 18;
+  --theme-dark-panel-rgb: 19 32 27;
+  --theme-dark-sidebar-rgb: 15 26 22;
+  --theme-dark-border-rgb: 32 54 46;
+  --theme-dark-hover-rgb: 26 46 38;
+}
+
+/* 10. 暮色暖咖 (Sunset Twilight) - 暖炭黑木与焦糖落日暖橙 */
+html[data-theme='sunset'] {
+  --brand-50-rgb: 255 247 237;
+  --brand-100-rgb: 255 237 213;
+  --brand-200-rgb: 254 215 170;
+  --brand-300-rgb: 253 186 116;
+  --brand-400-rgb: 251 146 60;
+  --brand-500-rgb: 249 115 22;
+  --brand-600-rgb: 234 88 12;
+  --brand-700-rgb: 194 65 12;
+  --brand-800-rgb: 154 52 18;
+  --brand-900-rgb: 124 45 18;
+  --brand-950-rgb: 67 20 7;
+
+  --theme-dark-bg-rgb: 22 19 17;
+  --theme-dark-panel-rgb: 31 26 23;
+  --theme-dark-sidebar-rgb: 25 21 19;
+  --theme-dark-border-rgb: 54 44 38;
+  --theme-dark-hover-rgb: 42 34 29;
 }
 
 html,
@@ -24,6 +290,15 @@ body,
   width: 100%;
   height: 100vh;
   overflow: hidden;
+}
+
+/* 主题切换瞬间同步锁：杜绝侧边栏/编辑器/顶栏因 transition 导致的变色不同步 */
+.disable-transitions,
+.disable-transitions *,
+.disable-transitions *::before,
+.disable-transitions *::after {
+  transition: none !important;
+  animation-duration: 0s !important;
 }
 
 body {
@@ -82,11 +357,24 @@ html.dark ::-webkit-scrollbar-thumb:hover {
 .markdown-body ul { list-style-type: disc; padding-left: 1.25rem; margin-bottom: 0.85rem; font-size: 0.875rem; }
 .markdown-body ol { list-style-type: decimal; padding-left: 1.25rem; margin-bottom: 0.85rem; font-size: 0.875rem; }
 .markdown-body li { margin-bottom: 0.25rem; line-height: 1.6; }
-.markdown-body code:not(pre code) { background: rgba(99, 102, 241, 0.1); color: #4f46e5; padding: 0.15rem 0.35rem; border-radius: 0.35rem; font-size: 0.8rem; font-family: monospace; }
-.dark .markdown-body code:not(pre code) { background: rgba(129, 140, 248, 0.15); color: #a5b4fc; }
+.markdown-body code:not(pre code) {
+  background-color: rgb(var(--brand-500-rgb, 80 189 207) / 0.12);
+  color: rgb(var(--brand-800-rgb, 16 76 91));
+  border: 1px solid rgb(var(--brand-500-rgb, 80 189 207) / 0.25);
+  padding: 0.15rem 0.4rem;
+  border-radius: 0.375rem;
+  font-size: 0.82rem;
+  font-family: 'JetBrains Mono', monospace;
+}
+.dark .markdown-body code:not(pre code) {
+  background-color: rgb(var(--brand-500-rgb, 80 189 207) / 0.18);
+  color: rgb(var(--brand-300-rgb, 143 215 224));
+  border-color: rgb(var(--brand-500-rgb, 80 189 207) / 0.32);
+}
 .markdown-body pre { background: #0f172a; color: #f8fafc; padding: 1rem; border-radius: 0.75rem; margin-bottom: 1rem; overflow-x: auto; font-size: 0.8rem; border: 1px solid rgba(255, 255, 255, 0.08); }
-.markdown-body blockquote { border-left: 3px solid #6366f1; padding-left: 0.75rem; color: #64748b; margin-bottom: 0.85rem; font-style: italic; }
-.dark .markdown-body blockquote { color: #94a3b8; }
+.markdown-body blockquote { border-left: 3px solid rgb(var(--brand-600-rgb, 33 131 151)); padding: 0.5rem 1rem 0.5rem 0.75rem; color: #64748b; margin-bottom: 0.85rem; font-style: normal; border-radius: 0 6px 6px 0; background: #f8fafc; }
+.markdown-body blockquote > p { margin: 0; line-height: 1.6; }
+.dark .markdown-body blockquote { border-left-color: rgb(var(--brand-500-rgb, 80 189 207)); background: rgba(148, 163, 184, 0.08); color: #94a3b8; }
 .markdown-body table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; font-size: 0.85rem; }
 .markdown-body th, .markdown-body td { border: 1px solid rgba(148, 163, 184, 0.2); padding: 0.5rem 0.75rem; }
 .markdown-body th { background: rgba(148, 163, 184, 0.08); font-weight: 600; }
@@ -265,9 +553,20 @@ html.dark ::-webkit-scrollbar-thumb:hover {
     animation: sheet-slide-in 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 
-  /* 右键菜单:portal 挂到 body 上,必须 fixed 定位并压过现有 z-50 浮层 */
+  /*
+   * 右键菜单:portal 挂到 body 上,必须 fixed 定位。
+   *
+   * z 层级排布（同一层叠上下文里直接比大小）:
+   *   50 全屏编辑器容器 / ⌘K 指令面板
+   *   80 浮出工具条（选中文字、空行、块手柄、代码块语言）、Toast
+   *   90 自绘 Tooltip
+   *   95 右键菜单
+   * 菜单必须压在最上面 —— 它一旦被任何东西盖住就等于点不到。
+   * 早期给的 70 比浮出工具条（80）还低，光标停在空行时右键会看到
+   * 插入工具条压在菜单上，所以提到 95。
+   */
   .context-menu {
-    @apply fixed z-[70] min-w-[176px] max-w-[280px] rounded-xl border border-slate-200/80 bg-white/[0.98] p-1 shadow-[0_16px_48px_-12px_rgba(15,23,42,0.32)] backdrop-blur-xl dark:border-dark-border dark:bg-dark-panel/[0.98];
+    @apply fixed z-[95] min-w-[176px] max-w-[280px] rounded-xl border border-slate-200/80 bg-white/[0.98] p-1 shadow-[0_16px_48px_-12px_rgba(15,23,42,0.32)] backdrop-blur-xl dark:border-dark-border dark:bg-dark-panel/[0.98];
     animation: context-menu-in 120ms cubic-bezier(0.22, 1, 0.36, 1);
     transform-origin: top left;
   }
@@ -459,10 +758,11 @@ html.dark .milkdown-notes-editor {
   background: #12141a;
 }
 
-/* 同 cherry-notes-editor:在外层 select-none 之下恢复正文的文本选中 */
-.milkdown-notes-editor .milkdown-content {
-  user-select: text;
-  -webkit-user-select: text;
+/* 同 cherry-notes-editor:在外层 select-none 之下恢复正文与所有子节点的文本选中 */
+.milkdown-notes-editor .milkdown-content,
+.milkdown-notes-editor .milkdown-content * {
+  user-select: text !important;
+  -webkit-user-select: text !important;
 }
 
 /* ==========================================================================
@@ -477,12 +777,12 @@ html .cherry-notes-editor .cherry {
   --base-border-color: #e2e8f0;
   --base-editor-bg: #ffffff;
   --base-previewer-bg: #ffffff;
-  --primary-color: #4f46e5;
-  --secondary-color: #eef2ff;
+  --primary-color: rgb(var(--brand-600-rgb, 33 131 151));
+  --secondary-color: rgba(var(--brand-500-rgb, 80 189 207), 0.1);
 
   /* 第三方引用了却从未定义的变量（var() 静默失效），这里补齐 */
-  --color-link-hover: #4338ca;
-  --color-primary-hover: #4338ca;
+  --color-link-hover: rgb(var(--brand-700-rgb, 22 99 116));
+  --color-primary-hover: rgb(var(--brand-700-rgb, 22 99 116));
   --radius-xs: 4px;
   --border-color: var(--base-border-color);
   --bg-color-lighter: #f8fafc;
@@ -494,39 +794,39 @@ html .cherry-notes-editor .cherry {
   --toolbar-btn-color: #64748b;
   --toolbar-btn-hover-color: #0f172a;
   --toolbar-btn-hover-bg: #f1f5f9;
-  --toolbar-btn-active-bg: #eef2ff;
+  --toolbar-btn-active-bg: rgba(var(--brand-500-rgb, 80 189 207), 0.12);
   --dropdown-bg: #ffffff;
   --dropdown-item-color: #475569;
   --dropdown-item-hover-bg: #f1f5f9;
   --dropdown-item-hover-color: #0f172a;
-  --dropdown-item-active-bg: #eef2ff;
-  --dropdown-item-active-color: #4f46e5;
+  --dropdown-item-active-bg: rgba(var(--brand-500-rgb, 80 189 207), 0.12);
+  --dropdown-item-active-color: rgb(var(--brand-600-rgb, 33 131 151));
   --bubble-bg: #ffffff;
 
   /* 编辑区（CodeMirror 6）。Cherry 只把语法映射到 header/url/comment 三个桶 */
   --editor-header-color: #0f172a;
   --editor-comment-color: #94a3b8;
-  --editor-quote-color: #4f46e5;
+  --editor-quote-color: rgb(var(--brand-600-rgb, 33 131 151));
   --editor-string-color: #334155;
-  --editor-link-color: #4f46e5;
-  --editor-url-color: #6366f1;
-  --editor-v2-color: #4f46e5;
-  --editor-v3-color: #c7d2fe;
+  --editor-link-color: rgb(var(--brand-600-rgb, 33 131 151));
+  --editor-url-color: rgb(var(--brand-500-rgb, 80 189 207));
+  --editor-v2-color: rgb(var(--brand-600-rgb, 33 131 151));
+  --editor-v3-color: rgb(var(--brand-300-rgb, 143 215 224));
   --editor-keyword-color: #334155;
-  --editor-cursor-color: #4f46e5;
-  --editor-selection-bg: #e0e7ff;
+  --editor-cursor-color: rgb(var(--brand-600-rgb, 33 131 151));
+  --editor-selection-bg: rgba(var(--brand-500-rgb, 80 189 207), 0.2);
   --editor-line-number-color: #cbd5e1;
   --editor-active-line-bg: #f8fafc;
 
   /* 预览排版 */
   --md-heading-color: #0f172a;
   --md-paragraph-color: #334155;
-  --md-link-color: #4f46e5;
-  --md-link-hover-color: #4338ca;
-  --md-inline-code-color: #4338ca;
-  --md-inline-code-bg: #eef2ff;
-  --md-blockquote-bg: #f8fafc;
-  --md-blockquote-border: #cbd5e1;
+  --md-link-color: rgb(var(--brand-600-rgb, 33 131 151));
+  --md-link-hover-color: rgb(var(--brand-700-rgb, 22 99 116));
+  --md-inline-code-color: rgb(var(--brand-700-rgb, 22 99 116));
+  --md-inline-code-bg: rgba(var(--brand-500-rgb, 80 189 207), 0.08);
+  --md-blockquote-bg: rgba(var(--brand-500-rgb, 80 189 207), 0.04);
+  --md-blockquote-border: rgb(var(--brand-500-rgb, 80 189 207));
   --md-blockquote-color: #64748b;
   --md-table-border: #e2e8f0;
   --md-hr-border: #e2e8f0;
@@ -534,13 +834,13 @@ html .cherry-notes-editor .cherry {
   --md-toc-border-color: #e2e8f0;
   --md-toc-link-color: #475569;
   --md-toc-link-hover-bg: #f1f5f9;
-  --md-toc-link-active-bg: #eef2ff;
+  --md-toc-link-active-bg: rgba(var(--brand-500-rgb, 80 189 207), 0.12);
   --md-toc-indicator-color: #cbd5e1;
-  --md-toc-indicator-hover-color: #4f46e5;
+  --md-toc-indicator-hover-color: rgb(var(--brand-600-rgb, 33 131 151));
 
   --drag-border-color: #e2e8f0;
   --timeline-line-color: #e2e8f0;
-  --timeline-doing-color: #4f46e5;
+  --timeline-doing-color: rgb(var(--brand-600-rgb, 33 131 151));
   --timeline-doing-shadow-color: rgba(79, 70, 229, 0.2);
   --timeline-doing-pulse-from: rgba(79, 70, 229, 0.35);
   --timeline-doing-pulse-to: rgba(79, 70, 229, 0);
@@ -555,11 +855,11 @@ html.dark .cherry-notes-editor .cherry {
   --base-border-color: #232733;
   --base-editor-bg: #12141a;
   --base-previewer-bg: #12141a;
-  --primary-color: #818cf8;
-  --secondary-color: rgba(99, 102, 241, 0.16);
+  --primary-color: rgb(var(--brand-500-rgb, 80 189 207));
+  --secondary-color: rgba(var(--brand-500-rgb, 80 189 207), 0.16);
 
-  --color-link-hover: #a5b4fc;
-  --color-primary-hover: #a5b4fc;
+  --color-link-hover: rgb(var(--brand-400-rgb, 111 202 216));
+  --color-primary-hover: rgb(var(--brand-400-rgb, 111 202 216));
   --border-color: var(--base-border-color);
   --bg-color-lighter: #1b1f2b;
   --full-width-color: #475569;
@@ -569,45 +869,45 @@ html.dark .cherry-notes-editor .cherry {
   --toolbar-btn-color: #94a3b8;
   --toolbar-btn-hover-color: #ffffff;
   --toolbar-btn-hover-bg: #1b1f2b;
-  --toolbar-btn-active-bg: rgba(99, 102, 241, 0.18);
+  --toolbar-btn-active-bg: rgba(var(--brand-500-rgb, 80 189 207), 0.18);
   --dropdown-bg: #171a21;
   --dropdown-item-color: #cbd5e1;
   --dropdown-item-hover-bg: #1b1f2b;
   --dropdown-item-hover-color: #ffffff;
-  --dropdown-item-active-bg: rgba(99, 102, 241, 0.18);
-  --dropdown-item-active-color: #a5b4fc;
+  --dropdown-item-active-bg: rgba(var(--brand-500-rgb, 80 189 207), 0.18);
+  --dropdown-item-active-color: rgb(var(--brand-400-rgb, 111 202 216));
   --bubble-bg: #171a21;
 
   --editor-header-color: #e2e8f0;
   --editor-comment-color: #64748b;
-  --editor-quote-color: #a5b4fc;
+  --editor-quote-color: rgb(var(--brand-400-rgb, 111 202 216));
   --editor-string-color: #cbd5e1;
-  --editor-link-color: #a5b4fc;
-  --editor-url-color: #818cf8;
-  --editor-v2-color: #a5b4fc;
-  --editor-v3-color: #4f46e5;
+  --editor-link-color: rgb(var(--brand-400-rgb, 111 202 216));
+  --editor-url-color: rgb(var(--brand-400-rgb, 111 202 216));
+  --editor-v2-color: rgb(var(--brand-400-rgb, 111 202 216));
+  --editor-v3-color: rgb(var(--brand-600-rgb, 33 131 151));
   --editor-keyword-color: #cbd5e1;
-  --editor-cursor-color: #a5b4fc;
-  --editor-selection-bg: rgba(99, 102, 241, 0.3);
+  --editor-cursor-color: rgb(var(--brand-400-rgb, 111 202 216));
+  --editor-selection-bg: rgba(var(--brand-500-rgb, 80 189 207), 0.25);
   --editor-line-number-color: #475569;
   --editor-active-line-bg: #171a21;
 
   --md-heading-color: #f1f5f9;
   --md-paragraph-color: #cbd5e1;
-  --md-link-color: #a5b4fc;
-  --md-link-hover-color: #c7d2fe;
-  --md-inline-code-color: #a5b4fc;
-  --md-inline-code-bg: rgba(129, 140, 248, 0.15);
-  --md-blockquote-bg: rgba(148, 163, 184, 0.06);
-  --md-blockquote-border: #334155;
+  --md-link-color: rgb(var(--brand-400-rgb, 111 202 216));
+  --md-link-hover-color: rgb(var(--brand-300-rgb, 143 215 224));
+  --md-inline-code-color: rgb(var(--brand-300-rgb, 143 215 224));
+  --md-inline-code-bg: rgba(var(--brand-500-rgb, 80 189 207), 0.15);
+  --md-blockquote-bg: rgba(255, 255, 255, 0.035);
+  --md-blockquote-border: rgb(var(--brand-500-rgb, 80 189 207));
   --md-blockquote-color: #94a3b8;
-  --md-table-border: #232733;
-  --md-hr-border: #232733;
+  --md-table-border: rgba(255, 255, 255, 0.08);
+  --md-hr-border: rgba(255, 255, 255, 0.08);
   --md-toc-bg: #12141a;
   --md-toc-border-color: #232733;
   --md-toc-link-color: #cbd5e1;
   --md-toc-link-hover-bg: #1b1f2b;
-  --md-toc-link-active-bg: rgba(99, 102, 241, 0.18);
+  --md-toc-link-active-bg: rgba(var(--brand-500-rgb, 80 189 207), 0.18);
   --md-toc-indicator-color: #334155;
   --md-toc-indicator-hover-color: #818cf8;
 
@@ -915,18 +1215,105 @@ html.dark .milkdown-notes-editor .milkdown-scroll {
   background: #12141a;
 }
 
-/* 不限宽：所见即所得是单栏内核，正文铺满整个编辑区 */
+/* 不限宽：所见即所得是单栏内核，正文铺满整个编辑区。
+   左侧留白比右侧宽，是给块操作手柄预留的通道 —— 手柄固定挂在编辑区左边缘起
+   20px 处（见 .fehelper-block-handle 那段），塞不进这条留白就会压到正文上。
+   把左内边距改回与右侧相同之前，先确认手柄还放得下。 */
 .milkdown-notes-editor .milkdown-content {
   box-sizing: border-box;
   min-height: 100%;
-  padding: 28px 32px 96px;
+  padding: 28px 36px 96px 48px;
   /* contenteditable 聚焦时浏览器会给一圈默认描边，在全站观感里很突兀 */
   outline: none;
-  caret-color: #4f46e5;
+  caret-color: rgb(var(--brand-600-rgb, 33 131 151));
 }
 
 html.dark .milkdown-notes-editor .milkdown-content {
-  caret-color: #a5b4fc;
+  caret-color: rgb(var(--brand-400-rgb, 111 202 216));
+}
+
+/* ================= 选中文本高亮 ================= */
+/*
+ * 只用字面量颜色，不再走 CSS 变量。
+ * 之前写过 rgba(var(--brand-500-rgb), 0.25) —— 变量是空格分隔的 "80 189 207"，
+ * 塞进逗号版的 rgba() 里整条声明会被判非法、静默失效，选区因此完全没有底色。
+ * 8 位 hex 与 var 两行叠加也只是徒增变数，这里退回最稳的形式。
+ */
+::selection {
+  background-color: rgba(56, 189, 248, 0.42);
+  color: inherit;
+}
+
+html.dark ::selection {
+  background-color: rgba(56, 189, 248, 0.3);
+  color: inherit;
+}
+
+/* 编辑器内再声明一次：第三方样式表（Cherry 等）也动过 ::selection，用更高特异度压住 */
+.milkdown-content ::selection,
+.milkdown-notes-editor ::selection,
+.cherry-notes-editor ::selection {
+  background-color: rgba(56, 189, 248, 0.42);
+  color: inherit;
+}
+
+html.dark .milkdown-content ::selection,
+html.dark .milkdown-notes-editor ::selection,
+html.dark .cherry-notes-editor ::selection {
+  background-color: rgba(56, 189, 248, 0.3);
+  color: inherit;
+}
+
+/* ProseMirror 块级节点选中高亮轮廓 */
+/*
+ * 节点被整体选中（NodeSelection）时的提示。
+ *
+ * ⚠️ 只能给「没有文字可高亮」的原子节点用。ProseMirror 的 NodeViewDesc.selectNode()
+ * 会给**任何**被整体选中的节点（段落、列表项…）都挂上这个类 —— 点一下左侧块手柄就会出现，
+ * 那时浏览器本身已经在正文上画了一层选区高亮，再叠一圈醒目轮廓就成了「多个边框」。
+ */
+.milkdown-notes-editor .milkdown-content img.ProseMirror-selectednode,
+.milkdown-notes-editor .milkdown-content hr.ProseMirror-selectednode {
+  outline: 2px solid rgb(var(--brand-500-rgb, 80 189 207));
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/*
+ * 列表标记。
+ *
+ * Tailwind 的 preflight 把 `ul`/`ol` 的 list-style 一并清成了 none —— 第 8 节的共用
+ * 排版只补了 margin 与 padding-left，标记本身一直是缺的，所以有序无序列表都只剩下
+ * 缩进、前面既没圆点也没序号。这里补回来。
+ *
+ * 逐级换形状（实心圆 → 空心圆 → 方块、数字 → 小写字母 → 罗马数字）本是浏览器的默认
+ * 行为，也被 preflight 一起清掉了；不显式写出来，列表一嵌套就分不清层级。
+ *
+ * 只作用于 Milkdown：双栏那边的列表标记归 Cherry 自带的样式表管，这里不去插手，
+ * 免得跟它的 ::before 画法叠成两个标记。
+ */
+.milkdown-notes-editor .milkdown-content ul {
+  list-style-type: disc;
+}
+
+.milkdown-notes-editor .milkdown-content ul ul {
+  list-style-type: circle;
+}
+
+.milkdown-notes-editor .milkdown-content ul ul ul {
+  list-style-type: square;
+}
+
+.milkdown-notes-editor .milkdown-content ol {
+  list-style-type: decimal;
+}
+
+.milkdown-notes-editor .milkdown-content ol ol {
+  list-style-type: lower-alpha;
+}
+
+.milkdown-notes-editor .milkdown-content ol ol ol {
+  list-style-type: lower-roman;
 }
 
 /*
@@ -945,35 +1332,65 @@ html.dark .milkdown-notes-editor .milkdown-content {
   position: absolute;
   left: 0;
   top: 0.42em;
-  width: 13px;
-  height: 13px;
+  width: 14px;
+  height: 14px;
   box-sizing: border-box;
   border: 1.5px solid #cbd5e1;
   border-radius: 4px;
   background-color: transparent;
-  transition: background-color 0.15s ease, border-color 0.15s ease;
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+              background-color 0.2s ease,
+              border-color 0.2s ease;
 }
 
 .milkdown-notes-editor .milkdown-content li[data-item-type='task']:hover::before {
-  border-color: #6366f1;
+  border-color: rgb(var(--brand-500-rgb, 80 189 207));
 }
 
 .milkdown-notes-editor .milkdown-content li[data-item-type='task'][data-checked='true']::before {
-  border-color: #4f46e5;
+  border-color: rgb(var(--brand-600-rgb, 33 131 151));
   /* 勾用内联 SVG，省一个图标依赖；%23 是 # 的转义 */
-  background-color: #4f46e5;
+  background-color: rgb(var(--brand-600-rgb, 33 131 151));
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23ffffff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5l3 3 6-6'/%3E%3C/svg%3E");
   background-size: 11px 11px;
   background-position: center;
   background-repeat: no-repeat;
+  transform: scale(1.06);
+}
+
+/*
+ * 任务清单正文的删除线。
+ *
+ * ⚠️ 不能用「background-size 渐变」那套写法：背景是按整个元素盒一次性绘制的，
+ * 段落换行成两行时线的纵向位置仍按整盒的中点算，就落到两行之间了
+ * （看起来像下划线而不是删除线）。text-decoration 是逐行盒绘制的，多行天然正确。
+ *
+ * 动画改由 text-decoration-color 承担：未勾选时线是透明的，
+ * 勾选后过渡到实色 —— 同样是「划出来」的观感，且不多占一层盒子。
+ */
+.milkdown-notes-editor .milkdown-content li[data-item-type='task'] > p:first-child {
+  text-decoration-line: line-through;
+  text-decoration-color: transparent;
+  text-decoration-thickness: 1.5px;
+  transition: text-decoration-color 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+    color 0.3s ease, opacity 0.3s ease;
 }
 
 .milkdown-notes-editor
   .milkdown-content
   li[data-item-type='task'][data-checked='true']
   > p:first-child {
+  text-decoration-color: #94a3b8;
   color: #94a3b8;
-  text-decoration: line-through;
+  opacity: 0.65;
+}
+
+html.dark
+  .milkdown-notes-editor
+  .milkdown-content
+  li[data-item-type='task'][data-checked='true']
+  > p:first-child {
+  text-decoration-color: #64748b;
 }
 
 html.dark .milkdown-notes-editor .milkdown-content li[data-item-type='task']::before {
@@ -984,19 +1401,20 @@ html.dark
   .milkdown-notes-editor
   .milkdown-content
   li[data-item-type='task'][data-checked='true']::before {
-  border-color: #6366f1;
-  background-color: #6366f1;
+  border-color: rgb(var(--brand-500-rgb, 80 189 207));
+  background-color: rgb(var(--brand-500-rgb, 80 189 207));
 }
 
 /*
- * 代码块的配色交给 hljs 主题（即「设置 → 通用 → 代码块主题」选的档位，
- * Milkdown 靠替换 <style id="milkdown-hljs-style"> 换肤），这里只统一外壳。
+ * 代码块的配色来自 shiki（即「设置 → 通用 → 代码块主题」选的档位）。
  *
- * 两条要点：
- * 1. hljs 把内边距写在 pre code.hljs 上（1em）而外层 pre 保持透明，
- *    所以圆角、边框、内边距都要落在 code 上，否则代码块四周会露出页面底色。
- * 2. 主题 CSS 是运行时 append 到 head 的，位置在我们这张表之后 ——
- *    同等特异度它会赢。这里靠多裹一层作用域类把特异度抬到 (0,3,2) 稳压住 pre code.hljs 的 (0,1,2)。
+ * shiki 的装饰把主题的底色与基础字色写成两个 CSS 变量挂在 <pre> 上
+ * （--prosemirror-highlight-bg / --prosemirror-highlight，见 milkdownShiki.ts），
+ * 每个 token 的颜色则是行内 style，不走类名。所以这里只做两件事：
+ * 把变量接到外壳上、统一外壳尺寸。
+ *
+ * 底色落在 code 而不是 pre：边框、圆角、内边距都在 code 上，
+ * 底色若铺在 pre 上，圆角四周会露出方形的底色边角。
  */
 .milkdown-notes-editor .milkdown-content pre {
   margin: 0 0 1em;
@@ -1009,13 +1427,17 @@ html.dark
 
 .milkdown-notes-editor .milkdown-content pre > code {
   display: block;
-  border: 1px solid rgba(127, 127, 127, 0.18);
+  border: 1px solid rgba(127, 127, 127, 0.16);
   border-radius: 10px;
-  padding: 16px;
+  padding: 16px 18px;
   overflow-x: auto;
   font-family: 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace;
-  font-size: 12.5px;
-  line-height: 1.65;
+  font-size: 13px;
+  line-height: 1.68;
+  /* 变量由 shiki 的节点装饰写在 pre 上，这里继承下来。
+     兜底值给透明/inherit：装饰还没算出来（首帧异步）时不至于闪一块黑底 */
+  background-color: var(--prosemirror-highlight-bg, transparent);
+  color: var(--prosemirror-highlight, inherit);
 }
 
 /* 查找替换的命中高亮。
@@ -1051,15 +1473,24 @@ html.dark
   line-height: 0;
 }
 
-.milkdown-notes-editor .milkdown-content mark {
-  background-color: rgba(250, 204, 21, 0.4);
-  color: inherit;
-  border-radius: 2px;
-  padding: 0 1px;
+.milkdown-notes-editor .milkdown-content mark,
+.cherry-notes-editor .cherry-markdown mark,
+mark {
+  background-color: #fef08a !important;
+  color: #854d0e !important;
+  border-radius: 4px;
+  padding: 0.12em 0.35em;
+  margin: 0 0.15em;
+  font-weight: 500;
+  box-shadow: 0 1px 2px rgba(234, 179, 8, 0.15);
 }
 
-.dark .milkdown-notes-editor .milkdown-content mark {
-  background-color: rgba(250, 204, 21, 0.25);
+html.dark .milkdown-notes-editor .milkdown-content mark,
+html.dark .cherry-notes-editor .cherry-markdown mark,
+html.dark mark {
+  background-color: rgba(250, 204, 21, 0.28) !important;
+  color: #fef08a !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 /* 认不出的 HTML 片段：不装成正文，明确标出「这里是原始代码」 */
@@ -1068,6 +1499,61 @@ html.dark
   font-size: 0.85em;
   color: var(--md-toc-indicator-color);
   border-bottom: 1px dashed currentColor;
+}
+
+/* 块操作手柄（光标在哪一行就浮在那一行最左侧）。
+   与下面两条浮条同源：TooltipProvider 不带样式表，显隐完全靠它写在容器上的
+   data-show，位置则由 floating-ui 写一组内联 left/top。
+
+   ⚠️ 同样**不能**收进 .milkdown-notes-editor 作用域 —— Provider 会把容器搬到
+   document.body 下，脱离编辑区之后作用域选择器就匹配不上了（早期用
+   @milkdown/plugin/block 时容器是挂在编辑区里的，所以那时带作用域是对的）。
+
+   display 默认就是 none、只认 true：容器挂上到 data-show 被写上之间有一段空档，
+   按「无属性即隐藏」处理才不会闪一下。
+
+   横向位置由组件里的 pinLeft 钉死（编辑区左边缘 +20px，落在正文 48px 的左留白里），
+   纵向跟着光标那一行。竖排后整条宽度 20px 出头，正好塞得下 —— 若改成横排，
+   floating-ui 默认带的 flip() 会把整条翻到右侧并被 .milkdown-scroll 的 overflow 裁掉。 */
+.fehelper-block-handle {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 30;
+  display: none;
+}
+
+.fehelper-block-handle[data-show='true'] {
+  display: block;
+}
+
+/* ==========================================================================
+   6.2 浮出工具条（选中文字后 / 光标落在空行时）
+
+   Provider 由 @milkdown/plugin-tooltip 提供，它不带任何样式表，显隐完全靠
+   写在容器上的 data-show 属性，定位则是 floating-ui 写上来的一组内联 left/top。
+
+   ⚠️ 这里的类名**不能**收进 .milkdown-notes-editor 作用域：Provider 会把这个容器
+   appendChild 到 document.body 下，脱离编辑区之后作用域选择器就匹配不上了。
+   同理，它必须用 fixed 定位 —— 挂在 body 下还能拿到视口坐标，与 posToDOMRect
+   给出的选区矩形才是同一套坐标系。
+
+   z-index 取 80：高过全屏容器（z-50）和编辑区内的各浮层（z-20 ~ z-40），
+   低于自绘 Tooltip（z-90），免得浮条把悬停提示压住。
+
+   display 默认就是 none、只认 true，与块手柄同款 —— 容器挂上到 data-show
+   被写上之间有一段空档，按「无属性即隐藏」处理才不会闪一下。
+   ========================================================================== */
+.fehelper-floating-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 80;
+  display: none;
+}
+
+.fehelper-floating-bar[data-show='true'] {
+  display: block;
 }
 
 /* ==========================================================================
@@ -1092,10 +1578,11 @@ html .milkdown-notes-editor .milkdown-content pre > code {
    ========================================================================== */
 
 :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) {
-  font-size: 14.5px;
+  font-size: 15px;
   line-height: 1.75;
   color: #334155;
   word-break: break-word;
+  letter-spacing: -0.01em;
 }
 
 html.dark
@@ -1124,101 +1611,162 @@ html.dark
 }
 
 :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) h1 {
-  font-size: 1.7em;
+  font-size: 1.85em;
+  font-weight: 700;
+  line-height: 1.28;
+  letter-spacing: -0.025em;
   margin-top: 0;
+  margin-bottom: 0.7em;
 }
+
 :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) h2 {
-  font-size: 1.35em;
-  border-bottom: 1px solid #e2e8f0;
-  padding-bottom: 0.3em;
+  font-size: 1.42em;
+  font-weight: 650;
+  line-height: 1.32;
+  letter-spacing: -0.018em;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+  padding-bottom: 0.35em;
+  margin-top: 1.6em;
+  margin-bottom: 0.6em;
 }
+
 :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) h3 {
-  font-size: 1.15em;
+  font-size: 1.2em;
+  font-weight: 600;
+  line-height: 1.38;
+  letter-spacing: -0.01em;
+  margin-top: 1.4em;
+  margin-bottom: 0.5em;
 }
+
 :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) h4 {
-  font-size: 1em;
+  font-size: 1.05em;
+  font-weight: 600;
+  margin-top: 1.2em;
+  margin-bottom: 0.4em;
 }
+
 :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) h5,
 :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) h6 {
-  font-size: 0.9em;
+  font-size: 0.92em;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
   color: #64748b;
 }
 
 html.dark
   :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content)
   h2 {
-  border-bottom-color: #232733;
+  border-bottom-color: rgba(255, 255, 255, 0.08);
 }
 
 :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) p {
-  margin: 0 0 0.9em;
+  margin: 0 0 1em;
 }
 
 :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) ul,
 :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) ol {
-  margin: 0 0 0.9em;
+  margin: 0 0 1em;
   padding-left: 1.5em;
 }
 
 :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) li {
-  margin-bottom: 0.25em;
+  margin-bottom: 0.3em;
 }
 
 :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content)
   blockquote {
-  margin: 0 0 0.9em;
-  padding: 0.2em 0 0.2em 0.9em;
-  border-left: 3px solid #6366f1;
-  border-radius: 0 6px 6px 0;
-  background: #f8fafc;
-  color: #64748b;
+  margin: 0 0 1.2em;
+  padding: 10px 18px 10px 16px;
+  border-left: 3.5px solid rgb(var(--brand-600-rgb, 33 131 151));
+  border-radius: 0 8px 8px 0;
+  background: rgba(var(--brand-500-rgb, 80 189 207), 0.05);
+  color: #475569;
   font-style: normal;
+}
+
+/* 消除引用块内部段落的底部外边距，使文字在引用框内垂直严格居中 */
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content)
+  blockquote > p {
+  margin: 0;
+  line-height: 1.65;
+}
+
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content)
+  blockquote > p + p {
+  margin-top: 0.5em;
+}
+
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content)
+  blockquote > :first-child {
+  margin-top: 0 !important;
+}
+
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content)
+  blockquote > :last-child {
+  margin-bottom: 0 !important;
 }
 
 html.dark
   :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content)
   blockquote {
-  background: rgba(148, 163, 184, 0.06);
+  border-left-color: rgb(var(--brand-500-rgb, 80 189 207));
+  background: rgba(255, 255, 255, 0.035);
   color: #94a3b8;
 }
 
 :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content)
-  :not(pre)
-  > code {
-  background: #eef2ff;
-  color: #4338ca;
-  border: 0;
-  border-radius: 5px;
-  padding: 0.12em 0.35em;
+  code:not(pre code) {
+  background-color: #f1f5f9;
+  background-color: rgb(var(--brand-500-rgb, 80 189 207) / 0.12);
+  color: rgb(var(--brand-800-rgb, 16 76 91));
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-color: rgb(var(--brand-500-rgb, 80 189 207) / 0.25);
+  border-radius: 6px;
+  padding: 0.16em 0.45em;
+  margin: 0 0.2em;
   font-size: 0.88em;
   font-family: 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 html.dark
   :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content)
-  :not(pre)
-  > code {
-  background: rgba(129, 140, 248, 0.15);
-  color: #a5b4fc;
+  code:not(pre code) {
+  background-color: #161c28;
+  background-color: rgb(var(--brand-500-rgb, 80 189 207) / 0.18);
+  color: rgb(var(--brand-300-rgb, 143 215 224));
+  border-color: rgb(var(--brand-500-rgb, 80 189 207) / 0.32);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
 }
 
 :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) a {
-  color: #4f46e5;
+  color: rgb(var(--brand-600-rgb, 33 131 151));
   text-decoration: none;
-  border-bottom: 1px solid rgba(79, 70, 229, 0.3);
+  cursor: pointer;
+  border-bottom: 1px solid rgba(var(--brand-500-rgb, 80 189 207), 0.35);
+  transition: color 0.15s ease, border-color 0.15s ease;
 }
 
 :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content)
   a:hover {
-  color: #4338ca;
+  color: rgb(var(--brand-700-rgb, 22 99 116));
   border-bottom-color: currentColor;
 }
 
 html.dark
   :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content)
   a {
-  color: #a5b4fc;
-  border-bottom-color: rgba(165, 180, 252, 0.35);
+  color: rgb(var(--brand-400-rgb, 111 202 216));
+  border-bottom-color: rgba(var(--brand-400-rgb, 111 202 216), 0.35);
+}
+
+html.dark
+  :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content)
+  a:hover {
+  color: rgb(var(--brand-300-rgb, 143 215 224));
+  border-bottom-color: currentColor;
 }
 
 :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) img {
@@ -1229,44 +1777,46 @@ html.dark
 :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) table {
   width: 100%;
   border-collapse: collapse;
-  margin: 0 0 1.1em;
+  margin: 0 0 1.3em;
   font-size: 0.92em;
 }
 
 :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content)
   :is(th, td) {
   border: 1px solid #e2e8f0;
-  padding: 0.5em 0.75em;
+  padding: 0.6em 0.85em;
   text-align: left;
 }
 
 :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) th {
-  background: #f8fafc;
+  background: rgba(148, 163, 184, 0.07);
   font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
 html.dark
   :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content)
   :is(th, td) {
-  border-color: #232733;
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
 html.dark
   :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content)
   th {
-  background: #1b1f2b;
+  background: rgba(255, 255, 255, 0.035);
 }
 
 :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) hr {
   border: 0;
-  border-top: 1px solid #e2e8f0;
-  margin: 2em 0;
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(148, 163, 184, 0.35), transparent);
+  margin: 2.2em 0;
 }
 
 html.dark
   :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content)
   hr {
-  border-top-color: #232733;
+  background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.12), transparent);
 }
 
 /* ==========================================================================
@@ -1283,4 +1833,658 @@ html.dark
   max-width: 48rem;
   margin-left: auto;
   margin-right: auto;
+}
+/* ==========================================================================
+   10. 富文本增强（容器面板 / Alert / 目录 / Mermaid 图表 / 代码行号）
+
+   这些元素全部由 ProseMirror 装饰器产出（见 utils/milkdownEnhance.ts），
+   所以 DOM 由编辑器托管，这里只负责外观。
+   ========================================================================== */
+
+/* 语法标记（::: info、[!NOTE]、[TOC]）隐藏：只藏视觉，不动文档结构 */
+.fe-hidden-marker {
+  display: none;
+}
+
+/* ---------------------------------------------------------- 10.1 代码行号 */
+/*
+ * 行号轴是绝对定位的，参照物必须是代码块自己。
+ *
+ * ⚠️ 漏了这条，它会一路向上找定位祖先，最后挂到 .milkdown-notes-editor 上 ——
+ * 表现就是行号跑到整个编辑区的左上角排成一列，跟正文并排显示。
+ */
+.milkdown-notes-editor .milkdown-content pre {
+  position: relative;
+}
+
+.milkdown-notes-editor .milkdown-content pre .fe-code-gutter {
+  position: absolute;
+  top: 16px;
+  left: 0;
+  width: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  padding-right: 10px;
+  border-right: 1px solid rgba(148, 163, 184, 0.18);
+  user-select: none;
+  pointer-events: none;
+  font-family: 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.68;
+  color: #94a3b8;
+  opacity: 0.75;
+}
+
+html.dark .milkdown-notes-editor .milkdown-content pre .fe-code-gutter {
+  border-right-color: rgba(255, 255, 255, 0.07);
+  color: #64748b;
+}
+
+/* 有行号时给正文让出轨道 */
+.milkdown-notes-editor .milkdown-content pre:has(.fe-code-gutter) > code {
+  padding-left: 52px !important;
+}
+
+/* ---------------------------------------------------------- 10.2 Mermaid 图表 */
+.fe-mermaid-card {
+  margin: 0.4em 0 1.4em;
+  padding: 14px 18px 18px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: #f8fafc;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  user-select: none;
+  overflow-x: auto;
+}
+
+html.dark .fe-mermaid-card {
+  border-color: rgba(255, 255, 255, 0.07);
+  background: #12151e;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+.fe-mermaid-badge {
+  font-size: 10.5px;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  color: #64748b;
+  margin-bottom: 10px;
+}
+
+html.dark .fe-mermaid-badge {
+  color: #94a3b8;
+}
+
+.fe-mermaid-body {
+  display: flex;
+  justify-content: center;
+}
+
+.fe-mermaid-body svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.fe-mermaid-error {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+/* ---------------------------------------------------------- 10.3 容器面板 ::: */
+.fe-container-head,
+.fe-container-body,
+.fe-container-close {
+  --fe-tone: rgb(var(--brand-600-rgb, 33 131 151));
+  --fe-bg: rgba(var(--brand-500-rgb, 80 189 207), 0.06);
+  margin: 0 !important;
+}
+
+.fe-container-head {
+  margin-top: 1.4em !important;
+  padding: 9px 14px !important;
+  border-left: 4px solid var(--fe-tone);
+  border-radius: 10px 10px 0 0;
+  background: var(--fe-bg);
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  line-height: 1.6 !important;
+  color: var(--fe-tone) !important;
+}
+
+.fe-container-icon {
+  margin-right: 6px;
+  font-size: 13px;
+}
+
+.fe-container-body {
+  padding: 4px 14px !important;
+  border-left: 4px solid var(--fe-tone);
+  background: var(--fe-bg);
+  font-size: 13.5px !important;
+  line-height: 1.7 !important;
+}
+
+.fe-container-body--first {
+  padding-top: 8px !important;
+}
+
+.fe-container-body--last {
+  padding-bottom: 8px !important;
+}
+
+/* 闭合标记参与卡片收口：淡化成一条安静的底边，仍可点击编辑 */
+.fe-container-close {
+  margin-bottom: 1.4em !important;
+  padding: 2px 14px !important;
+  border-left: 4px solid var(--fe-tone);
+  border-radius: 0 0 10px 10px;
+  background: var(--fe-bg);
+  font-size: 10px !important;
+  line-height: 1.4 !important;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--fe-tone) !important;
+  opacity: 0.35;
+}
+
+.fe-container-head--info,
+.fe-container-body--info,
+.fe-container-close--info,
+.fe-container-inline--info {
+  --fe-tone: #0284c7;
+  --fe-bg: rgba(2, 132, 199, 0.055);
+}
+
+.fe-container-head--note,
+.fe-container-body--note,
+.fe-container-close--note,
+.fe-container-inline--note {
+  --fe-tone: #6366f1;
+  --fe-bg: rgba(99, 102, 241, 0.055);
+}
+
+.fe-container-head--tip,
+.fe-container-body--tip,
+.fe-container-close--tip,
+.fe-container-inline--tip {
+  --fe-tone: #059669;
+  --fe-bg: rgba(5, 150, 105, 0.055);
+}
+
+.fe-container-head--success,
+.fe-container-body--success,
+.fe-container-close--success,
+.fe-container-inline--success {
+  --fe-tone: #10b981;
+  --fe-bg: rgba(16, 185, 129, 0.055);
+}
+
+.fe-container-head--warning,
+.fe-container-body--warning,
+.fe-container-close--warning,
+.fe-container-inline--warning {
+  --fe-tone: #d97706;
+  --fe-bg: rgba(217, 119, 6, 0.055);
+}
+
+.fe-container-head--danger,
+.fe-container-body--danger,
+.fe-container-close--danger,
+.fe-container-inline--danger {
+  --fe-tone: #e11d48;
+  --fe-bg: rgba(225, 29, 72, 0.055);
+}
+
+.fe-container-head--accordion,
+.fe-container-body--accordion,
+.fe-container-close--accordion,
+.fe-container-inline--accordion {
+  --fe-tone: #64748b;
+  --fe-bg: rgba(148, 163, 184, 0.07);
+}
+
+html.dark .fe-container-head,
+html.dark .fe-container-body,
+html.dark .fe-container-close {
+  --fe-bg: rgba(255, 255, 255, 0.035);
+}
+
+html.dark .fe-container-head--info,
+html.dark .fe-container-body--info,
+html.dark .fe-container-close--info,
+.fe-container-inline--info { --fe-tone: #38bdf8; }
+html.dark .fe-container-head--note,
+html.dark .fe-container-body--note,
+html.dark .fe-container-close--note,
+.fe-container-inline--note { --fe-tone: #818cf8; }
+html.dark .fe-container-head--tip,
+html.dark .fe-container-body--tip,
+html.dark .fe-container-close--tip,
+.fe-container-inline--tip { --fe-tone: #34d399; }
+html.dark .fe-container-head--success,
+html.dark .fe-container-body--success,
+html.dark .fe-container-close--success,
+.fe-container-inline--success { --fe-tone: #34d399; }
+html.dark .fe-container-head--warning,
+html.dark .fe-container-body--warning,
+html.dark .fe-container-close--warning,
+.fe-container-inline--warning { --fe-tone: #fbbf24; }
+html.dark .fe-container-head--danger,
+html.dark .fe-container-body--danger,
+html.dark .fe-container-close--danger,
+.fe-container-inline--danger { --fe-tone: #fb7185; }
+html.dark .fe-container-head--accordion,
+html.dark .fe-container-body--accordion,
+html.dark .fe-container-close--accordion,
+.fe-container-inline--accordion { --fe-tone: #94a3b8; }
+
+/* ---------------------------------------------------------- 10.4 GitHub Alert */
+.fe-alert-head {
+  --fe-tone: #0284c7;
+  margin: 1.4em 0 0;
+  padding: 9px 16px;
+  border-left: 4px solid var(--fe-tone);
+  border-radius: 10px 10px 0 0;
+  background: rgba(2, 132, 199, 0.055);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--fe-tone);
+  user-select: none;
+}
+
+.fe-alert-icon {
+  margin-right: 6px;
+}
+
+.milkdown-notes-editor .milkdown-content blockquote.fe-alert {
+  margin: 0 0 1.4em !important;
+  padding: 2px 16px 10px !important;
+  border-left: 4px solid var(--fe-tone) !important;
+  border-radius: 0 0 10px 10px !important;
+  background: rgba(2, 132, 199, 0.055) !important;
+  color: #475569 !important;
+  font-style: normal;
+}
+
+.fe-alert--tip,
+.fe-alert-head--tip {
+  --fe-tone: #059669;
+}
+.fe-alert-head--tip { background: rgba(5, 150, 105, 0.055); }
+.milkdown-notes-editor .milkdown-content blockquote.fe-alert--tip {
+  background: rgba(5, 150, 105, 0.055) !important;
+}
+
+.fe-alert--important { --fe-tone: #7c3aed; }
+.fe-alert-head--important { --fe-tone: #7c3aed; background: rgba(124, 58, 237, 0.055); }
+.milkdown-notes-editor .milkdown-content blockquote.fe-alert--important {
+  background: rgba(124, 58, 237, 0.055) !important;
+}
+
+.fe-alert--warning { --fe-tone: #d97706; }
+.fe-alert-head--warning { --fe-tone: #d97706; background: rgba(217, 119, 6, 0.055); }
+.milkdown-notes-editor .milkdown-content blockquote.fe-alert--warning {
+  background: rgba(217, 119, 6, 0.055) !important;
+}
+
+.fe-alert--caution { --fe-tone: #e11d48; }
+.fe-alert-head--caution { --fe-tone: #e11d48; background: rgba(225, 29, 72, 0.055); }
+.milkdown-notes-editor .milkdown-content blockquote.fe-alert--caution {
+  background: rgba(225, 29, 72, 0.055) !important;
+}
+
+html.dark .fe-alert-head {
+  background: rgba(255, 255, 255, 0.04);
+}
+html.dark .fe-alert-head--tip { background: rgba(52, 211, 153, 0.07); }
+html.dark .fe-alert-head--important { background: rgba(167, 139, 250, 0.07); }
+html.dark .fe-alert-head--warning { background: rgba(251, 191, 36, 0.07); }
+html.dark .fe-alert-head--caution { background: rgba(251, 113, 133, 0.07); }
+
+html.dark .milkdown-notes-editor .milkdown-content blockquote.fe-alert {
+  background: rgba(56, 189, 248, 0.06) !important;
+  color: #94a3b8 !important;
+}
+html.dark .milkdown-notes-editor .milkdown-content blockquote.fe-alert--tip {
+  background: rgba(52, 211, 153, 0.06) !important;
+}
+html.dark .milkdown-notes-editor .milkdown-content blockquote.fe-alert--important {
+  background: rgba(167, 139, 250, 0.06) !important;
+}
+html.dark .milkdown-notes-editor .milkdown-content blockquote.fe-alert--warning {
+  background: rgba(251, 191, 36, 0.06) !important;
+}
+html.dark .milkdown-notes-editor .milkdown-content blockquote.fe-alert--caution {
+  background: rgba(251, 113, 133, 0.06) !important;
+}
+
+html.dark .fe-alert--note, html.dark .fe-alert-head--note { --fe-tone: #38bdf8; }
+html.dark .fe-alert--tip, html.dark .fe-alert-head--tip { --fe-tone: #34d399; }
+html.dark .fe-alert--important, html.dark .fe-alert-head--important { --fe-tone: #a78bfa; }
+html.dark .fe-alert--warning, html.dark .fe-alert-head--warning { --fe-tone: #fbbf24; }
+html.dark .fe-alert--caution, html.dark .fe-alert-head--caution { --fe-tone: #fb7185; }
+
+/* ---------------------------------------------------------- 10.5 目录卡片 */
+.fe-toc-marker-block {
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: 0 !important;
+  font-size: 0 !important;
+}
+
+.fe-toc-card {
+  margin: 0.6em 0 1.4em;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(148, 163, 184, 0.05);
+  user-select: none;
+}
+
+html.dark .fe-toc-card {
+  border-color: rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.fe-toc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  font-size: 12px;
+  font-weight: 700;
+  color: #334155;
+}
+
+html.dark .fe-toc-head {
+  border-bottom-color: rgba(255, 255, 255, 0.07);
+  color: #cbd5e1;
+}
+
+.fe-toc-count {
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 500;
+  color: #94a3b8;
+}
+
+.fe-toc-list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.fe-toc-item {
+  padding: 3px 6px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  color: #475569;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+html.dark .fe-toc-item {
+  color: #94a3b8;
+}
+
+.fe-toc-item:hover {
+  background: rgba(var(--brand-500-rgb, 80 189 207), 0.12);
+  color: rgb(var(--brand-700-rgb, 22 99 116));
+}
+
+html.dark .fe-toc-item:hover {
+  color: rgb(var(--brand-300-rgb, 143 215 224));
+}
+
+.fe-toc-item--1 { font-weight: 700; color: #1e293b; }
+html.dark .fe-toc-item--1 { color: #e2e8f0; }
+.fe-toc-item--2 { padding-left: 16px; font-weight: 600; }
+.fe-toc-item--3 { padding-left: 30px; }
+.fe-toc-item--4 { padding-left: 44px; opacity: 0.85; }
+
+.fe-toc-empty {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+/* ---------------------------------------------------------- 10.6 手风琴开合 */
+.fe-accordion-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-left: 8px;
+  padding: 0;
+  border: 1px solid currentColor;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.65;
+  transition: transform 0.22s cubic-bezier(0.34, 1.4, 0.64, 1), opacity 0.15s ease;
+}
+
+.fe-accordion-toggle:hover {
+  opacity: 1;
+}
+
+.fe-accordion-toggle.is-open {
+  transform: rotate(90deg);
+}
+
+.fe-container-head.is-collapsed {
+  border-radius: 10px;
+}
+
+.fe-container-body.is-collapsed,
+.fe-container-close.is-collapsed {
+  display: none;
+}
+
+/* ==========================================================================
+   15. 右侧悬浮大纲（OutlineCapsule）
+   ========================================================================== */
+
+/* 跳到某一节时给标题闪一下，方便确认落在了哪 */
+@keyframes fe-outline-flash {
+  from {
+    background-color: rgba(var(--brand-500-rgb, 80 189 207), 0.22);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+
+.fe-outline-flash {
+  animation: fe-outline-flash 900ms ease-out;
+  border-radius: 6px;
+}
+
+/* 胶囊里的骨架条与目录项都不参与文本选中（它们是导航，不是内容） */
+.milkdown-notes-editor .fe-outline-flash {
+  scroll-margin-top: 24px;
+}
+
+/*
+ * 右侧常驻大纲胶囊时，给正文让出它的宽度。
+ *
+ * 胶囊是浮层（absolute right-4，本身 30px 宽），正常会压在正文右边缘上：
+ * 正文的右内边距只有 36px，而胶囊占据从右边缘数起 16~46px 这一段。
+ * 这里把右内边距加到 60px，正文右边界退到 60px 之外，与胶囊之间始终留出空隙。
+ * 只在有标题（胶囊真的会出现）时生效，没有标题的文档版心不变。
+ */
+.milkdown-notes-editor.has-outline .milkdown-content {
+  padding-right: 60px;
+}
+
+/* ---------------------------------------------------------- 10.7 紧凑容器 ::: （整块在一个段落里） */
+/*
+ * CommonMark 会把 `::: info 标题` / 内容 / `:::` 三行并成同一个段落，
+ * 所以面板是套在段落本身上的，标题靠 inline 装饰单独上色。
+ */
+.milkdown-notes-editor .milkdown-content p.fe-container-inline {
+  margin: 1.2em 0 !important;
+  padding: 10px 14px !important;
+  border-left: 4px solid var(--fe-tone);
+  border-radius: 10px;
+  background: var(--fe-bg);
+  font-size: 13.5px !important;
+  line-height: 1.7 !important;
+}
+
+.milkdown-notes-editor .milkdown-content .fe-container-title {
+  font-weight: 700;
+  color: var(--fe-tone);
+}
+
+/* ---------------------------------------------------------- 10.8 时间线 ::: timeline */
+/*
+ * 条目写法沿用 Cherry：`- [状态] 时间 标题`，缩进行是描述。
+ * 这里不改文档结构，只用 CSS 把列表画成「圆点 + 竖线 + 时间/标题」。
+ */
+.milkdown-notes-editor .milkdown-content ul.fe-timeline-list,
+.milkdown-notes-editor .milkdown-content ol.fe-timeline-list {
+  list-style: none;
+  padding-left: 0;
+  margin: 0.35em 0 0;
+}
+
+.milkdown-notes-editor .milkdown-content li.fe-timeline-item {
+  --fe-tone: #64748b;
+  position: relative;
+  list-style: none;
+  padding-left: 22px;
+  padding-bottom: 16px;
+}
+
+/* 竖线：最后一条不再往下延伸 */
+.milkdown-notes-editor .milkdown-content li.fe-timeline-item::before {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 14px;
+  bottom: -2px;
+  width: 2px;
+  border-radius: 1px;
+  background: rgba(148, 163, 184, 0.35);
+}
+
+.milkdown-notes-editor .milkdown-content li.fe-timeline-item:last-child {
+  padding-bottom: 2px;
+}
+
+.milkdown-notes-editor .milkdown-content li.fe-timeline-item:last-child::before {
+  display: none;
+}
+
+/* 圆点：用 ::after 叠在竖线上，带一圈底色描边把它从线里"抠"出来 */
+.milkdown-notes-editor .milkdown-content li.fe-timeline-item::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 5px;
+  width: 12px;
+  height: 12px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  background: var(--fe-tone);
+}
+
+.milkdown-notes-editor .milkdown-content .fe-timeline-time {
+  font-family: 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--fe-tone);
+  margin-right: 8px;
+}
+
+.milkdown-notes-editor .milkdown-content .fe-timeline-title {
+  font-weight: 600;
+  color: #1e293b;
+}
+
+html.dark .milkdown-notes-editor .milkdown-content .fe-timeline-title {
+  color: #e2e8f0;
+}
+
+/* 状态配色（与 Cherry 的 done / doing / todo / error 对齐） */
+.milkdown-notes-editor .milkdown-content li.fe-timeline-item--done { --fe-tone: #10b981; }
+.milkdown-notes-editor .milkdown-content li.fe-timeline-item--doing { --fe-tone: #0284c7; }
+.milkdown-notes-editor .milkdown-content li.fe-timeline-item--warning { --fe-tone: #d97706; }
+.milkdown-notes-editor .milkdown-content li.fe-timeline-item--error { --fe-tone: #e11d48; }
+.milkdown-notes-editor .milkdown-content li.fe-timeline-item--todo { --fe-tone: #94a3b8; }
+
+/* ---------------------------------------------------------- 10.9 图表块的「预览 / 源码」页签 */
+.fe-mermaid-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: 1.4em;
+  width: fit-content;
+  padding: 2px;
+  border-radius: 9px 9px 0 0;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-bottom: 0;
+  background: rgba(148, 163, 184, 0.07);
+  user-select: none;
+}
+
+html.dark .fe-mermaid-tabs {
+  border-color: rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.fe-mermaid-tab {
+  padding: 3px 12px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.fe-mermaid-tab:hover {
+  color: #334155;
+}
+
+html.dark .fe-mermaid-tab {
+  color: #94a3b8;
+}
+
+html.dark .fe-mermaid-tab:hover {
+  color: #cbd5e1;
+}
+
+.fe-mermaid-tab.is-active {
+  background: #ffffff;
+  color: rgb(var(--brand-700-rgb, 22 99 116));
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+html.dark .fe-mermaid-tab.is-active {
+  background: #1b1f2b;
+  color: rgb(var(--brand-300-rgb, 143 215 224));
+}
+
+/* 图表源码块：预览态整个隐去；源码态把上下外边距收掉，紧贴页签 */
+.milkdown-notes-editor .milkdown-content pre.fe-source-hidden {
+  display: none !important;
+}
+
+.milkdown-notes-editor .milkdown-content pre.fe-mermaid-source {
+  margin-top: 0 !important;
+  border-radius: 0 0 10px 10px;
+}
+
+/* 页签与卡片本身是一体的，卡片不再另起上边距 */
+.fe-mermaid-card {
+  margin-top: 0 !important;
+  border-radius: 0 0 12px 12px;
 }

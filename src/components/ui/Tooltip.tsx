@@ -9,7 +9,11 @@ import {
 } from 'react'
 import type { ReactElement, ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { TOOLTIP_DELAY, computeTooltipPosition } from './tooltipPosition'
+import {
+  TOOLTIP_DELAY,
+  computeTooltipPosition,
+  type TooltipPlacement,
+} from './tooltipPosition'
 
 export type TooltipProps = {
   /** 提示文案。传空字符串则完全不显示 */
@@ -20,6 +24,11 @@ export type TooltipProps = {
   delay?: number
   /** 为 true 时完全不显示 */
   disabled?: boolean
+  /**
+   * 优先出现的方向，默认上方。
+   * 传 right/left 时改为贴在触发元素侧面 —— 一侧放不下会自动翻到另一侧。
+   */
+  placement?: TooltipPlacement
 }
 
 /**
@@ -42,6 +51,7 @@ export default function Tooltip({
   children,
   delay = TOOLTIP_DELAY,
   disabled = false,
+  placement = 'top',
 }: TooltipProps) {
   const triggerRef = useRef<HTMLElement | null>(null)
   const bubbleRef = useRef<HTMLDivElement | null>(null)
@@ -100,8 +110,8 @@ export default function Tooltip({
   useLayoutEffect(() => {
     const bubble = bubbleRef.current
     if (!anchor || !bubble) return
-    setPos(computeTooltipPosition(anchor, bubble.getBoundingClientRect()))
-  }, [anchor])
+    setPos(computeTooltipPosition(anchor, bubble.getBoundingClientRect(), placement))
+  }, [anchor, placement])
 
   if (!isValidElement(children)) return children
 

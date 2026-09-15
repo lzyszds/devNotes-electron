@@ -6,7 +6,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>DevNotes</title>
   </head>
-  <body>
+  <!--
+    spellcheck 是可继承的属性：写在 body 上，编辑器正文、引用、各处输入框就全都跟着关掉，
+    不用逐个元素去标。笔记正文里中英混杂、代码片段遍地，拼写检查只会画一堆红波浪线。
+  -->
+  <body spellcheck="false">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

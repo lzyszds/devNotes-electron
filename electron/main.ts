@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, Tray, globalShortcut, Notification, nativeImage } from 'electron'
+import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, Tray, globalShortcut, Notification, nativeImage, shell } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import Store from 'electron-store'
@@ -145,6 +145,14 @@ function createMainWindow() {
   registerWindowShortcuts(mainWindow)
   loadRendererWindow(mainWindow)
 
+  // 拦截应用内的外部超链接跳转，统一调用系统默认浏览器打开，防止应用窗口被外部网页篡改
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('https:') || url.startsWith('http:') || url.startsWith('mailto:')) {
+      void shell.openExternal(url)
+    }
+    return { action: 'deny' }
+  })
+
   if (process.env.VITE_DEV_SERVER_URL) {
     mainWindow.webContents.openDevTools()
   }
@@ -177,6 +185,13 @@ function createToolWindow(toolName: string) {
 
   registerWindowShortcuts(toolWindow)
   loadRendererWindow(toolWindow, toolName)
+
+  toolWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('https:') || url.startsWith('http:') || url.startsWith('mailto:')) {
+      void shell.openExternal(url)
+    }
+    return { action: 'deny' }
+  })
 
   toolWindow.once('ready-to-show', () => {
     toolWindow.show()
@@ -392,6 +407,12 @@ function setupIpc() {
       }
     }
   )
+
+  ipcMain.handle('open-external', (_, url: string) => {
+    if (url && (url.startsWith('https:') || url.startsWith('http:') || url.startsWith('mailto:'))) {
+      return shell.openExternal(url)
+    }
+  })
 }
 
 // 单实例锁:二次启动(如 Windows 双击关联文件)时把文件转发给已有实例

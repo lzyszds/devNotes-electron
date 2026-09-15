@@ -5,6 +5,8 @@ import {
   defaultValueCtx,
   editorViewCtx,
   editorViewOptionsCtx,
+  remarkPluginsCtx,
+  remarkStringifyOptionsCtx,
   rootCtx,
 } from '@milkdown/kit/core'
 import { clipboard } from '@milkdown/kit/plugin/clipboard'
@@ -13,29 +15,42 @@ import { history } from '@milkdown/kit/plugin/history'
 import { indent } from '@milkdown/kit/plugin/indent'
 import { listener, listenerCtx } from '@milkdown/kit/plugin/listener'
 import { trailing } from '@milkdown/kit/plugin/trailing'
-import { codeBlockAttr, commonmark } from '@milkdown/kit/preset/commonmark'
+import { commonmark } from '@milkdown/kit/preset/commonmark'
 import { gfm } from '@milkdown/kit/preset/gfm'
 import { Plugin } from '@milkdown/kit/prose/state'
+import type { TooltipProvider } from '@milkdown/kit/plugin/tooltip'
 import { $prose, insert, replaceAll } from '@milkdown/kit/utils'
+import { keymap } from '@milkdown/kit/prose/keymap'
+import { selectAll } from '@milkdown/kit/prose/commands'
 import { highlight, highlightPluginConfig } from '@milkdown/plugin-highlight'
-import { createParser } from '@milkdown/plugin-highlight/lowlight'
-import { common as commonLanguages, createLowlight } from 'lowlight'
 import { useNotes } from '../../context/NotesContext'
-import { getCachedCodeBlockTheme, subscribeCodeBlockTheme } from '../../utils/codeBlockTheme'
-import { applyMilkdownCodeTheme } from '../../utils/milkdownCodeTheme'
+import { subscribeCodeBlockTheme } from '../../utils/codeBlockTheme'
+import { refreshMilkdownHighlight, setShikiTheme, shikiParser } from '../../utils/milkdownShiki'
 import { createMilkdownAdapter } from '../../utils/milkdownAdapter'
 import { inlineHtmlView } from '../../utils/milkdownHtmlView'
+import { autolinkTrimPlugin } from '../../utils/milkdownAutolink'
+import {
+  inlineTagMarks,
+  inlineTagRemarkPlugin,
+  inlineTagStringifyHandlers,
+} from '../../utils/milkdownInlineTag'
 import { milkdownSearchPlugin } from '../../utils/milkdownSearch'
-import { collectOutline, revealOutlineItem } from '../../utils/milkdownOutline'
+import { floatingBar } from '../../utils/milkdownFloatingBar'
+import { collectOutline } from '../../utils/milkdownOutline'
 import type { OutlineItem } from '../../utils/milkdownOutline'
 import { useEditorContextMenu } from '../../hooks/useEditorContextMenu'
 import MarkdownToolbar from './markdown/MarkdownToolbar'
-import EditorOutline from './markdown/EditorOutline'
+import OutlineCapsule from './markdown/OutlineCapsule'
 import FindReplaceBar from './markdown/FindReplaceBar'
 import SlashMenu, { slash } from './markdown/SlashMenu'
-import BlockHandle, { block } from './markdown/BlockHandle'
+import BlockHandle from './markdown/BlockHandle'
+import CodeBlockLanguageBar from './markdown/CodeBlockLanguageBar'
+import SelectionToolbar from './markdown/SelectionToolbar'
+import InsertToolbar from './markdown/InsertToolbar'
+import { bumpEnhanceTheme, enhancePluginKey, milkdownEnhance } from '../../utils/milkdownEnhance'
 import {
   getCurrentHeadingLevel,
+  getMilkdownLinkAtCursor,
   insertMilkdownImage,
   runMilkdownCommand,
   setMilkdownHeading,
@@ -66,13 +81,6 @@ export type MilkdownMarkdownEditorProps = {
   fullscreen?: boolean
 }
 
-/**
- * Cherry 专有块语法(::: panel / cols / tabs / timeline …)不属于 CommonMark/GFM。
- * Milkdown 会把它当普通段落渲染,而且只要用户在这里改一个字,整篇会被重新序列化写回,
- * 这些块的结构就丢了。检测到就提示,让用户可以选择切回双栏模式编辑。
- */
-const CHERRY_ONLY_BLOCK = /^[ \t]*:::[ \t]*\w/m
-
 /** 标题下拉的选项。0 表示退回正文,与 Cherry 侧的「正文」项对齐 */
 const HEADING_OPTIONS: { level: number; label: string }[] = [
   { level: 1, label: '标题 1' },
@@ -87,24 +95,14 @@ const HEADING_OPTIONS: { level: number; label: string }[] = [
 /** 需要先收一个参数才能执行的命令,点击后弹出输入层 */
 type PopupKind = 'heading' | 'link' | 'image'
 
-// 语法分析器建一次就够:把 highlight.js 的常用语言集交给 lowlight,
-// 由它产出 hast,再交给 prosemirror-highlight 转成 ProseMirror 装饰。
-const lowlight = createLowlight(commonLanguages)
-const highlightParser = createParser(lowlight)
-
-/**
- * lowlight 遇到没注册的语言(如 ```mermaid)会直接抛错,而 prosemirror-highlight
- * 是把整篇代码块放在同一个 try 里逐个解析的 —— 一个 mermaid 块就会让**全文所有**
- * 代码块一起失去高亮。这里先把不认识的语言挡在外面,退化成「不上色」而不是「全崩」。
- */
-const safeHighlightParser = (options: Parameters<typeof highlightParser>[0]) => {
-  const { language } = options
-  if (language && !lowlight.registered(language)) return []
-  return highlightParser(options)
-}
-
 /** 勾选框热区宽度(px)。方框本身 13px,留点余量;再往右就是正文了,点那儿应该是放光标 */
 const TASK_CHECKBOX_HIT_AREA = 20
+
+/**
+ * 判定「读到哪一节」的参考线：标题顶边进入滚动容器顶部这么多像素内，就算读到了。
+ * 取 140 是为了给顶部的工具条与标题自身留出视觉余量，和参考实现的取一致。
+ */
+const OUTLINE_ACTIVE_OFFSET = 140
 
 /**
  * 点击任务项左侧的方框切换勾选。
@@ -178,10 +176,11 @@ export default function MilkdownMarkdownEditor({
   const [popup, setPopup] = useState<PopupKind | null>(null)
   const [popupText, setPopupText] = useState('')
   const [headingLevel, setHeadingLevel] = useState(0)
-  // 大纲浮层：显示与否 + 当前条目。工具栏的 active 态也要跟着走
+  // 右侧悬浮大纲：条目、展开与否、当前读到的条目、已读百分比
   const [outlineItems, setOutlineItems] = useState<OutlineItem[]>([])
-  const [outlineOpen, setOutlineOpen] = useState(false)
-  const [activeOutlinePos, setActiveOutlinePos] = useState<number | null>(null)
+  const [outlineExpanded, setOutlineExpanded] = useState(false)
+  const [outlineActive, setOutlineActive] = useState(-1)
+  const [readPercent, setReadPercent] = useState(0)
   // 查找替换条只由编辑器自己管：宿主那边没有别的入口会打开它
   const [searchOpen, setSearchOpen] = useState(false)
   /**
@@ -191,6 +190,18 @@ export default function MilkdownMarkdownEditor({
    * 而 editorRef 是 ref、变了不触发渲染，所以额外用一份 state 做「已就绪」信号。
    */
   const [ready, setReady] = useState<Editor | null>(null)
+
+  /**
+   * 两条浮出工具条的 Provider。
+   *
+   * 引用放在这里而不是各自的组件里：驱动它们的 ProseMirror 插件必须在
+   * `editor.create()` 之前注册好（见 milkdownFloatingBar.ts），而插件要闭包捕获
+   * 这两个 ref。组件那边只负责把建好的实例写进来。
+   */
+  const selectionBarRef = useRef<TooltipProvider | null>(null)
+  const insertBarRef = useRef<TooltipProvider | null>(null)
+  const blockHandleRef = useRef<TooltipProvider | null>(null)
+  const codeLangBarRef = useRef<TooltipProvider | null>(null)
 
   useEffect(() => {
     onChangeRef.current = onChange
@@ -227,12 +238,20 @@ export default function MilkdownMarkdownEditor({
     []
   )
 
+  /**
+   * 展开/收起右侧大纲胶囊。
+   * 定义在 useEditorContextMenu 之前 —— 那个 hook 要把「大纲」这一项的开关传下去，
+   * 而它是在渲染期取值的，放在后面会撞上 const 的暂时性死区。
+   */
+  const toggleOutlinePanel = useCallback(() => setOutlineExpanded((prev) => !prev), [])
+
   const { onEditorContextMenu } = useEditorContextMenu({
     adapter,
     title,
     onRequestFullscreen: onToggleFullscreen,
     onRequestSearch: onOpenSearch,
-    onRequestOutline: onToggleOutline,
+    // 宿主（Cherry）没接管时用自绘的这一套
+    onRequestOutline: onToggleOutline ?? toggleOutlinePanel,
   })
 
   /** 编辑区即整个可编辑范围（所见即所得没有独立的只读预览区），不用像 Cherry 那样分流 */
@@ -244,6 +263,32 @@ export default function MilkdownMarkdownEditor({
     [onEditorContextMenu]
   )
 
+  // 监听超链接点击，统一在系统默认浏览器中安全打开
+  useEffect(() => {
+    const root = mountRef.current
+    if (!root) return
+
+    const handleLinkClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null
+      const link = target?.closest<HTMLAnchorElement>('a')
+      if (!link) return
+      const href = link.getAttribute('href')
+      if (!href) return
+
+      if (href.startsWith('http://') || href.startsWith('https://') || href.startsWith('mailto:')) {
+        e.preventDefault()
+        if (window.electronAPI?.openExternal) {
+          void window.electronAPI.openExternal(href)
+        } else {
+          window.open(href, '_blank', 'noopener,noreferrer')
+        }
+      }
+    }
+
+    root.addEventListener('click', handleLinkClick)
+    return () => root.removeEventListener('click', handleLinkClick)
+  }, [])
+
   // ================= 构造与销毁 =================
   useEffect(() => {
     const root = mountRef.current
@@ -253,26 +298,40 @@ export default function MilkdownMarkdownEditor({
     let disposed = false
     readyRef.current = false
 
-    // 代码块主题是全局 <style>,挂载时先按当前设置注入一次
-    applyMilkdownCodeTheme(getCachedCodeBlockTheme())
-
     const editor = Editor.make()
       .config((ctx) => {
         ctx.set(rootCtx, root)
         ctx.set(defaultValueCtx, latestValueRef.current)
         // 挂一个自有类名,换肤时不用去猜 ProseMirror 的内部结构
         ctx.set(editorViewOptionsCtx, { attributes: { class: 'milkdown-content' } })
-        ctx.set(highlightPluginConfig.key, { parser: safeHighlightParser })
+        // 代码块高亮走 shiki，parser 的形态与坑见 milkdownShiki.ts
+        ctx.set(highlightPluginConfig.key, { parser: shikiParser })
 
-        // code_block 渲染出来是 <pre data-language="x"><code>,不带任何类名,
-        // 而 highlight.js 的主题 CSS 全都写在 .hljs 上 —— 这里把类名补上去。
-        ctx.update(codeBlockAttr.key, (prev) => (node) => {
-          const attrs = prev(node)
-          return { ...attrs, code: { ...attrs.code, class: 'hljs' } }
-        })
+        /*
+         * 行内样式（span / u / sup / sub）在 schema 里是 mark —— 文字节点保持可编辑，
+         * 这一点必须成立，否则套上颜色那段字就成了一块改不动的原子节点。
+         * 但 Markdown 侧写的仍是内联 HTML，mdast 里没有「包在文字外面的 mark」这种结构，
+         * 所以两头都要自己接一段，缺一不可：
+         *   解析：remark 插件把 `html`+内容+`html` 三个兄弟节点并成一个自定义节点
+         *   序列化：往 remark-stringify 的 handlers 里塞同名处理器，写回内联 HTML
+         * 放在 config 里是因为它跑在所有内部插件注入之后、InitReady 之前 ——
+         * 早于 schema 读 remarkPluginsCtx，也早于 init 拿 remarkStringifyOptionsCtx 建 processor。
+         */
+        ctx.update(remarkPluginsCtx, (list) => [
+          ...list,
+          { plugin: inlineTagRemarkPlugin, options: {} },
+          // GFM 的自动链接遇到中文全角标点不收尾，会把后半句一并吞进链接里。
+          // 必须排在 gfm 之后（放列表末尾即可），见 milkdownAutolink.ts
+          { plugin: autolinkTrimPlugin, options: {} },
+        ])
+        ctx.update(remarkStringifyOptionsCtx, (prev) => ({
+          ...prev,
+          handlers: { ...prev.handlers, ...inlineTagStringifyHandlers },
+        }))
 
         ctx.get(listenerCtx).markdownUpdated((_ctx, markdown) => {
           if (suppressChangeRef.current) return
+          if (markdown === latestValueRef.current) return
           latestValueRef.current = markdown
           lastEmittedRef.current = markdown
           onChangeRef.current?.(markdown)
@@ -289,10 +348,27 @@ export default function MilkdownMarkdownEditor({
       .use(highlight)
       .use(taskListClickPlugin)
       .use(inlineHtmlView)
+      .use(inlineTagMarks)
       .use(milkdownSearchPlugin)
-      // 斜杠菜单与块手柄：插件只出逻辑与定位，UI 是下面两个自绘组件
       .use(slash)
-      .use(block)
+      // 四处浮出 UI（选中文字 / 光标落在空行 / 块手柄 / 代码块语言标签）。插件只负责
+      // 「每次视图更新问一次」，provider 要等 React 把宿主元素渲染出来才建得了，
+      // 所以这里传的是取值函数。
+      // 块手柄不在其中用 @milkdown/plugin/block —— 它的定位绑死了鼠标悬停，见 BlockHandle.tsx
+      .use(floatingBar('selection', () => selectionBarRef.current))
+      .use(floatingBar('insert', () => insertBarRef.current))
+      .use(floatingBar('block-handle', () => blockHandleRef.current))
+      .use(floatingBar('code-lang', () => codeLangBarRef.current))
+      // 容器面板 / 目录 / Mermaid 图表 / 代码行号：全部走 ProseMirror 装饰器，
+      // 不碰编辑区 DOM —— 直接改 contenteditable 会让标记外溢、文字并进链接，见该文件注释
+      .use(milkdownEnhance)
+      /*
+       * 全选。
+       * 浏览器默认只在 Windows/Linux 上把 Ctrl+A 当全选；macOS 上 Ctrl+A 是「移到行首」
+       * （emacs 习惯），Cmd+A 才是全选。这里两个都显式接管，免得按 Ctrl+A 毫无反应、
+       * 看着像「全选没有高亮」。
+       */
+      .use($prose(() => keymap({ 'Mod-a': selectAll, 'Ctrl-a': selectAll })))
 
     editor.create().then((instance) => {
       if (disposed) {
@@ -302,13 +378,6 @@ export default function MilkdownMarkdownEditor({
       editorRef.current = instance
       readyRef.current = true
       setReady(instance)
-
-      // 进模式即提示,不等用户真改了才说
-      if (CHERRY_ONLY_BLOCK.test(latestValueRef.current)) {
-        onWarningRef.current?.(
-          '本文含 Cherry 专有语法(::: 块),该语法不属于标准 Markdown。在当前模式下编辑会把它重新规范化并丢失这些块的结构,建议切回「双栏」编辑,或先手动替换为标准 Markdown。'
-        )
-      }
 
       // 构造期间外部可能已改过 value(挂载 effect 的依赖只有 value,那一次会被 readyRef 挡掉),补一次同步
       if (latestValueRef.current !== lastEmittedRef.current) {
@@ -345,40 +414,90 @@ export default function MilkdownMarkdownEditor({
   }, [])
 
   // ================= 代码块主题 =================
-  // 主题 CSS 是全局 <style>,换档位时替换内容即可,不需要重建编辑器
-  useEffect(() => subscribeCodeBlockTheme(applyMilkdownCodeTheme), [])
+  /*
+   * 换档位只需要换主题 + 让已有装饰重算一遍，不必重建编辑器。
+   *
+   * 顺序要紧：主题是按需载入的，得等 setShikiTheme resolve 之后再重刷 ——
+   * 反过来的话这次重刷用的还是旧主题，界面看着像没换。
+   * 编辑器还没建好时不用重算：它创建时读到的就已经是新主题了。
+   */
+  useEffect(
+    () =>
+      subscribeCodeBlockTheme((id) => {
+        void setShikiTheme(id).then(() => {
+          editorRef.current?.action((ctx) => refreshMilkdownHighlight(ctx.get(editorViewCtx)))
+        })
+      }),
+    []
+  )
 
   // ================= 大纲 =================
-  // 浮层没开时不扫全文；开着时 content 一变就重扫（打字改了标题自然要跟着更新）
+  // 文档一变就重扫。常态收集 —— 胶囊折叠时也要显示骨架条，不能只在展开时才扫
   useEffect(() => {
-    if (!outlineOpen) return
     setOutlineItems(collectOutline(editorRef.current))
-  }, [outlineOpen, value])
+  }, [value, ready])
+
+  /** 取编辑器里的标题元素。DOM 顺序与 collectOutline 的条目顺序都是文档序，可以按下标一一对应 */
+  const headingElements = useCallback(
+    () => mountRef.current?.querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5, h6'),
+    []
+  )
 
   /**
-   * 让光标所在的标题在大纲里高亮。
+   * 滚动同步：已读百分比 + 当前读到第几节。
    *
-   * 直接用光标位置去比对条目的 pos（条目 pos 是标题节点的起始位置，
-   * 光标在标题内时 pos 必小于光标，所以取「不超过光标的最后一条」）。
+   * 用 rAF 节流 —— scroll 的触发频率远高于渲染帧，逐个直接 setState 会白算很多次。
    */
-  const syncActiveOutline = useCallback(() => {
-    if (!outlineOpen) return
-    const caret = editorRef.current?.action((ctx) => ctx.get(editorViewCtx).state.selection.from)
-    if (caret == null) return
-    let active: number | null = null
-    for (const item of outlineItems) {
-      if (item.pos <= caret) active = item.pos
-      else break
-    }
-    setActiveOutlinePos(active)
-  }, [outlineOpen, outlineItems])
+  useEffect(() => {
+    const scroll = mountRef.current
+    if (!scroll) return
 
-  /** 收起大纲时顺手清掉高亮，免得下次打开闪一下旧的 */
-  const toggleOutlinePanel = useCallback(() => {
-    setOutlineOpen((prev) => {
-      if (prev) setActiveOutlinePos(null)
-      return !prev
-    })
+    let frame = 0
+    const measure = () => {
+      frame = 0
+      const max = scroll.scrollHeight - scroll.clientHeight
+      setReadPercent(max > 0 ? Math.min(100, Math.round((scroll.scrollTop / max) * 100)) : 100)
+
+      const headings = scroll.querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5, h6')
+      if (!headings.length) {
+        setOutlineActive(-1)
+        return
+      }
+      const containerTop = scroll.getBoundingClientRect().top
+      let active = 0
+      headings.forEach((el, index) => {
+        if (el.getBoundingClientRect().top - containerTop <= OUTLINE_ACTIVE_OFFSET) active = index
+      })
+      setOutlineActive(active)
+    }
+
+    const onScroll = () => {
+      if (frame) return
+      frame = requestAnimationFrame(measure)
+    }
+
+    measure()
+    scroll.addEventListener('scroll', onScroll, { passive: true })
+    return () => {
+      scroll.removeEventListener('scroll', onScroll)
+      if (frame) cancelAnimationFrame(frame)
+    }
+  }, [value, ready])
+
+  /** 跳到某一节：滚进视野并闪一下，方便确认落在哪 */
+  const pickOutlineItem = useCallback(
+    (index: number) => {
+      const target = headingElements()?.[index]
+      if (!target) return
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      target.classList.add('fe-outline-flash')
+      window.setTimeout(() => target.classList.remove('fe-outline-flash'), 900)
+    },
+    [headingElements]
+  )
+
+  const scrollToTop = useCallback(() => {
+    mountRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
   }, [])
 
   /** 工具栏按钮的 active 态。只标「开着/关着」这类开关，不做光标处的格式嗅探 */
@@ -386,9 +505,9 @@ export default function MilkdownMarkdownEditor({
     () => ({
       fullscreen: { active: fullscreen },
       search: { active: searchOpen },
-      outline: { active: outlineOpen },
+      outline: { active: outlineExpanded },
     }),
-    [fullscreen, searchOpen, outlineOpen]
+    [fullscreen, searchOpen, outlineExpanded]
   )
 
   // ================= 外部 value 回流 =================
@@ -409,6 +528,24 @@ export default function MilkdownMarkdownEditor({
       })
     }
   }, [value])
+
+  // ================= 深浅色切换时重绘装饰器 =================
+  // 图表卡片要跟着换配色。装饰器由 state 驱动，这里推一个空事务让它重算，
+  // 同时自增 stamp 让 widget 的 key 变化、强制重建 DOM。
+  useEffect(() => {
+    const root = document.documentElement
+    const observer = new MutationObserver(() => {
+      const editor = editorRef.current
+      if (!editor || !readyRef.current) return
+      bumpEnhanceTheme()
+      editor.action((ctx) => {
+        const view = ctx.get(editorViewCtx)
+        view.dispatch(view.state.tr.setMeta(enhancePluginKey, { theme: Date.now() }))
+      })
+    })
+    observer.observe(root, { attributes: true, attributeFilter: ['class'] })
+    return () => observer.disconnect()
+  }, [])
 
   // ================= 外部片段插入 =================
   // 与 Cherry 不同,这里按 markdown 解析后以节点形式插到光标处,
@@ -456,7 +593,8 @@ export default function MilkdownMarkdownEditor({
         return
       }
       if (command.id === 'link' || command.id === 'image') {
-        setPopupText('')
+        // 光标已经落在某条链接里时回填它现有的地址，面板就是「编辑链接」而不是新建
+        setPopupText(command.id === 'link' ? getMilkdownLinkAtCursor(editorRef.current) : '')
         setPopup(command.id)
         return
       }
@@ -465,12 +603,6 @@ export default function MilkdownMarkdownEditor({
     },
     [focusEditor, onOpenSearch, onToggleFullscreen, onToggleOutline, toggleOutlinePanel]
   )
-
-  /** 大纲条目被点：跳过去并把高亮落到它身上 */
-  const pickOutlineItem = useCallback((item: OutlineItem) => {
-    revealOutlineItem(editorRef.current, item)
-    setActiveOutlinePos(item.pos)
-  }, [])
 
   // Esc 关掉查找条。只在条子开着时挂监听，且不抢输入框自己的 Esc
   useEffect(() => {
@@ -514,8 +646,15 @@ export default function MilkdownMarkdownEditor({
 
   const confirmPopup = useCallback(() => {
     const text = popupText.trim()
-    if (popup === 'link') setMilkdownLink(editorRef.current, text)
-    else if (popup === 'image') insertMilkdownImage(editorRef.current, text)
+    if (popup === 'link') {
+      // 光标停在空白处时无处可挂，明确提示而不是静默改成「之后输入都变链接」
+      if (!setMilkdownLink(editorRef.current, text)) {
+        onWarningRef.current?.('请先选中要加链接的文字，或把光标放到某个词上再试。')
+        return
+      }
+    } else if (popup === 'image') {
+      insertMilkdownImage(editorRef.current, text)
+    }
     closePopup()
     focusEditor()
   }, [popup, popupText, closePopup, focusEditor])
@@ -530,7 +669,11 @@ export default function MilkdownMarkdownEditor({
   )
 
   return (
-    <div className={`milkdown-notes-editor flex h-full min-h-0 flex-col ${className}`}>
+    <div
+      className={`milkdown-notes-editor flex h-full min-h-0 flex-col ${
+        outlineItems.length ? 'has-outline' : ''
+      } ${className}`}
+    >
       <MarkdownToolbar
         engine="milkdown"
         onCommand={handleCommand}
@@ -542,23 +685,29 @@ export default function MilkdownMarkdownEditor({
         <div
           ref={mountRef}
           onContextMenu={handleContextMenu}
-          onKeyUp={syncActiveOutline}
-          onMouseUp={syncActiveOutline}
           className="milkdown-scroll h-full w-full overflow-y-auto"
         />
 
-        {outlineOpen && (
-          <EditorOutline
-            items={outlineItems}
-            activePos={activeOutlinePos}
-            onPick={pickOutlineItem}
-            onClose={toggleOutlinePanel}
-          />
-        )}
+        {/* 右侧悬浮大纲：折叠态是一条骨架胶囊，展开后是目录卡片 */}
+        <OutlineCapsule
+          items={outlineItems}
+          activeIndex={outlineActive}
+          readPercent={readPercent}
+          expanded={outlineExpanded}
+          onExpandedChange={setOutlineExpanded}
+          onPick={pickOutlineItem}
+          onScrollTop={scrollToTop}
+        />
 
         {/* 挂到编辑区内层容器上：Provider 用绝对定位放置，容器必须与编辑区同坐标系 */}
         <SlashMenu editor={ready} />
-        <BlockHandle editor={ready} />
+        <BlockHandle editor={ready} providerRef={blockHandleRef} />
+
+        {/* 这几条的宿主元素会被 Provider 搬到 document.body 下，与编辑区不同坐标系
+            （用 fixed 定位），所以放在哪一层都行 */}
+        <SelectionToolbar editor={ready} providerRef={selectionBarRef} />
+        <InsertToolbar editor={ready} providerRef={insertBarRef} />
+        <CodeBlockLanguageBar editor={ready} providerRef={codeLangBarRef} />
 
         {searchOpen && !onOpenSearch && (
           <FindReplaceBar editor={editorRef.current} onClose={() => setSearchOpen(false)} />

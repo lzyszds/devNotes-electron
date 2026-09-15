@@ -4,6 +4,7 @@ import { tools, toolCategories } from "../types";
 import { useContextMenu } from "../components/ui/ContextMenu";
 import { useToast } from "../components/ui/Toast";
 import Tooltip from "../components/ui/Tooltip";
+import ToolIcon from "../components/ui/ToolIcon";
 import { copyText } from "../utils/clipboard";
 import logo from "../assets/logo.png";
 
@@ -186,8 +187,8 @@ export default function Home({
                 }
                 className="motion-lift group flex flex-col items-center justify-center p-5 rounded-2xl bg-white dark:bg-dark-panel border border-slate-200/80 dark:border-dark-border hover:border-brand-500 dark:hover:border-brand-500 hover:shadow-lg transition-all"
               >
-                <div className="h-10 w-10 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-dark-sidebar text-base font-bold text-slate-800 dark:text-slate-200 mb-3 group-hover:bg-brand-600 group-hover:text-white transition-colors">
-                  {tool.icon.length <= 3 ? tool.icon : tool.icon.charAt(0)}
+                <div className="h-10 w-10 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-dark-sidebar mb-3 group-hover:bg-brand-600 transition-colors">
+                  <ToolIcon toolId={tool.id} className="w-5 h-5 text-slate-700 dark:text-slate-200 group-hover:text-white transition-colors" />
                 </div>
                 <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 text-center truncate w-full">
                   {tool.name}

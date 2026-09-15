@@ -5,36 +5,53 @@ import Stats from './pages/Stats'
 import { NotesProvider } from './context/NotesContext'
 import { ContextMenuProvider } from './components/ui/ContextMenu'
 import { ToastProvider } from './components/ui/Toast'
+import {
+  getCachedTheme,
+  getOppositeTheme,
+  isDarkTheme,
+  saveTheme,
+  type ThemeId,
+} from './utils/theme'
 
 export type ViewMode = 'hub' | 'dashboard' | 'stats'
 
 function App() {
   const [viewMode, setViewMode] = useState<ViewMode>('dashboard')
   const [activeTabId, setActiveTabId] = useState<string>('markdown-notes')
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    const saved = localStorage.getItem('fehelper-theme')
-    if (saved === 'dark' || saved === 'light') return saved
-    return 'light' // 参考 HTML 默认为 class="light"
-  })
+  const [theme, setTheme] = useState<ThemeId>(() => getCachedTheme())
 
   const [usageStats, setUsageStats] = useState<Record<string, number>>(() => {
     const saved = localStorage.getItem('fehelper-usage-stats')
     return saved ? JSON.parse(saved) : {}
   })
 
-  // 同步明暗主题到 documentElement
+  // 同步主题到 documentElement：
+  // 换肤瞬间添加 disable-transitions 锁，确保所有 DOM 节点在同一物理帧完成颜色切换，杜绝目录延迟
   useEffect(() => {
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark')
+    const root = document.documentElement
+    root.classList.add('disable-transitions')
+    root.setAttribute('data-theme', theme)
+    if (isDarkTheme(theme)) {
+      root.classList.add('dark')
     } else {
-      document.documentElement.classList.remove('dark')
+      root.classList.remove('dark')
     }
-    localStorage.setItem('fehelper-theme', theme)
+    saveTheme(theme)
+
+    const raf = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        root.classList.remove('disable-transitions')
+      })
+    })
+    return () => cancelAnimationFrame(raf)
   }, [theme])
 
+  // ⌘D：在同色系的对偶主题之间来回切（浅色 ↔ 深色）
   const toggleTheme = () => {
-    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))
+    setTheme((prev) => getOppositeTheme(prev))
   }
+
+  const selectTheme = (next: ThemeId) => setTheme(next)
 
   useEffect(() => {
     localStorage.setItem('fehelper-usage-stats', JSON.stringify(usageStats))
@@ -76,6 +93,7 @@ function App() {
               onOpenStats={navigateToStats}
               theme={theme}
               onToggleTheme={toggleTheme}
+              onSelectTheme={selectTheme}
             />
           )}
 

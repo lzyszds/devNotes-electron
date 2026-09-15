@@ -49,8 +49,17 @@ export default defineConfig({
     }
   },
   optimizeDeps: {
-    // NotesTool 走 lazy() 边界，预打包可避免首次进入笔记页触发依赖发现 → 整页 reload
-    include: ['cherry-markdown', '@milkdown/kit', '@milkdown/plugin-highlight']
+    // NotesTool 走 lazy() 边界，预打包可避免首次进入笔记页触发依赖发现 → 整页 reload。
+    // shiki 只列用到的那几个子路径：`shiki/langs` 带着 242 个动态 import，
+    // 交给预打包代价过大，让它留在按需加载那条路上。
+    include: [
+      'cherry-markdown',
+      '@milkdown/kit',
+      '@milkdown/plugin-highlight',
+      'shiki/core',
+      'shiki/themes',
+      'shiki/engine/javascript',
+    ]
   },
   build: {
     outDir: 'dist',

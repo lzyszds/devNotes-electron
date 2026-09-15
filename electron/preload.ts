@@ -47,6 +47,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   notesSaveFile: (options: { content: string; defaultPath?: string }) =>
     ipcRenderer.invoke('notes-save-file', options),
 
+  // 在系统默认浏览器中安全打开外部链接
+  openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
+
   // Markdown 文件关联:外部打开文件请求(双击 .md 文件)
   onOpenFileRequest: (callback: (payload: OpenFilePayload) => void) => {
     const listener = (_: unknown, payload: OpenFilePayload) => callback(payload)

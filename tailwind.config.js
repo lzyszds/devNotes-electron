@@ -9,43 +9,46 @@ export default {
     extend: {
       colors: {
         /*
-         * 主色 = indigo，600 档 #4f46e5。
-         * 与参考项目 qqlink_fileview 的 --accent 三件套逐字节一致
-         * （#4f46e5 / #4338ca / #eef2ff），也是本项目一直以来的主色。
+         * 主色 brand 色板：通过 CSS 变量动态驱动，支持 10 套主题随时换肤，
+         * 并支持 Tailwind v3 的透明度修饰符（如 bg-brand-500/20）。
+         * 默认回退值对应经典青蓝（logo 青蓝 #50BDCF / #218397）。
          */
         brand: {
-          50: '#eef2ff',
-          100: '#e0e7ff',
-          200: '#c7d2fe',
-          300: '#a5b4fc',
-          400: '#818cf8',
-          500: '#6366f1',
-          600: '#4f46e5',
-          700: '#4338ca',
-          800: '#3730a3',
-          900: '#312e81',
-          950: '#1e1b4b',
+          50: 'rgb(var(--brand-50-rgb, 239 250 251) / <alpha-value>)',
+          100: 'rgb(var(--brand-100-rgb, 219 243 245) / <alpha-value>)',
+          200: 'rgb(var(--brand-200-rgb, 182 230 236) / <alpha-value>)',
+          300: 'rgb(var(--brand-300-rgb, 143 215 224) / <alpha-value>)',
+          400: 'rgb(var(--brand-400-rgb, 111 202 216) / <alpha-value>)',
+          500: 'rgb(var(--brand-500-rgb, 80 189 207) / <alpha-value>)',
+          600: 'rgb(var(--brand-600-rgb, 33 131 151) / <alpha-value>)',
+          700: 'rgb(var(--brand-700-rgb, 22 99 116) / <alpha-value>)',
+          800: 'rgb(var(--brand-800-rgb, 16 76 91) / <alpha-value>)',
+          900: 'rgb(var(--brand-900-rgb, 13 57 69) / <alpha-value>)',
+          950: 'rgb(var(--brand-950-rgb, 8 39 48) / <alpha-value>)',
         },
+        /*
+         * 深色模式表面色板：随深色主题（极夜/东京暗夜/德古拉/幽静深林/暮色暖咖）自适应调整
+         */
         dark: {
-          bg: '#090a0f',
-          panel: '#12141a',
-          sidebar: '#0e1015',
-          border: '#232733',
-          hover: '#1b1f2b',
+          bg: 'rgb(var(--theme-dark-bg-rgb, 9 10 15) / <alpha-value>)',
+          panel: 'rgb(var(--theme-dark-panel-rgb, 18 20 26) / <alpha-value>)',
+          sidebar: 'rgb(var(--theme-dark-sidebar-rgb, 14 16 21) / <alpha-value>)',
+          border: 'rgb(var(--theme-dark-border-rgb, 35 39 51) / <alpha-value>)',
+          hover: 'rgb(var(--theme-dark-hover-rgb, 27 31 43) / <alpha-value>)',
         },
-        // 与 brand 同源，历史上是 indigo 的一份副本
+        // 与 brand 同源，保持一致
         primary: {
-          50: '#eef2ff',
-          100: '#e0e7ff',
-          200: '#c7d2fe',
-          300: '#a5b4fc',
-          400: '#818cf8',
-          500: '#6366f1',
-          600: '#4f46e5',
-          700: '#4338ca',
-          800: '#3730a3',
-          900: '#312e81',
-          950: '#1e1b4b',
+          50: 'rgb(var(--brand-50-rgb, 239 250 251) / <alpha-value>)',
+          100: 'rgb(var(--brand-100-rgb, 219 243 245) / <alpha-value>)',
+          200: 'rgb(var(--brand-200-rgb, 182 230 236) / <alpha-value>)',
+          300: 'rgb(var(--brand-300-rgb, 143 215 224) / <alpha-value>)',
+          400: 'rgb(var(--brand-400-rgb, 111 202 216) / <alpha-value>)',
+          500: 'rgb(var(--brand-500-rgb, 80 189 207) / <alpha-value>)',
+          600: 'rgb(var(--brand-600-rgb, 33 131 151) / <alpha-value>)',
+          700: 'rgb(var(--brand-700-rgb, 22 99 116) / <alpha-value>)',
+          800: 'rgb(var(--brand-800-rgb, 16 76 91) / <alpha-value>)',
+          900: 'rgb(var(--brand-900-rgb, 13 57 69) / <alpha-value>)',
+          950: 'rgb(var(--brand-950-rgb, 8 39 48) / <alpha-value>)',
         },
         /*
          * 点缀色 = logo 的青蓝 #50BDCF，精确落在 500 档。
