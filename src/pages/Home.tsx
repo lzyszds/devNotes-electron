@@ -97,11 +97,11 @@ export default function Home({
                 与主色 indigo 拉开层次，也点明 #50BDCF 这个来源色 */}
             <img
               src={logo}
-              alt="DevNotes"
+              alt="devNotes"
               className="inline-block h-12 w-12 object-contain mb-6 drop-shadow-[0_0_22px_rgba(80,189,207,0.45)]"
             />
             <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2 tracking-tight">
-              DevNotes 工具中心
+              devNotes 工具中心
             </h1>
             <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">
               极致简洁的现代前端开发者工作台
@@ -212,7 +212,7 @@ export default function Home({
 
       <footer className="py-6 border-t border-slate-50 text-center">
         <p className="text-[9px] font-bold text-slate-300 uppercase tracking-[0.4em]">
-          DevNotes • v2026.4.2920 • 稳定版
+          devNotes • v2026.4.2920 • 稳定版
         </p>
       </footer>
     </div>

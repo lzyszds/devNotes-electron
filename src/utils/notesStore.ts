@@ -34,7 +34,7 @@ export const DEFAULT_CONTENT = `# ✨ Markdown 全特性与工具支持全景样
 * <mark>高亮标记</mark>：\`<mark>高亮文本</mark>\` ➔ <mark>醒目背景记号</mark>
 * 上标与下标：\`x<sup>2</sup>\` ➔ x<sup>2</sup> + y<sup>2</sup> = r<sup>2</sup>；\`H<sub>2</sub>O\` ➔ H<sub>2</sub>O (水分子)
 * 行内代码：\`\` \`const version = '2.0.0';\` \`\` ➔ \`const version = '2.0.0';\`（自动适配当前品牌主题色）
-* 外部超链接：\`[DevNotes 官方仓库](https://github.com)\` ➔ [DevNotes 官方仓库](https://github.com)（点击可在系统外部浏览器中安全打开）
+* 外部超链接：\`[devNotes 官方仓库](https://github.com)\` ➔ [devNotes 官方仓库](https://github.com)（点击可在系统外部浏览器中安全打开）
 
 ---
 
@@ -183,14 +183,14 @@ interface WorkspaceConfig {
 }
 
 export function initializeDevNotes(): Promise<boolean> {
-  console.log('⚡ DevNotes 2.0 就绪，享受沉浸式编码与写作');
+  console.log('⚡ devNotes 2.0 就绪，享受沉浸式编码与写作');
   return Promise.resolve(true);
 }
 \`\`\`
 
 \`\`\`json
 {
-  "project": "DevNotes",
+  "project": "devNotes",
   "status": "production",
   "capabilities": ["wysiwyg", "code-block-highlight", "cloud-sync", "mermaid"]
 }

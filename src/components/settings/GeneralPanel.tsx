@@ -538,7 +538,7 @@ export default function GeneralPanel({
       {/* ================= 关于 ================= */}
       <section className="space-y-3">
         <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-          关于 DevNotes
+          关于 devNotes
         </h4>
         <div className="p-4 rounded-2xl bg-gradient-to-br from-slate-50/90 via-slate-50/40 to-brand-50/20 dark:from-dark-sidebar/70 dark:via-dark-sidebar/40 dark:to-brand-950/10 border border-slate-200/70 dark:border-dark-border shadow-2xs space-y-3">
           <div className="flex items-center justify-between gap-3">
@@ -549,7 +549,7 @@ export default function GeneralPanel({
               <div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold text-slate-900 dark:text-white">
-                    DevNotes 开发者随手记
+                    devNotes 开发者随手记
                   </span>
                   <span className="px-1.5 py-0.5 rounded-md font-mono text-[10px] font-semibold bg-white dark:bg-dark-panel text-slate-600 dark:text-slate-300 border border-slate-200/80 dark:border-dark-border shadow-2xs">
                     {version ? `v${version}` : 'v2026.4'}

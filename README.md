@@ -1,4 +1,4 @@
-# DevNotes
+# devNotes
 
 基于 Chrome 扩展 **FeHelper (前端助手)** 改造的 Electron 桌面应用，原名 FeHelper Electron。
 

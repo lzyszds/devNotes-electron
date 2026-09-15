@@ -130,7 +130,7 @@ function createMainWindow() {
     height: 800,
     minWidth: 1000,
     minHeight: 600,
-    title: 'DevNotes',
+    title: 'devNotes',
     // 无边框：系统的标题栏和菜单栏都不要，顶部只保留应用自绘的那条 bar。
     // 代价是拖拽、双击最大化、最小化/最大化/关闭全部落到渲染层的 drag-region 与三个圆点上。
     frame: false,
@@ -173,7 +173,7 @@ function createToolWindow(toolName: string) {
     height: 800,
     minWidth: 1000,
     minHeight: 600,
-    title: `DevNotes - ${toolName}`,
+    title: `devNotes - ${toolName}`,
     frame: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -228,12 +228,12 @@ function createTray() {
   }
   
   const contextMenu = Menu.buildFromTemplate([
-    { label: '显示 DevNotes', click: () => mainWindow?.show() },
+    { label: '显示 devNotes', click: () => mainWindow?.show() },
     { type: 'separator' },
     { label: '退出', click: () => app.quit() }
   ])
   
-  tray.setToolTip('DevNotes')
+  tray.setToolTip('devNotes')
   tray.setContextMenu(contextMenu)
   
   tray.on('click', () => {

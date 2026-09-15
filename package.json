@@ -1,8 +1,8 @@
 {
   "name": "devnotes",
-  "productName": "DevNotes",
+  "productName": "devNotes",
   "version": "2026.4.2920",
-  "description": "DevNotes (React + TypeScript + Tailwind)",
+  "description": "devNotes (React + TypeScript + Tailwind)",
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
@@ -48,7 +48,7 @@
   },
   "build": {
     "appId": "com.devnotes.app",
-    "productName": "DevNotes",
+    "productName": "devNotes",
     "directories": {
       "output": "release"
     },

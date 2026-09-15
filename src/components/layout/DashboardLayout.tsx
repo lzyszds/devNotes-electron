@@ -556,7 +556,7 @@ export default function DashboardLayout({
               onClick={onBackToHub}
               className="no-drag hover:text-slate-900 dark:hover:text-white cursor-pointer transition-colors"
             >
-              DevNotes
+              devNotes
             </span>
             <ChevronRight className="w-3 h-3 text-slate-400" />
             <span onContextMenu={handleBreadcrumbContextMenu} className="no-drag text-slate-900 dark:text-white font-semibold flex items-center gap-1.5 w-[200px] min-w-0">
@@ -646,10 +646,10 @@ export default function DashboardLayout({
         {/* 2.1 工具箱极简侧边栏 (56px / w-14) */}
         <aside className="w-14 bg-slate-50 dark:bg-dark-sidebar border-r border-slate-200/80 dark:border-dark-border flex flex-col items-center py-3 gap-4 flex-shrink-0 z-20">
           {/* 品牌 Logo */}
-          <Tooltip content="DevNotes 工具中心">
+          <Tooltip content="devNotes 工具中心">
             <img
               src={logo}
-              alt="DevNotes"
+              alt="devNotes"
               onClick={onBackToHub}
               className="w-8 h-8 object-contain cursor-pointer transition-[transform,filter] duration-200 hover:scale-105 active:scale-95 drop-shadow-[0_0_10px_rgba(80,189,207,0.35)] hover:drop-shadow-[0_0_16px_rgba(80,189,207,0.6)]"
             />

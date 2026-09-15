@@ -534,7 +534,7 @@ export default function CloudflareSyncPanel() {
                     checked={Boolean(cfConfig.autoSyncOnStartup)}
                     onChange={(checked) => updateCfConfig({ autoSyncOnStartup: checked })}
                     label="软件启动时自动拉取"
-                    description="每次打开 DevNotes 时，自动拉取云端最新笔记并进行智能合并"
+                    description="每次打开 devNotes 时，自动拉取云端最新笔记并进行智能合并"
                   />
                 </div>
               </div>
