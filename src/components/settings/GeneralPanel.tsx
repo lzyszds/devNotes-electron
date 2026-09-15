@@ -11,6 +11,8 @@ import {
   PanelLeft,
   Search,
   Settings,
+  ShieldCheck,
+  Sparkles,
   Sun,
 } from 'lucide-react'
 import Select from '../ui/Select'
@@ -111,7 +113,7 @@ const SHORTCUT_ITEMS: ShortcutItem[] = [
     keys: '⌘ ,',
     keyParts: ['⌘', ','],
     label: '打开全局设置',
-    description: '随时呼出主设置弹窗，调整 10 款主题配色、AI 接口、代码块高亮与界面偏好。',
+    description: '随时呼出主设置弹窗，调整 20 款主题配色、AI 接口、代码块高亮与界面偏好。',
     category: '全局偏好',
     icon: Settings,
   },
@@ -469,7 +471,7 @@ export default function GeneralPanel({
           <button
             type="button"
             onClick={onResetSidebarWidth}
-            className="flex-shrink-0 px-3 py-1.5 bg-slate-100 dark:bg-dark-hover hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium rounded-lg transition-colors"
+            className="flex-shrink-0 px-3 py-1.5 bg-slate-100 hover:bg-slate-200/80 dark:bg-dark-hover dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-200 text-xs font-medium rounded-lg border border-slate-200/60 dark:border-dark-border transition-all active:scale-[0.98]"
           >
             恢复默认
           </button>
@@ -536,18 +538,41 @@ export default function GeneralPanel({
       {/* ================= 关于 ================= */}
       <section className="space-y-3">
         <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-          关于
+          关于 DevNotes
         </h4>
-        <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-dark-sidebar/60 border border-slate-100 dark:border-dark-border space-y-1">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-800 dark:text-white">DevNotes</span>
-            <span className="text-[11px] font-mono text-slate-400">
-              {version ? `v${version}` : '—'}
+        <div className="p-4 rounded-2xl bg-gradient-to-br from-slate-50/90 via-slate-50/40 to-brand-50/20 dark:from-dark-sidebar/70 dark:via-dark-sidebar/40 dark:to-brand-950/10 border border-slate-200/70 dark:border-dark-border shadow-2xs space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-brand-600 to-brand-400 text-white flex items-center justify-center shadow-xs shadow-brand-500/25">
+                <Sparkles className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-900 dark:text-white">
+                    DevNotes 开发者随手记
+                  </span>
+                  <span className="px-1.5 py-0.5 rounded-md font-mono text-[10px] font-semibold bg-white dark:bg-dark-panel text-slate-600 dark:text-slate-300 border border-slate-200/80 dark:border-dark-border shadow-2xs">
+                    {version ? `v${version}` : 'v2026.4'}
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  轻量、安全、专注的本地离线优先 Markdown 写作与开发者工具箱
+                </p>
+              </div>
+            </div>
+
+            <div className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-800/30 text-emerald-700 dark:text-emerald-300 text-[10px] font-medium flex-shrink-0">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>本地离线保护</span>
+            </div>
+          </div>
+
+          <div className="pt-2.5 border-t border-slate-200/50 dark:border-dark-border/60 text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed flex items-start gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-brand-500 flex-shrink-0 mt-1.5" />
+            <span>
+              笔记内容、翻译接口密钥与云同步凭据均仅加密存放在您的本机本地数据库中，绝不在未经用户授权的情况下上传至任何第三方云端。
             </span>
           </div>
-          <p className="text-[11px] text-slate-400 leading-relaxed">
-            笔记、翻译接口密钥与云同步凭据均保存在本机，不会上传到除你自行配置的服务之外的任何地方。
-          </p>
         </div>
       </section>
     </div>

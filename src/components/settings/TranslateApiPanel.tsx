@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { AlertCircle, CheckCircle2, Eye, EyeOff, Loader2 } from 'lucide-react'
+import { Eye, EyeOff, KeyRound, Loader2 } from 'lucide-react'
 import { useToast } from '../ui/Toast'
+import { NoteCard } from '../ui'
 import {
   DEFAULT_TRANSLATE_CONFIG,
   loadTranslateConfig,
@@ -12,7 +13,7 @@ import { probeProvider } from '../../utils/translateProviders'
 import Tooltip from '../ui/Tooltip'
 
 const INPUT_CLASS =
-  'w-full px-3 py-1.5 text-xs bg-white dark:bg-dark-panel border border-slate-200 dark:border-dark-border rounded-lg outline-none focus:border-brand-500 text-slate-800 dark:text-white placeholder:text-slate-400'
+  'w-full px-3 py-2 text-xs bg-white dark:bg-dark-panel border border-slate-200/80 dark:border-dark-border rounded-xl outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 text-slate-800 dark:text-white placeholder:text-slate-400 transition-all shadow-2xs'
 
 const LABEL_CLASS = 'block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5'
 
@@ -68,7 +69,7 @@ export default function TranslateApiPanel() {
     <div className="space-y-4">
       <div>
         <label className={LABEL_CLASS}>接口类型</label>
-        <div className="grid grid-cols-2 gap-1 p-1 bg-slate-100 dark:bg-dark-hover rounded-xl">
+        <div className="grid grid-cols-2 gap-0.5 p-0.5 bg-slate-100 dark:bg-dark-sidebar rounded-xl border border-slate-200/60 dark:border-dark-border">
           {PROVIDER_OPTIONS.map((opt) => {
             const active = formConfig.provider === opt.value
             return (
@@ -79,10 +80,10 @@ export default function TranslateApiPanel() {
                   setFormConfig((prev) => ({ ...prev, provider: opt.value }))
                   setTestResult(null)
                 }}
-                className={`py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+                className={`py-1.5 text-xs rounded-lg transition-all ${
                   active
-                    ? 'bg-white dark:bg-dark-panel text-brand-600 dark:text-brand-400 shadow-xs'
-                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                    ? 'bg-white dark:bg-dark-panel text-slate-900 dark:text-white font-semibold shadow-2xs'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 font-medium'
                 }`}
               >
                 {opt.label}
@@ -181,35 +182,24 @@ export default function TranslateApiPanel() {
         </div>
       )}
 
-      <div className="p-2.5 bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 rounded-xl text-[10px] text-amber-900 dark:text-amber-200 leading-relaxed">
+      <NoteCard variant="warning" icon={KeyRound} title="密钥安全提示">
         密钥以明文保存在本机配置文件中，请勿在共享设备上使用，建议使用权限受限的专用 Key。
-      </div>
+      </NoteCard>
 
       {testResult && (
-        <div
-          className={`p-3 rounded-xl border text-xs flex items-start gap-2 ${
-            testResult.ok
-              ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-900/50'
-              : 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-900/50'
-          }`}
-        >
-          {testResult.ok ? (
-            <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5" />
-          ) : (
-            <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-          )}
+        <NoteCard variant={testResult.ok ? 'success' : 'danger'}>
           <span className="break-all select-text">{testResult.message}</span>
-        </div>
+        </NoteCard>
       )}
 
-      <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100 dark:border-dark-border">
+      <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-dark-border">
         <span className="text-[10px] text-slate-400">当前：{currentLabel}</span>
         <div className="flex items-center gap-2">
           <button
             type="button"
             disabled={isTesting}
             onClick={handleTest}
-            className="px-3.5 py-1.5 bg-slate-100 dark:bg-dark-hover hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-50"
+            className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200/80 dark:bg-dark-hover dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-200 text-xs font-medium rounded-lg border border-slate-200/60 dark:border-dark-border transition-all active:scale-[0.98] flex items-center gap-1.5 disabled:opacity-50"
           >
             {isTesting && <Loader2 className="w-3 h-3 animate-spin" />}
             <span>测试翻译</span>
@@ -217,7 +207,7 @@ export default function TranslateApiPanel() {
           <button
             type="button"
             onClick={handleSave}
-            className="px-4 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors"
+            className="px-4 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold rounded-lg shadow-xs shadow-brand-500/20 transition-all active:scale-[0.98]"
           >
             保存设置
           </button>

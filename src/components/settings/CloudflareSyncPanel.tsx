@@ -3,8 +3,6 @@ import type { ComponentType } from 'react'
 import {
   CloudUpload,
   CloudDownload,
-  CheckCircle2,
-  AlertCircle,
   Loader2,
   Copy,
   Check,
@@ -21,6 +19,7 @@ import {
   Trash2,
   Sparkles,
   Archive,
+  FileText,
 } from 'lucide-react'
 import { useNotes } from '../../context/NotesContext'
 import {
@@ -32,11 +31,17 @@ import { useContextMenu } from '../ui/ContextMenu'
 import { useToast } from '../ui/Toast'
 import { copyText } from '../../utils/clipboard'
 import Tooltip from '../ui/Tooltip'
+import { NoteCard, Switch } from '../ui'
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return bytes + ' B'
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
   return (bytes / (1024 * 1024)).toFixed(2) + ' MB'
+}
+
+/** NoteCard 的图标位不接受额外 props，转圈状态只能靠包一层常量组件带进去 */
+function SyncingIcon({ className }: { className?: string }) {
+  return <Loader2 className={`animate-spin ${className ?? ''}`} />
 }
 
 function formatRelativeTime(timestamp: number): string {
@@ -253,51 +258,67 @@ export default function CloudflareSyncPanel() {
   return (
     <div className="space-y-4">
       {/* 连接状态条 */}
-      <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-orange-50/50 dark:bg-orange-950/20 border border-orange-100 dark:border-orange-900/40">
-        <div className="flex items-center gap-2 text-xs text-orange-900 dark:text-orange-200">
-          {isConfigured ? (
-            <>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="font-semibold">已接入</span>
-              <span className="text-orange-700/70 dark:text-orange-300/70">
-                云端同步已开启，笔记变更会自动备份
-              </span>
-            </>
-          ) : (
-            <>
-              <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-              <span className="font-semibold">未接入</span>
-              <span className="text-orange-700/70 dark:text-orange-300/70">
-                前往「接入设置」填写 Cloudflare 凭据后启用
-              </span>
-            </>
-          )}
+      <div
+        className={`flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border transition-colors ${
+          isConfigured
+            ? 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200/60 dark:border-emerald-800/30'
+            : 'bg-slate-50/70 dark:bg-dark-sidebar/50 border-slate-200/70 dark:border-dark-border'
+        }`}
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <span
+            className={`w-2 h-2 rounded-full flex-shrink-0 ${
+              isConfigured ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300 dark:bg-slate-600'
+            }`}
+          />
+          <span
+            className={`text-xs font-semibold flex-shrink-0 ${
+              isConfigured ? 'text-emerald-800 dark:text-emerald-300' : 'text-slate-700 dark:text-slate-300'
+            }`}
+          >
+            {isConfigured ? '云端已接入' : '尚未接入云端'}
+          </span>
+          <span className="text-[11px] text-slate-400 truncate">
+            {isConfigured
+              ? '笔记变更会自动加密备份到 Cloudflare'
+              : '前往「接入设置」填写 Cloudflare 凭据后启用'}
+          </span>
         </div>
-        <span className="text-[10px] text-slate-400 flex-shrink-0">
-          最近同步：
-          {cfConfig.lastSyncTime ? new Date(cfConfig.lastSyncTime).toLocaleString() : '暂无记录'}
+        <span className="text-[10px] text-slate-400 flex-shrink-0 font-mono">
+          {cfConfig.lastSyncTime ? new Date(cfConfig.lastSyncTime).toLocaleString() : '暂无同步记录'}
         </span>
       </div>
 
-      {/* 面板内标签页切换栏 */}
-      <div className="flex border-b border-slate-100 dark:border-dark-border gap-1 overflow-x-auto scrollbar-hide">
+      {/* 面板内标签页切换栏：分段胶囊式控制器 */}
+      <div className="p-1 bg-slate-100/90 dark:bg-dark-sidebar/90 rounded-xl border border-slate-200/70 dark:border-dark-border flex gap-1 overflow-x-auto scrollbar-hide">
         {TABS.map((tab) => {
           const Icon = tab.icon
           const active = activeTab === tab.id
           return (
             <button
               key={tab.id}
+              type="button"
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-1.5 py-2.5 px-3 text-xs font-semibold border-b-2 whitespace-nowrap transition-all ${
+              className={`flex-1 min-w-fit flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-medium whitespace-nowrap transition-all active:scale-[0.98] ${
                 active
-                  ? 'border-orange-500 text-orange-600 dark:text-orange-400'
-                  : 'border-transparent text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                  ? 'bg-white dark:bg-dark-panel text-slate-900 dark:text-white font-semibold shadow-2xs'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
               }`}
             >
-              <Icon className="w-3.5 h-3.5" />
+              <Icon
+                className={`w-3.5 h-3.5 ${
+                  active ? 'text-brand-600 dark:text-brand-400' : 'text-slate-400'
+                }`}
+              />
               <span>{tab.label}</span>
               {tab.id === 'snapshots' && snapshots.length > 0 && (
-                <span className="ml-0.5 px-1.5 text-[10px] font-mono rounded-full bg-orange-100 dark:bg-orange-950 text-orange-600 dark:text-orange-400">
+                <span
+                  className={`ml-0.5 px-1.5 text-[10px] font-mono rounded-full ${
+                    active
+                      ? 'bg-brand-50 text-brand-600 dark:bg-brand-950/50 dark:text-brand-300'
+                      : 'bg-slate-200/70 text-slate-500 dark:bg-dark-hover dark:text-slate-400'
+                  }`}
+                >
                   {snapshots.length}
                 </span>
               )}
@@ -311,27 +332,50 @@ export default function CloudflareSyncPanel() {
         {/* TAB 1: 同步与备份控制台 */}
         {activeTab === 'console' && (
           <div className="space-y-5">
-            {/* 状态总览卡片 */}
+            {/* 状态总览卡片：现代纯净指标看板 */}
             <div className="grid grid-cols-2 gap-3">
-              <div className="p-3 bg-slate-50 dark:bg-dark-sidebar/60 border border-slate-100 dark:border-dark-border rounded-xl">
-                <span className="text-[10px] text-slate-400 uppercase font-semibold">本地文档</span>
-                <div className="text-base font-bold text-slate-800 dark:text-white mt-0.5">
-                  {notes.length} <span className="text-xs font-normal text-slate-400">篇</span>
+              <div className="p-4 bg-white dark:bg-dark-panel/90 border border-slate-200/80 dark:border-dark-border rounded-2xl shadow-2xs space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-xl bg-brand-50 dark:bg-brand-950/40 text-brand-600 dark:text-brand-400 flex items-center justify-center shadow-2xs">
+                      <FileText className="w-3.5 h-3.5" />
+                    </div>
+                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      本地文档
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-slate-400 font-mono">已就绪</span>
+                </div>
+                <div className="flex items-baseline gap-1.5 pt-0.5">
+                  <span className="text-2xl font-bold font-mono text-slate-900 dark:text-white tracking-tight">
+                    {notes.length}
+                  </span>
+                  <span className="text-xs text-slate-400">篇</span>
                 </div>
               </div>
 
               <div
                 onClick={() => setActiveTab('snapshots')}
-                className="p-3 bg-slate-50 dark:bg-dark-sidebar/60 border border-slate-100 dark:border-dark-border rounded-xl cursor-pointer hover:border-orange-300 dark:hover:border-orange-700 transition-colors group"
+                className="p-4 bg-white dark:bg-dark-panel/90 border border-slate-200/80 dark:border-dark-border rounded-2xl shadow-2xs cursor-pointer hover:border-brand-400 dark:hover:border-brand-600 hover:shadow-xs active:scale-[0.99] transition-all group space-y-2"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] text-slate-400 uppercase font-semibold">备份快照</span>
-                  <span className="text-[10px] text-orange-600 dark:text-orange-400 group-hover:underline">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 flex items-center justify-center shadow-2xs">
+                      <History className="w-3.5 h-3.5" />
+                    </div>
+                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      备份快照
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-medium text-brand-600 dark:text-brand-400 group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">
                     查看 ↗
                   </span>
                 </div>
-                <div className="text-base font-bold text-slate-800 dark:text-white mt-0.5">
-                  {snapshots.length} <span className="text-xs font-normal text-slate-400">个版本</span>
+                <div className="flex items-baseline gap-1.5 pt-0.5">
+                  <span className="text-2xl font-bold font-mono text-slate-900 dark:text-white tracking-tight">
+                    {snapshots.length}
+                  </span>
+                  <span className="text-xs text-slate-400">个历史版本</span>
                 </div>
               </div>
             </div>
@@ -347,7 +391,7 @@ export default function CloudflareSyncPanel() {
                 <div className="p-4 border border-slate-200/80 dark:border-dark-border rounded-xl bg-white dark:bg-dark-sidebar/40 flex flex-col justify-between space-y-3">
                   <div>
                     <div className="flex items-center gap-2 font-semibold text-slate-800 dark:text-white text-xs">
-                      <CloudUpload className="w-4 h-4 text-orange-500" />
+                      <CloudUpload className="w-4 h-4 text-brand-500" />
                       <span>推送备份至 Cloudflare</span>
                     </div>
                     <p className="text-[11px] text-slate-400 mt-1">
@@ -357,7 +401,7 @@ export default function CloudflareSyncPanel() {
                   <button
                     disabled={isOperating || !isConfigured}
                     onClick={handleBackup}
-                    className="w-full flex items-center justify-center gap-1.5 py-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white text-xs font-semibold rounded-lg shadow-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full flex items-center justify-center gap-1.5 py-2 bg-brand-600 hover:bg-brand-700 active:scale-[0.98] text-white text-xs font-semibold rounded-xl shadow-xs shadow-brand-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isOperating ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -382,7 +426,7 @@ export default function CloudflareSyncPanel() {
                   <button
                     disabled={isOperating || !isConfigured}
                     onClick={handlePullMerge}
-                    className="w-full flex items-center justify-center gap-1.5 py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 text-xs font-semibold rounded-lg shadow-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full flex items-center justify-center gap-1.5 py-2 bg-slate-100 hover:bg-slate-200/80 dark:bg-dark-hover dark:hover:bg-slate-700/60 text-slate-800 dark:text-slate-100 border border-slate-200/80 dark:border-dark-border text-xs font-semibold rounded-xl shadow-2xs transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isOperating ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -395,41 +439,42 @@ export default function CloudflareSyncPanel() {
               </div>
 
               {/* 危险操作区：云端单向覆盖 */}
-              <div className="p-3 bg-rose-50/50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-xl flex items-center justify-between">
-                <div className="flex items-center gap-2 text-rose-800 dark:text-rose-300 text-xs">
-                  <RotateCcw className="w-3.5 h-3.5 text-rose-500" />
-                  <span>以云端完全覆盖重置本地</span>
-                </div>
-                <button
-                  disabled={isOperating || !isConfigured}
-                  onClick={handlePullOverwrite}
-                  className="px-2.5 py-1 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/50 rounded-md text-xs font-medium transition-colors disabled:opacity-50"
-                >
-                  从云端覆盖本地
-                </button>
-              </div>
+              <NoteCard
+                variant="danger"
+                icon={RotateCcw}
+                action={
+                  <button
+                    disabled={isOperating || !isConfigured}
+                    onClick={handlePullOverwrite}
+                    className="px-2.5 py-1 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-800/60 rounded-lg text-xs font-medium transition-all active:scale-[0.98] disabled:opacity-50"
+                  >
+                    从云端覆盖本地
+                  </button>
+                }
+              >
+                <span className="font-semibold text-rose-900 dark:text-rose-200 block text-xs mb-0.5">
+                  以云端完全覆盖重置本地
+                </span>
+                <span className="text-[11px] text-rose-800/80 dark:text-rose-300/80">
+                  将本地所有笔记清空并强制对齐云端备份版本，请谨慎执行。
+                </span>
+              </NoteCard>
             </div>
 
             {/* 实时状态提示 */}
             {cfSyncMessage && (
-              <div
-                className={`p-3 rounded-xl border text-xs flex items-center gap-2 ${
+              <NoteCard
+                variant={
                   cfSyncStatus === 'error'
-                    ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-900/50'
+                    ? 'danger'
                     : cfSyncStatus === 'success'
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-900/50'
-                      : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-900/50'
-                }`}
+                      ? 'success'
+                      : 'warning'
+                }
+                icon={cfSyncStatus === 'syncing' ? SyncingIcon : undefined}
               >
-                {cfSyncStatus === 'syncing' ? (
-                  <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />
-                ) : cfSyncStatus === 'success' ? (
-                  <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-                ) : (
-                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                )}
                 <span className="truncate">{cfSyncMessage}</span>
-              </div>
+              </NoteCard>
             )}
 
             {/* 自动化策略开关 */}
@@ -438,39 +483,33 @@ export default function CloudflareSyncPanel() {
                 自动化备份策略
               </h4>
 
-              <div className="space-y-2">
-                <div className="p-3 rounded-xl border border-slate-100 dark:border-dark-border bg-slate-50/40 dark:bg-dark-sidebar/40 space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5 text-orange-500" />
+              <div className="space-y-2.5">
+                <div className="p-3.5 rounded-2xl border border-slate-200/80 dark:border-dark-border bg-slate-50/50 dark:bg-dark-sidebar/40 space-y-3 shadow-2xs">
+                  <Switch
+                    checked={Boolean(cfConfig.autoBackupEnabled)}
+                    onChange={(checked) => updateCfConfig({ autoBackupEnabled: checked })}
+                    label={
+                      <span className="flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
                         <span>后台周期性自动备份</span>
-                      </div>
-                      <div className="text-[11px] text-slate-400">
-                        按固定时间间隔在后台自动生成多版本快照并推送云端
-                      </div>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={cfConfig.autoBackupEnabled}
-                      onChange={(e) => updateCfConfig({ autoBackupEnabled: e.target.checked })}
-                      className="w-4 h-4 rounded text-orange-600 focus:ring-orange-500"
-                    />
-                  </div>
+                      </span>
+                    }
+                    description="按固定时间间隔在后台自动生成多版本快照并安全推送至云端存储"
+                  />
 
                   {cfConfig.autoBackupEnabled && (
-                    <div className="flex items-center gap-2 pt-1 border-t border-slate-200/50 dark:border-dark-border/60">
-                      <span className="text-[11px] text-slate-500">备份频率周期:</span>
+                    <div className="flex items-center gap-2 pt-2 border-t border-slate-200/60 dark:border-dark-border/60">
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400">备份频率周期:</span>
                       <div className="flex items-center gap-1.5">
                         {[5, 10, 15, 30, 60].map((mins) => (
                           <button
                             key={mins}
                             type="button"
                             onClick={() => updateCfConfig({ autoBackupIntervalMinutes: mins })}
-                            className={`px-2 py-0.5 rounded text-[11px] font-medium transition-all ${
+                            className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all active:scale-[0.98] ${
                               (cfConfig.autoBackupIntervalMinutes || 10) === mins
-                                ? 'bg-orange-600 text-white shadow-xs'
-                                : 'bg-white dark:bg-dark-panel text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-dark-border hover:bg-slate-100'
+                                ? 'bg-brand-600 text-white shadow-xs font-semibold'
+                                : 'bg-white dark:bg-dark-panel text-slate-600 dark:text-slate-400 border border-slate-200/80 dark:border-dark-border hover:bg-slate-50 dark:hover:bg-dark-hover shadow-2xs'
                             }`}
                           >
                             {mins} 分钟
@@ -481,39 +520,23 @@ export default function CloudflareSyncPanel() {
                   )}
                 </div>
 
-                <label className="flex items-center justify-between p-2.5 rounded-xl border border-slate-100 dark:border-dark-border hover:bg-slate-50 dark:hover:bg-dark-hover/50 cursor-pointer transition-colors">
-                  <div>
-                    <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-                      内容修改后防抖自动上传与快照
-                    </div>
-                    <div className="text-[11px] text-slate-400">
-                      停止编辑 3 秒后，自动将笔记静默同步到 Cloudflare 云端并存档
-                    </div>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={cfConfig.autoSync}
-                    onChange={(e) => updateCfConfig({ autoSync: e.target.checked })}
-                    className="w-4 h-4 rounded text-orange-600 focus:ring-orange-500"
+                <div className="p-3.5 rounded-2xl border border-slate-200/80 dark:border-dark-border bg-white dark:bg-dark-sidebar/40 shadow-2xs">
+                  <Switch
+                    checked={Boolean(cfConfig.autoSync)}
+                    onChange={(checked) => updateCfConfig({ autoSync: checked })}
+                    label="内容修改后防抖自动上传与快照"
+                    description="停止编辑 3 秒后，自动将笔记静默同步到 Cloudflare 云端并存档"
                   />
-                </label>
+                </div>
 
-                <label className="flex items-center justify-between p-2.5 rounded-xl border border-slate-100 dark:border-dark-border hover:bg-slate-50 dark:hover:bg-dark-hover/50 cursor-pointer transition-colors">
-                  <div>
-                    <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-                      软件启动时自动拉取
-                    </div>
-                    <div className="text-[11px] text-slate-400">
-                      每次打开 DevNotes 时，自动拉取云端笔记并智能合并
-                    </div>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={cfConfig.autoSyncOnStartup}
-                    onChange={(e) => updateCfConfig({ autoSyncOnStartup: e.target.checked })}
-                    className="w-4 h-4 rounded text-orange-600 focus:ring-orange-500"
+                <div className="p-3.5 rounded-2xl border border-slate-200/80 dark:border-dark-border bg-white dark:bg-dark-sidebar/40 shadow-2xs">
+                  <Switch
+                    checked={Boolean(cfConfig.autoSyncOnStartup)}
+                    onChange={(checked) => updateCfConfig({ autoSyncOnStartup: checked })}
+                    label="软件启动时自动拉取"
+                    description="每次打开 DevNotes 时，自动拉取云端最新笔记并进行智能合并"
                   />
-                </label>
+                </div>
               </div>
             </div>
           </div>
@@ -527,7 +550,7 @@ export default function CloudflareSyncPanel() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                 <div>
                   <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900 dark:text-white">
-                    <Archive className="w-4 h-4 text-orange-500" />
+                    <Archive className="w-4 h-4 text-brand-500" />
                     <span>多版本历史快照库</span>
                     <span className="text-[10px] font-normal text-slate-400">
                       (当前已存 {snapshots.length} / {cfConfig.maxSnapshots || 20} 个版本)
@@ -543,7 +566,7 @@ export default function CloudflareSyncPanel() {
                     type="button"
                     disabled={isOperating}
                     onClick={handleCreateSnapshot}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-medium shadow-xs transition-colors disabled:opacity-50"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-medium shadow-xs transition-colors disabled:opacity-50"
                   >
                     <Sparkles className="w-3.5 h-3.5" />
                     <span>创建手动快照</span>
@@ -566,27 +589,16 @@ export default function CloudflareSyncPanel() {
 
               {/* 快照通知信息 */}
               {snapshotMsg && (
-                <div
-                  className={`p-2.5 rounded-lg border text-xs flex items-center gap-2 ${
-                    snapshotMsg.ok
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-900/50'
-                      : 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-900/50'
-                  }`}
-                >
-                  {snapshotMsg.ok ? (
-                    <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
-                  ) : (
-                    <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
-                  )}
+                <NoteCard variant={snapshotMsg.ok ? 'success' : 'danger'}>
                   <span>{snapshotMsg.text}</span>
-                </div>
+                </NoteCard>
               )}
             </div>
 
             {/* 快照列表区 */}
             {snapshots.length === 0 ? (
               <div className="py-12 flex flex-col items-center justify-center text-center text-slate-400 space-y-3 border border-dashed border-slate-200 dark:border-dark-border rounded-xl">
-                <div className="w-12 h-12 rounded-full bg-orange-50 dark:bg-orange-950/40 flex items-center justify-center text-orange-500">
+                <div className="w-12 h-12 rounded-full bg-brand-50 dark:bg-brand-950/40 flex items-center justify-center text-brand-500">
                   <History className="w-6 h-6" />
                 </div>
                 <div>
@@ -599,7 +611,7 @@ export default function CloudflareSyncPanel() {
                 </div>
                 <button
                   onClick={handleCreateSnapshot}
-                  className="mt-2 text-xs font-semibold text-orange-600 dark:text-orange-400 hover:underline"
+                  className="mt-2 text-xs font-semibold text-brand-600 dark:text-brand-400 hover:underline"
                 >
                   立即为当前数据创建首份快照 ↗
                 </button>
@@ -615,7 +627,7 @@ export default function CloudflareSyncPanel() {
                     <div
                       key={snap.id}
                       onContextMenu={(e) => void handleSnapshotContextMenu(e, snap)}
-                      className="p-3 bg-white dark:bg-dark-sidebar/40 border border-slate-200/80 dark:border-dark-border rounded-xl hover:border-orange-300 dark:hover:border-orange-800 transition-all space-y-2 group shadow-2xs"
+                      className="p-3 bg-white dark:bg-dark-sidebar/40 border border-slate-200/80 dark:border-dark-border rounded-xl hover:border-brand-300 dark:hover:border-brand-800 transition-all space-y-2 group shadow-2xs"
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -658,7 +670,7 @@ export default function CloudflareSyncPanel() {
                           <button
                             type="button"
                             onClick={() => handleRestore(snap)}
-                            className="px-2.5 py-1 bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-orange-600 dark:hover:bg-orange-500 dark:hover:text-white rounded-md text-[11px] font-semibold transition-colors flex items-center gap-1 shadow-xs"
+                            className="px-2.5 py-1 bg-slate-100 hover:bg-brand-600 dark:bg-dark-hover dark:hover:bg-brand-600 text-slate-700 hover:text-white dark:text-slate-200 dark:hover:text-white border border-slate-200/80 dark:border-dark-border hover:border-brand-600 rounded-lg text-[11px] font-semibold transition-all active:scale-[0.98] flex items-center gap-1 shadow-2xs group-hover:border-brand-300"
                           >
                             <RotateCcw className="w-3 h-3" />
                             <span>回滚恢复</span>
@@ -706,20 +718,12 @@ export default function CloudflareSyncPanel() {
         {activeTab === 'config' && (
           <div className="space-y-4">
             {/* 启用主开关 */}
-            <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-dark-sidebar/60 border border-slate-100 dark:border-dark-border rounded-xl">
-              <div>
-                <div className="text-xs font-bold text-slate-900 dark:text-white">
-                  开启 Cloudflare 云端同步
-                </div>
-                <div className="text-[11px] text-slate-400">
-                  开启后允许本客户端与 Cloudflare 通信进行备份与拉取
-                </div>
-              </div>
-              <input
-                type="checkbox"
-                checked={formConfig.enabled}
-                onChange={(e) => setFormConfig((prev) => ({ ...prev, enabled: e.target.checked }))}
-                className="w-4 h-4 rounded text-orange-600 focus:ring-orange-500"
+            <div className="p-3.5 bg-slate-50/70 dark:bg-dark-sidebar/50 border border-slate-200/80 dark:border-dark-border rounded-2xl shadow-2xs">
+              <Switch
+                checked={Boolean(formConfig.enabled)}
+                onChange={(checked) => setFormConfig((prev) => ({ ...prev, enabled: checked }))}
+                label="开启 Cloudflare 云端同步"
+                description="开启后允许本客户端与 Cloudflare 通信进行备份与拉取"
               />
             </div>
 
@@ -728,23 +732,25 @@ export default function CloudflareSyncPanel() {
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 接入通道模式
               </label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2.5">
                 <button
                   type="button"
                   onClick={() => setFormConfig((prev) => ({ ...prev, mode: 'worker' }))}
-                  className={`p-3 rounded-xl border text-left transition-all ${
+                  className={`p-3 rounded-2xl border text-left transition-all active:scale-[0.99] shadow-2xs ${
                     formConfig.mode === 'worker'
-                      ? 'border-orange-500 bg-orange-50/50 dark:bg-orange-950/20 text-orange-900 dark:text-orange-200'
-                      : 'border-slate-200 dark:border-dark-border hover:bg-slate-50 dark:hover:bg-dark-hover'
+                      ? 'border-brand-500 bg-brand-50/50 dark:bg-brand-950/25 ring-2 ring-brand-500/15'
+                      : 'border-slate-200/80 dark:border-dark-border hover:bg-slate-50 dark:hover:bg-dark-hover/50'
                   }`}
                 >
-                  <div className="text-xs font-bold flex items-center gap-1.5">
-                    <span>Cloudflare Worker</span>
-                    <span className="text-[9px] bg-orange-500 text-white px-1.5 py-0.2 rounded-full">
+                  <div className="flex items-center justify-between gap-1.5">
+                    <span className="text-xs font-bold text-slate-900 dark:text-white">
+                      Cloudflare Worker
+                    </span>
+                    <span className="text-[9px] font-semibold bg-brand-600 text-white px-1.5 py-px rounded-full flex-shrink-0">
                       推荐
                     </span>
                   </div>
-                  <div className="text-[10px] text-slate-400 mt-1">
+                  <div className="text-[10px] text-slate-400 mt-1 leading-relaxed">
                     只需 Worker 地址与秘钥，免 CORS 限制
                   </div>
                 </button>
@@ -752,14 +758,16 @@ export default function CloudflareSyncPanel() {
                 <button
                   type="button"
                   onClick={() => setFormConfig((prev) => ({ ...prev, mode: 'kv' }))}
-                  className={`p-3 rounded-xl border text-left transition-all ${
+                  className={`p-3 rounded-2xl border text-left transition-all active:scale-[0.99] shadow-2xs ${
                     formConfig.mode === 'kv'
-                      ? 'border-orange-500 bg-orange-50/50 dark:bg-orange-950/20 text-orange-900 dark:text-orange-200'
-                      : 'border-slate-200 dark:border-dark-border hover:bg-slate-50 dark:hover:bg-dark-hover'
+                      ? 'border-brand-500 bg-brand-50/50 dark:bg-brand-950/25 ring-2 ring-brand-500/15'
+                      : 'border-slate-200/80 dark:border-dark-border hover:bg-slate-50 dark:hover:bg-dark-hover/50'
                   }`}
                 >
-                  <div className="text-xs font-bold">Cloudflare KV API</div>
-                  <div className="text-[10px] text-slate-400 mt-1">
+                  <div className="text-xs font-bold text-slate-900 dark:text-white">
+                    Cloudflare KV API
+                  </div>
+                  <div className="text-[10px] text-slate-400 mt-1 leading-relaxed">
                     官方 REST API 直连，免写 Worker 代码
                   </div>
                 </button>
@@ -780,7 +788,7 @@ export default function CloudflareSyncPanel() {
                       setFormConfig((prev) => ({ ...prev, workerUrl: e.target.value.trim() }))
                     }
                     placeholder="https://fehelper.1024327189.workers.dev"
-                    className="w-full px-3 py-1.5 text-xs bg-white dark:bg-dark-panel border border-slate-200 dark:border-dark-border rounded-lg outline-none focus:border-orange-500 text-slate-800 dark:text-white"
+                    className="w-full px-3 py-2 text-xs bg-white dark:bg-dark-panel border border-slate-200/80 dark:border-dark-border rounded-xl outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 text-slate-800 dark:text-white placeholder:text-slate-400 transition-all shadow-2xs"
                   />
                 </div>
 
@@ -795,7 +803,7 @@ export default function CloudflareSyncPanel() {
                       setFormConfig((prev) => ({ ...prev, workerToken: e.target.value.trim() }))
                     }
                     placeholder="在 Worker 环境变量中配置的 SECRET_TOKEN"
-                    className="w-full px-3 py-1.5 text-xs bg-white dark:bg-dark-panel border border-slate-200 dark:border-dark-border rounded-lg outline-none focus:border-orange-500 text-slate-800 dark:text-white font-mono"
+                    className="w-full px-3 py-2 text-xs bg-white dark:bg-dark-panel border border-slate-200/80 dark:border-dark-border rounded-xl outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 text-slate-800 dark:text-white placeholder:text-slate-400 font-mono transition-all shadow-2xs"
                   />
                 </div>
               </div>
@@ -812,7 +820,7 @@ export default function CloudflareSyncPanel() {
                       setFormConfig((prev) => ({ ...prev, kvAccountId: e.target.value.trim() }))
                     }
                     placeholder="可在 Cloudflare 域名概述或控制台右下角复制"
-                    className="w-full px-3 py-1.5 text-xs bg-white dark:bg-dark-panel border border-slate-200 dark:border-dark-border rounded-lg outline-none focus:border-orange-500 text-slate-800 dark:text-white font-mono"
+                    className="w-full px-3 py-2 text-xs bg-white dark:bg-dark-panel border border-slate-200/80 dark:border-dark-border rounded-xl outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 text-slate-800 dark:text-white placeholder:text-slate-400 font-mono transition-all shadow-2xs"
                   />
                 </div>
 
@@ -827,7 +835,7 @@ export default function CloudflareSyncPanel() {
                       setFormConfig((prev) => ({ ...prev, kvNamespaceId: e.target.value.trim() }))
                     }
                     placeholder="Cloudflare -> Workers & Pages -> KV 中创建的 ID"
-                    className="w-full px-3 py-1.5 text-xs bg-white dark:bg-dark-panel border border-slate-200 dark:border-dark-border rounded-lg outline-none focus:border-orange-500 text-slate-800 dark:text-white font-mono"
+                    className="w-full px-3 py-2 text-xs bg-white dark:bg-dark-panel border border-slate-200/80 dark:border-dark-border rounded-xl outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 text-slate-800 dark:text-white placeholder:text-slate-400 font-mono transition-all shadow-2xs"
                   />
                 </div>
 
@@ -842,33 +850,30 @@ export default function CloudflareSyncPanel() {
                       setFormConfig((prev) => ({ ...prev, kvApiToken: e.target.value.trim() }))
                     }
                     placeholder="具备 Workers KV Storage: Edit 权限的 API Token"
-                    className="w-full px-3 py-1.5 text-xs bg-white dark:bg-dark-panel border border-slate-200 dark:border-dark-border rounded-lg outline-none focus:border-orange-500 text-slate-800 dark:text-white font-mono"
+                    className="w-full px-3 py-2 text-xs bg-white dark:bg-dark-panel border border-slate-200/80 dark:border-dark-border rounded-xl outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 text-slate-800 dark:text-white placeholder:text-slate-400 font-mono transition-all shadow-2xs"
                   />
                 </div>
               </div>
             )}
 
             {/* 端到端加密 E2EE 设置 */}
-            <div className="p-3.5 bg-slate-50/60 dark:bg-dark-sidebar/40 rounded-xl border border-slate-100 dark:border-dark-border space-y-2.5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <Shield className="w-4 h-4 text-emerald-500" />
-                  <span className="text-xs font-bold text-slate-800 dark:text-white">
-                    端到端数据加密 (E2EE)
+            <div className="p-3.5 bg-slate-50/70 dark:bg-dark-sidebar/40 rounded-2xl border border-slate-200/80 dark:border-dark-border space-y-3 shadow-2xs">
+              <Switch
+                checked={Boolean(formConfig.enableE2EE)}
+                onChange={(checked) =>
+                  setFormConfig((prev) => ({ ...prev, enableE2EE: checked }))
+                }
+                label={
+                  <span className="flex items-center gap-1.5">
+                    <Shield className="w-3.5 h-3.5 text-emerald-500" />
+                    <span>端到端数据加密 (E2EE)</span>
                   </span>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={formConfig.enableE2EE}
-                  onChange={(e) =>
-                    setFormConfig((prev) => ({ ...prev, enableE2EE: e.target.checked }))
-                  }
-                  className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
-                />
-              </div>
+                }
+                description="笔记在离开本地前完成 AES-256-GCM 加密，云端无法解密读取"
+              />
 
               {formConfig.enableE2EE && (
-                <div className="space-y-1.5">
+                <div className="space-y-2 pt-2.5 border-t border-slate-200/60 dark:border-dark-border/60">
                   <div className="relative">
                     <input
                       type={showPassword ? 'text' : 'password'}
@@ -880,21 +885,21 @@ export default function CloudflareSyncPanel() {
                         }))
                       }
                       placeholder="输入端到端加密保护密码（请务必牢记）"
-                      className="w-full pl-8 pr-8 py-1.5 text-xs bg-white dark:bg-dark-panel border border-slate-200 dark:border-dark-border rounded-lg outline-none focus:border-emerald-500 text-slate-800 dark:text-white font-mono"
+                      className="w-full pl-8 pr-9 py-2 text-xs bg-white dark:bg-dark-panel border border-slate-200/80 dark:border-dark-border rounded-xl outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 text-slate-800 dark:text-white placeholder:text-slate-400 font-mono transition-all shadow-2xs"
                     />
-                    <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+                    <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                     <Tooltip content={showPassword ? '隐藏密码' : '显示密码'}>
                       <button
                         type="button"
                         onClick={() => setShowPassword((prev) => !prev)}
-                        className="p-1 text-slate-400 hover:text-slate-600 absolute right-2 top-1.5"
+                        className="p-1 text-slate-400 hover:text-slate-600 absolute right-2 top-1/2 -translate-y-1/2 rounded-md transition-colors"
                       >
                         {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                       </button>
                     </Tooltip>
                   </div>
-                  <p className="text-[10px] text-slate-400">
-                    采用 Web Crypto AES-256-GCM 算法。笔记在离开本地前被彻底加密，即便 Cloudflare 也无法解密读取。
+                  <p className="text-[10px] text-slate-400 leading-relaxed">
+                    采用 Web Crypto AES-256-GCM 算法。请务必牢记该密码，一旦遗失将无法解密还原云端数据。
                   </p>
                 </div>
               )}
@@ -902,29 +907,18 @@ export default function CloudflareSyncPanel() {
 
             {/* 测试连接反馈 */}
             {testResult && (
-              <div
-                className={`p-3 rounded-xl border text-xs flex items-center gap-2 ${
-                  testResult.ok
-                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-900/50'
-                    : 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-900/50'
-                }`}
-              >
-                {testResult.ok ? (
-                  <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-                ) : (
-                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                )}
-                <span>{testResult.message}</span>
-              </div>
+              <NoteCard variant={testResult.ok ? 'success' : 'danger'}>
+                <span className="break-all select-text">{testResult.message}</span>
+              </NoteCard>
             )}
 
             {/* 底部按钮栏 */}
-            <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-100 dark:border-dark-border">
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-dark-border">
               <button
                 type="button"
                 disabled={isTesting}
                 onClick={handleTestConnection}
-                className="px-3.5 py-1.5 bg-slate-100 dark:bg-dark-hover hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5"
+                className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200/80 dark:bg-dark-hover dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-200 text-xs font-medium rounded-lg border border-slate-200/60 dark:border-dark-border transition-all active:scale-[0.98] flex items-center gap-1.5 disabled:opacity-50"
               >
                 {isTesting && <Loader2 className="w-3 h-3 animate-spin" />}
                 <span>测试连接</span>
@@ -932,7 +926,7 @@ export default function CloudflareSyncPanel() {
               <button
                 type="button"
                 onClick={handleSaveConfig}
-                className="px-4 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors"
+                className="px-4 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold rounded-lg shadow-xs shadow-brand-500/20 transition-all active:scale-[0.98]"
               >
                 保存设置
               </button>
@@ -943,16 +937,14 @@ export default function CloudflareSyncPanel() {
         {/* TAB 4: Cloudflare Worker 部署指南 */}
         {activeTab === 'deploy' && (
           <div className="space-y-4">
-            <div className="p-3 bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-900/40 rounded-xl text-xs text-amber-900 dark:text-amber-200 space-y-1">
-              <div className="font-bold flex items-center gap-1.5">
-                <span>三步拥有属于你的 Cloudflare 同步服务</span>
-              </div>
-              <p className="text-[11px] text-amber-800/80 dark:text-amber-300/80">
-                1. 登录 Cloudflare Dashboard 并在 Workers 中新建一个 Worker。<br />
-                2. 复制下方脚本粘贴并部署，在 Settings -&gt; Variables 中绑定名为 <strong>FEHELPER_KV</strong> 的 KV 空间。<br />
-                3. 将生成的 Worker 网址填回「接入设置」即可永久免费同步！
-              </p>
-            </div>
+            <NoteCard variant="warning" title="三步拥有属于你的 Cloudflare 同步服务">
+              1. 登录 Cloudflare Dashboard 并在 Workers 中新建一个 Worker。
+              <br />
+              2. 复制下方脚本粘贴并部署，在 Settings → Variables 中绑定名为{' '}
+              <strong className="font-semibold">FEHELPER_KV</strong> 的 KV 空间。
+              <br />
+              3. 将生成的 Worker 网址填回「接入设置」即可永久免费同步。
+            </NoteCard>
 
             <div className="relative">
               <div className="flex items-center justify-between pb-1.5 text-xs text-slate-400">
@@ -960,12 +952,12 @@ export default function CloudflareSyncPanel() {
                 <Tooltip content="复制 Worker 脚本">
                   <button
                     onClick={handleCopyWorkerScript}
-                    className="flex items-center gap-1 px-2.5 py-1 bg-slate-100 dark:bg-dark-hover hover:bg-slate-200 rounded-md text-xs font-medium text-slate-700 dark:text-slate-300 transition-colors"
+                    className="flex items-center gap-1 px-2.5 py-1 bg-slate-100 hover:bg-slate-200/80 dark:bg-dark-hover dark:hover:bg-slate-700/60 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-200 border border-slate-200/60 dark:border-dark-border transition-all active:scale-[0.98]"
                   >
                     {copied ? (
                       <>
-                        <Check className="w-3.5 h-3.5 text-emerald-600" />
-                        <span className="text-emerald-600 font-bold">已复制</span>
+                        <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                        <span className="text-emerald-600 dark:text-emerald-400 font-bold">已复制</span>
                       </>
                     ) : (
                       <>
@@ -977,7 +969,7 @@ export default function CloudflareSyncPanel() {
                 </Tooltip>
               </div>
 
-              <pre className="p-3.5 bg-slate-900 text-slate-200 rounded-xl font-mono text-[11px] leading-5 max-h-72 overflow-y-auto border border-slate-800">
+              <pre className="p-3.5 bg-slate-900 text-slate-200 rounded-2xl font-mono text-[11px] leading-5 max-h-72 overflow-y-auto border border-slate-800 shadow-2xs">
                 {CLOUDFLARE_WORKER_SCRIPT}
               </pre>
             </div>

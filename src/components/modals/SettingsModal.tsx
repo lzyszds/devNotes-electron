@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Cloud, Languages, Loader2, Settings2, X } from 'lucide-react'
 import type { ComponentType } from 'react'
 import { useNotes } from '../../context/NotesContext'
+import { usePresence } from '../../hooks/usePresence'
 import GeneralPanel from '../settings/GeneralPanel'
 import CloudflareSyncPanel from '../settings/CloudflareSyncPanel'
 import TranslateApiPanel from '../settings/TranslateApiPanel'
@@ -30,8 +31,18 @@ interface SectionMeta {
 
 const SECTIONS: SectionMeta[] = [
   { id: 'general', label: '通用', hint: '外观主题与界面偏好', icon: Settings2 },
-  { id: 'cloud-sync', label: '云同步', hint: 'Cloudflare 备份与多设备同步', icon: Cloud },
-  { id: 'translate-api', label: 'AI 与翻译', hint: '在线翻译接口与模型配置', icon: Languages },
+  {
+    id: 'cloud-sync',
+    label: '云同步',
+    hint: 'Cloudflare 备份与多设备同步',
+    icon: Cloud,
+  },
+  {
+    id: 'translate-api',
+    label: 'AI 与翻译',
+    hint: '在线翻译接口与模型配置',
+    icon: Languages,
+  },
 ]
 
 /**
@@ -49,6 +60,8 @@ export default function SettingsModal({
   onResetSidebarWidth,
 }: SettingsModalProps) {
   const { cfConfig, cfSyncStatus } = useNotes()
+  // 面板退出动画 160ms，遮罩 150ms，取长者
+  const { mounted, state } = usePresence(open, 160)
 
   useEffect(() => {
     if (!open) return
@@ -59,7 +72,7 @@ export default function SettingsModal({
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [open, onClose])
 
-  if (!open) return null
+  if (!mounted) return null
 
   // 云同步分类上的角标：同步中显示转圈，已接入显示常驻小圆点
   const cloudBadge =
@@ -78,9 +91,13 @@ export default function SettingsModal({
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}
-      className="fixed inset-0 bg-slate-900/50 dark:bg-black/70 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+      data-state={state}
+      className="fe-fade fixed inset-0 bg-slate-900/50 dark:bg-black/70 backdrop-blur-xs z-50 flex items-center justify-center p-4"
     >
-      <div className="w-full max-w-3xl h-[80vh] max-h-[720px] bg-white dark:bg-dark-panel rounded-2xl shadow-2xl border border-slate-200/80 dark:border-dark-border overflow-hidden flex flex-col">
+      <div
+        data-state={state}
+        className="fe-modal w-full max-w-3xl h-[80vh] max-h-[720px] bg-white dark:bg-dark-panel rounded-2xl shadow-2xl border border-slate-200/80 dark:border-dark-border overflow-hidden flex flex-col"
+      >
         {/* 头部 */}
         <div className="p-4 border-b border-slate-100 dark:border-dark-border flex items-center justify-between bg-slate-50/50 dark:bg-dark-sidebar/40 flex-shrink-0">
           <div className="flex items-center gap-3">
