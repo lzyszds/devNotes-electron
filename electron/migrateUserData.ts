@@ -4,10 +4,15 @@ import path from 'path'
 
 /**
  * 改名前的应用目录名:
- * - 'fehelper-electron' 来自 package.json 的 name(开发模式)
- * - 'FeHelper'          来自 electron-builder 的 productName(打包版)
+ * - 'DevNotes'          改名前的 electron-builder productName(打包版)
+ * - 'FeHelper'          更早的 electron-builder productName(打包版)
+ * - 'fehelper-electron' 更早的 package.json name(开发模式)
+ *
+ * 只差 name 大小写的目录(新名与旧名)不必再列出:
+ * 大小写不敏感的文件系统会解析到同一个目录，
+ * 大小写敏感的系统上则从未产生过那个目录。
  */
-const LEGACY_DIR_NAMES = ['FeHelper', 'fehelper-electron']
+const LEGACY_DIR_NAMES = ['DevNotes', 'FeHelper', 'fehelper-electron']
 
 /**
  * 一次性数据迁移。
