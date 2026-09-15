@@ -37,7 +37,7 @@ html.dark {
   color-scheme: dark;
 }
 
-/* ================= 10 套主题 CSS 变量详细定义 ================= */
+/* ================= 20 套主题 CSS 变量详细定义 ================= */
 
 /* 1. 经典浅色 (Light Default) */
 html[data-theme='light'] {
@@ -76,7 +76,7 @@ html[data-theme='paper']:not(.dark) .bg-white {
   background-color: #fcfbfa;
 }
 html[data-theme='paper']:not(.dark) .bg-slate-50 {
-  background-color: #f4eee2;
+  background-color: #f9f6ef;
 }
 html[data-theme='paper']:not(.dark) :is(.border-slate-200, .border-slate-200\/80, .border-slate-200\/70, .border-slate-200\/60) {
   border-color: #e6dbcd;
@@ -107,7 +107,7 @@ html[data-theme='mint']:not(.dark) .bg-white {
   background-color: #fcfefc;
 }
 html[data-theme='mint']:not(.dark) .bg-slate-50 {
-  background-color: #e4f5ec;
+  background-color: #f4faf7;
 }
 html[data-theme='mint']:not(.dark) :is(.border-slate-200, .border-slate-200\/80, .border-slate-200\/70, .border-slate-200\/60) {
   border-color: #cce8d9;
@@ -178,7 +178,162 @@ html[data-theme='ocean']:not(.dark) :is(.hover\:bg-slate-100:hover, .hover\:bg-s
   background-color: #d8eafb;
 }
 
-/* 6. 极夜深色 (Midnight Dark) - 默认极客深黑 */
+/* 6. 薰衣草雾 (Lavender Mist) - 柔美淡紫纯净底 */
+html[data-theme='lavender'] {
+  --brand-50-rgb: 245 243 255;
+  --brand-100-rgb: 237 233 254;
+  --brand-200-rgb: 221 214 254;
+  --brand-300-rgb: 196 181 253;
+  --brand-400-rgb: 167 139 250;
+  --brand-500-rgb: 139 92 246;
+  --brand-600-rgb: 124 58 237;
+  --brand-700-rgb: 109 40 217;
+  --brand-800-rgb: 91 33 182;
+  --brand-900-rgb: 76 29 149;
+  --brand-950-rgb: 46 16 101;
+}
+html[data-theme='lavender']:not(.dark) body {
+  background-color: #faf7fd;
+  color: #2e1065;
+}
+html[data-theme='lavender']:not(.dark) .bg-white {
+  background-color: #ffffff;
+}
+html[data-theme='lavender']:not(.dark) .bg-slate-50 {
+  background-color: #f7f2fe;
+}
+html[data-theme='lavender']:not(.dark) :is(.border-slate-200, .border-slate-200\/80, .border-slate-200\/70, .border-slate-200\/60) {
+  border-color: #e6d6fb;
+}
+html[data-theme='lavender']:not(.dark) :is(.hover\:bg-slate-100:hover, .hover\:bg-slate-50:hover) {
+  background-color: #eee2fa;
+}
+
+/* 7. 北欧初雪 (Nordic Snow) - 冰川冷灰理性底 */
+html[data-theme='nordic-snow'] {
+  --brand-50-rgb: 248 250 252;
+  --brand-100-rgb: 241 245 249;
+  --brand-200-rgb: 226 232 240;
+  --brand-300-rgb: 203 213 225;
+  --brand-400-rgb: 148 163 184;
+  --brand-500-rgb: 100 116 139;
+  --brand-600-rgb: 71 85 105;
+  --brand-700-rgb: 51 65 85;
+  --brand-800-rgb: 30 41 59;
+  --brand-900-rgb: 15 23 42;
+  --brand-950-rgb: 2 6 23;
+}
+html[data-theme='nordic-snow']:not(.dark) body {
+  background-color: #f8fafc;
+  color: #0f172a;
+}
+html[data-theme='nordic-snow']:not(.dark) .bg-white {
+  background-color: #ffffff;
+}
+html[data-theme='nordic-snow']:not(.dark) .bg-slate-50 {
+  background-color: #f1f5f9;
+}
+html[data-theme='nordic-snow']:not(.dark) :is(.border-slate-200, .border-slate-200\/80, .border-slate-200\/70, .border-slate-200\/60) {
+  border-color: #cbd5e1;
+}
+html[data-theme='nordic-snow']:not(.dark) :is(.hover\:bg-slate-100:hover, .hover\:bg-slate-50:hover) {
+  background-color: #e2e8f0;
+}
+
+/* 8. 抹茶雅韵 (Matcha Zen) - 禅意温润草木底 */
+html[data-theme='matcha'] {
+  --brand-50-rgb: 247 248 242;
+  --brand-100-rgb: 238 241 228;
+  --brand-200-rgb: 220 227 203;
+  --brand-300-rgb: 193 206 167;
+  --brand-400-rgb: 158 178 123;
+  --brand-500-rgb: 119 143 82;
+  --brand-600-rgb: 77 107 47;
+  --brand-700-rgb: 61 85 38;
+  --brand-800-rgb: 50 69 32;
+  --brand-900-rgb: 43 59 29;
+  --brand-950-rgb: 22 33 13;
+}
+html[data-theme='matcha']:not(.dark) body {
+  background-color: #f7f8f2;
+  color: #1f2b12;
+}
+html[data-theme='matcha']:not(.dark) .bg-white {
+  background-color: #ffffff;
+}
+html[data-theme='matcha']:not(.dark) .bg-slate-50 {
+  background-color: #eff3e6;
+}
+html[data-theme='matcha']:not(.dark) :is(.border-slate-200, .border-slate-200\/80, .border-slate-200\/70, .border-slate-200\/60) {
+  border-color: #d4dcbe;
+}
+html[data-theme='matcha']:not(.dark) :is(.hover\:bg-slate-100:hover, .hover\:bg-slate-50:hover) {
+  background-color: #e3e9d4;
+}
+
+/* 9. 蜜糖暖橘 (Honey Amber) - 秋日琥珀焦糖暖色 */
+html[data-theme='honey-amber'] {
+  --brand-50-rgb: 255 251 235;
+  --brand-100-rgb: 254 243 199;
+  --brand-200-rgb: 253 230 138;
+  --brand-300-rgb: 252 211 77;
+  --brand-400-rgb: 251 191 36;
+  --brand-500-rgb: 245 158 11;
+  --brand-600-rgb: 217 119 6;
+  --brand-700-rgb: 180 83 9;
+  --brand-800-rgb: 146 64 14;
+  --brand-900-rgb: 120 53 15;
+  --brand-950-rgb: 69 26 3;
+}
+html[data-theme='honey-amber']:not(.dark) body {
+  background-color: #fffbf2;
+  color: #451a03;
+}
+html[data-theme='honey-amber']:not(.dark) .bg-white {
+  background-color: #ffffff;
+}
+html[data-theme='honey-amber']:not(.dark) .bg-slate-50 {
+  background-color: #fdf5e2;
+}
+html[data-theme='honey-amber']:not(.dark) :is(.border-slate-200, .border-slate-200\/80, .border-slate-200\/70, .border-slate-200\/60) {
+  border-color: #fed7aa;
+}
+html[data-theme='honey-amber']:not(.dark) :is(.hover\:bg-slate-100:hover, .hover\:bg-slate-50:hover) {
+  background-color: #fef0cd;
+}
+
+/* 10. 灰粉赤陶 (Rose Terracotta) - 莫兰迪烟粉雅致暖底 */
+html[data-theme='rose-clay'] {
+  --brand-50-rgb: 253 242 248;
+  --brand-100-rgb: 252 231 243;
+  --brand-200-rgb: 249 207 230;
+  --brand-300-rgb: 244 172 210;
+  --brand-400-rgb: 236 122 181;
+  --brand-500-rgb: 219 39 119;
+  --brand-600-rgb: 190 24 93;
+  --brand-700-rgb: 157 23 77;
+  --brand-800-rgb: 131 24 67;
+  --brand-900-rgb: 112 26 63;
+  --brand-950-rgb: 76 5 39;
+}
+html[data-theme='rose-clay']:not(.dark) body {
+  background-color: #fdf7f9;
+  color: #500724;
+}
+html[data-theme='rose-clay']:not(.dark) .bg-white {
+  background-color: #ffffff;
+}
+html[data-theme='rose-clay']:not(.dark) .bg-slate-50 {
+  background-color: #fbf0f4;
+}
+html[data-theme='rose-clay']:not(.dark) :is(.border-slate-200, .border-slate-200\/80, .border-slate-200\/70, .border-slate-200\/60) {
+  border-color: #f8d1e0;
+}
+html[data-theme='rose-clay']:not(.dark) :is(.hover\:bg-slate-100:hover, .hover\:bg-slate-50:hover) {
+  background-color: #fce4ed;
+}
+
+/* 11. 极夜深色 (Midnight Dark) - 默认极客深黑 */
 html[data-theme='dark'] {
   --brand-50-rgb: 239 250 251;
   --brand-100-rgb: 219 243 245;
@@ -281,6 +436,111 @@ html[data-theme='sunset'] {
   --theme-dark-sidebar-rgb: 25 21 19;
   --theme-dark-border-rgb: 54 44 38;
   --theme-dark-hover-rgb: 42 34 29;
+}
+
+/* 16. 赛博霓虹 (Cyberpunk Neon) - 电光霓虹粉紫暗夜未来感 */
+html[data-theme='cyberpunk'] {
+  --brand-50-rgb: 250 245 255;
+  --brand-100-rgb: 243 232 255;
+  --brand-200-rgb: 233 213 255;
+  --brand-300-rgb: 216 180 254;
+  --brand-400-rgb: 192 132 252;
+  --brand-500-rgb: 168 85 247;
+  --brand-600-rgb: 147 51 234;
+  --brand-700-rgb: 126 34 206;
+  --brand-800-rgb: 107 33 168;
+  --brand-900-rgb: 88 28 135;
+  --brand-950-rgb: 59 7 100;
+
+  --theme-dark-bg-rgb: 13 11 20;
+  --theme-dark-panel-rgb: 21 18 33;
+  --theme-dark-sidebar-rgb: 16 14 26;
+  --theme-dark-border-rgb: 42 34 61;
+  --theme-dark-hover-rgb: 32 27 51;
+}
+
+/* 17. 极光黑曜 (Nord Aurora) - 北极光冷冰蓝与霜雪黑曜 */
+html[data-theme='nord-dark'] {
+  --brand-50-rgb: 236 239 244;
+  --brand-100-rgb: 229 233 240;
+  --brand-200-rgb: 216 222 233;
+  --brand-300-rgb: 143 188 187;
+  --brand-400-rgb: 136 192 208;
+  --brand-500-rgb: 129 161 193;
+  --brand-600-rgb: 94 129 172;
+  --brand-700-rgb: 76 104 140;
+  --brand-800-rgb: 59 81 109;
+  --brand-900-rgb: 46 64 87;
+  --brand-950-rgb: 30 42 58;
+
+  --theme-dark-bg-rgb: 36 41 51;
+  --theme-dark-panel-rgb: 46 52 64;
+  --theme-dark-sidebar-rgb: 30 34 42;
+  --theme-dark-border-rgb: 59 66 82;
+  --theme-dark-hover-rgb: 53 60 74;
+}
+
+/* 18. 黑曜暗晶 (Monokai Pro) - 纯黑极客玄晶与代码暖金 */
+html[data-theme='monokai-pro'] {
+  --brand-50-rgb: 255 251 235;
+  --brand-100-rgb: 254 243 199;
+  --brand-200-rgb: 254 235 158;
+  --brand-300-rgb: 255 226 122;
+  --brand-400-rgb: 255 216 102;
+  --brand-500-rgb: 245 197 66;
+  --brand-600-rgb: 217 165 37;
+  --brand-700-rgb: 180 130 20;
+  --brand-800-rgb: 146 100 15;
+  --brand-900-rgb: 120 80 12;
+  --brand-950-rgb: 69 45 6;
+
+  --theme-dark-bg-rgb: 25 24 26;
+  --theme-dark-panel-rgb: 34 31 34;
+  --theme-dark-sidebar-rgb: 23 21 23;
+  --theme-dark-border-rgb: 54 51 54;
+  --theme-dark-hover-rgb: 45 42 45;
+}
+
+/* 19. 深蓝极目 (Solarized Dark) - 经典墨蓝护眼极目 */
+html[data-theme='solarized-dark'] {
+  --brand-50-rgb: 238 251 250;
+  --brand-100-rgb: 209 245 242;
+  --brand-200-rgb: 165 235 229;
+  --brand-300-rgb: 108 217 208;
+  --brand-400-rgb: 58 193 184;
+  --brand-500-rgb: 42 161 152;
+  --brand-600-rgb: 31 129 122;
+  --brand-700-rgb: 27 103 98;
+  --brand-800-rgb: 25 82 78;
+  --brand-900-rgb: 23 68 65;
+  --brand-950-rgb: 9 39 38;
+
+  --theme-dark-bg-rgb: 0 43 54;
+  --theme-dark-panel-rgb: 7 54 66;
+  --theme-dark-sidebar-rgb: 0 33 43;
+  --theme-dark-border-rgb: 14 75 90;
+  --theme-dark-hover-rgb: 9 67 82;
+}
+
+/* 20. 暗夜流光 (One Dark Pro) - Atom 经典深空蓝灰与天青 */
+html[data-theme='one-dark'] {
+  --brand-50-rgb: 239 246 255;
+  --brand-100-rgb: 219 234 254;
+  --brand-200-rgb: 191 219 254;
+  --brand-300-rgb: 147 197 253;
+  --brand-400-rgb: 97 175 239;
+  --brand-500-rgb: 59 150 229;
+  --brand-600-rgb: 37 99 235;
+  --brand-700-rgb: 29 78 216;
+  --brand-800-rgb: 30 64 175;
+  --brand-900-rgb: 30 58 138;
+  --brand-950-rgb: 23 37 84;
+
+  --theme-dark-bg-rgb: 33 37 43;
+  --theme-dark-panel-rgb: 40 44 52;
+  --theme-dark-sidebar-rgb: 27 29 35;
+  --theme-dark-border-rgb: 53 59 69;
+  --theme-dark-hover-rgb: 47 52 62;
 }
 
 html,
@@ -448,6 +708,15 @@ html.dark ::-webkit-scrollbar-thumb:hover {
   to {
     opacity: 1;
     transform: scale(1) translateX(0);
+  }
+}
+
+@keyframes overlay-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
   }
 }
 
@@ -1519,7 +1788,6 @@ html.dark mark {
   position: fixed;
   top: 0;
   left: 0;
-  z-index: 30;
   display: none;
 }
 
@@ -2190,9 +2458,6 @@ html.dark .fe-toc-card {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-bottom: 8px;
-  margin-bottom: 8px;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
   font-size: 12px;
   font-weight: 700;
   color: #334155;
@@ -2246,34 +2511,6 @@ html.dark .fe-toc-item--1 { color: #e2e8f0; }
 .fe-toc-empty {
   font-size: 12px;
   color: #94a3b8;
-}
-
-/* ---------------------------------------------------------- 10.6 手风琴开合 */
-.fe-accordion-toggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  margin-left: 8px;
-  padding: 0;
-  border: 1px solid currentColor;
-  border-radius: 5px;
-  background: transparent;
-  color: inherit;
-  font-size: 10px;
-  line-height: 1;
-  cursor: pointer;
-  opacity: 0.65;
-  transition: transform 0.22s cubic-bezier(0.34, 1.4, 0.64, 1), opacity 0.15s ease;
-}
-
-.fe-accordion-toggle:hover {
-  opacity: 1;
-}
-
-.fe-accordion-toggle.is-open {
-  transform: rotate(90deg);
 }
 
 .fe-container-head.is-collapsed {
@@ -2487,4 +2724,1226 @@ html.dark .fe-mermaid-tab.is-active {
 .fe-mermaid-card {
   margin-top: 0 !important;
   border-radius: 0 0 12px 12px;
+}
+
+/* ==========================================================================
+   16. 设计评审落地：版式节奏、表格、键帽、Callout、代码块
+
+   下面这些覆盖规则一律追加在文件末尾 —— 与第 8 节的正交排版特异度相同，
+   靠文档顺序取胜，不额外堆 !important。
+   ========================================================================== */
+
+/* ---------------------------------------------------------- 16.1 版心与行长 */
+/*
+ * 单栏阅读的最佳行长约 65~80 字符（≈750~880px）。之前正文铺满整个编辑区，
+ * 大屏下每行过长、焦点涣散。这里限宽并居中 ——
+ * 左右内边距不动：块手柄按 view.dom 的左边缘定位（BlockHandle 的 pinLeftOfEditor），
+ * 而 view.dom 正是 .milkdown-content 本身，所以居中后手柄会跟着内容一起走。
+ */
+.milkdown-notes-editor .milkdown-content {
+  max-width: 56rem;
+  margin-inline: auto;
+}
+
+/* ---------------------------------------------------------- 16.2 垂直节奏 */
+/* 大章节前给足留白，与小节拉开差距，快速滚动时结构感才清晰 */
+.milkdown-notes-editor .milkdown-content h1,
+.cherry-notes-editor .cherry-markdown h1 {
+  margin-top: 0;
+  margin-bottom: 1.4rem;
+}
+
+.milkdown-notes-editor .milkdown-content h2,
+.cherry-notes-editor .cherry-markdown h2 {
+  margin-top: 3.75rem; /* 60px */
+  margin-bottom: 1rem;
+}
+
+.milkdown-notes-editor .milkdown-content h3,
+.cherry-notes-editor .cherry-markdown h3 {
+  margin-top: 2rem; /* 32px */
+  margin-bottom: 0.7rem;
+}
+
+.milkdown-notes-editor .milkdown-content h4,
+.milkdown-notes-editor .milkdown-content h5,
+.milkdown-notes-editor .milkdown-content h6,
+.cherry-notes-editor .cherry-markdown h4,
+.cherry-notes-editor .cherry-markdown h5,
+.cherry-notes-editor .cherry-markdown h6 {
+  margin-top: 1.4rem;
+  margin-bottom: 0.5rem;
+}
+
+.milkdown-notes-editor .milkdown-content p,
+.cherry-notes-editor .cherry-markdown p {
+  margin-bottom: 0.9rem;
+}
+
+/* ---------------------------------------------------------- 16.3 表格：去竖线 */
+/*
+ * 竖网格线是「Excel 感」的主要来源。只留横向分割线，表头用极浅灰打底、字号收小，
+ * 整张表立刻轻下来。
+ */
+.milkdown-notes-editor .milkdown-content table,
+.cherry-notes-editor .cherry-markdown table {
+  border-collapse: collapse;
+  margin: 0 0 1.4em;
+}
+
+.milkdown-notes-editor .milkdown-content th,
+.milkdown-notes-editor .milkdown-content td,
+.cherry-notes-editor .cherry-markdown th,
+.cherry-notes-editor .cherry-markdown td {
+  border: 0 !important;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.22) !important;
+  padding: 0.7em 0.9em;
+  text-align: left;
+}
+
+.milkdown-notes-editor .milkdown-content th,
+.cherry-notes-editor .cherry-markdown th {
+  background: #f8fafc !important;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #64748b;
+}
+
+.milkdown-notes-editor .milkdown-content tbody tr:last-child td,
+.cherry-notes-editor .cherry-markdown tbody tr:last-child td {
+  border-bottom: 0 !important;
+}
+
+html.dark .milkdown-notes-editor .milkdown-content th,
+html.dark .cherry-notes-editor .cherry-markdown th {
+  background: rgba(255, 255, 255, 0.035) !important;
+  color: #94a3b8;
+}
+
+html.dark .milkdown-notes-editor .milkdown-content th,
+html.dark .milkdown-notes-editor .milkdown-content td,
+html.dark .cherry-notes-editor .cherry-markdown th,
+html.dark .cherry-notes-editor .cherry-markdown td {
+  border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* ---------------------------------------------------------- 16.4 键帽 <kbd> */
+/*
+ * 快捷键原先写成行内代码，被品牌色染成一片高饱和胶囊，抢了正文的信息层级。
+ * 改用 <kbd> 渲染成扁平键帽：浅灰底 + 浅边框 + 底部一道实边模拟按键厚度。
+ */
+.milkdown-notes-editor .milkdown-content kbd,
+.cherry-notes-editor .cherry-markdown kbd {
+  display: inline-block;
+  padding: 0.1em 0.42em;
+  border: 1px solid #e5e7eb;
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: #f3f4f6;
+  box-shadow: 0 1px 0 #cbd5e1;
+  font-family: 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace;
+  font-size: 0.82em;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #374151;
+  vertical-align: baseline;
+}
+
+html.dark .milkdown-notes-editor .milkdown-content kbd,
+html.dark .cherry-notes-editor .cherry-markdown kbd {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.07);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+  color: #cbd5e1;
+}
+
+/* ---------------------------------------------------------- 16.5 代码块排版 */
+/* 行高放到 1.7、边框压淡一点，深色块在浅色主题下不至于像一块死黑 */
+.milkdown-notes-editor .milkdown-content pre > code {
+  line-height: 1.7;
+  border-color: rgba(127, 127, 127, 0.14);
+}
+
+.cherry-notes-editor .cherry-markdown pre {
+  line-height: 1.7 !important;
+}
+
+/* ==========================================================================
+   17. Callout / Alert 统一设计语言，目录折叠，矢量图标
+   ========================================================================== */
+
+/* ---------------------------------------------------------- 17.1 矢量图标 */
+.fe-ico {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  display: inline-block;
+  vertical-align: -0.15em;
+}
+
+.fe-container-icon {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 7px;
+  color: var(--fe-tone, #64748b);
+}
+
+.fe-alert-icon {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 7px;
+}
+
+/* ---------------------------------------------------------- 17.2 柔化配色 */
+/*
+ * 原先的色条与字色都取「饱和主色的深档」，四块排在一起偏硬。
+ * 这里统一降一档饱和度、底色再淡一点，四种语义改用柔和色系：
+ * 灰蓝（信息）/ 浅薄荷（技巧）/ 暖浅黄（警告）/ 浅樱粉（危险）。
+ */
+.fe-container-head--info,
+.fe-container-body--info,
+.fe-container-close--info,
+.fe-alert--note,
+.fe-alert-head--note {
+  --fe-tone: #3b6ea5;
+  --fe-bg: rgba(59, 110, 165, 0.07);
+}
+
+.fe-container-head--note,
+.fe-container-body--note,
+.fe-container-close--note {
+  --fe-tone: #4f6b9c;
+  --fe-bg: rgba(79, 107, 156, 0.07);
+}
+
+.fe-container-head--tip,
+.fe-container-body--tip,
+.fe-container-close--tip,
+.fe-container-head--success,
+.fe-container-body--success,
+.fe-container-close--success,
+.fe-alert--tip,
+.fe-alert-head--tip {
+  --fe-tone: #2f855a;
+  --fe-bg: rgba(47, 133, 90, 0.075);
+}
+
+.fe-container-head--warning,
+.fe-container-body--warning,
+.fe-container-close--warning,
+.fe-alert--warning,
+.fe-alert-head--warning {
+  --fe-tone: #b7791f;
+  --fe-bg: rgba(183, 121, 31, 0.085);
+}
+
+.fe-container-head--danger,
+.fe-container-body--danger,
+.fe-container-close--danger,
+.fe-alert--caution,
+.fe-alert-head--caution {
+  --fe-tone: #c2557a;
+  --fe-bg: rgba(194, 85, 122, 0.075);
+}
+
+.fe-alert--important,
+.fe-alert-head--important {
+  --fe-tone: #7c6bb0;
+  --fe-bg: rgba(124, 107, 176, 0.075);
+}
+
+html.dark .fe-container-head--info,
+html.dark .fe-container-body--info,
+html.dark .fe-container-close--info,
+html.dark .fe-alert--note,
+html.dark .fe-alert-head--note { --fe-tone: #7cb3e0; }
+html.dark .fe-container-head--note,
+html.dark .fe-container-body--note,
+html.dark .fe-container-close--note { --fe-tone: #93a9d6; }
+html.dark .fe-container-head--tip,
+html.dark .fe-container-body--tip,
+html.dark .fe-container-close--tip,
+html.dark .fe-container-head--success,
+html.dark .fe-container-body--success,
+html.dark .fe-container-close--success,
+html.dark .fe-alert--tip,
+html.dark .fe-alert-head--tip { --fe-tone: #7fd1a6; }
+html.dark .fe-container-head--warning,
+html.dark .fe-container-body--warning,
+html.dark .fe-container-close--warning,
+html.dark .fe-alert--warning,
+html.dark .fe-alert-head--warning { --fe-tone: #e5c07b; }
+html.dark .fe-container-head--danger,
+html.dark .fe-container-body--danger,
+html.dark .fe-container-close--danger,
+html.dark .fe-alert--caution,
+html.dark .fe-alert-head--caution { --fe-tone: #e79ab5; }
+html.dark .fe-alert--important,
+html.dark .fe-alert-head--important { --fe-tone: #b3a3e0; }
+
+/* ---------------------------------------------------------- 17.3 松一口气的内边距 */
+.fe-container-head {
+  padding: 11px 16px !important;
+  font-size: 13.5px !important;
+  line-height: 1.6 !important;
+}
+
+.fe-container-body {
+  padding: 5px 16px !important;
+}
+
+.fe-container-body--first {
+  padding-top: 10px !important;
+}
+
+.fe-container-body--last {
+  padding-bottom: 10px !important;
+}
+
+.fe-alert-head {
+  padding: 11px 18px;
+  font-size: 12.5px;
+}
+
+.milkdown-notes-editor .milkdown-content blockquote.fe-alert {
+  padding: 4px 18px 12px !important;
+}
+
+/* ---------------------------------------------------------- 17.4 目录：折叠胶囊 */
+/*
+ * ⚠️ width 必须显式钉成 fit-content。
+ * 它是块级 widget，会被塞进一个匿名的整行盒里 —— 只写 display: inline-flex
+ * 挡不住被拉满，结果就是一条横贯整行的圆角长条，而不是一颗胶囊。
+ */
+.fe-toc-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fe-toc-collapse {
+  padding: 2px 8px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 6px;
+  background: transparent;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.fe-toc-collapse:hover {
+  border-color: currentColor;
+  color: #475569;
+}
+
+html.dark .fe-toc-collapse:hover {
+  color: #cbd5e1;
+}
+
+/* ---------------------------------------------------------- 17.5 代码块常驻表头 */
+/*
+ * 每块一个，挂在代码块正上方：左侧语言（可点开切换），右侧自动换行与复制。
+ * 与下方代码块拼成一张卡，所以接缝处不收圆角。
+ */
+.fe-code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 1.4em;
+  padding: 5px 8px 5px 12px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-bottom: 0;
+  border-radius: 10px 10px 0 0;
+  background: rgba(148, 163, 184, 0.07);
+  user-select: none;
+}
+
+html.dark .fe-code-header {
+  border-color: rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* 表头正下方的代码块去掉上外边距，两者拼成一张卡 */
+.milkdown-notes-editor .milkdown-content .fe-code-header + pre {
+  margin-top: 0;
+  border-radius: 0 0 10px 10px;
+}
+
+.fe-code-lang {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  font-family: 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.fe-code-lang:hover {
+  background: rgba(148, 163, 184, 0.18);
+  color: rgb(var(--brand-700-rgb, 22 99 116));
+}
+
+.fe-code-lang .fe-ico:last-child {
+  width: 11px;
+  height: 11px;
+  opacity: 0.6;
+}
+
+html.dark .fe-code-lang {
+  color: #cbd5e1;
+}
+
+html.dark .fe-code-lang:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgb(var(--brand-300-rgb, 143 215 224));
+}
+
+.fe-code-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.fe-code-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #64748b;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.fe-code-action:hover {
+  background: rgba(148, 163, 184, 0.18);
+  color: #334155;
+}
+
+.fe-code-action.is-on {
+  background: rgba(var(--brand-500-rgb, 80 189 207), 0.14);
+  color: rgb(var(--brand-700-rgb, 22 99 116));
+}
+
+.fe-code-action.is-done {
+  color: #059669;
+}
+
+html.dark .fe-code-action {
+  color: #94a3b8;
+}
+
+html.dark .fe-code-action:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e2e8f0;
+}
+
+html.dark .fe-code-action.is-on {
+  color: rgb(var(--brand-300-rgb, 143 215 224));
+}
+
+/* 语言下拉。fixed 才不会被 .milkdown-scroll 的 overflow 裁掉 */
+.fe-code-lang-menu {
+  position: fixed;
+  z-index: 96;
+  display: flex;
+  flex-direction: column;
+  width: 232px;
+  max-height: 288px;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 16px 40px -12px rgba(15, 23, 42, 0.3);
+}
+
+.fe-code-lang-menu[hidden] {
+  display: none;
+}
+
+html.dark .fe-code-lang-menu {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: #12141a;
+}
+
+.fe-code-lang-search {
+  margin: 6px 6px 4px;
+  padding: 4px 8px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 7px;
+  background: rgba(148, 163, 184, 0.07);
+  font-size: 11.5px;
+  color: #334155;
+  outline: none;
+}
+
+.fe-code-lang-search:focus {
+  border-color: rgb(var(--brand-500-rgb, 80 189 207));
+}
+
+html.dark .fe-code-lang-search {
+  background: rgba(255, 255, 255, 0.05);
+  color: #e2e8f0;
+}
+
+.fe-code-lang-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 5px 6px;
+}
+
+.fe-code-lang-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 12px;
+  text-align: left;
+  color: #334155;
+  cursor: pointer;
+}
+
+.fe-code-lang-option:hover {
+  background: rgba(148, 163, 184, 0.14);
+}
+
+.fe-code-lang-option.is-active {
+  background: rgba(var(--brand-500-rgb, 80 189 207), 0.14);
+  color: rgb(var(--brand-700-rgb, 22 99 116));
+  font-weight: 600;
+}
+
+.fe-code-lang-option code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: #94a3b8;
+}
+
+html.dark .fe-code-lang-option {
+  color: #cbd5e1;
+}
+
+html.dark .fe-code-lang-option:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+html.dark .fe-code-lang-option.is-active {
+  color: rgb(var(--brand-300-rgb, 143 215 224));
+}
+
+/* 开了自动换行的代码块：长行折行而不是横向滚动 */
+.milkdown-notes-editor .milkdown-content pre.fe-code-wrap {
+  white-space: pre-wrap !important;
+}
+
+.milkdown-notes-editor .milkdown-content pre.fe-code-wrap > code {
+  white-space: pre-wrap !important;
+  overflow-x: hidden;
+}
+
+/* ---------------------------------------------------------- 17.6 容器与标注精修 */
+/*
+ * 图标此前用 vertical-align: baseline，而 SVG 的基线是它的**底边** ——
+ * 于是图标整体浮在文字上方一截。inline-flex 盒取 middle 才和文字中线对齐。
+ */
+.fe-container-icon,
+.fe-alert-icon {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  margin-right: 7px;
+}
+
+.fe-container-icon .fe-ico,
+.fe-alert-icon .fe-ico {
+  display: block;
+  vertical-align: 0;
+}
+
+/* 紧凑容器（整块在一个段落里）：padding 放宽，标题与正文之间靠 <br> 分行 */
+.milkdown-notes-editor .milkdown-content p.fe-container-inline {
+  padding: 12px 16px !important;
+  line-height: 1.65 !important;
+}
+
+.milkdown-notes-editor .milkdown-content .fe-container-title {
+  font-weight: 700;
+  font-size: 13.5px;
+  letter-spacing: 0.01em;
+}
+
+/* 标注卡片的头与正文之间贴紧些，别留一大段空白 */
+.milkdown-notes-editor .milkdown-content blockquote.fe-alert > p:first-child {
+  margin-top: 0 !important;
+}
+
+.milkdown-notes-editor .milkdown-content blockquote.fe-alert > :last-child {
+  margin-bottom: 0 !important;
+}
+
+/* ==========================================================================
+   18. 手风琴开关与展开动画
+
+   前两版开关都失败在同一个地方 —— 想给它一个「看得见的容身处」
+   （先是描边小方块，后来是灰底胶囊），结果就是一个灰盒子杵在彩色标题行里，
+   比它要提示的内容还抢眼。折叠指示器本该是安静的：裸箭头，用卡片主色，
+   平时半透明，hover 才浮出一层同色淡底把点击区交代清楚。
+   ========================================================================== */
+
+.fe-accordion-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-left: 7px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit; /* 跟随卡片主色 */
+  cursor: pointer;
+  vertical-align: middle;
+  opacity: 0.5;
+  transition: opacity 0.16s ease, background-color 0.16s ease,
+    transform 0.26s cubic-bezier(0.34, 1.4, 0.64, 1);
+  /* 收起：箭头指右 */
+  transform: rotate(-90deg);
+}
+
+.fe-accordion-toggle .fe-ico {
+  width: 14px;
+  height: 14px;
+}
+
+/* hover 表头整行时也给箭头提亮，暗示这里可以点 */
+.fe-container-head:hover .fe-accordion-toggle,
+.fe-accordion-toggle:hover {
+  opacity: 1;
+}
+
+.fe-accordion-toggle:hover {
+  background: color-mix(in srgb, currentColor 14%, transparent);
+}
+
+/* 展开：箭头指下 */
+.fe-accordion-toggle.is-open {
+  transform: rotate(0deg);
+}
+
+/*
+ * 展开 / 收起本身也要动起来。
+ *
+ * 收起态原本是干脆利落的 `display: none`，观感上是「啪」地少了一块。
+ * `transition-behavior: allow-discrete` 让 display 也能参与过渡 ——
+ * 元素会一直保留到动画跑完才真正撤下，于是淡出 + 轻微上移就能成立。
+ * 进入方向由 @starting-style 给出起始值（这是它唯一的用途）。
+ */
+.milkdown-notes-editor .milkdown-content .fe-container-body,
+.milkdown-notes-editor .milkdown-content .fe-container-close {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.26s ease, transform 0.26s cubic-bezier(0.22, 1, 0.36, 1),
+    display 0.26s allow-discrete;
+}
+
+.milkdown-notes-editor .milkdown-content .fe-container-body.is-collapsed,
+.milkdown-notes-editor .milkdown-content .fe-container-close.is-collapsed {
+  display: none;
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+@starting-style {
+  .milkdown-notes-editor .milkdown-content .fe-container-body:not(.is-collapsed),
+  .milkdown-notes-editor .milkdown-content .fe-container-close:not(.is-collapsed) {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+/* 手风琴收起时标题行要补齐下方圆角，这个变化同样给个过渡 */
+.milkdown-notes-editor .milkdown-content p.fe-container-inline,
+.milkdown-notes-editor .milkdown-content .fe-container-head {
+  transition: border-radius 0.24s ease;
+}
+
+/* ---------------------------------------------------------- 18.1 图表入场 */
+/* 图表是异步渲染的，出来时淡入一下，别硬生生地闪出来 */
+@keyframes fe-fade-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fe-mermaid-card {
+  animation: fe-fade-rise 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* SVG 由 mermaid 异步填进来，单独再淡入一次 */
+.fe-mermaid-body svg {
+  animation: fe-fade-rise 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ---------------------------------------------------------- 18.2 语言菜单 */
+/* 菜单是 fixed 定位后一次性显隐的，加个轻量的缩放淡入 */
+@keyframes fe-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.fe-code-lang-menu {
+  animation: fe-menu-in 0.16s cubic-bezier(0.22, 1, 0.36, 1);
+  transform-origin: top left;
+}
+
+/* ---------------------------------------------------------- 18.4 代码块表头 */
+.fe-code-lang,
+.fe-code-action {
+  transition: background-color 0.16s ease, color 0.16s ease,
+    transform 0.16s cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+.fe-code-action:active {
+  transform: scale(0.95);
+}
+
+/* 复制成功时对勾弹一下，比单纯换字更有反馈 */
+@keyframes fe-pop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.4;
+  }
+  60% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.fe-code-action.is-done .fe-ico {
+  animation: fe-pop 0.28s cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+/* ---------------------------------------------------------- 18.5 尊重减少动效偏好 */
+@media (prefers-reduced-motion: reduce) {
+  .fe-mermaid-card,
+  .fe-mermaid-body svg,
+  .fe-code-lang-menu,
+  .fe-code-action.is-done .fe-ico {
+    animation: none !important;
+  }
+
+  .fe-accordion-toggle,
+  .fe-toc-collapse,
+  .fe-code-action,
+  .milkdown-notes-editor .milkdown-content .fe-container-body,
+  .milkdown-notes-editor .milkdown-content .fe-container-close {
+    transition: none !important;
+  }
+}
+
+/* 开合按钮也做成安静的裸文字，别抢表头的注意力 */
+.fe-toc-collapse {
+  border-color: transparent;
+  background: transparent;
+}
+
+.fe-toc-collapse:hover {
+  border-color: rgba(148, 163, 184, 0.35);
+  background: rgba(148, 163, 184, 0.1);
+  color: #334155;
+}
+
+html.dark .fe-toc-collapse:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.07);
+  color: #e2e8f0;
+}
+
+/* ---------------------------------------------------------- 18.7 目录表头与正文的分隔 */
+/*
+ * 分隔线挂在**正文顶部**，不挂在表头底部。
+ * 收起时正文整块撤下，表头的盒子纹丝不动 —— 也就没有「收起时标题条猛地缩一截」的跳动。
+ */
+.fe-toc-body {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.26s ease, transform 0.26s cubic-bezier(0.22, 1, 0.36, 1),
+    display 0.26s allow-discrete;
+}
+
+html.dark .fe-toc-body {
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+.fe-toc-card.is-collapsed .fe-toc-body {
+  display: none;
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+@starting-style {
+  .fe-toc-card:not(.is-collapsed) .fe-toc-body {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+/* 表头在开合之间不该有任何位移 */
+.fe-toc-card .fe-toc-head {
+  transition: none;
+}
+
+/* ==========================================================================
+   19. 代码块：表头衔接与行号对齐
+   ========================================================================== */
+
+/*
+ * 表头与代码块拼成一张卡。
+ *
+ * 早先靠 `.fe-code-header + pre` 相邻选择器收上圆角，实际没生效 ——
+ * 表头是块级 widget，ProseMirror 插进 DOM 后的相邻关系不该被当作稳定契约。
+ * 改成给代码块自身挂 `fe-code-block` 类（见 milkdownEnhance.ts），直接命中。
+ */
+.milkdown-notes-editor .milkdown-content pre.fe-code-block {
+  margin-top: 0 !important;
+}
+
+.milkdown-notes-editor .milkdown-content pre.fe-code-block > code {
+  /* 上圆角交还表头，接缝处不留自己的边框 */
+  border-radius: 0 0 10px 10px;
+  border-top: 0;
+}
+
+/*
+ * 行号必须与代码逐行对齐。
+ *
+ * 原先行号轴是 font-size: 12px + line-height: 1.68（≈20.2px/行），
+ * 而代码是 13px + 1.7（≈22.1px/行）—— 每行差近 2px，十几行下来就错开一整行，
+ * 看上去像「行号标错了」。这里把行高抽成一个变量，两边共用，
+ * 字体大小仍可不同（行号略小更好看），但行盒高度必须一致。
+ */
+.milkdown-notes-editor .milkdown-content pre {
+  --fe-code-line-height: 22px;
+}
+
+.milkdown-notes-editor .milkdown-content pre > code {
+  line-height: var(--fe-code-line-height);
+}
+
+.milkdown-notes-editor .milkdown-content pre .fe-code-gutter {
+  line-height: var(--fe-code-line-height);
+}
+
+/* ==========================================================================
+   20. 「上 bar + 下 panel」的接缝统一收口
+   
+   这一类问题的成因完全相同：上方是表头/页签，下方是正文面板，
+   但面板自己还带着上圆角（有时还有上边距）—— 于是接缝处露出背景，
+   看起来就是「一道缝 + 圆角各圆各的」。
+
+   统一规则：bar 收上圆角并去掉下边框，紧随其后的 panel 收下圆角、去上边框、去上边距。
+   ========================================================================== */
+
+/* ---------------------------------------------------------- 20.1 图表页签 */
+/* 占满整行（与代码块表头一致），不再缩成一颗胶囊 */
+.fe-mermaid-tabs {
+  width: 100%;
+  border-radius: 10px 10px 0 0;
+}
+
+/* 页签下方是「源码」块时 */
+.milkdown-notes-editor .milkdown-content pre.fe-mermaid-source {
+  margin-top: 0 !important;
+}
+
+.milkdown-notes-editor .milkdown-content pre.fe-mermaid-source > code {
+  border-radius: 0 0 10px 10px;
+  border-top: 0;
+}
+
+/* 页签下方是渲染好的图表卡片时 */
+.fe-mermaid-card {
+  margin-top: 0 !important;
+  border-radius: 0 0 10px 10px !important;
+}
+
+/* 代码块表头同样收成 10px，与页签一致 */
+.fe-code-header {
+  border-radius: 10px 10px 0 0;
+}
+
+/* ---------------------------------------------------------- 20.2 容器面板接缝复核 */
+/*
+ * 多段容器的三段（head / body / close）是普通 ProseMirror 块，
+ * 只要三者的左右内边距、背景、横向对齐完全一致，接缝自然严丝合缝。
+ * 这里显式钉死左右内边距，避免某一档被其他规则改掉后错开。
+ */
+.fe-container-head,
+.fe-container-body,
+.fe-container-close {
+  padding-left: 16px !important;
+  padding-right: 16px !important;
+}
+
+/* 标注卡片：表头与引用块之间不留缝 */
+.fe-alert-head {
+  border-radius: 10px 10px 0 0;
+}
+
+.milkdown-notes-editor .milkdown-content blockquote.fe-alert {
+  border-radius: 0 0 10px 10px !important;
+  border-top: 0 !important;
+}
+
+/* ---------------------------------------------------------- 20.3 目录卡片 */
+/* 表头与列表同处一张卡，圆角只由卡片本身给 */
+.fe-toc-card {
+  border-radius: 12px;
+}
+
+/* ==========================================================================
+   21. 画面缩放只作用于正文
+
+   倍率由 NotesTool 以 --editor-zoom 变量放在编辑区外壳上，这里只施加到**内容容器**：
+   - .milkdown-scroll 是所见即所得的滚动容器，工具栏与右侧大纲都在它外面
+   - .cherry 内部含编辑器与预览区，Cherry 的原生工具栏已隐形、不占高度
+
+   为什么不把 zoom 直接放在编辑区外壳上：那会把格式工具栏、大纲胶囊一起放大 ——
+   它们是「工具」，不该跟着正文的阅读倍率走。
+   ========================================================================== */
+
+.milkdown-notes-editor .milkdown-scroll,
+.cherry-notes-editor .cherry {
+  zoom: var(--editor-zoom, 1);
+}
+
+/* ==========================================================================
+   22. 浮层动效：进出成对
+
+   此前所有浮层都只有「进入」动画 —— 因为 React 是同步卸载的，open 一变 false
+   节点当场消失，退出动画没机会跑。配合 hooks/usePresence.ts（它负责把卸载推迟到
+   动画结束），这里补齐每一组的**退出关键帧**。
+
+   约定：组件上挂 `data-state="closed"` 表示「正在收起」，退出动画挂在这个状态上，
+   并用 forwards 停在末帧，避免卸载前闪回原状。
+   ========================================================================== */
+
+/* ---------------------------------------------------------- 22.1 关键帧 */
+/* 小浮层：菜单、下拉、快捷键提示、编辑器弹层 */
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes pop-out {
+  from {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.97) translateY(-3px);
+  }
+}
+
+/* 遮罩与整屏淡入淡出 */
+@keyframes fade-soft-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fade-soft-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* 对话框本体：比小浮层幅度大一点，从下方浮起 */
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes modal-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+}
+
+/* 从右侧滑入的面板 */
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: translateX(28px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes sheet-out {
+  from {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(24px) scale(0.99);
+  }
+}
+
+/* 角标提示：从上方落下 */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes toast-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+}
+
+/* 悬停提示：只做淡入淡出。气泡可能在触发元素上方或下方，加位移方向就不对了 */
+@keyframes tip-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes tip-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* ---------------------------------------------------------- 22.2 通用类 */
+/* 组件挂上这三个之一，再给 data-state 即可拥有成对的进出动画 */
+.fe-pop {
+  animation: pop-in 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.fe-pop[data-state='closed'] {
+  animation: pop-out 130ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  pointer-events: none;
+}
+
+.fe-fade {
+  animation: fade-soft-in 180ms ease-out;
+}
+
+.fe-fade[data-state='closed'] {
+  animation: fade-soft-out 150ms ease-in forwards;
+  pointer-events: none;
+}
+
+.fe-modal {
+  animation: modal-in 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.fe-modal[data-state='closed'] {
+  animation: modal-out 160ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  pointer-events: none;
+}
+
+.fe-sheet {
+  animation: sheet-in 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.fe-sheet[data-state='closed'] {
+  animation: sheet-out 180ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  pointer-events: none;
+}
+
+/* ---------------------------------------------------------- 22.3 既有类接上退出态 */
+/* 右键菜单与子菜单 */
+.context-menu[data-state='closed'] {
+  animation: pop-out 130ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  /* 收起期间节点还在 DOM 里，必须让它彻底不吃事件 —— 否则这 130ms 内的
+     一次点击会落到正在淡出的菜单项上，等于「关掉了还替用户选了一项」 */
+  pointer-events: none;
+}
+
+.context-menu-submenu[data-state='closed'] {
+  animation: pop-out 120ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  pointer-events: none;
+}
+
+/* 角标提示 */
+.toast-item[data-state='closed'] {
+  animation: toast-out 150ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+/* 悬停提示。退出时保持它原本的定位，所以不能动 transform */
+.tooltip-bubble[data-state='closed'] {
+  animation: tip-out 110ms ease-in forwards;
+}
+
+/* 历史浮层（从右侧滑入的那张面板） */
+.history-overlay[data-state='closed'] {
+  animation: overlay-fade-out 160ms ease-in forwards;
+}
+
+.history-overlay-panel[data-state='closed'] {
+  animation: sheet-out 180ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+/* ---------------------------------------------------------- 22.4 减少动效 */
+@media (prefers-reduced-motion: reduce) {
+  .fe-pop,
+  .fe-fade,
+  .fe-modal,
+  .fe-sheet,
+  .fe-pop[data-state='closed'],
+  .fe-fade[data-state='closed'],
+  .fe-modal[data-state='closed'],
+  .fe-sheet[data-state='closed'],
+  .context-menu[data-state='closed'],
+  .context-menu-submenu[data-state='closed'],
+  .toast-item[data-state='closed'],
+  .tooltip-bubble[data-state='closed'],
+  .history-overlay[data-state='closed'],
+  .history-overlay-panel[data-state='closed'] {
+    animation: none !important;
+  }
+}
+
+/* ==========================================================================
+   23. 属性驱动浮层的进出动画（data-show）
+
+   块手柄与各条浮出工具条的显隐**不是 React state**，而是 @milkdown 的
+   TooltipProvider 直接写在宿主元素上的 `data-show` 属性 —— 值一变，
+   元素就在 display:none / block 之间瞬切，usePresence 那套用不上。
+
+   这里改用 `transition-behavior: allow-discrete` 让 display 也参与过渡：
+   元素会保留到动画跑完才真正撤下，于是「淡出 + 轻微位移」对属性驱动同样成立。
+   进入方向的起始值由 @starting-style 给出。
+
+   ⚠️ 只动 opacity 与 transform，不碰 floating-ui 写进来的内联 left/top。
+   ========================================================================== */
+
+.fehelper-block-handle,
+.fehelper-floating-bar {
+  opacity: 0;
+  transition: opacity 140ms ease, display 140ms allow-discrete;
+}
+
+.fehelper-block-handle[data-show='true'],
+.fehelper-floating-bar[data-show='true'] {
+  opacity: 1;
+}
+
+@starting-style {
+  .fehelper-block-handle[data-show='true'],
+  .fehelper-floating-bar[data-show='true'] {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fehelper-block-handle,
+  .fehelper-floating-bar {
+    transition: none !important;
+  }
+}
+
+/* ==========================================================================
+   24. 全局去掉焦点轮廓
+
+   此前是逐个元素打 Tailwind 的 `outline-none`，漏一个就冒一圈默认蓝框 ——
+   全站自绘控件多，靠逐处标注既容易漏也难维护。这里用通配选择器一次兜住。
+
+   写在文件末尾、但**不会误伤语义性轮廓**：`*` 的特异度是 0，
+   任何具体规则都压得过它。例如图片 / 分割线被整体选中时那圈
+   `.ProseMirror-selectednode` 轮廓（特异度 0,3,1）依然生效 ——
+   那是「选中了什么」的提示，不是焦点环，该留。
+
+   ⚠️ 代价：键盘 Tab 时不再有位置提示。本项目以鼠标与快捷键为主操作方式，
+   这个取舍是可接受的；若哪天要补回来，在这条后面加一条 `:focus-visible` 即可。
+   ========================================================================== */
+
+*,
+*::before,
+*::after {
+  outline: none;
 }

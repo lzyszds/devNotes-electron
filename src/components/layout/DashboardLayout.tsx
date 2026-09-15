@@ -38,6 +38,7 @@ import { useContextMenu } from '../ui/ContextMenu'
 import Tooltip from '../ui/Tooltip'
 import { useToast } from '../ui/Toast'
 import { copyText } from '../../utils/clipboard'
+import { usePresence } from '../../hooks/usePresence'
 import { subscribeAppSettings } from '../../utils/settingsBus'
 import { isDarkTheme, THEMES, type ThemeId } from '../../utils/theme'
 import logo from '../../assets/logo.png'
@@ -68,7 +69,11 @@ function formatNoteTime(timestamp: number | string): string {
     date.getMonth() === now.getMonth() &&
     date.getDate() === now.getDate()
   if (isToday) {
-    return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
+    return date.toLocaleTimeString('zh-CN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    })
   }
   const yesterday = new Date(now)
   yesterday.setDate(now.getDate() - 1)
@@ -120,6 +125,8 @@ export default function DashboardLayout({
   const [sidebarWidth, setSidebarWidth] = useState(readSidebarWidth)
   const [isResizingSidebar, setIsResizingSidebar] = useState(false)
   const [isCmdOpen, setIsCmdOpen] = useState(false)
+  // 面板退出动画 160ms，遮罩 150ms，取长者
+  const { mounted: cmdMounted, state: cmdState } = usePresence(isCmdOpen, 160)
   // 全局设置弹窗：打开时停在哪个分类
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [settingsSection, setSettingsSection] = useState<SettingsSection>('general')
@@ -511,7 +518,7 @@ export default function DashboardLayout({
       {/* ================= 1. 顶部栏 (Unified Topbar - 44px) ================= */}
       <header
         onDoubleClick={handleTopbarDoubleClick}
-        className="drag-region h-11 bg-white/95 dark:bg-dark-panel/95 backdrop-blur border-b border-slate-200/80 dark:border-dark-border px-4 flex items-center justify-between z-30 flex-shrink-0"
+        className="drag-region h-11 bg-white/95 dark:bg-dark-panel/95 backdrop-blur border-b border-slate-200/80 dark:border-dark-border px-4 flex items-center justify-between z-40 flex-shrink-0"
       >
         {/*
           左侧这块不再整体 no-drag：无边框下这片空白是最好用的拖拽区，
@@ -1108,14 +1115,18 @@ export default function DashboardLayout({
       </div>
 
       {/* ================= 3. ⌘K 全局指令面板 (Command Palette Modal) ================= */}
-      {isCmdOpen && (
+      {cmdMounted && (
         <div
           onClick={(e) => {
             if (e.target === e.currentTarget) setIsCmdOpen(false)
           }}
-          className="fixed inset-0 bg-slate-900/40 dark:bg-black/60 backdrop-blur-xs z-50 flex items-start justify-center pt-24 animate-in fade-in duration-150"
+          data-state={cmdState}
+          className="fe-fade fixed inset-0 bg-slate-900/40 dark:bg-black/60 backdrop-blur-xs z-50 flex items-start justify-center pt-24"
         >
-          <div className="w-full max-w-lg bg-white dark:bg-dark-panel rounded-2xl shadow-2xl border border-slate-200 dark:border-dark-border overflow-hidden">
+          <div
+            data-state={cmdState}
+            className="fe-modal w-full max-w-lg bg-white dark:bg-dark-panel rounded-2xl shadow-2xl border border-slate-200 dark:border-dark-border overflow-hidden"
+          >
             {/* 搜索框 */}
             <div className="p-3.5 border-b border-slate-100 dark:border-dark-border flex items-center gap-3">
               <Search className="w-4 h-4 text-slate-400" />

@@ -7,6 +7,7 @@ import {
   type ThemeId,
 } from '../../utils/theme'
 import Tooltip from '../ui/Tooltip'
+import { usePresence } from '../../hooks/usePresence'
 
 export interface ThemeQuickMenuProps {
   theme: ThemeId
@@ -27,6 +28,8 @@ export default function ThemeQuickMenu({
 }: ThemeQuickMenuProps) {
   const [open, setOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  // 与 CSS 里 .fe-pop[data-state='closed'] 的时长一致
+  const { mounted, state } = usePresence(open, 130)
 
   const currentPreset = getThemePreset(theme)
   const isDark = isDarkTheme(theme)
@@ -87,8 +90,11 @@ export default function ThemeQuickMenu({
       </Tooltip>
 
       {/* 浮动下拉面板 */}
-      {open && (
-        <div className="absolute right-0 top-full mt-1.5 z-50 w-72 rounded-2xl bg-white/95 dark:bg-dark-panel/95 backdrop-blur-xl border border-slate-200/80 dark:border-dark-border shadow-xl p-2 animate-in fade-in zoom-in-95 duration-150">
+      {mounted && (
+        <div
+          data-state={state}
+          className="fe-pop absolute right-0 top-full mt-1.5 z-50 w-72 rounded-2xl bg-white/95 dark:bg-dark-panel/95 backdrop-blur-xl border border-slate-200/80 dark:border-dark-border shadow-xl p-2"
+        >
           {/* 顶栏说明 */}
           <div className="flex items-center justify-between px-2.5 py-1.5 mb-1 border-b border-slate-100 dark:border-dark-border">
             <div className="flex items-center gap-1.5">
@@ -98,7 +104,7 @@ export default function ThemeQuickMenu({
               </span>
             </div>
             <span className="text-[10px] text-slate-400 font-mono">
-              共 10 款
+              共 {THEMES.length} 款
             </span>
           </div>
 
