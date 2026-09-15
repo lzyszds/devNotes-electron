@@ -39,12 +39,12 @@ import { floatingBar } from '../../utils/milkdownFloatingBar'
 import { collectOutline } from '../../utils/milkdownOutline'
 import type { OutlineItem } from '../../utils/milkdownOutline'
 import { useEditorContextMenu } from '../../hooks/useEditorContextMenu'
+import { usePresence } from '../../hooks/usePresence'
 import MarkdownToolbar from './markdown/MarkdownToolbar'
 import OutlineCapsule from './markdown/OutlineCapsule'
 import FindReplaceBar from './markdown/FindReplaceBar'
 import SlashMenu, { slash } from './markdown/SlashMenu'
 import BlockHandle from './markdown/BlockHandle'
-import CodeBlockLanguageBar from './markdown/CodeBlockLanguageBar'
 import SelectionToolbar from './markdown/SelectionToolbar'
 import InsertToolbar from './markdown/InsertToolbar'
 import { bumpEnhanceTheme, enhancePluginKey, milkdownEnhance } from '../../utils/milkdownEnhance'
@@ -176,6 +176,15 @@ export default function MilkdownMarkdownEditor({
   const [popup, setPopup] = useState<PopupKind | null>(null)
   const [popupText, setPopupText] = useState('')
   const [headingLevel, setHeadingLevel] = useState(0)
+  // 与 CSS 里 .fe-pop[data-state='closed'] 的时长一致
+  const { mounted: popupMounted, state: popupState } = usePresence(Boolean(popup), 130)
+  /**
+   * 收起期间 popup 已经置空，面板却还要在 DOM 里多留一会儿播退出动画。
+   * 留住最后一次的类型快照，否则渲染到一半就不知道该画哪一块内容了。
+   */
+  const lastPopupRef = useRef<PopupKind | null>(null)
+  if (popup) lastPopupRef.current = popup
+  const shownPopup = popup ?? lastPopupRef.current
   // 右侧悬浮大纲：条目、展开与否、当前读到的条目、已读百分比
   const [outlineItems, setOutlineItems] = useState<OutlineItem[]>([])
   const [outlineExpanded, setOutlineExpanded] = useState(false)
@@ -201,7 +210,6 @@ export default function MilkdownMarkdownEditor({
   const selectionBarRef = useRef<TooltipProvider | null>(null)
   const insertBarRef = useRef<TooltipProvider | null>(null)
   const blockHandleRef = useRef<TooltipProvider | null>(null)
-  const codeLangBarRef = useRef<TooltipProvider | null>(null)
 
   useEffect(() => {
     onChangeRef.current = onChange
@@ -303,7 +311,9 @@ export default function MilkdownMarkdownEditor({
         ctx.set(rootCtx, root)
         ctx.set(defaultValueCtx, latestValueRef.current)
         // 挂一个自有类名,换肤时不用去猜 ProseMirror 的内部结构
-        ctx.set(editorViewOptionsCtx, { attributes: { class: 'milkdown-content' } })
+        ctx.set(editorViewOptionsCtx, {
+          attributes: { class: 'milkdown-content' },
+        })
         // 代码块高亮走 shiki，parser 的形态与坑见 milkdownShiki.ts
         ctx.set(highlightPluginConfig.key, { parser: shikiParser })
 
@@ -358,7 +368,6 @@ export default function MilkdownMarkdownEditor({
       .use(floatingBar('selection', () => selectionBarRef.current))
       .use(floatingBar('insert', () => insertBarRef.current))
       .use(floatingBar('block-handle', () => blockHandleRef.current))
-      .use(floatingBar('code-lang', () => codeLangBarRef.current))
       // 容器面板 / 目录 / Mermaid 图表 / 代码行号：全部走 ProseMirror 装饰器，
       // 不碰编辑区 DOM —— 直接改 contenteditable 会让标记外溢、文字并进链接，见该文件注释
       .use(milkdownEnhance)
@@ -707,60 +716,71 @@ export default function MilkdownMarkdownEditor({
             （用 fixed 定位），所以放在哪一层都行 */}
         <SelectionToolbar editor={ready} providerRef={selectionBarRef} />
         <InsertToolbar editor={ready} providerRef={insertBarRef} />
-        <CodeBlockLanguageBar editor={ready} providerRef={codeLangBarRef} />
 
-        {searchOpen && !onOpenSearch && (
-          <FindReplaceBar editor={editorRef.current} onClose={() => setSearchOpen(false)} />
+        {/* 常驻挂载：开关交给 open，退出动画才有机会跑完（见 usePresence） */}
+        {!onOpenSearch && (
+          <FindReplaceBar
+            editor={editorRef.current}
+            open={searchOpen}
+            onClose={() => setSearchOpen(false)}
+          />
         )}
 
-        {popup && (
+        {popupMounted && shownPopup && (
           <>
             {/* 点空白处收起。铺一层透明背板比监听全局 click 简单,也不会和工具栏的点击打架 */}
             <div className="absolute inset-0 z-20" onMouseDown={closePopup} />
 
-            <div className="absolute left-1/2 top-3 z-30 w-[21rem] max-w-[calc(100%-2rem)] -translate-x-1/2 rounded-xl border border-slate-200/80 bg-white p-2 shadow-lg dark:border-dark-border dark:bg-dark-panel">
-              {popup === 'heading' ? (
-                <div className="grid grid-cols-2 gap-0.5">
-                  {HEADING_OPTIONS.map((option) => (
+            {/* 外层只负责居中，动画挂在内层 —— 关键帧里的 transform 会盖掉 -translate-x-1/2，
+                两者放同一个元素上会让面板在动画期间整体右移半个身位 */}
+            <div className="absolute left-1/2 top-3 z-30 w-[21rem] max-w-[calc(100%-2rem)] -translate-x-1/2">
+              <div
+                data-state={popupState}
+                className="fe-pop rounded-xl border border-slate-200/80 bg-white p-2 shadow-lg dark:border-dark-border dark:bg-dark-panel"
+              >
+                {shownPopup === 'heading' ? (
+                  <div className="grid grid-cols-2 gap-0.5">
+                    {HEADING_OPTIONS.map((option) => (
+                      <button
+                        key={option.level}
+                        type="button"
+                        onClick={() => pickHeading(option.level)}
+                        className={`rounded-md px-2 py-1.5 text-left text-xs transition-colors ${
+                          option.level === headingLevel
+                            ? 'bg-brand-50 font-semibold text-brand-600 dark:bg-brand-500/15 dark:text-brand-300'
+                            : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-dark-hover'
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <input
+                      autoFocus
+                      value={popupText}
+                      onChange={(event) => setPopupText(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') confirmPopup()
+                        if (event.key === 'Escape') closePopup()
+                      }}
+                      placeholder={
+                        shownPopup === 'link' ? '链接地址 https://…' : '图片地址 https://…'
+                      }
+                      className="h-7 min-w-0 flex-1 rounded-md border border-slate-200/80 bg-slate-50 px-2 text-xs text-slate-800 outline-none placeholder:text-slate-400 focus:border-brand-500 dark:border-dark-border dark:bg-dark-hover dark:text-slate-200"
+                    />
                     <button
-                      key={option.level}
                       type="button"
-                      onClick={() => pickHeading(option.level)}
-                      className={`rounded-md px-2 py-1.5 text-left text-xs transition-colors ${
-                        option.level === headingLevel
-                          ? 'bg-brand-50 font-semibold text-brand-600 dark:bg-brand-500/15 dark:text-brand-300'
-                          : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-dark-hover'
-                      }`}
+                      onClick={confirmPopup}
+                      disabled={!popupText.trim()}
+                      className="h-7 flex-shrink-0 rounded-md bg-brand-600 px-2.5 text-xs font-medium text-white transition-colors hover:bg-brand-700 disabled:opacity-40"
                     >
-                      {option.label}
+                      确定
                     </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <input
-                    autoFocus
-                    value={popupText}
-                    onChange={(event) => setPopupText(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') confirmPopup()
-                      if (event.key === 'Escape') closePopup()
-                    }}
-                    placeholder={
-                      popup === 'link' ? '链接地址 https://…' : '图片地址 https://…'
-                    }
-                    className="h-7 min-w-0 flex-1 rounded-md border border-slate-200/80 bg-slate-50 px-2 text-xs text-slate-800 outline-none placeholder:text-slate-400 focus:border-brand-500 dark:border-dark-border dark:bg-dark-hover dark:text-slate-200"
-                  />
-                  <button
-                    type="button"
-                    onClick={confirmPopup}
-                    disabled={!popupText.trim()}
-                    className="h-7 flex-shrink-0 rounded-md bg-brand-600 px-2.5 text-xs font-medium text-white transition-colors hover:bg-brand-700 disabled:opacity-40"
-                  >
-                    确定
-                  </button>
-                </div>
-              )}
+                  </div>
+                )}
+              </div>
             </div>
           </>
         )}

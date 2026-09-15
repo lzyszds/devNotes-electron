@@ -43,7 +43,7 @@ export const DEFAULT_CONTENT = `# ✨ Markdown 全特性与工具支持全景样
 支持鼠标直接点击切换完成状态，删除线伴随丝滑贝塞尔曲线划过：
 
 - [x] 搭建现代流式分屏工作台布局与智能侧栏
-- [x] 接入 Shiki 现代代码高亮引擎与 10 套深浅主题色板
+- [x] 接入 Shiki 现代代码高亮引擎与 20 套深浅主题色板
 - [x] 修复选中文本背景高亮与光标品牌色跟随
 - [x] 支持 [TOC] 嵌入式目录大纲平滑跳转
 - [x] 容器面板语法 ::: info 与手风琴折叠卡片 ::: accordion
@@ -112,11 +112,11 @@ Milkdown（所见即所得）为日常写作与快速记录提供沉浸无干扰
 > [!CAUTION]
 > **风险操作警示**：清空本地知识库快照属于不可逆行为，请提前在设置中配置 Cloudflare 云端同步。
 
-<details>
-<summary>👉 点击展开查看折叠面板 (Collapsible Details)</summary>
+### 4. 折叠内容用 ::: accordion
 
+::: accordion 点这里展开（手风琴）
 这里是折叠在面板内部的隐藏内容，支持存放较长的日志、排查记录或配置清单，保持笔记正文清爽整洁。
-</details>
+:::
 
 ---
 
@@ -217,11 +217,11 @@ export function initializeDevNotes(): Promise<boolean> {
 3. **块级悬停手柄 (Block Handle)**：光标所在行左侧会自动浮现操作手柄，支持快捷拖动、新建与删除当前块。
 4. **代码块右上角**：代码块右上角支持一键复制代码与语言下拉切换。
 5. **全局快捷键速查**：
-   * \`⌘K\` / \`Ctrl+K\`：唤出全局功能指令面板
-   * \`⌘B\` / \`Ctrl+B\`：折叠 / 展开左侧文档目录
-   * \`⌘D\` / \`Ctrl+D\`：快捷切换深色 / 浅色模式
-   * \`⌘F\` / \`Ctrl+F\`：调出编辑器内查找替换面板
-   * \`⌘E\` / \`Ctrl+E\`：导出当前笔记为 \`.md\` 本地文件
+   * <kbd>⌘K</kbd> / <kbd>Ctrl+K</kbd>：唤出全局功能指令面板
+   * <kbd>⌘B</kbd> / <kbd>Ctrl+B</kbd>：折叠 / 展开左侧文档目录
+   * <kbd>⌘D</kbd> / <kbd>Ctrl+D</kbd>：快捷切换深色 / 浅色模式
+   * <kbd>⌘F</kbd> / <kbd>Ctrl+F</kbd>：调出编辑器内查找替换面板
+   * <kbd>⌘E</kbd> / <kbd>Ctrl+E</kbd>：导出当前笔记为 <kbd>.md</kbd> 本地文件
 `
 
 function createId() {
@@ -272,7 +272,7 @@ function normalizeState(raw: unknown): NotesState {
           if (
             content.startsWith('### 欢迎使用 Markdown 笔记\n\n这是一款基于现代设计语言') ||
             (content.startsWith('# ✨ Markdown 全特性与工具支持全景样板') &&
-              !content.includes('::: accordion'))
+              !content.includes('<kbd>'))
           ) {
             content = DEFAULT_CONTENT
             title = '✨ Markdown 全特性与工具支持全景样板'

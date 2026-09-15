@@ -22,6 +22,8 @@ import { Decoration, DecorationSet } from '@milkdown/kit/prose/view'
 import type { EditorView } from '@milkdown/kit/prose/view'
 import { $prose } from '@milkdown/kit/utils'
 import mermaid from 'mermaid'
+import { copyText } from './clipboard'
+import { canonicalLanguageId, LANGUAGE_OPTIONS } from './milkdownShiki'
 
 /*
  * 开发期强制整页重载。
@@ -45,15 +47,48 @@ export const enhancePluginKey = new PluginKey<EnhanceState>('fehelper-enhance')
 
 /* ============================ 1. 容器面板 ::: type 标题 ============================ */
 
+/**
+ * 图标一律用内联 SVG，不再用 emoji。
+ *
+ * emoji 的问题在排版上：各平台字形宽度不一、基线与正文对不齐、颜色还锁死在字体里，
+ * 没法跟着主题走。这里取 Lucide 的描边路径，`stroke: currentColor` 直接继承卡片主色。
+ */
+const ICON_PATHS: Record<string, string> = {
+  info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+  note: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>',
+  tip: '<path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/>',
+  success: '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/>',
+  warning:
+    '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  danger:
+    '<path d="M12 16h.01"/><path d="M12 8v4"/><path d="M15.312 2a2 2 0 0 1 1.414.586l4.688 4.688A2 2 0 0 1 22 8.688v6.624a2 2 0 0 1-.586 1.414l-4.688 4.688a2 2 0 0 1-1.414.586H8.688a2 2 0 0 1-1.414-.586l-4.688-4.688A2 2 0 0 1 2 15.312V8.688a2 2 0 0 1 .586-1.414l4.688-4.688A2 2 0 0 1 8.688 2z"/>',
+  accordion:
+    '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
+  timeline: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+  important:
+    '<path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/>',
+  code: '<path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/>',
+  wrap: '<path d="M3 6h18"/><path d="M3 12h13a3 3 0 1 1 0 6h-4"/><path d="m9 21-3-3 3-3"/>',
+  copy: '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  caret: '<path d="m6 9 6 6 6-6"/>',
+}
+
+/** 渲染成一段可直接塞进 innerHTML 的 SVG */
+function svgIcon(name: string): string {
+  const path = ICON_PATHS[name] ?? ICON_PATHS.info
+  return `<svg class="fe-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${path}</svg>`
+}
+
 const CONTAINERS: Record<string, { icon: string }> = {
-  info: { icon: 'ℹ️' },
-  note: { icon: '📝' },
-  tip: { icon: '💡' },
-  success: { icon: '✅' },
-  warning: { icon: '⚠️' },
-  danger: { icon: '🚨' },
-  accordion: { icon: '📁' },
-  timeline: { icon: '🕒' },
+  info: { icon: 'info' },
+  note: { icon: 'note' },
+  tip: { icon: 'tip' },
+  success: { icon: 'success' },
+  warning: { icon: 'warning' },
+  danger: { icon: 'danger' },
+  accordion: { icon: 'accordion' },
+  timeline: { icon: 'timeline' },
 }
 
 /**
@@ -86,15 +121,15 @@ const CLOSE_RE = /^:::\s*$/
 /* ============================ 2. GitHub Alert：> [!NOTE] ============================ */
 
 const ALERTS: Record<string, { icon: string; label: string; tone: string }> = {
-  NOTE: { icon: '💡', label: '提示说明', tone: 'note' },
-  INFO: { icon: 'ℹ️', label: '相关信息', tone: 'note' },
-  TIP: { icon: '🔥', label: '最佳实践', tone: 'tip' },
-  HINT: { icon: '✨', label: '关键要点', tone: 'tip' },
-  IMPORTANT: { icon: '📌', label: '重要规范', tone: 'important' },
-  WARNING: { icon: '⚠️', label: '注意事项', tone: 'warning' },
-  WARN: { icon: '⚠️', label: '注意事项', tone: 'warning' },
-  CAUTION: { icon: '🚨', label: '风险警示', tone: 'caution' },
-  DANGER: { icon: '⛔', label: '危险操作', tone: 'caution' },
+  NOTE: { icon: 'info', label: '提示说明', tone: 'note' },
+  INFO: { icon: 'info', label: '相关信息', tone: 'note' },
+  TIP: { icon: 'tip', label: '最佳实践', tone: 'tip' },
+  HINT: { icon: 'tip', label: '关键要点', tone: 'tip' },
+  IMPORTANT: { icon: 'important', label: '重要规范', tone: 'important' },
+  WARNING: { icon: 'warning', label: '注意事项', tone: 'warning' },
+  WARN: { icon: 'warning', label: '注意事项', tone: 'warning' },
+  CAUTION: { icon: 'danger', label: '风险警示', tone: 'caution' },
+  DANGER: { icon: 'danger', label: '危险操作', tone: 'caution' },
 }
 
 const ALERT_RE = /^\s*\[!(NOTE|INFO|TIP|HINT|IMPORTANT|WARNING|WARN|CAUTION|DANGER)\]\s*/
@@ -210,10 +245,10 @@ export interface EnhanceState {
   open: string[]
   /** 「源码」页签被选中的图表块（按内容指纹去重），不在其中的一律显示预览 */
   sourceOpen: string[]
-}
-
-function toggleAccordion(view: EditorView, key: string) {
-  view.dispatch(view.state.tr.setMeta(enhancePluginKey, { accordion: key }))
+  /** [TOC] 目录是否展开。默认收起，只留一个小胶囊，避免一进文档就被目录占满首屏 */
+  tocOpen: boolean
+  /** 开了自动换行的代码块（按内容指纹去重） */
+  wrapped: string[]
 }
 
 /* ============================ 装饰集构建 ============================ */
@@ -281,25 +316,27 @@ function pushInlineContainer(
       decos.push(Decoration.inline(titleLineEnd, closeFrom, { class: 'fe-hidden-marker' }))
     }
     decos.push(
-      Decoration.widget(
-        titleLineEnd,
-        (view) => {
-          const btn = document.createElement('button')
-          btn.type = 'button'
-          btn.contentEditable = 'false'
-          btn.className = `fe-accordion-toggle${collapsed ? '' : ' is-open'}`
-          btn.title = collapsed ? '展开内容' : '收起内容'
-          btn.textContent = '▸'
-          btn.addEventListener('mousedown', (event) => event.preventDefault())
-          btn.addEventListener('click', (event) => {
-            event.preventDefault()
-            event.stopPropagation()
-            toggleAccordion(view, key)
-          })
-          return btn
-        },
-        { side: 1, key: `accordion-inline-toggle-${collapsed}` }
-      )
+      Decoration.widget(titleLineEnd, (view) => createAccordionToggle(view, key, collapsed), {
+        side: 1,
+        key: `accordion-inline-toggle-${collapsed}`,
+      })
+    )
+  }
+
+  /*
+   * 标题与正文之间补一个换行。
+   *
+   * 紧凑写法的三行会被 CommonMark 并成**同一个段落**，软换行到了 ProseMirror 里
+   * 不一定还表现为折行 —— 实测标题和正文会挤在同一行，卡片看着像一条色带。
+   * 这里在标题末尾挂一个 <br> widget 把正文顶到下一行，卡片才有"标题行 + 正文"的样子。
+   * 手风琴收起时正文整段是藏着的，就不用补了，否则会多出一条空行。
+   */
+  if (!(isAccordion && collapsed)) {
+    decos.push(
+      Decoration.widget(titleLineEnd, () => document.createElement('br'), {
+        side: 1,
+        key: 'container-title-break',
+      })
     )
   }
 
@@ -309,7 +346,7 @@ function pushInlineContainer(
       () => {
         const el = document.createElement('span')
         el.className = 'fe-container-icon'
-        el.textContent = icon
+        el.innerHTML = svgIcon(icon)
         return el
       },
       { side: -1 }
@@ -376,12 +413,294 @@ function pushTimelineItems(decos: Decoration[], doc: ProseNode, from: number, to
   })
 }
 
+/* ============================ 4. 代码块常驻表头 ============================ */
+
+/** 语言的展示名；认不出来就照原样显示 */
+function languageLabel(raw: string): string {
+  if (!raw) return '纯文本'
+  const id = canonicalLanguageId(raw) || raw
+  return LANGUAGE_OPTIONS.find((item) => item.id === id)?.label ?? raw
+}
+
+/** 代码块的稳定标识（内容指纹），用来记住这一块有没有开自动换行 */
+function codeKey(node: ProseNode): string {
+  const text = node.textContent
+  return `${text.length}:${text.slice(0, 32)}`
+}
+
+/**
+ * 代码块常驻表头：左侧是当前语言（点开可切换），右侧是自动换行与复制。
+ *
+ * 每块一个 —— 早先的语言标签是**全局单例**浮条，只跟着光标跑，一屏上永远只有一条，
+ * 其余代码块是什么语言完全看不到。做成表头后每块自带控件。
+ *
+ * 语言菜单用 position: fixed：`.milkdown-scroll` 是 overflow: auto，
+ * 菜单若用 absolute 会被滚动容器裁掉（越靠文档底部裁得越狠）。
+ * fixed 不受 overflow 祖先裁剪，同时仍留在 widget 自己的 DOM 里，
+ * 随装饰器一起销毁，不会在 body 上留垃圾。
+ *
+ * 收起菜单用 focusout 而不是 document 上的全局 mousedown：后者每建一个表头就挂一条，
+ * DOM 被重建时又摘不掉，是个只会涨的监听器泄漏。
+ */
+function createCodeHeader(
+  view: EditorView,
+  blockPos: number,
+  language: string,
+  wrapOn: boolean,
+  key: string,
+  code: string
+): HTMLElement {
+  const bar = document.createElement('div')
+  bar.className = 'fe-code-header'
+  bar.contentEditable = 'false'
+
+  const langBtn = document.createElement('button')
+  langBtn.type = 'button'
+  langBtn.className = 'fe-code-lang'
+  langBtn.title = '切换代码块语言'
+  langBtn.innerHTML = `${svgIcon('code')}<span>${languageLabel(language)}</span>${svgIcon('caret')}`
+
+  const actions = document.createElement('div')
+  actions.className = 'fe-code-header-actions'
+
+  const wrapBtn = document.createElement('button')
+  wrapBtn.type = 'button'
+  wrapBtn.className = `fe-code-action${wrapOn ? ' is-on' : ''}`
+  wrapBtn.title = wrapOn ? '关闭自动换行' : '开启自动换行'
+  wrapBtn.innerHTML = `${svgIcon('wrap')}<span>换行</span>`
+
+  const copyBtn = document.createElement('button')
+  copyBtn.type = 'button'
+  copyBtn.className = 'fe-code-action'
+  copyBtn.title = '复制代码'
+  copyBtn.innerHTML = `${svgIcon('copy')}<span>复制</span>`
+
+  // ---- 语言菜单 ----
+  const menu = document.createElement('div')
+  menu.className = 'fe-code-lang-menu'
+  menu.hidden = true
+
+  const search = document.createElement('input')
+  search.type = 'text'
+  search.placeholder = '筛选语言…'
+  search.className = 'fe-code-lang-search'
+
+  const list = document.createElement('div')
+  list.className = 'fe-code-lang-list'
+  menu.append(search, list)
+
+  const currentId = canonicalLanguageId(language) || language
+
+  const fillList = (keyword: string) => {
+    const q = keyword.trim().toLowerCase()
+    const options = q
+      ? LANGUAGE_OPTIONS.filter(
+          (item) => item.label.toLowerCase().includes(q) || item.id.includes(q)
+        )
+      : LANGUAGE_OPTIONS
+    list.replaceChildren(
+      ...options.slice(0, 200).map((item) => {
+        const row = document.createElement('button')
+        row.type = 'button'
+        row.className = `fe-code-lang-option${item.id === currentId ? ' is-active' : ''}`
+        row.innerHTML = `<span>${item.label}</span><code>${item.id}</code>`
+        row.addEventListener('mousedown', (event) => event.preventDefault())
+        row.addEventListener('click', (event) => {
+          event.preventDefault()
+          event.stopPropagation()
+          view.dispatch(
+            view.state.tr.setMeta(enhancePluginKey, {
+              codeLanguage: { pos: blockPos, language: item.id },
+            })
+          )
+          menu.hidden = true
+        })
+        return row
+      })
+    )
+  }
+
+  const closeMenu = () => {
+    menu.hidden = true
+  }
+
+  langBtn.addEventListener('mousedown', (event) => event.preventDefault())
+  langBtn.addEventListener('click', (event) => {
+    event.preventDefault()
+    event.stopPropagation()
+    if (!menu.hidden) {
+      closeMenu()
+      return
+    }
+    const rect = langBtn.getBoundingClientRect()
+    menu.style.top = `${Math.round(rect.bottom + 6)}px`
+    menu.style.left = `${Math.round(rect.left)}px`
+    menu.hidden = false
+    search.value = ''
+    fillList('')
+    search.focus()
+  })
+
+  search.addEventListener('input', () => fillList(search.value))
+  search.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      closeMenu()
+    }
+  })
+
+  // 焦点离开整条表头（且没落回菜单里）就收起
+  bar.addEventListener('focusout', (event) => {
+    const next = event.relatedTarget as Node | null
+    if (next && bar.contains(next)) return
+    closeMenu()
+  })
+  // 菜单里非输入的按下不该把焦点/光标带走
+  menu.addEventListener('mousedown', (event) => {
+    if ((event.target as HTMLElement).closest('input')) return
+    event.preventDefault()
+  })
+
+  // ---- 自动换行 ----
+  wrapBtn.addEventListener('mousedown', (event) => event.preventDefault())
+  wrapBtn.addEventListener('click', (event) => {
+    event.preventDefault()
+    event.stopPropagation()
+    view.dispatch(view.state.tr.setMeta(enhancePluginKey, { codeWrap: { key, on: !wrapOn } }))
+  })
+
+  // ---- 复制 ----
+  copyBtn.addEventListener('mousedown', (event) => event.preventDefault())
+  copyBtn.addEventListener('click', (event) => {
+    event.preventDefault()
+    event.stopPropagation()
+    void copyText(code).then((ok) => {
+      if (!ok) return
+      copyBtn.classList.add('is-done')
+      copyBtn.innerHTML = `${svgIcon('check')}<span>已复制</span>`
+      window.setTimeout(() => {
+        copyBtn.classList.remove('is-done')
+        copyBtn.innerHTML = `${svgIcon('copy')}<span>复制</span>`
+      }, 1600)
+    })
+  })
+
+  actions.append(wrapBtn, copyBtn)
+  bar.append(langBtn, actions, menu)
+  return bar
+}
+
+/* ============================ 5. <details> 折叠块 ============================ */
+
+/**
+ * `<details>` / `<summary>` 的折叠块。
+ *
+ * 它在 mdast 里是**块级 html 节点**，不是行内标签，行内渲染器接不住，只能原样显示源码。
+ * 这一段与 `::: accordion` 走同一套外观，只多认一种写法：
+ *
+ *   html      "<details>\n<summary>标题</summary>"
+ *   paragraph  正文（可以多段）
+ *   html      "</details>"
+ *
+ * ⚠️ 只在装饰层做文章，**不改文档**：`<details>` / `<summary>` / `</details>`
+ * 三处标记用 inline 装饰藏起来，源码原样保留，存回磁盘仍是用户写的 HTML。
+ * 换成解析期改写成 `:::` 是另一条路，但那会在保存时悄悄改掉用户的 Markdown。
+ */
+const DETAILS_HEAD_RE = /^<details>\s*<summary>([\s\S]*?)<\/summary>\s*$/i
+const DETAILS_CLOSE_RE = /<\/details>/i
+
+/** 手风琴的开合按钮（::: accordion 与 <details> 共用） */
+function createAccordionToggle(view: EditorView, key: string, collapsed: boolean): HTMLElement {
+  const btn = document.createElement('button')
+  btn.type = 'button'
+  btn.contentEditable = 'false'
+  btn.className = `fe-accordion-toggle${collapsed ? '' : ' is-open'}`
+  btn.title = collapsed ? '展开内容' : '收起内容'
+  btn.setAttribute('aria-label', btn.title)
+  btn.setAttribute('aria-expanded', String(!collapsed))
+  // 用矢量箭头而不是 ▸ 字符：字符在不同字体下基线、粗细都对不齐
+  btn.innerHTML = svgIcon('caret')
+  btn.addEventListener('mousedown', (event) => event.preventDefault())
+  btn.addEventListener('click', (event) => {
+    event.preventDefault()
+    event.stopPropagation()
+    view.dispatch(view.state.tr.setMeta(enhancePluginKey, { accordion: key }))
+  })
+  return btn
+}
+
+function pushDetailsBlock(
+  decos: Decoration[],
+  tops: Block[],
+  headIndex: number,
+  closeIndex: number,
+  openAccordions: string[]
+): void {
+  const block = tops[headIndex]
+  const close = tops[closeIndex]
+  const raw = block.node.textContent
+  const start = block.pos + 1
+  const size = block.node.content.size
+  const at = (offset: number) => start + Math.max(0, Math.min(offset, size))
+
+  const titleStart = raw.indexOf('<summary>') + '<summary>'.length
+  const titleEnd = raw.indexOf('</summary>')
+  if (titleStart <= 0 || titleEnd < titleStart) return
+
+  const title = raw.slice(titleStart, titleEnd).trim()
+  const key = title || `details-${block.pos}`
+  const collapsed = !openAccordions.includes(key)
+
+  // 藏掉 `<details>` 与 `<summary>`（含中间那个换行），只留标题
+  decos.push(Decoration.inline(start, at(titleStart), { class: 'fe-hidden-marker' }))
+  decos.push(Decoration.inline(at(titleStart), at(titleEnd), { class: 'fe-container-title' }))
+  decos.push(Decoration.inline(at(titleEnd), at(raw.length), { class: 'fe-hidden-marker' }))
+
+  decos.push(
+    Decoration.widget(at(raw.length), (view) => createAccordionToggle(view, key, collapsed), {
+      side: 1,
+      key: `details-toggle-${collapsed}`,
+    })
+  )
+
+  decos.push(
+    Decoration.node(block.pos, block.pos + block.node.nodeSize, {
+      class: `fe-container-head fe-container-head--accordion${collapsed ? ' is-collapsed' : ''}`,
+    })
+  )
+
+  // `</details>` 整行藏掉（留个可编辑的空位，不 display:none）
+  decos.push(
+    Decoration.inline(close.pos + 1, close.pos + 1 + close.node.content.size, {
+      class: 'fe-hidden-marker',
+    })
+  )
+  decos.push(
+    Decoration.node(close.pos, close.pos + close.node.nodeSize, {
+      class: `fe-container-close fe-container-close--accordion${collapsed ? ' is-collapsed' : ''}`,
+    })
+  )
+
+  // 中间的正文段落
+  const inner: Block[] = []
+  for (let k = headIndex + 1; k < closeIndex; k += 1) inner.push(tops[k])
+  inner.forEach((body, idx) => {
+    const classes = ['fe-container-body', 'fe-container-body--accordion']
+    if (idx === 0) classes.push('fe-container-body--first')
+    if (idx === inner.length - 1) classes.push('fe-container-body--last')
+    if (collapsed) classes.push('is-collapsed')
+    decos.push(Decoration.node(body.pos, body.pos + body.node.nodeSize, { class: classes.join(' ') }))
+  })
+}
+
 function buildDecorations(
   state: EditorState,
   isDark: boolean,
   stamp: number,
   openAccordions: string[],
-  openSources: string[]
+  openSources: string[],
+  tocOpen: boolean,
+  wrappedCodes: string[]
 ): DecorationSet {
   const decos: Decoration[] = []
   const doc = state.doc
@@ -394,6 +713,25 @@ function buildDecorations(
     const block = tops[i]
     if (!block.node.isTextblock) continue
     const raw = block.node.textContent
+
+    /*
+     * `<details>` / `<summary>` 折叠块。认出来就交给专用分支，
+     * 它和 `::: accordion` 共用外观，只是语法不同。
+     */
+    if (DETAILS_HEAD_RE.test(raw)) {
+      let closeAt = -1
+      for (let j = i + 1; j < tops.length; j += 1) {
+        if (DETAILS_CLOSE_RE.test(tops[j].node.textContent)) {
+          closeAt = j
+          break
+        }
+      }
+      if (closeAt !== -1) {
+        pushDetailsBlock(decos, tops, i, closeAt, openAccordions)
+        i = closeAt
+        continue
+      }
+    }
 
     /*
      * 紧凑写法优先：`::: info 标题` / 内容 / `:::` 三行之间没有空行时，
@@ -456,7 +794,7 @@ function buildDecorations(
         () => {
           const icon = document.createElement('span')
           icon.className = 'fe-container-icon'
-          icon.textContent = config.icon
+          icon.innerHTML = svgIcon(config.icon)
           return icon
         },
         { side: -1 }
@@ -467,25 +805,10 @@ function buildDecorations(
     if (isAccordion) {
       const togglePos = Math.min(block.pos + open[0].length + 1, block.pos + contentSize)
       decos.push(
-        Decoration.widget(
-          togglePos,
-          (view) => {
-            const btn = document.createElement('button')
-            btn.type = 'button'
-            btn.contentEditable = 'false'
-            btn.className = `fe-accordion-toggle${collapsed ? '' : ' is-open'}`
-            btn.title = collapsed ? '展开内容' : '收起内容'
-            btn.textContent = '▸'
-            btn.addEventListener('mousedown', (event) => event.preventDefault())
-            btn.addEventListener('click', (event) => {
-              event.preventDefault()
-              event.stopPropagation()
-              toggleAccordion(view, bodyKey)
-            })
-            return btn
-          },
-          { side: 1, key: `accordion-toggle-${collapsed}` }
-        )
+        Decoration.widget(togglePos, (view) => createAccordionToggle(view, bodyKey, collapsed), {
+          side: 1,
+          key: `accordion-toggle-${collapsed}`,
+        })
       )
     }
 
@@ -557,9 +880,34 @@ function buildDecorations(
       return false
     }
 
-    // 3.2 普通代码块：块首插入行号轴
+    // 3.2 普通代码块：块首插入行号轴，块前挂常驻表头
     if (node.type.name === 'code_block') {
       const lineCount = Math.max(1, node.textContent.split('\n').length)
+      const key = codeKey(node)
+      const wrapOn = wrappedCodes.includes(key)
+
+      decos.push(
+        Decoration.widget(
+          pos,
+          (view) =>
+            createCodeHeader(
+              view,
+              pos,
+              String(node.attrs.language ?? ''),
+              wrapOn,
+              key,
+              node.textContent
+            ),
+          { side: -1, key: `code-header-${key}-${wrapOn}` }
+        )
+      )
+      // 恒挂 fe-code-block：表头就靠它把上圆角收平，不再依赖 `+ pre` 相邻选择器
+      decos.push(
+        Decoration.node(pos, pos + node.nodeSize, {
+          class: `fe-code-block${wrapOn ? ' fe-code-wrap' : ''}`,
+        })
+      )
+
       decos.push(
         Decoration.widget(
           pos + 1,
@@ -605,7 +953,7 @@ function buildDecorations(
             const head = document.createElement('div')
             head.className = `fe-alert-head fe-alert-head--${config.tone}`
             head.contentEditable = 'false'
-            head.innerHTML = `<span class="fe-alert-icon">${config.icon}</span><span>${config.label}</span>`
+            head.innerHTML = `<span class="fe-alert-icon">${svgIcon(config.icon)}</span><span>${config.label}</span>`
             return head
           },
           { side: -1 }
@@ -621,11 +969,14 @@ function buildDecorations(
       )
       decos.push(Decoration.node(pos, pos + node.nodeSize, { class: 'fe-toc-marker-block' }))
       const items = collectHeadings(state)
+      const digest = items.map((item) => `${item.level}:${item.text}`).join('|')
       decos.push(
-        Decoration.widget(pos + node.nodeSize, (view) => createTocCard(items, view), {
-          side: 1,
-          key: `toc-${items.map((item) => `${item.level}:${item.text}`).join('|')}`,
-        })
+        Decoration.widget(
+          pos + node.nodeSize,
+          (view) => createTocCard(items, view, tocOpen),
+          // key 里**不能**带 tocOpen：一变就重建 DOM，卡片会跟着抖
+          { side: 1, key: `toc-${digest}` }
+        )
       )
     }
 
@@ -635,45 +986,77 @@ function buildDecorations(
   return DecorationSet.create(doc, decos)
 }
 
-/** 目录卡片：点击用编辑器 view 派发选区并滚动，不去查 DOM */
-function createTocCard(items: TocItem[], view: EditorView): HTMLElement {
+/**
+ * 目录卡片。
+ *
+ * ⚠️ 展开与收起是**同一棵 DOM**，靠 `is-collapsed` 切类名，不重建。
+ * 早先是两个不同 widget（收起态换成一颗胶囊），widget 的 key 里还带着 tocOpen ——
+ * 每点一次就换 key，ProseMirror 便销毁重建整块，卡片上的入场动画跟着重放，
+ * 视觉上就是「点一下抖一下」。现在 key 固定，点击只在本地切类名 + 派发状态。
+ */
+function createTocCard(items: TocItem[], view: EditorView, open: boolean): HTMLElement {
   const card = document.createElement('div')
-  card.className = 'fe-toc-card'
+  card.className = `fe-toc-card${open ? '' : ' is-collapsed'}`
   card.contentEditable = 'false'
 
   const head = document.createElement('div')
   head.className = 'fe-toc-head'
-  head.innerHTML = `<span>📑 本文目录 (TOC)</span><span class="fe-toc-count">${items.length} 个小节</span>`
+  head.innerHTML = `<span class="fe-toc-title">${svgIcon('note')}<span>本文目录</span></span><span class="fe-toc-count">${items.length} 小节</span>`
+
+  const toggle = document.createElement('button')
+  toggle.type = 'button'
+  toggle.className = 'fe-toc-collapse'
+  toggle.textContent = open ? '收起' : '展开'
+  toggle.title = open ? '收起目录' : '展开目录'
+  toggle.setAttribute('aria-expanded', String(open))
+  toggle.addEventListener('mousedown', (event) => event.preventDefault())
+  toggle.addEventListener('click', (event) => {
+    event.preventDefault()
+    event.stopPropagation()
+    // 先在本地切：DOM 不重建，收起动画才能接着上一次的状态跑
+    const collapsed = card.classList.toggle('is-collapsed')
+    toggle.textContent = collapsed ? '展开' : '收起'
+    toggle.title = collapsed ? '展开目录' : '收起目录'
+    toggle.setAttribute('aria-expanded', String(!collapsed))
+    // 再同步进插件 state，这样文档变动触发重建时不会跳回默认态
+    view.dispatch(view.state.tr.setMeta(enhancePluginKey, { toc: !collapsed }))
+  })
+  head.appendChild(toggle)
   card.appendChild(head)
+
+  const body = document.createElement('div')
+  body.className = 'fe-toc-body'
 
   if (!items.length) {
     const empty = document.createElement('div')
     empty.className = 'fe-toc-empty'
     empty.textContent = '暂无标题'
-    card.appendChild(empty)
-    return card
+    body.appendChild(empty)
+  } else {
+    const list = document.createElement('div')
+    list.className = 'fe-toc-list'
+    items.forEach((item) => {
+      const row = document.createElement('div')
+      row.className = `fe-toc-item fe-toc-item--${Math.min(item.level, 4)}`
+      row.textContent = item.text
+      row.addEventListener('mousedown', (event) => event.preventDefault())
+      row.addEventListener('click', () => {
+        const pos = Math.min(item.pos + 1, view.state.doc.content.size)
+        view.dispatch(
+          view.state.tr
+            .setSelection(TextSelection.near(view.state.doc.resolve(pos), 1))
+            .scrollIntoView()
+        )
+        view.focus()
+      })
+      list.appendChild(row)
+    })
+    body.appendChild(list)
   }
 
-  const list = document.createElement('div')
-  list.className = 'fe-toc-list'
-  items.forEach((item) => {
-    const row = document.createElement('div')
-    row.className = `fe-toc-item fe-toc-item--${Math.min(item.level, 4)}`
-    row.textContent = item.text
-    row.addEventListener('mousedown', (event) => event.preventDefault())
-    row.addEventListener('click', () => {
-      const pos = Math.min(item.pos + 1, view.state.doc.content.size)
-      view.dispatch(
-        view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(pos), 1)).scrollIntoView()
-      )
-      view.focus()
-    })
-    list.appendChild(row)
-  })
-  card.appendChild(list)
+  card.appendChild(body)
   return card
 }
-
 /* ============================ 导出插件 ============================ */
 
 /** 主题切换时自增，让 widget 的 key 变化、强制重建（图表要换配色） */
@@ -688,10 +1071,16 @@ export const milkdownEnhance = $prose(
     new Plugin<EnhanceState>({
       key: enhancePluginKey,
       state: {
-        init: () => ({ open: [], sourceOpen: [] }),
+        init: () => ({ open: [], sourceOpen: [], tocOpen: true, wrapped: [] }),
         apply(tr, value) {
           const meta = tr.getMeta(enhancePluginKey) as
-            | { accordion?: string; mermaidSource?: { key: string; showSource: boolean } }
+            | {
+                accordion?: string
+                mermaidSource?: { key: string; showSource: boolean }
+                toc?: boolean
+                codeWrap?: { key: string; on: boolean }
+                codeLanguage?: { pos: number; language: string }
+              }
             | undefined
           if (!meta) return value
 
@@ -703,6 +1092,28 @@ export const milkdownEnhance = $prose(
                 ? value.open.filter((item) => item !== key)
                 : [...value.open, key],
             }
+          }
+
+          if (meta.codeWrap) {
+            const { key, on } = meta.codeWrap
+            const has = value.wrapped.includes(key)
+            if (on === has) return value
+            return {
+              ...value,
+              wrapped: on ? [...value.wrapped, key] : value.wrapped.filter((item) => item !== key),
+            }
+          }
+
+          if (meta.codeLanguage) {
+            const { pos, language: next } = meta.codeLanguage
+            const node = tr.doc.nodeAt(pos)
+            if (!node) return value
+            tr.setNodeMarkup(pos, undefined, { ...node.attrs, language: next })
+            return value
+          }
+
+          if (typeof meta.toc === 'boolean') {
+            return { ...value, tocOpen: meta.toc }
           }
 
           if (meta.mermaidSource) {
@@ -731,7 +1142,9 @@ export const milkdownEnhance = $prose(
             isDark,
             themeStamp,
             pluginState?.open ?? [],
-            pluginState?.sourceOpen ?? []
+            pluginState?.sourceOpen ?? [],
+            pluginState?.tocOpen ?? false,
+            pluginState?.wrapped ?? []
           )
         },
       },

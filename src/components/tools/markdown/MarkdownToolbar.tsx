@@ -71,7 +71,13 @@ export default function MarkdownToolbar({
   }
 
   return (
-    <div className="flex h-10 flex-shrink-0 flex-nowrap items-center gap-0.5 overflow-x-auto scrollbar-hide border-b border-slate-200/80 bg-white px-2 dark:border-dark-border dark:bg-dark-panel">
+    /*
+     * relative z-40：块手柄是 position: fixed + z-index 30，挂在编辑区里浮在光标行左侧，
+     * 光标落在首行时会顶到工具栏这一带把它盖住。工具栏本身是静态定位、没有层级，
+     * 压不住它 —— 这里显式抬到 40 并建立层叠上下文，配着不透明的底色把手柄挡住。
+     * 40 仍低于浮条（80）与 Tooltip（90），光标附近的浮层照常浮在最上面。
+     */
+    <div className="relative z-40 flex h-10 flex-shrink-0 flex-nowrap items-center gap-0.5 overflow-x-auto scrollbar-hide border-b border-slate-200/80 bg-white px-2 dark:border-dark-border dark:bg-dark-panel">
       {left.map((command, index) => renderButton(command, left[index - 1]))}
 
       {/* 把右端那一组顶到另一端 */}

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { useNotes } from '../../context/NotesContext'
 import CherryMarkdownEditor from './CherryMarkdownEditor'
 import MilkdownMarkdownEditor from './MilkdownMarkdownEditor'
@@ -17,6 +18,8 @@ import {
 import { ArrowUpToLine, Loader2, TriangleAlert, X } from 'lucide-react'
 import Tooltip from '../ui/Tooltip'
 import { computeDocStats } from '../../utils/markdownStats'
+import EditorZoom from './markdown/EditorZoom'
+import { getZoom, resetZoom, stepZoom, subscribeZoom, ZOOM_STEP } from '../../utils/editorZoom'
 
 /** 滚动超过这个距离才值得把「返回顶部」露出来 */
 const BACK_TO_TOP_THRESHOLD = 120
@@ -48,6 +51,10 @@ export default function NotesTool() {
 
   // 编辑器外壳：两个内核各自把滚动容器放在内部，统一从这里往下找
   const rootRef = useRef<HTMLDivElement>(null)
+
+  // 画面缩放。状态收口在 utils/editorZoom，这里只订阅 —— 按钮、快捷键、滚轮三个入口都改它
+  const [zoom, setZoom] = useState(getZoom)
+  useEffect(() => subscribeZoom(setZoom), [])
 
   const content = activeNote?.content || ''
 
@@ -114,6 +121,40 @@ export default function NotesTool() {
 
   const toggleFullscreen = useCallback(() => setFullscreen((prev) => !prev), [])
 
+  /*
+   * 缩放的两个快捷入口：⌘= / ⌘- / ⌘0，以及 ⌘+滚轮。
+   * 滚轮必须挂非 passive 监听才能 preventDefault —— 否则会连带触发浏览器的整页缩放。
+   */
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey)) return
+      if (event.key === '=' || event.key === '+') {
+        event.preventDefault()
+        stepZoom(ZOOM_STEP)
+      } else if (event.key === '-' || event.key === '_') {
+        event.preventDefault()
+        stepZoom(-ZOOM_STEP)
+      } else if (event.key === '0') {
+        event.preventDefault()
+        resetZoom()
+      }
+    }
+
+    const root = rootRef.current
+    const onWheel = (event: WheelEvent) => {
+      if (!(event.metaKey || event.ctrlKey)) return
+      event.preventDefault()
+      stepZoom(event.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP)
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    root?.addEventListener('wheel', onWheel, { passive: false })
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      root?.removeEventListener('wheel', onWheel)
+    }
+  }, [])
+
   // 全屏时按 Esc 退出。捕获阶段监听，免得被编辑器内部的 Esc（关浮层等）先吃掉
   useEffect(() => {
     if (!fullscreen) return
@@ -154,11 +195,14 @@ export default function NotesTool() {
       }`}
     >
       {/* 顶部文档条：左显示当前文档名（列表滚动后仍能确认在编辑哪一篇），右为内核切换 */}
-      <div className="flex-shrink-0 h-9 px-3 flex items-center justify-between gap-3 border-b border-slate-200/80 dark:border-dark-border bg-slate-50/70 dark:bg-dark-hover/30">
+      <div className="relative z-40 flex-shrink-0 h-9 px-3 flex items-center justify-between gap-3 border-b border-slate-200/80 dark:border-dark-border bg-slate-50/70 dark:bg-dark-hover/30">
         <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-slate-400 dark:text-slate-500">
           {activeNote.title || '未命名文档'}
         </span>
-        <EditorModeSwitch value={mode} onChange={handleModeChange} />
+        <div className="flex flex-shrink-0 items-center gap-2">
+          <EditorZoom />
+          <EditorModeSwitch value={mode} onChange={handleModeChange} />
+        </div>
       </div>
 
       {/* 兼容性提醒条：只在切进所见即所得、且文档含 Cherry 专有语法时出现 */}
@@ -179,29 +223,43 @@ export default function NotesTool() {
       )}
 
       {/* 编辑器主体：两个内核共享同一份 activeNote.content */}
-      {mode === 'cherry' ? (
-        <CherryMarkdownEditor
-          key={activeNote.id}
-          value={activeNote.content}
-          onChange={handleContentChange}
-          title={activeNote.title}
-          viewMode={viewMode}
-          onViewModeChange={handleViewModeChange}
-          onToggleFullscreen={toggleFullscreen}
-          className="flex-1"
-        />
-      ) : (
-        <MilkdownMarkdownEditor
-          key={activeNote.id}
-          value={activeNote.content}
-          onChange={handleContentChange}
-          onWarning={setWarning}
-          title={activeNote.title}
-          onToggleFullscreen={toggleFullscreen}
-          fullscreen={fullscreen}
-          className="flex-1"
-        />
-      )}
+      {/*
+        缩放只作用于**正文**，不含编辑器自己的格式工具栏、右侧大纲与浮出的浮条。
+        做法是把倍率作为 CSS 变量放在这一层，由 index.css 施加到正文的滚动容器上
+        （见「.milkdown-scroll / .cherry」那两条规则）—— 直接 zoom 这一层会把工具栏一起放大。
+
+        用 CSS zoom 而不是 transform: scale：前者会连带重算内部布局，
+        滚动容器高度、正文折行、以及浮层依赖的 getBoundingClientRect 都还在同一套坐标系里；
+        transform 只是视觉拉伸，滚动条与坐标全对不上。
+      */}
+      <div
+        className="relative min-h-0 flex-1"
+        style={{ '--editor-zoom': zoom / 100 } as CSSProperties}
+      >
+        {mode === 'cherry' ? (
+          <CherryMarkdownEditor
+            key={activeNote.id}
+            value={activeNote.content}
+            onChange={handleContentChange}
+            title={activeNote.title}
+            viewMode={viewMode}
+            onViewModeChange={handleViewModeChange}
+            onToggleFullscreen={toggleFullscreen}
+            className="h-full"
+          />
+        ) : (
+          <MilkdownMarkdownEditor
+            key={activeNote.id}
+            value={activeNote.content}
+            onChange={handleContentChange}
+            onWarning={setWarning}
+            title={activeNote.title}
+            onToggleFullscreen={toggleFullscreen}
+            fullscreen={fullscreen}
+            className="h-full"
+          />
+        )}
+      </div>
 
       {/* 底部状态栏：保存状态 + 文档统计 + 当前内核/视图，原本是浮在右下角的胶囊 */}
       <MarkdownStatusBar

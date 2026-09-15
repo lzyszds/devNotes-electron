@@ -35,7 +35,7 @@ export default function MarkdownStatusBar({
   const tone = SAVE_TONE[saveStatus]
 
   return (
-    <div className="flex h-7 flex-shrink-0 items-center justify-between gap-3 border-t border-slate-200/80 bg-slate-50/70 px-3 font-mono text-[11px] text-slate-400 dark:border-dark-border dark:bg-dark-hover/30 dark:text-slate-500">
+    <div className="relative z-40 flex h-7 flex-shrink-0 items-center justify-between gap-3 border-t border-slate-200/80 bg-slate-50/70 px-3 font-mono text-[11px] text-slate-400 dark:border-dark-border dark:bg-dark-hover/30 dark:text-slate-500">
       <div className="group relative flex min-w-0 items-center gap-2">
         <span className={`flex flex-shrink-0 items-center gap-1.5 font-sans font-semibold ${tone.text}`}>
           <span className={`h-1.5 w-1.5 rounded-full ${tone.dot}`} />

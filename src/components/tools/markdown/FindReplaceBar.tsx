@@ -12,10 +12,16 @@ import {
   setSearchQuery,
 } from '../../../utils/milkdownSearch'
 import Tooltip from '../../ui/Tooltip'
+import { usePresence } from '../../../hooks/usePresence'
 import { ChevronDown, ChevronUp, Replace, ReplaceAll, Search, X } from 'lucide-react'
 
 export type FindReplaceBarProps = {
   editor: Editor | null
+  /**
+   * 由宿主控制显隐，本组件常驻挂载。
+   * 宿主若直接按 open 决定渲不渲染，节点会同步卸载，退出动画就没机会跑。
+   */
+  open: boolean
   onClose: () => void
 }
 
@@ -26,12 +32,14 @@ export type FindReplaceBarProps = {
  * （支持大小写/全字/正则），这里第一版只做字面量查找。外观对齐本站工具栏语言，
  * 不再是一块原生皮肤。
  */
-export default function FindReplaceBar({ editor, onClose }: FindReplaceBarProps) {
+export default function FindReplaceBar({ editor, open, onClose }: FindReplaceBarProps) {
   const [query, setQuery] = useState('')
   const [replacement, setReplacement] = useState('')
   const [total, setTotal] = useState(0)
   const [current, setCurrent] = useState(-1)
   const inputRef = useRef<HTMLInputElement>(null)
+  // 与 CSS 里 .fe-pop[data-state='closed'] 的时长一致
+  const { mounted, state } = usePresence(open, 130)
 
   /** 所有操作都要先进 ctx 拿 view —— editor 可能还没就绪 */
   const withView = useCallback(
@@ -55,14 +63,27 @@ export default function FindReplaceBar({ editor, onClose }: FindReplaceBarProps)
     })
   }, [withView])
 
-  // 打开即聚焦输入框，符合「⌘F 之后直接打字」的预期
+  // 打开即聚焦输入框，符合「⌘F 之后直接打字」的预期。
+  // 组件改为常驻挂载后不能只在挂载时聚焦，得跟着 open 走
   useEffect(() => {
+    if (!open) return
     inputRef.current?.focus()
     inputRef.current?.select()
-  }, [])
+  }, [open])
+
+  // 常驻挂载后 React 不再随卸载重置 state，这里等退出动画跑完、真正收起时再清空，
+  // 保持「每次打开都是干净的」这一原有行为（在 mounted 变 false 时清，面板已经不可见，不会闪）
+  useEffect(() => {
+    if (mounted) return
+    setQuery('')
+    setReplacement('')
+    setTotal(0)
+    setCurrent(-1)
+  }, [mounted])
 
   // 查询串变化时重算匹配并跳到第一个
   useEffect(() => {
+    if (!open) return
     withView((view) => {
       if (!query) {
         clearSearch(view)
@@ -76,7 +97,7 @@ export default function FindReplaceBar({ editor, onClose }: FindReplaceBarProps)
       // 落到第一个命中，否则高亮在最上面而视野还停在原处
       if (state?.matches.length) selectSearchMatch(view, 0)
     })
-  }, [query, withView])
+  }, [open, query, withView])
 
   const go = useCallback(
     (delta: 1 | -1) => {
@@ -114,8 +135,13 @@ export default function FindReplaceBar({ editor, onClose }: FindReplaceBarProps)
     onClose()
   }, [withView, onClose])
 
+  if (!mounted) return null
+
   return (
-    <div className="absolute right-2 top-2 z-30 flex w-[22rem] max-w-[calc(100%-1rem)] flex-col gap-1.5 rounded-lg border border-slate-200/80 bg-white/95 p-2 shadow-lg backdrop-blur-sm dark:border-dark-border dark:bg-dark-panel/95">
+    <div
+      data-state={state}
+      className="fe-pop absolute right-2 top-2 z-30 flex w-[22rem] max-w-[calc(100%-1rem)] flex-col gap-1.5 rounded-lg border border-slate-200/80 bg-white/95 p-2 shadow-lg backdrop-blur-sm dark:border-dark-border dark:bg-dark-panel/95"
+    >
       <div className="flex items-center gap-1.5">
         <div className="relative flex min-w-0 flex-1 items-center">
           <Search className="pointer-events-none absolute left-2 h-3 w-3 text-slate-400" />

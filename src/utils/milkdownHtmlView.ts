@@ -26,7 +26,6 @@ const KNOWN_TAGS = [
   'kbd',
   'br',
   'small',
-  'del',
   'ins',
   'abbr',
   'span',

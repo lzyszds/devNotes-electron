@@ -24,8 +24,16 @@ import { $markSchema } from '@milkdown/kit/utils'
 import type { MilkdownPlugin } from '@milkdown/kit/ctx'
 import type { DOMOutputSpec } from '@milkdown/kit/prose/model'
 
-/** 支持的行内标签。只有 span 带 style，另外四个是纯语义标签 */
-const TAGS = ['span', 'u', 'sup', 'sub', 'mark'] as const
+/**
+ * 支持的行内标签。只有 span 带 style，其余都是纯语义标签。
+ *
+ * ⚠️ 这份名单必须和 milkdownHtmlView 的 KNOWN_TAGS 对齐。
+ * CommonMark 把 `<kbd>x</kbd>` 拆成**两个独立的 html 节点**（开标签、闭标签），
+ * 中间夹着文本 —— 只有能被这里合并成 mark 的标签才渲染得出来。
+ * 漏在名单外的（kbd / small / del / ins / abbr 一度如此）会各自退化成
+ * 「认不出的 HTML 片段」，正文里直接显示字面量。
+ */
+const TAGS = ['span', 'u', 'sup', 'sub', 'mark', 'kbd', 'small', 'ins', 'abbr'] as const
 
 type TagName = (typeof TAGS)[number]
 

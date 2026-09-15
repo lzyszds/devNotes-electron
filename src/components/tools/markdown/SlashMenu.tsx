@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { usePresence } from '../../../hooks/usePresence'
 import type { Editor } from '@milkdown/kit/core'
 import { editorViewCtx } from '@milkdown/kit/core'
 import { SlashProvider, slashFactory } from '@milkdown/kit/plugin/slash'
@@ -67,6 +68,8 @@ export type SlashMenuProps = {
  */
 export default function SlashMenu({ editor, onReady }: SlashMenuProps) {
   const [open, setOpen] = useState(false)
+  // 关闭时先留在 DOM 里播完退出动画再卸载，时长与 .fe-pop 的 130ms 对齐
+  const { mounted, state } = usePresence(open, 130)
   const [activeIndex, setActiveIndex] = useState(0)
   /*
    * provider 需要的容器，自己建、**不进 React 渲染树**。
@@ -180,10 +183,11 @@ export default function SlashMenu({ editor, onReady }: SlashMenuProps) {
         菜单渲染进 hook 里建好的宿主容器。定位由 floating-ui 接管，
         真正的可见性靠 open 控制内层菜单的渲染。
       */}
-      {open &&
+      {mounted &&
         createPortal(
           <div
-            className="pointer-events-auto w-56 overflow-hidden rounded-xl border border-slate-200/80 bg-white py-1 shadow-lg dark:border-dark-border dark:bg-dark-panel"
+            data-state={state}
+            className="fe-pop pointer-events-auto w-56 overflow-hidden rounded-xl border border-slate-200/80 bg-white py-1 shadow-lg dark:border-dark-border dark:bg-dark-panel"
             // 菜单在 portal 里，点它不该让编辑区失焦
             onMouseDown={(event) => event.preventDefault()}
           >
