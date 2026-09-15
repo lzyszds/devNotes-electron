@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useId, useRef, useState } from "react";
 import { Check, ChevronDown } from "lucide-react";
 import Tooltip from "./Tooltip";
+import { usePresence } from "../../hooks/usePresence";
 
 export interface SelectOption<T extends string | number = string> {
   value: T;
@@ -41,6 +42,8 @@ export default function Select<T extends string | number = string>({
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const listboxId = useId();
+  // 与 CSS 里 .fe-pop[data-state='closed'] 的时长一致
+  const { mounted, state } = usePresence(open, 130);
 
   const selected = options.find((opt) => opt.value === value);
   const displayLabel = selected?.label ?? placeholder;
@@ -97,11 +100,12 @@ export default function Select<T extends string | number = string>({
         </button>
       </Tooltip>
 
-      {open && (
+      {mounted && (
         <ul
           id={listboxId}
           role="listbox"
-          className="absolute top-full left-0 mt-1 z-50 w-full bg-white dark:bg-dark-panel rounded-lg shadow-lg border border-slate-200 dark:border-dark-border py-1 max-h-60 overflow-y-auto"
+          data-state={state}
+          className="fe-pop absolute top-full left-0 mt-1 z-50 w-full bg-white dark:bg-dark-panel rounded-lg shadow-lg border border-slate-200 dark:border-dark-border py-1 max-h-60 overflow-y-auto"
           style={menuMinWidth ? { minWidth: menuMinWidth } : undefined}
         >
           {options.length === 0 ? (

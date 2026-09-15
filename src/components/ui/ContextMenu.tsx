@@ -19,6 +19,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { copyText, readText } from '../../utils/clipboard'
+import { usePresence } from '../../hooks/usePresence'
 import { useToast } from './Toast'
 
 export interface ContextMenuItem {
@@ -96,8 +97,10 @@ function getSelectionWithin(el: HTMLInputElement | HTMLTextAreaElement): string 
  * 父级 .context-menu 是 fixed（已定位），宿主项 position: relative，所以
  * left: 100% 正好贴在父项右侧。
  */
-function SubmenuPanel({ children }: { children: ReactNode }) {
+function SubmenuPanel({ open, children }: { open: boolean; children: ReactNode }) {
   const panelRef = useRef<HTMLDivElement>(null)
+  // 退出动画时长与 CSS 里 .context-menu-submenu[data-state='closed'] 保持一致
+  const { mounted, state } = usePresence(open, 120)
   const [style, setStyle] = useState<CSSProperties>({
     visibility: 'hidden',
     left: '100%',
@@ -105,7 +108,9 @@ function SubmenuPanel({ children }: { children: ReactNode }) {
   })
 
   // 先隐藏挂载量尺寸，贴右/下边缘时翻转，避免被视口裁掉
+  // 依赖 open：面板改为常驻挂载后，得靠这个每次展开都重新量一遍
   useLayoutEffect(() => {
+    if (!open) return
     const panel = panelRef.current
     const host = panel?.parentElement
     if (!panel || !host) return
@@ -126,10 +131,18 @@ function SubmenuPanel({ children }: { children: ReactNode }) {
       right: flip ? '100%' : 'auto',
       top: overflowBottom > 0 ? -Math.min(overflowBottom, maxShiftUp) : 0,
     })
-  }, [])
+  }, [open])
+
+  if (!mounted) return null
 
   return (
-    <div ref={panelRef} role="menu" className="context-menu context-menu-submenu" style={style}>
+    <div
+      ref={panelRef}
+      role="menu"
+      data-state={state}
+      className="context-menu context-menu-submenu"
+      style={style}
+    >
       {children}
     </div>
   )
@@ -140,6 +153,16 @@ export function ContextMenuProvider({ children }: { children: ReactNode }) {
   const [placement, setPlacement] = useState({ left: 0, top: 0, ready: false })
   const [nav, setNav] = useState<NavState>(INITIAL_NAV)
   const menuRef = useRef<HTMLDivElement>(null)
+  // 退出动画时长与 CSS 里 .context-menu[data-state='closed'] 保持一致
+  const { mounted, state } = usePresence(Boolean(anchor), 130)
+  /**
+   * 收起期间 anchor 已经置空，但菜单还要在 DOM 里多留 130ms 播退出动画，
+   * 这段时间仍要拿得到菜单项，否则渲染到一半就没内容了。
+   * 于是单独留一份「最后一次打开时的快照」。
+   */
+  const lastAnchorRef = useRef<ContextMenuAnchor | null>(null)
+  if (anchor) lastAnchorRef.current = anchor
+  const shown = anchor ?? lastAnchorRef.current
 
   const { showToast } = useToast()
 
@@ -485,9 +508,12 @@ export function ContextMenuProvider({ children }: { children: ReactNode }) {
             )}
           </button>
 
-          {expanded && (
-            <SubmenuPanel>{renderItems(item.children!, level + 1)}</SubmenuPanel>
-          )}
+          {/* 常驻挂载、由 open 驱动显隐：卸载推迟到退出动画跑完，见 usePresence。
+              没有子项的普通条目也要渲染这一层（它自己不挂载），所以 children 得先判空，
+              否则 item.children! 会在 .map 上炸 */}
+          <SubmenuPanel open={expanded}>
+            {hasChildren ? renderItems(item.children!, level + 1) : null}
+          </SubmenuPanel>
         </div>
       )
     })
@@ -495,12 +521,14 @@ export function ContextMenuProvider({ children }: { children: ReactNode }) {
   return (
     <ContextMenuContext.Provider value={{ openContextMenu, closeContextMenu }}>
       {children}
-      {anchor &&
+      {mounted &&
+        shown &&
         createPortal(
           <div
             ref={menuRef}
             role="menu"
             aria-orientation="vertical"
+            data-state={state}
             className="context-menu no-drag"
             style={{
               left: placement.left,
@@ -509,7 +537,7 @@ export function ContextMenuProvider({ children }: { children: ReactNode }) {
             }}
             onContextMenu={(e) => e.preventDefault()}
           >
-            {renderItems(anchor.items, 0)}
+            {renderItems(shown.items, 0)}
           </div>,
           document.body
         )}

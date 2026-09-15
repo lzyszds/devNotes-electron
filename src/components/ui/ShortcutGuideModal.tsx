@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Check, Sparkles, X } from 'lucide-react'
 import type { ComponentType } from 'react'
+import { usePresence } from '../../hooks/usePresence'
 
 export interface ShortcutItem {
   id: string
@@ -31,6 +32,15 @@ export default function ShortcutGuideModal({
 }: ShortcutGuideModalProps) {
   const [isPressed, setIsPressed] = useState(false)
   const [hasTested, setHasTested] = useState(false)
+  // 面板退出动画 160ms，遮罩 150ms，取长者
+  const { mounted, state } = usePresence(Boolean(shortcut), 160)
+  /**
+   * 收起期间 shortcut 已经置空，内容却还要在 DOM 里多留一会儿播退出动画。
+   * 留住最后一次的快照，否则渲染到一半就取不到 icon / 按键了。
+   */
+  const lastShortcutRef = useRef<ShortcutItem | null>(null)
+  if (shortcut) lastShortcutRef.current = shortcut
+  const shown = shortcut ?? lastShortcutRef.current
 
   // 弹窗打开后，自动播放一次轻快的机械键帽下压模拟动效
   useEffect(() => {
@@ -88,25 +98,27 @@ export default function ShortcutGuideModal({
     }
   }, [shortcut, onClose])
 
-  if (!shortcut) return null
+  if (!mounted || !shown) return null
 
-  const Icon = shortcut.icon
+  const Icon = shown.icon
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 select-none animate-in fade-in duration-200"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 select-none"
       role="dialog"
       aria-modal="true"
     >
       {/* 毛玻璃半透明暗色背景遮罩 */}
       <div
         onClick={onClose}
-        className="absolute inset-0 bg-slate-900/40 dark:bg-black/60 backdrop-blur-md transition-opacity"
+        data-state={state}
+        className="fe-fade absolute inset-0 bg-slate-900/40 dark:bg-black/60 backdrop-blur-md"
       />
 
       {/* 居中核心引导卡片 */}
       <div
-        className="relative w-full max-w-md rounded-3xl bg-white/95 dark:bg-dark-panel/95 border border-slate-200/80 dark:border-dark-border shadow-[0_25px_70px_-15px_rgba(0,0,0,0.35)] backdrop-blur-2xl p-6 sm:p-7 overflow-hidden text-center animate-in zoom-in-95 duration-200"
+        data-state={state}
+        className="fe-modal relative w-full max-w-md rounded-3xl bg-white/95 dark:bg-dark-panel/95 border border-slate-200/80 dark:border-dark-border shadow-[0_25px_70px_-15px_rgba(0,0,0,0.35)] backdrop-blur-2xl p-6 sm:p-7 overflow-hidden text-center"
         onClick={(e) => e.stopPropagation()}
       >
         {/* 背景氛围微光环 */}
@@ -117,7 +129,7 @@ export default function ShortcutGuideModal({
         <div className="flex items-center justify-between mb-4">
           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-brand-50 dark:bg-brand-950/40 text-brand-600 dark:text-brand-400 border border-brand-200/60 dark:border-brand-800/40">
             <Sparkles className="w-3 h-3" />
-            <span>{shortcut.category} · 快捷键指引</span>
+            <span>{shown.category} · 快捷键指引</span>
           </span>
 
           <button
@@ -132,7 +144,7 @@ export default function ShortcutGuideModal({
         {/* ================= 拟物 3D 键盘按键区 ================= */}
         <div className="my-6 flex flex-col items-center justify-center">
           <div className="flex items-center gap-3">
-            {shortcut.keyParts.map((key, index) => {
+            {shown.keyParts.map((key, index) => {
               const isCommand = key === '⌘'
               return (
                 <div key={index} className="flex items-center gap-3">
@@ -205,12 +217,12 @@ export default function ShortcutGuideModal({
             </div>
             <div className="min-w-0">
               <h3 className="text-sm font-bold text-slate-800 dark:text-white">
-                {shortcut.label}
+                {shown.label}
               </h3>
             </div>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed pl-9">
-            {shortcut.description}
+            {shown.description}
           </p>
         </div>
 
@@ -226,7 +238,7 @@ export default function ShortcutGuideModal({
                 type="button"
                 onClick={() => {
                   onClose()
-                  onTriggerAction(shortcut.id)
+                  onTriggerAction(shown.id)
                 }}
                 className="px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-dark-hover hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-medium transition-colors"
               >

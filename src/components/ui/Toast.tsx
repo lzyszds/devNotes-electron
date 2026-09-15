@@ -9,6 +9,8 @@ interface ToastItem {
   id: number
   text: string
   tone: ToastTone
+  /** 正在播退出动画：还留在列表里，但已开始收起，到点才真正移除 */
+  closing?: boolean
 }
 
 interface ToastContextValue {
@@ -18,6 +20,8 @@ interface ToastContextValue {
 const ToastContext = createContext<ToastContextValue | null>(null)
 
 const TOAST_DURATION = 1600
+/** 必须与 CSS 里 .toast-item[data-state='closed'] 的时长一致 */
+const TOAST_EXIT = 150
 
 /**
  * 轻量提示:fixed 定位在窗口右上角,完全不参与布局,不会造成任何位移。
@@ -31,7 +35,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     const id = ++counterRef.current
     setToasts((prev) => [...prev, { id, text, tone }].slice(-3))
     window.setTimeout(() => {
-      setToasts((prev) => prev.filter((item) => item.id !== id))
+      // 先标记为收起播动画，动画跑完再真正移除
+      setToasts((prev) => prev.map((item) => (item.id === id ? { ...item, closing: true } : item)))
+      window.setTimeout(() => {
+        setToasts((prev) => prev.filter((item) => item.id !== id))
+      }, TOAST_EXIT)
     }, TOAST_DURATION)
   }, [])
 
@@ -41,7 +49,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {createPortal(
         <div className="toast-stack" aria-live="polite" aria-atomic="false">
           {toasts.map((item) => (
-            <div key={item.id} className="toast-item" data-tone={item.tone}>
+            <div
+              key={item.id}
+              className="toast-item"
+              data-tone={item.tone}
+              data-state={item.closing ? 'closed' : 'open'}
+            >
               {item.tone === 'error' ? (
                 <AlertCircle size={13} className="flex-shrink-0" />
               ) : (

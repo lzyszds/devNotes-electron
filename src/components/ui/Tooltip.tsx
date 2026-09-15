@@ -9,6 +9,7 @@ import {
 } from 'react'
 import type { ReactElement, ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { usePresence } from '../../hooks/usePresence'
 import {
   TOOLTIP_DELAY,
   computeTooltipPosition,
@@ -59,6 +60,15 @@ export default function Tooltip({
   const [anchor, setAnchor] = useState<DOMRect | null>(null)
   // 气泡自身的定位结果。位置要等气泡渲染出来、量到实际尺寸才能算，见下面的 layout effect
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+  // 退出动画时长与 CSS 里 .tooltip-bubble[data-state='closed'] 一致
+  const { mounted, state } = usePresence(Boolean(anchor), 110)
+  /**
+   * hide() 会把 pos 一并清空，但气泡这会儿还在播淡出动画。
+   * 不留住最后一帧的位置，气泡会瞬间跳到视口左上角再消失。
+   */
+  const lastPosRef = useRef<{ top: number; left: number } | null>(null)
+  if (pos) lastPosRef.current = pos
+  const shownPos = pos ?? lastPosRef.current
   const timerRef = useRef<number | null>(null)
   // 鼠标按下过就抑制随后的 focus 弹出，否则「点一下按钮」会顺带弹一个提示出来
   const suppressFocusRef = useRef(false)
@@ -162,14 +172,19 @@ export default function Tooltip({
   return (
     <>
       {trigger}
-      {anchor &&
+      {mounted &&
         createPortal(
           // 外层只负责定位；测量阶段先 opacity:0，算出位置后同帧转 1（layout effect 在 paint 前跑完，不会闪）
+          // 收起期间 pos 已清空，这时得保持不透明，否则淡出动画是从「本来就看不见」开始播的
           <div
-            style={{ top: pos?.top ?? 0, left: pos?.left ?? 0, opacity: pos ? 1 : 0 }}
+            style={{
+              top: shownPos?.top ?? 0,
+              left: shownPos?.left ?? 0,
+              opacity: pos || state === 'closed' ? 1 : 0,
+            }}
             className="pointer-events-none fixed z-[90]"
           >
-            <div ref={bubbleRef} role="tooltip" className="tooltip-bubble">
+            <div ref={bubbleRef} role="tooltip" data-state={state} className="tooltip-bubble">
               {content}
             </div>
           </div>,
