@@ -10,6 +10,7 @@ interface StatsProps {
 }
 
 export default function Stats({ usageStats, onBack }: StatsProps) {
+
   const sortedStats = Object.entries(usageStats)
     .map(([id, count]) => ({
       id,
@@ -33,7 +34,7 @@ export default function Stats({ usageStats, onBack }: StatsProps) {
     <div className="app-scene h-screen bg-slate-50 flex flex-col overflow-hidden text-slate-900">
       <header
         onDoubleClick={handleTopbarDoubleClick}
-        className="drag-region bg-white border-b border-slate-200 h-[56px] px-6 flex items-center justify-between shrink-0 shadow-sm"
+        className="drag-region bg-white border-b border-slate-200 h-[56px] px-4 md:px-6 flex items-center justify-between shrink-0 shadow-sm"
       >
         <div className="flex items-center gap-4">
           <Tooltip content="返回工具中心">
@@ -47,10 +48,10 @@ export default function Stats({ usageStats, onBack }: StatsProps) {
           <h1 className="text-sm font-bold tracking-tight">使用统计与分析</h1>
         </div>
         {/* 无边框之后系统标题栏没了，这一页原本一条窗口控制都没有，等于关不掉也最小化不了 */}
-        <WindowControls />
+        <WindowControls className="hidden md:flex" />
       </header>
 
-      <main className="flex-1 overflow-y-auto p-8">
+      <main className="flex-1 overflow-y-auto p-4 md:p-8">
         <div className="max-w-4xl mx-auto">
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">

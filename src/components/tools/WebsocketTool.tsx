@@ -146,11 +146,11 @@ export default function WebsocketTool() {
   }, []);
 
   return (
-    <div className="relative flex h-full min-h-[600px] bg-white overflow-hidden text-slate-900">
+    <div className="relative flex h-full min-h-0 md:min-h-[600px] bg-white overflow-hidden text-slate-900">
       <div className="flex-1 flex flex-col min-w-0">
         {/* Action Header */}
-        <div className="px-8 py-5 flex items-center justify-between border-b border-slate-100">
-          <div className="flex items-center gap-4">
+        <div className="flex-wrap gap-3 px-4 py-4 md:px-8 md:py-5 flex items-center justify-between border-b border-slate-100">
+          <div className="flex flex-wrap items-center gap-4">
             <div
               className={`h-12 w-12 rounded-2xl flex items-center justify-center shadow-lg transition-colors ${status === WebSocket.OPEN ? "bg-brand-600 text-white shadow-brand-100" : "bg-slate-100 text-slate-400"}`}
             >
@@ -204,7 +204,7 @@ export default function WebsocketTool() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-8 py-2 bg-white mt-3">
+        <div className="flex-1 overflow-y-auto p-4 py-2 md:p-8 bg-white mt-3">
           <div className="max-w-7xl mx-auto grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_420px] gap-8 h-full">
             {/* Left Column: Input & Controls */}
             <div className="space-y-6">

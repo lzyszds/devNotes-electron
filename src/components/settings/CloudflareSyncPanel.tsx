@@ -333,7 +333,7 @@ export default function CloudflareSyncPanel() {
         {activeTab === 'console' && (
           <div className="space-y-5">
             {/* 状态总览卡片：现代纯净指标看板 */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="p-4 bg-white dark:bg-dark-panel/90 border border-slate-200/80 dark:border-dark-border rounded-2xl shadow-2xs space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">

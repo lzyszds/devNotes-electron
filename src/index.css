@@ -788,11 +788,11 @@ html.dark ::-webkit-scrollbar-thumb:hover {
 
   /* Action Buttons */
   .tool-button-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-2.5 text-xs font-bold text-white shadow-sm transition-all duration-200 hover:bg-slate-800 hover:shadow-md active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none;
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-slate-900 px-5 py-2.5 text-xs font-bold text-white shadow-sm transition-all duration-200 hover:bg-slate-800 hover:shadow-md active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none;
   }
 
   .tool-button-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-bold text-slate-600 transition-all duration-200 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 active:scale-[0.97] disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-bold text-slate-600 transition-all duration-200 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 active:scale-[0.97] disabled:opacity-50;
   }
 
   .tool-button-accent {
@@ -2576,6 +2576,39 @@ html.dark .fe-toc-item--1 { color: #e2e8f0; }
  */
 .milkdown-notes-editor.has-outline .milkdown-content {
   padding-right: 60px;
+}
+
+/*
+ * 移动端正文留白收窄。
+ *
+ * 桌面端左右各留 36~60px 是两件事：版心好看，以及给两侧的浮层让位 ——
+ * 左侧通道留给块操作手柄（挂在编辑区左边缘 +20px 处），右侧留给常驻大纲胶囊。
+ * 手机上这两样都不存在：手柄靠 mousemove 驱动、触屏不会触发；大纲已经改成
+ * 底部 sheet，右侧没有胶囊了。留白却照旧，390px 宽的屏幕上正文只剩 306px。
+ *
+ * 放在这一段的最后：上面的 `.has-outline` 是 3 个类选择器，特异性高于
+ * 单条 `.milkdown-notes-editor .milkdown-content`，必须压在它后面才盖得住。
+ */
+@media (max-width: 767px) {
+  .milkdown-notes-editor .milkdown-content,
+  .milkdown-notes-editor.has-outline .milkdown-content {
+    padding: 16px 14px 72px;
+  }
+
+  .cherry-notes-editor .cherry-previewer {
+    padding: 16px 14px 72px !important;
+  }
+
+  .cherry-notes-editor .cherry .cm-editor .cm-content,
+  .cherry-notes-editor .cherry .cm-editor .cm-lineWrapping {
+    padding: 16px 14px 72px !important;
+  }
+
+  /* 触屏没有 mousemove，手柄本就不会出现；显式关掉，
+     免得它万一冒出来压到收窄后的正文上 */
+  .fehelper-block-handle {
+    display: none !important;
+  }
 }
 
 /* ---------------------------------------------------------- 10.7 紧凑容器 ::: （整块在一个段落里） */

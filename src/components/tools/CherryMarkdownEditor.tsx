@@ -42,6 +42,8 @@ export type CherryMarkdownEditorProps = {
   /** 全屏预览态（只读 + 铺满视口）。由宿主统一切换，两个内核共用同一份状态 */
   preview?: boolean
   onTogglePreview?: () => void
+  /** 「返回顶部」：状态与回调都在宿主（NotesTool），这里只透传给工具栏 */
+  backToTop?: { visible: boolean; onClick: () => void }
 }
 
 function fileToDataUrl(file: File): Promise<string> {
@@ -78,6 +80,7 @@ export default function CherryMarkdownEditor({
   onToggleOutline,
   preview = false,
   onTogglePreview,
+  backToTop,
 }: CherryMarkdownEditorProps) {
   const { registerInsertHandler } = useNotes()
   const reactId = useId().replace(/:/g, '')
@@ -454,16 +457,20 @@ export default function CherryMarkdownEditor({
       className={`cherry-notes-editor flex h-full min-h-0 flex-col ${className}`}
       onContextMenu={handleContextMenu}
     >
-      {/* 预览态是只读的，工具栏上每一颗按钮都点不出效果，连同视图切换一起收掉 */}
+      {/* 预览态是只读的，工具栏上每一颗按钮都点不出效果，连同视图切换一起收掉。
+          移动端把工具栏挪到底部，当作键盘上方的格式配件条。 */}
       {!preview && (
-        <MarkdownToolbar
-          engine="cherry"
-          onCommand={handleCommand}
-          state={toolbarState}
-          trailing={<ViewModeSwitch value={viewMode} onChange={onViewModeChange} />}
-        />
+        <div className="max-md:order-2 max-md:bg-white max-md:pb-[env(safe-area-inset-bottom)] max-md:dark:bg-dark-panel">
+          <MarkdownToolbar
+            engine="cherry"
+            onCommand={handleCommand}
+            state={toolbarState}
+            trailing={<ViewModeSwitch value={viewMode} onChange={onViewModeChange} />}
+            backToTop={backToTop}
+          />
+        </div>
       )}
-      <div className="relative min-h-0 flex-1">
+      <div className="relative min-h-0 flex-1 max-md:order-1">
         <div id={containerId} ref={mountRef} className="h-full w-full" />
       </div>
     </div>

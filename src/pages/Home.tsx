@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, BarChart3, X, Minus, FolderOpen, Copy } from "lucide-react";
+import { Search, BarChart3, X, Minus, FolderOpen, Copy, ChevronLeft } from "lucide-react";
 import { tools, toolCategories } from "../types";
 import { useContextMenu } from "../components/ui/ContextMenu";
 import { useToast } from "../components/ui/Toast";
@@ -11,12 +11,14 @@ import logo from "../assets/logo.png";
 interface HomeProps {
   onOpenTool: (id: string) => void;
   onOpenStats: () => void;
+  onBack: () => void;
   usageStats: Record<string, number>;
 }
 
 export default function Home({
   onOpenTool,
   onOpenStats,
+  onBack,
   usageStats,
 }: HomeProps) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -46,6 +48,25 @@ export default function Home({
 
   return (
     <div className="app-scene h-screen flex flex-col bg-white dark:bg-dark-bg overflow-hidden text-slate-900 dark:text-slate-100 transition-colors">
+      {/* 移动端顶栏：桌面端那条是叠加层、只有窗口按钮，手机上换成能回工作台的导航条 */}
+      <header className="md:hidden flex-shrink-0 h-11 px-3 flex items-center justify-between border-b border-slate-100 dark:border-dark-border bg-white dark:bg-dark-panel">
+        <button
+          onClick={onBack}
+          className="-ml-1.5 flex items-center gap-0.5 rounded-lg p-1.5 text-slate-600 active:bg-slate-100 dark:text-slate-300 dark:active:bg-dark-hover"
+        >
+          <ChevronLeft className="w-5 h-5" />
+          <span className="text-xs font-medium">返回</span>
+        </button>
+        <span className="text-xs font-bold text-slate-800 dark:text-slate-100">工具中心</span>
+        <button
+          onClick={onOpenStats}
+          title="使用统计"
+          className="rounded-lg p-1.5 text-slate-500 active:bg-slate-100 dark:text-slate-400 dark:active:bg-dark-hover"
+        >
+          <BarChart3 className="w-4 h-4" />
+        </button>
+      </header>
+
       {/* Discreet Window Controls (Overlay) */}
       <div
         onDoubleClick={(event) => {
@@ -53,7 +74,7 @@ export default function Home({
           if ((event.target as HTMLElement).closest('.no-drag')) return
           window.electronAPI?.maximizeWindow()
         }}
-        className="drag-region absolute top-0 left-0 right-0 h-11 flex justify-between items-center px-4 z-50"
+        className="drag-region absolute top-0 left-0 right-0 h-11 hidden md:flex justify-between items-center px-4 z-50"
       >
         <div className="no-drag flex items-center gap-1.5">
           <div
@@ -89,8 +110,8 @@ export default function Home({
         </div>
       </div>
 
-      <main className="flex-1 overflow-y-auto px-10 pb-20">
-        <div className="max-w-4xl mx-auto pt-16">
+      <main className="flex-1 overflow-y-auto px-4 pb-16 md:px-10 md:pb-20">
+        <div className="max-w-4xl mx-auto pt-4 md:pt-16">
           {/* Header */}
           <div className="text-center mb-2">
             {/* 首屏是唯一的品牌露出位：logo 外面罩一层 logo 青蓝的光晕，
@@ -98,9 +119,9 @@ export default function Home({
             <img
               src={logo}
               alt="devNotes"
-              className="inline-block h-12 w-12 object-contain mb-6 drop-shadow-[0_0_22px_rgba(80,189,207,0.45)]"
+              className="inline-block h-10 w-10 md:h-12 md:w-12 object-contain mb-4 md:mb-6 drop-shadow-[0_0_22px_rgba(80,189,207,0.45)]"
             />
-            <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2 tracking-tight">
+            <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mb-2 tracking-tight">
               devNotes 工具中心
             </h1>
             <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">
@@ -124,13 +145,13 @@ export default function Home({
           </div>
 
           {/* Categories Bar */}
-          <div className="flex items-center justify-between mb-8 border-b border-slate-100 dark:border-dark-border pb-4">
-            <div className="flex gap-1 overflow-x-auto scrollbar-hide">
+          <div className="flex items-center justify-between gap-3 mb-6 md:mb-8 border-b border-slate-100 dark:border-dark-border pb-4">
+            <div className="flex min-w-0 gap-1 overflow-x-auto scrollbar-hide">
               {toolCategories.map((cat) => (
                 <button
                   key={cat.id}
                   onClick={() => setActiveCategory(cat.id)}
-                  className={`px-3.5 py-1 rounded-full text-xs font-semibold transition-all ${
+                  className={`flex-shrink-0 whitespace-nowrap px-3.5 py-1 rounded-full text-xs font-semibold transition-all ${
                     activeCategory === cat.id
                       ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-2xs"
                       : "text-slate-400 hover:text-slate-900 dark:hover:text-white"
@@ -142,7 +163,7 @@ export default function Home({
             </div>
             <button
               onClick={onOpenStats}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-50 dark:bg-dark-hover text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-dark-border transition text-xs font-semibold"
+              className="hidden md:flex flex-shrink-0 items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-50 dark:bg-dark-hover text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-dark-border transition text-xs font-semibold"
             >
               <BarChart3 size={14} />
               统计面板
@@ -185,9 +206,9 @@ export default function Home({
                     },
                   ])
                 }
-                className="motion-lift group flex flex-col items-center justify-center p-5 rounded-2xl bg-white dark:bg-dark-panel border border-slate-200/80 dark:border-dark-border hover:border-brand-500 dark:hover:border-brand-500 hover:shadow-lg transition-all"
+                className="motion-lift group flex flex-col items-center justify-center p-3 md:p-5 rounded-2xl bg-white dark:bg-dark-panel border border-slate-200/80 dark:border-dark-border hover:border-brand-500 dark:hover:border-brand-500 hover:shadow-lg transition-all"
               >
-                <div className="h-10 w-10 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-dark-sidebar mb-3 group-hover:bg-brand-600 transition-colors">
+                <div className="h-9 w-9 md:h-10 md:w-10 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-dark-sidebar mb-2 md:mb-3 group-hover:bg-brand-600 transition-colors">
                   <ToolIcon toolId={tool.id} className="w-5 h-5 text-slate-700 dark:text-slate-200 group-hover:text-white transition-colors" />
                 </div>
                 <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 text-center truncate w-full">

@@ -101,6 +101,7 @@ function App() {
             <Home
               onOpenTool={openTool}
               onOpenStats={navigateToStats}
+              onBack={() => setViewMode('dashboard')}
               usageStats={usageStats}
             />
           )}

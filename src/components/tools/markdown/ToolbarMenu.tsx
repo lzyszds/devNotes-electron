@@ -152,7 +152,7 @@ export default function ToolbarMenu({
               left: `${pos.left}px`,
               width: typeof width === 'number' ? `${width}px` : width,
             }}
-            className="fe-pop fixed z-[85] max-h-[26rem] overflow-y-auto rounded-xl border border-slate-200/80 bg-white p-1.5 shadow-xl dark:border-dark-border dark:bg-dark-panel"
+            className="fe-pop fixed z-[85] max-h-[26rem] max-w-[calc(100vw-1rem)] overflow-y-auto rounded-xl border border-slate-200/80 bg-white p-1.5 shadow-xl dark:border-dark-border dark:bg-dark-panel"
           >
             {children(handleClose)}
           </div>,

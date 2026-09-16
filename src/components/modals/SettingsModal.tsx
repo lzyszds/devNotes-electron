@@ -92,21 +92,21 @@ export default function SettingsModal({
         if (e.target === e.currentTarget) onClose()
       }}
       data-state={state}
-      className="fe-fade fixed inset-0 bg-slate-900/50 dark:bg-black/70 backdrop-blur-xs z-[60] flex items-center justify-center p-4"
+      className="fe-fade fixed inset-0 bg-slate-900/50 dark:bg-black/70 backdrop-blur-xs z-[60] flex items-center justify-center p-2 md:p-4"
     >
       <div
         data-state={state}
-        className="fe-modal w-full max-w-3xl h-[80vh] max-h-[720px] bg-white dark:bg-dark-panel rounded-2xl shadow-2xl border border-slate-200/80 dark:border-dark-border overflow-hidden flex flex-col"
+        className="fe-modal w-full max-w-3xl h-[88vh] md:h-[80vh] max-h-[720px] bg-white dark:bg-dark-panel rounded-2xl shadow-2xl border border-slate-200/80 dark:border-dark-border overflow-hidden flex flex-col"
       >
         {/* 头部 */}
-        <div className="p-4 border-b border-slate-100 dark:border-dark-border flex items-center justify-between bg-slate-50/50 dark:bg-dark-sidebar/40 flex-shrink-0">
+        <div className="p-3 md:p-4 border-b border-slate-100 dark:border-dark-border flex items-center justify-between bg-slate-50/50 dark:bg-dark-sidebar/40 flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-slate-600 to-slate-800 dark:from-slate-500 dark:to-slate-700 flex items-center justify-center text-white shadow-md shadow-slate-500/20">
               <Settings2 className="w-5 h-5" />
             </div>
             <div>
               <h3 className="text-sm font-bold text-slate-900 dark:text-white">设置</h3>
-              <p className="text-xs text-slate-400">全局功能与外观偏好</p>
+              <p className="hidden md:block text-xs text-slate-400">全局功能与外观偏好</p>
             </div>
           </div>
 
@@ -121,8 +121,8 @@ export default function SettingsModal({
         </div>
 
         {/* 主体：左侧分类导航 + 右侧面板 */}
-        <div className="flex-1 flex overflow-hidden">
-          <nav className="w-[176px] flex-shrink-0 border-r border-slate-100 dark:border-dark-border bg-slate-50/50 dark:bg-dark-sidebar/40 p-2 space-y-1 overflow-y-auto">
+        <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+          <nav className="w-full md:w-[176px] flex-shrink-0 border-b md:border-b-0 md:border-r border-slate-100 dark:border-dark-border bg-slate-50/50 dark:bg-dark-sidebar/40 p-2 flex md:block gap-1 md:gap-0 md:space-y-1 overflow-x-auto md:overflow-y-auto scrollbar-hide">
             {SECTIONS.map((item) => {
               const active = section === item.id
               const Icon = item.icon
@@ -131,7 +131,7 @@ export default function SettingsModal({
                   key={item.id}
                   type="button"
                   onClick={() => onSectionChange(item.id)}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left transition-colors ${
+                  className={`flex-shrink-0 md:w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left whitespace-nowrap transition-colors ${
                     active
                       ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border'
                       : 'border border-transparent hover:bg-white/60 dark:hover:bg-dark-hover/60'
@@ -152,7 +152,7 @@ export default function SettingsModal({
                     >
                       {item.label}
                     </span>
-                    <span className="block text-[10px] text-slate-400 truncate">{item.hint}</span>
+                    <span className="hidden md:block text-[10px] text-slate-400 truncate">{item.hint}</span>
                   </span>
                   {item.id === 'cloud-sync' && cloudBadge}
                 </button>
@@ -160,7 +160,7 @@ export default function SettingsModal({
             })}
           </nav>
 
-          <div className="flex-1 overflow-y-auto p-5 min-w-0">
+          <div className="flex-1 overflow-y-auto p-4 md:p-5 min-w-0">
             {section === 'general' && (
               <GeneralPanel
                 theme={theme}

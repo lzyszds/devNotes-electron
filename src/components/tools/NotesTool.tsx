@@ -15,9 +15,11 @@ import {
   VIEW_MODE_LABEL,
   type EditorViewMode,
 } from './markdown/ViewModeSwitch'
-import { ArrowUpToLine, Loader2, Minimize2, TriangleAlert, X } from 'lucide-react'
+import { Loader2, Minimize2, TriangleAlert, X } from 'lucide-react'
 import Tooltip from '../ui/Tooltip'
 import { computeDocStats } from '../../utils/markdownStats'
+import { publishDocStats } from '../../utils/editorBus'
+import { useIsMobile } from '../../hooks/useIsMobile'
 import EditorZoom from './markdown/EditorZoom'
 import {
   fitZoomFor,
@@ -72,10 +74,15 @@ export default function NotesTool() {
   const [zoom, setZoom] = useState(getZoom)
   useEffect(() => subscribeZoom(setZoom), [])
 
+  const isMobile = useIsMobile()
+
   const content = activeNote?.content || ''
 
   // 实时精细化统计（与右键菜单的「当前文档信息」共用同一套口径）
   const stats = useMemo(() => computeDocStats(content), [content])
+
+  // 移动端顶栏的「已保存 · N 字」胶囊靠这个总线同步，口径与底部状态栏一致
+  useEffect(() => publishDocStats(stats.totalWords), [stats.totalWords])
 
   /**
    * 收集编辑器内部真正溢出滚动的容器。
@@ -257,8 +264,8 @@ export default function NotesTool() {
       }`}
     >
       {/* 顶部文档条：左显示当前文档名（列表滚动后仍能确认在编辑哪一篇），右为内核切换。
-          预览态下它是「工具」，整条收掉 */}
-      {!previewing && (
+          预览态下它是「工具」，整条收掉；移动端标题已在顶栏、缩放靠手势，这条一并收掉 */}
+      {!previewing && !isMobile && (
       <div className="relative z-40 flex-shrink-0 h-9 px-3 flex items-center justify-between gap-3 border-b border-slate-200/80 dark:border-dark-border bg-slate-50 dark:bg-dark-sidebar">
         <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-slate-400 dark:text-slate-500">
           {activeNote.title || '未命名文档'}
@@ -312,6 +319,7 @@ export default function NotesTool() {
             onToggleFullscreen={toggleFullscreen}
             preview={previewing}
             onTogglePreview={togglePreview}
+            backToTop={{ visible: showBackToTop, onClick: handleBackToTop }}
             className="h-full"
           />
         ) : (
@@ -325,13 +333,15 @@ export default function NotesTool() {
             fullscreen={fullscreen}
             preview={previewing}
             onTogglePreview={togglePreview}
+            backToTop={{ visible: showBackToTop, onClick: handleBackToTop }}
             className="h-full"
           />
         )}
       </div>
 
-      {/* 底部状态栏：保存状态 + 文档统计 + 当前内核/视图，原本是浮在右下角的胶囊 */}
-      {!previewing && (
+      {/* 底部状态栏：保存状态 + 文档统计 + 当前内核/视图，原本是浮在右下角的胶囊。
+          移动端保存状态与字数已经收进顶栏胶囊，这里收掉避免重复 */}
+      {!previewing && !isMobile && (
       <MarkdownStatusBar
         stats={stats}
         engineLabel={ENGINE_LABEL[mode]}
@@ -360,21 +370,8 @@ export default function NotesTool() {
         </div>
       )}
 
-      {/* 右下角只留「返回顶部」，统计已挪到状态栏，避免同屏两处字数 */}
-      {showBackToTop && (
-        <div className="absolute bottom-10 right-6 z-20 pointer-events-none">
-          <Tooltip content="返回顶部">
-            <button
-              type="button"
-              onClick={handleBackToTop}
-              aria-label="返回顶部"
-              className="pointer-events-auto flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-slate-200/60 bg-white/70 text-slate-400 shadow-xs backdrop-blur-md transition-all duration-200 hover:bg-white hover:text-brand-600 hover:shadow-md dark:border-dark-border/60 dark:bg-dark-panel/70 dark:text-slate-500 dark:hover:bg-dark-panel dark:hover:text-brand-400"
-            >
-              <ArrowUpToLine className="w-3.5 h-3.5" />
-            </button>
-          </Tooltip>
-        </div>
-      )}
+      {/* 「返回顶部」已经挪进工具栏（见 MarkdownToolbar 的 backToTop），
+          原先右下角的浮动按钮在移动端会贴到格式工具条上 */}
     </div>
   )
 }

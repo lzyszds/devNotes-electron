@@ -344,8 +344,8 @@ export default function JsonFormatTool({
       <div className="relative flex h-full bg-slate-50/30 overflow-hidden">
         <div className="flex-1 flex flex-col min-w-0">
           {/* Action Header */}
-          <div className="px-8 py-5 flex items-center justify-between border-b border-slate-100 shrink-0 bg-white">
-            <div className="flex items-center gap-4">
+          <div className="flex-wrap gap-3 px-4 py-4 md:px-8 md:py-5 flex items-center justify-between border-b border-slate-100 shrink-0 bg-white">
+            <div className="flex flex-wrap items-center gap-4">
               <div className="h-12 w-12 rounded-2xl bg-brand-600 text-white flex items-center justify-center shadow-lg shadow-brand-100">
                 <GitCompareArrows size={24} />
               </div>
@@ -359,7 +359,7 @@ export default function JsonFormatTool({
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={() => setShowHistory(!showHistory)}
                 className={`tool-button-secondary h-10 px-4 ${showHistory ? "ring-2 ring-brand-500/20 border-brand-200 text-brand-600" : ""}`}
@@ -396,7 +396,7 @@ export default function JsonFormatTool({
 
           <div className="flex-1 overflow-y-auto p-6 space-y-6 flex flex-col">
             {/* Stats Cards */}
-            <div className="grid grid-cols-4 gap-4 shrink-0">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 shrink-0">
               {[
                 { label: "匹配", value: diffStats.same, color: "slate" },
                 { label: "新增", value: diffStats.added, color: "emerald" },
@@ -581,8 +581,8 @@ export default function JsonFormatTool({
     <div className="relative flex h-full bg-white overflow-hidden text-slate-900">
       <div className="flex-1 flex flex-col min-w-0 h-full">
         {/* Action Header */}
-        <div className="px-8 py-5 flex items-center justify-between border-b border-slate-100 shrink-0">
-          <div className="flex items-center gap-4">
+        <div className="flex-wrap gap-3 px-4 py-4 md:px-8 md:py-5 flex items-center justify-between border-b border-slate-100 shrink-0">
+          <div className="flex flex-wrap items-center gap-4">
             <div className="h-12 w-12 rounded-2xl bg-brand-600 text-white flex items-center justify-center shadow-lg shadow-brand-100">
               <Braces size={24} />
             </div>
@@ -596,7 +596,7 @@ export default function JsonFormatTool({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => setShowHistory(!showHistory)}
               className={`tool-button-secondary h-10 px-4 ${showHistory ? "ring-2 ring-brand-500/20 border-brand-200 text-brand-600" : ""}`}

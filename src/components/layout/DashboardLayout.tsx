@@ -2,7 +2,11 @@ import { useState, useRef, useEffect } from 'react'
 import type { MouseEvent as ReactMouseEvent } from 'react'
 import {
   PanelLeft,
+  ChevronLeft,
   ChevronRight,
+  Menu,
+  ListTree,
+  MoreVertical,
   Search,
   Moon,
   Sun,
@@ -39,7 +43,9 @@ import Tooltip from '../ui/Tooltip'
 import { useToast } from '../ui/Toast'
 import { copyText } from '../../utils/clipboard'
 import { usePresence } from '../../hooks/usePresence'
+import { useIsMobile } from '../../hooks/useIsMobile'
 import { subscribeAppSettings } from '../../utils/settingsBus'
+import { requestOutline, subscribeDocStats } from '../../utils/editorBus'
 import { isDarkTheme, THEMES, type ThemeId } from '../../utils/theme'
 import logo from '../../assets/logo.png'
 import WindowControls from './WindowControls'
@@ -120,7 +126,11 @@ export default function DashboardLayout({
 }: DashboardLayoutProps) {
   // 当前主题是否属于深色系，决定顶栏图标与提示文案
   const isDark = isDarkTheme(theme)
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  // < 768px 走移动端外壳：目录改抽屉、顶栏精简
+  const isMobile = useIsMobile()
+  // 移动端初值就得是收起：若先以展开态挂载、再由 effect 改成收起，
+  // 每次切回笔记都会看到目录滑出一下（300ms 过渡）。
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => !isMobile)
   // 文档目录宽度与拖拽态
   const [sidebarWidth, setSidebarWidth] = useState(readSidebarWidth)
   const [isResizingSidebar, setIsResizingSidebar] = useState(false)
@@ -145,6 +155,7 @@ export default function DashboardLayout({
   // 获取全局 Notes 状态
   const {
     activeNote,
+    saveStatus,
     keyword: noteKeyword,
     setKeyword: setNoteKeyword,
     filteredNotes,
@@ -163,6 +174,22 @@ export default function DashboardLayout({
   } = useNotes()
 
   const isMarkdownActive = activeTabId === 'markdown-notes'
+  const [isMobileMoreOpen, setIsMobileMoreOpen] = useState(false)
+  // 移动端顶栏的「已保存 · N 字」胶囊。字数走编辑器总线，
+  // 免得顶栏和底部状态栏各算一套、口径对不上。
+  const [docCharCount, setDocCharCount] = useState(0)
+  useEffect(() => subscribeDocStats(setDocCharCount), [])
+
+  // 移动端进入时目录默认收起：抽屉一上来就盖住内容，会让人以为页面是空的
+  useEffect(() => {
+    if (isMobile) setIsSidebarOpen(false)
+  }, [isMobile])
+
+  // 移动端从抽屉里选中文档后自动收起，否则抽屉会一直盖住刚打开的笔记
+  const selectNote = (id: string) => {
+    handleSelectNote(id)
+    if (isMobile) setIsSidebarOpen(false)
+  }
 
   const { openContextMenu } = useContextMenu()
   const { showToast } = useToast()
@@ -530,36 +557,121 @@ export default function DashboardLayout({
       */}
       <header
         onDoubleClick={handleTopbarDoubleClick}
-        className="drag-region h-11 bg-slate-50 dark:bg-dark-sidebar border-b border-slate-200/80 dark:border-dark-border px-4 flex items-center justify-between z-50 flex-shrink-0"
+        className="drag-region h-11 bg-slate-50 dark:bg-dark-sidebar border-b border-slate-200/80 dark:border-dark-border px-3 md:px-4 flex items-center justify-between gap-2 z-50 flex-shrink-0"
       >
-        {/*
-          左侧这块不再整体 no-drag：无边框下这片空白是最好用的拖拽区，
-          只把真正要响应点击的元素标成 no-drag，剩下的交给顶栏的 drag-region。
-        */}
-        <div className="flex items-center gap-3 flex-shrink-0">
-          <WindowControls className="mr-1" />
+        {isMobile ? (
+          <>
+            {/* 左：笔记页开文档抽屉，其他工具返回工具中心 */}
+            {isMarkdownActive ? (
+              <button
+                onClick={() => setIsSidebarOpen(true)}
+                className="no-drag -ml-1.5 p-1.5 rounded-lg text-slate-600 dark:text-slate-300 active:bg-slate-100 dark:active:bg-dark-hover"
+                title="打开文档列表"
+              >
+                <Menu className="w-5 h-5" />
+              </button>
+            ) : (
+              <button
+                onClick={onBackToHub}
+                className="no-drag -ml-1.5 p-1.5 rounded-lg text-slate-600 dark:text-slate-300 active:bg-slate-100 dark:active:bg-dark-hover"
+                title="返回工具中心"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+            )}
 
-          <Tooltip content={isSidebarOpen ? '折叠侧边栏 (⌘B)' : '展开侧边栏 (⌘B)'}>
-            <button
-              onClick={() => setIsSidebarOpen((prev) => !prev)}
-              className="no-drag p-1 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-dark-hover transition-colors"
-            >
-              <PanelLeft className="w-4 h-4" />
-            </button>
-          </Tooltip>
+            {/* 中：标题 + 自动保存状态 */}
+            <div className="flex min-w-0 flex-1 flex-col items-center">
+              <span className="w-full truncate text-center text-xs font-bold text-slate-800 dark:text-slate-100">
+                {isMarkdownActive ? activeNote?.title || '未命名文档' : currentTool?.name || '工具'}
+              </span>
+              {isMarkdownActive && (
+                <span
+                  className={`flex items-center gap-1 text-[10px] font-medium ${
+                    saveStatus === 'error'
+                      ? 'text-rose-600 dark:text-rose-400'
+                      : saveStatus === 'saving'
+                        ? 'text-amber-600 dark:text-amber-400'
+                        : 'text-emerald-600 dark:text-emerald-400'
+                  }`}
+                >
+                  <span
+                    className={`h-1.5 w-1.5 rounded-full ${
+                      saveStatus === 'error'
+                        ? 'bg-rose-500'
+                        : saveStatus === 'saving'
+                          ? 'bg-amber-500 animate-pulse'
+                          : 'bg-emerald-500'
+                    }`}
+                  />
+                  {saveStatus === 'saving' ? '保存中' : saveStatus === 'error' ? '保存失败' : '已保存'} ·{' '}
+                  {docCharCount.toLocaleString()} 字
+                </span>
+              )}
+            </div>
 
-          <div className="h-4 w-[1px] bg-slate-200 dark:bg-dark-border" />
+            {/* 右：大纲 + 更多 */}
+            <div className="flex flex-shrink-0 items-center gap-0.5">
+              {isMarkdownActive && (
+                <button
+                  onClick={() => requestOutline(true)}
+                  className="no-drag p-1.5 rounded-lg text-slate-600 dark:text-slate-300 active:bg-slate-100 dark:active:bg-dark-hover"
+                  title="目录大纲"
+                >
+                  <ListTree className="w-5 h-5" />
+                </button>
+              )}
+              <button
+                onClick={() => setIsMobileMoreOpen(true)}
+                className="no-drag p-1.5 rounded-lg text-slate-600 dark:text-slate-300 active:bg-slate-100 dark:active:bg-dark-hover"
+                title="更多"
+              >
+                <MoreVertical className="w-5 h-5" />
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            {/*
+              左侧这块不再整体 no-drag：无边框下这片空白是最好用的拖拽区，
+              只把真正要响应点击的元素标成 no-drag，剩下的交给顶栏的 drag-region。
+            */}
+            <div className="flex items-center gap-3 flex-shrink-0 min-w-0 flex-1 md:flex-none">
+              <WindowControls className="mr-1 hidden md:flex" />
 
-          {/* 面包屑 */}
-          <div className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+          {/* 移动端：层级返回，回到工具中心 */}
+          <button
+            onClick={onBackToHub}
+            className="no-drag md:hidden p-1 -ml-1 rounded-md text-slate-500 dark:text-slate-400 active:bg-slate-100 dark:active:bg-dark-hover"
+            title="返回工具中心"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+
+          {/* 移动端只有笔记页有二级目录，其余工具没有可折叠的目录 */}
+          {(!isMobile || isMarkdownActive) && (
+            <Tooltip content={isSidebarOpen ? '折叠侧边栏 (⌘B)' : '展开侧边栏 (⌘B)'}>
+              <button
+                onClick={() => setIsSidebarOpen((prev) => !prev)}
+                className="no-drag p-1 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-dark-hover transition-colors"
+              >
+                <PanelLeft className="w-4 h-4" />
+              </button>
+            </Tooltip>
+          )}
+
+          <div className="hidden md:block h-4 w-[1px] bg-slate-200 dark:bg-dark-border" />
+
+          {/* 面包屑：移动端只留当前文档名，把宽度让给标题 */}
+          <div className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400 min-w-0 flex-1 md:flex-none">
             <span
               onClick={onBackToHub}
-              className="no-drag hover:text-slate-900 dark:hover:text-white cursor-pointer transition-colors"
+              className="no-drag hidden md:inline hover:text-slate-900 dark:hover:text-white cursor-pointer transition-colors"
             >
               devNotes
             </span>
-            <ChevronRight className="w-3 h-3 text-slate-400" />
-            <span onContextMenu={handleBreadcrumbContextMenu} className="no-drag text-slate-900 dark:text-white font-semibold flex items-center gap-1.5 w-[200px] min-w-0">
+            <ChevronRight className="hidden md:block w-3 h-3 text-slate-400" />
+            <span onContextMenu={handleBreadcrumbContextMenu} className="no-drag text-slate-900 dark:text-white font-semibold flex items-center gap-1.5 min-w-0 flex-1 md:flex-none md:w-[200px]">
               {isMarkdownActive ? (
                 <>
                   <FileCode className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400 flex-shrink-0" />
@@ -576,7 +688,7 @@ export default function DashboardLayout({
         </div>
 
         {/* 中部全局指令触发器 (⌘K) */}
-        <div className="flex-1 max-w-[260px] mx-4">
+        <div className="hidden md:block flex-1 max-w-[260px] mx-4">
           <button
             onClick={() => setIsCmdOpen(true)}
             className="no-drag w-full flex items-center justify-between px-3 py-1 bg-slate-100/80 dark:bg-dark-hover/60 hover:bg-slate-100 dark:hover:bg-dark-hover border border-slate-200/60 dark:border-dark-border rounded-lg text-xs text-slate-400 transition-all shadow-2xs group"
@@ -593,31 +705,33 @@ export default function DashboardLayout({
 
         {/* 右侧功能区 */}
         <div className="flex items-center gap-1.5 text-xs">
-          {/* 顶栏主题快速切换器 */}
-          <ThemeQuickMenu
-            theme={theme}
-            onSelectTheme={onSelectTheme}
-            onOpenSettings={() => {
-              setSettingsSection('general')
-              setIsSettingsOpen(true)
-            }}
-          />
+          {/* 主题入口：移动端不在顶栏出现，统一收进「设置 → 通用」 */}
+          <div className="hidden md:flex items-center gap-1.5">
+            <ThemeQuickMenu
+              theme={theme}
+              onSelectTheme={onSelectTheme}
+              onOpenSettings={() => {
+                setSettingsSection('general')
+                setIsSettingsOpen(true)
+              }}
+            />
 
-          {/* 快捷对偶深浅切换 */}
-          <Tooltip content={isDark ? '快捷切换为浅色模式 (⌘D)' : '快捷切换为深色模式 (⌘D)'}>
-            <button
-              onClick={onToggleTheme}
-              className="no-drag p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-dark-hover rounded-lg transition-colors"
-            >
-              {isDark ? (
-                <Moon className="w-4 h-4 text-brand-400" />
-              ) : (
-                <Sun className="w-4 h-4 text-amber-500" />
-              )}
-            </button>
-          </Tooltip>
+            {/* 快捷对偶深浅切换 */}
+            <Tooltip content={isDark ? '快捷切换为浅色模式 (⌘D)' : '快捷切换为深色模式 (⌘D)'}>
+              <button
+                onClick={onToggleTheme}
+                className="no-drag p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-dark-hover rounded-lg transition-colors"
+              >
+                {isDark ? (
+                  <Moon className="w-4 h-4 text-brand-400" />
+                ) : (
+                  <Sun className="w-4 h-4 text-amber-500" />
+                )}
+              </button>
+            </Tooltip>
 
-          <div className="h-4 w-[1px] bg-slate-200 dark:bg-dark-border" />
+            <div className="h-4 w-[1px] bg-slate-200 dark:bg-dark-border" />
+          </div>
 
           {/* 右侧主操作动作 */}
           {isMarkdownActive ? (
@@ -627,7 +741,7 @@ export default function DashboardLayout({
                 className="no-drag flex items-center gap-1.5 px-3 py-1 bg-brand-600 hover:bg-brand-700 text-white font-medium rounded-lg shadow-xs shadow-brand-500/20 transition-all"
               >
                 <Download className="w-3.5 h-3.5" />
-                <span>导出 .md</span>
+                <span className="hidden md:inline">导出 .md</span>
               </button>
             </Tooltip>
           ) : (
@@ -639,12 +753,14 @@ export default function DashboardLayout({
             </button>
           )}
         </div>
+          </>
+        )}
       </header>
 
       {/* ================= 2. 主体三栏布局 ================= */}
       <div className="flex flex-1 overflow-hidden relative">
         {/* 2.1 工具箱极简侧边栏 (56px / w-14) */}
-        <aside className="w-14 bg-slate-50 dark:bg-dark-sidebar border-r border-slate-200/80 dark:border-dark-border flex flex-col items-center py-3 gap-4 flex-shrink-0 z-20">
+        <aside className="hidden md:flex w-14 bg-slate-50 dark:bg-dark-sidebar border-r border-slate-200/80 dark:border-dark-border flex-col items-center py-3 gap-4 flex-shrink-0 z-20 overflow-y-auto scrollbar-hide">
           {/* 品牌 Logo */}
           <Tooltip content="devNotes 工具中心">
             <img
@@ -807,12 +923,22 @@ export default function DashboardLayout({
           </div>
         </aside>
 
+        {/* 移动端目录抽屉的遮罩：点空白处收起 */}
+        {isMobile && isSidebarOpen && (
+          <div
+            onClick={() => setIsSidebarOpen(false)}
+            className="absolute inset-0 z-[45] bg-slate-900/40"
+          />
+        )}
+
         {/* 2.2 二级侧边栏（文档目录，宽度可拖拽调整 / 可折叠） */}
         <section
           ref={sidebarRef}
-          style={{ width: isSidebarOpen ? sidebarWidth : 0 }}
-          className={`${isSidebarOpen ? 'opacity-100' : 'w-0 opacity-0 overflow-hidden border-r-0'
-            } bg-white dark:bg-dark-panel border-r border-slate-200/80 dark:border-dark-border flex flex-col flex-shrink-0 ${isResizingSidebar ? '' : 'transition-[width,opacity] duration-300'}`}
+          style={isMobile ? undefined : { width: isSidebarOpen ? sidebarWidth : 0 }}
+          className={`bg-white dark:bg-dark-panel border-r border-slate-200/80 dark:border-dark-border flex flex-col ${isMobile
+            ? `absolute inset-y-0 left-0 z-50 w-[82vw] max-w-[320px] shadow-2xl transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`
+            : `flex-shrink-0 ${isSidebarOpen ? 'opacity-100' : 'w-0 opacity-0 overflow-hidden border-r-0'} ${isResizingSidebar ? '' : 'transition-[width,opacity] duration-300'}`
+            }`}
         >
           {isMarkdownActive ? (
             /* Markdown 知识库文档列表视图（现代两行流） */
@@ -875,14 +1001,14 @@ export default function DashboardLayout({
                   return (
                     <div
                       key={note.id}
-                      onClick={() => handleSelectNote(note.id)}
+                      onClick={() => selectNote(note.id)}
                       onContextMenu={(e) =>
                         openContextMenu(e, [
                           {
                             id: 'note-open',
                             label: '打开文档',
                             icon: <FolderOpen className="w-3.5 h-3.5" />,
-                            onSelect: () => handleSelectNote(note.id),
+                            onSelect: () => selectNote(note.id),
                           },
                           {
                             id: 'note-rename',
@@ -1101,10 +1227,62 @@ export default function DashboardLayout({
               </div>
             </>
           )}
+
+          {/* 移动端抽屉底部：状态 + 主入口。移动端顶栏没有标签栏，导航统一收在这里 */}
+          {isMobile && (
+            <div className="flex flex-shrink-0 items-center justify-between border-t border-slate-200/80 bg-white px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] dark:border-dark-border dark:bg-dark-panel">
+              <span className="flex min-w-0 items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                <span
+                  className={`h-2 w-2 flex-shrink-0 rounded-full ${
+                    cfSyncStatus === 'error'
+                      ? 'bg-rose-500'
+                      : cfSyncStatus === 'syncing'
+                        ? 'bg-orange-500 animate-pulse'
+                        : 'bg-emerald-500'
+                  }`}
+                />
+                <span className="truncate">
+                  {cfConfig.enabled ? cfSyncMessage || '云同步已就绪' : '本地存储'}
+                </span>
+              </span>
+              <div className="flex flex-shrink-0 items-center gap-0.5">
+                <button
+                  onClick={() => {
+                    setIsSidebarOpen(false)
+                    onBackToHub()
+                  }}
+                  className="p-1.5 rounded-lg text-slate-500 active:bg-slate-100 dark:text-slate-400 dark:active:bg-dark-hover"
+                  title="工具中心"
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => {
+                    setIsSidebarOpen(false)
+                    onOpenStats()
+                  }}
+                  className="p-1.5 rounded-lg text-slate-500 active:bg-slate-100 dark:text-slate-400 dark:active:bg-dark-hover"
+                  title="使用统计"
+                >
+                  <BarChart3 className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => {
+                    setIsSidebarOpen(false)
+                    openSettings('general')
+                  }}
+                  className="p-1.5 rounded-lg text-slate-500 active:bg-slate-100 dark:text-slate-400 dark:active:bg-dark-hover"
+                  title="设置"
+                >
+                  <Settings className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
         </section>
 
         {/* 2.2.1 文档目录宽度分割线：负边距覆盖在侧边栏右边框上，不挤占主工作台 */}
-        {isSidebarOpen && (
+        {!isMobile && isSidebarOpen && (
           <Tooltip content="拖动调整文档目录宽度，双击恢复默认">
             <div
               onMouseDown={handleSidebarResizeStart}
@@ -1125,6 +1303,65 @@ export default function DashboardLayout({
           </div>
         </main>
       </div>
+
+      {/* 移动端「更多」动作面板 */}
+      {isMobile && isMobileMoreOpen && (
+        <div
+          onClick={() => setIsMobileMoreOpen(false)}
+          className="fixed inset-0 z-[70] flex items-end bg-slate-900/50"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full rounded-t-2xl border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] dark:border-dark-border dark:bg-dark-panel"
+          >
+            <div className="mx-auto my-2.5 h-1 w-10 rounded-full bg-slate-300 dark:bg-dark-hover" />
+            <div className="px-3 pb-2">
+              {isMarkdownActive && (
+                <button
+                  onClick={() => {
+                    setIsMobileMoreOpen(false)
+                    void handleExportNote()
+                  }}
+                  className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm text-slate-700 active:bg-slate-100 dark:text-slate-200 dark:active:bg-dark-hover"
+                >
+                  <Download className="w-4 h-4 flex-shrink-0 text-slate-400" />
+                  导出 .md
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  setIsMobileMoreOpen(false)
+                  onBackToHub()
+                }}
+                className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm text-slate-700 active:bg-slate-100 dark:text-slate-200 dark:active:bg-dark-hover"
+              >
+                <LayoutGrid className="w-4 h-4 flex-shrink-0 text-slate-400" />
+                工具中心
+              </button>
+              <button
+                onClick={() => {
+                  setIsMobileMoreOpen(false)
+                  onOpenStats()
+                }}
+                className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm text-slate-700 active:bg-slate-100 dark:text-slate-200 dark:active:bg-dark-hover"
+              >
+                <BarChart3 className="w-4 h-4 flex-shrink-0 text-slate-400" />
+                使用统计
+              </button>
+              <button
+                onClick={() => {
+                  setIsMobileMoreOpen(false)
+                  openSettings('general')
+                }}
+                className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm text-slate-700 active:bg-slate-100 dark:text-slate-200 dark:active:bg-dark-hover"
+              >
+                <Settings className="w-4 h-4 flex-shrink-0 text-slate-400" />
+                设置
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ================= 3. ⌘K 全局指令面板 (Command Palette Modal) ================= */}
       {cmdMounted && (

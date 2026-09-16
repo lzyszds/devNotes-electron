@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef } from 'react'
 import { ArrowUpToLine, PanelRight, X } from 'lucide-react'
 import Tooltip from '../../ui/Tooltip'
 import type { OutlineItem } from '../../../utils/milkdownOutline'
+import { useIsMobile } from '../../../hooks/useIsMobile'
 
 export type OutlineCapsuleProps = {
   items: OutlineItem[]
@@ -42,6 +43,8 @@ export default function OutlineCapsule({
   const wrapperRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLElement>(null)
   const pillRef = useRef<HTMLDivElement>(null)
+  // 移动端换成底部 sheet：右侧浮层在手机上既挤又挡正文
+  const isMobile = useIsMobile()
 
   // 展开态点空白处收起。折叠态不监听 —— 那时点正文是正常编辑行为
   useEffect(() => {
@@ -96,10 +99,94 @@ export default function OutlineCapsule({
     return acc
   }, [])
 
+  // 移动端：底部 sheet，由顶栏的「大纲」按钮驱动
+  if (isMobile) {
+    return (
+      <>
+        {expanded && (
+          <div
+            onClick={() => onExpandedChange(false)}
+            className="absolute inset-0 z-40 bg-slate-900/50"
+          />
+        )}
+
+        <div
+          className={`absolute inset-x-0 bottom-0 z-50 flex max-h-[75%] flex-col rounded-t-2xl border-t border-slate-200 bg-white shadow-2xl transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] dark:border-dark-border dark:bg-dark-panel ${
+            expanded ? 'translate-y-0' : 'translate-y-full'
+          }`}
+        >
+          <div className="mx-auto my-2.5 h-1 w-10 flex-shrink-0 rounded-full bg-slate-300 dark:bg-dark-hover" />
+
+          <div className="flex flex-shrink-0 items-center justify-between border-b border-slate-100 px-5 pb-3 dark:border-dark-border">
+            <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white">
+              本文目录大纲
+              <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-normal text-slate-500 dark:bg-dark-hover dark:text-slate-400">
+                {items.length} 节
+              </span>
+            </h3>
+            <button
+              type="button"
+              onClick={() => onExpandedChange(false)}
+              className="text-xs text-slate-400 active:text-slate-600 dark:active:text-slate-200"
+            >
+              完成
+            </button>
+          </div>
+
+          <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-2">
+            {items.map((item, index) => {
+              const active = index === activeIndex
+              const isTop = item.level <= 2
+              return (
+                <button
+                  key={`${item.pos}-${item.level}`}
+                  type="button"
+                  onClick={() => onPick(index)}
+                  className={`flex w-full items-center gap-2 rounded-lg p-2.5 text-left text-xs transition-colors ${
+                    active
+                      ? 'bg-brand-500/10 font-semibold text-brand-600 dark:text-brand-400'
+                      : 'text-slate-700 active:bg-slate-100 dark:text-slate-300 dark:active:bg-dark-hover'
+                  }`}
+                >
+                  {isTop ? (
+                    <span
+                      className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded text-[10px] font-bold tabular-nums ${
+                        active
+                          ? 'bg-brand-600 text-white'
+                          : 'bg-slate-100 text-slate-400 dark:bg-dark-hover dark:text-slate-500'
+                      }`}
+                    >
+                      {topLevelSeen[index] ? String(topLevelSeen[index]).padStart(2, '0') : ''}
+                    </span>
+                  ) : (
+                    <span className="ml-2 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-slate-300 dark:bg-slate-600" />
+                  )}
+                  <span className="truncate text-[13px] font-medium">{item.text}</span>
+                </button>
+              )
+            })}
+          </nav>
+
+          <div className="flex flex-shrink-0 items-center justify-between border-t border-slate-100 px-5 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] text-[11px] text-slate-400 dark:border-dark-border dark:text-slate-500">
+            <span>已读 {readPercent}%</span>
+            <button
+              type="button"
+              onClick={onScrollTop}
+              className="flex items-center gap-1 active:text-brand-600 dark:active:text-brand-400"
+            >
+              <ArrowUpToLine className="h-3 w-3" />
+              置顶
+            </button>
+          </div>
+        </div>
+      </>
+    )
+  }
+
   return (
     <div
       ref={wrapperRef}
-      className="absolute right-4 top-1/2 z-20 flex -translate-y-1/2 flex-col items-end gap-2 select-none"
+      className="absolute inset-y-0 right-4 z-20 flex flex-col items-end justify-center gap-2 py-3 select-none"
     >
       {/* ---------------------------------------------------------------- 胶囊本体 */}
       <div
@@ -111,7 +198,7 @@ export default function OutlineCapsule({
         style={{ height: expanded ? undefined : capsuleHeight }}
         className={`relative overflow-hidden border border-slate-200/80 bg-white/95 backdrop-blur-xl transition-[width,height,box-shadow,border-color,border-radius] duration-300 ease-[cubic-bezier(0.34,1.25,0.64,1)] dark:border-dark-border dark:bg-dark-panel/95 ${
           expanded
-            ? 'h-[340px] max-h-[62vh] w-[212px] rounded-[16px] shadow-2xl ring-1 ring-brand-500/20'
+            ? 'h-[340px] max-h-full w-[212px] rounded-[16px] shadow-2xl ring-1 ring-brand-500/20'
             : 'w-[30px] cursor-pointer rounded-[15px] shadow-sm hover:border-brand-500/40 hover:shadow-md'
         }`}
       >
@@ -244,8 +331,8 @@ export default function OutlineCapsule({
 
       {/* ---------------------------------------------------------------- 迷你底座 */}
       <div
-        className={`flex w-[30px] flex-col gap-[3px] rounded-[11px] border border-slate-200/80 bg-white/95 p-[3px] shadow-sm backdrop-blur-xl transition-all duration-200 dark:border-dark-border dark:bg-dark-panel/95 ${
-          expanded ? 'pointer-events-none -translate-y-2 scale-75 opacity-0' : ''
+        className={`w-[30px] flex-col gap-[3px] rounded-[11px] border border-slate-200/80 bg-white/95 p-[3px] shadow-sm backdrop-blur-xl transition-all duration-200 dark:border-dark-border dark:bg-dark-panel/95 ${
+          expanded ? 'hidden md:flex pointer-events-none -translate-y-2 scale-75 opacity-0' : 'flex'
         }`}
       >
         <Tooltip content="展开大纲目录" placement="right">

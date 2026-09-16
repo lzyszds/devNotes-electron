@@ -101,11 +101,11 @@ export default function QrCodeTool() {
   }
 
   return (
-    <div className="relative flex h-full min-h-[600px] bg-white overflow-hidden text-slate-900">
+    <div className="relative flex h-full min-h-0 md:min-h-[600px] bg-white overflow-hidden text-slate-900">
       <div className="flex-1 flex flex-col min-w-0">
         {/* Action Header */}
-        <div className="px-8 py-5 flex items-center justify-between border-b border-slate-100">
-           <div className="flex items-center gap-4">
+        <div className="flex-wrap gap-3 px-4 py-4 md:px-8 md:py-5 flex items-center justify-between border-b border-slate-100">
+           <div className="flex flex-wrap items-center gap-4">
               <div className="h-12 w-12 rounded-2xl bg-brand-600 text-white flex items-center justify-center shadow-lg shadow-brand-100">
                 <QrCode size={24} />
               </div>
@@ -115,7 +115,7 @@ export default function QrCodeTool() {
               </div>
            </div>
 
-           <div className="flex items-center gap-3">
+           <div className="flex flex-wrap items-center gap-3">
               <button
                 onClick={() => setShowHistory(!showHistory)}
                 className={`tool-button-secondary h-10 px-4 ${showHistory ? 'ring-2 ring-brand-500/20 border-brand-200 text-brand-600' : ''}`}
@@ -130,7 +130,7 @@ export default function QrCodeTool() {
            </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-8 bg-slate-50/20">
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50/20">
            <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-10">
               {/* Configuration Column */}
               <div className="space-y-6">

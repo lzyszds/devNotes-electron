@@ -72,11 +72,11 @@ export default function EncodeTool() {
   }
 
   return (
-    <div className="relative flex h-full min-h-[600px] bg-white overflow-hidden text-slate-900">
+    <div className="relative flex h-full min-h-0 md:min-h-[600px] bg-white overflow-hidden text-slate-900">
       <div className="flex-1 flex flex-col min-w-0">
         {/* Action Header */}
-        <div className="px-8 py-5 flex items-center justify-between border-b border-slate-100">
-           <div className="flex items-center gap-4">
+        <div className="flex-wrap gap-3 px-4 py-4 md:px-8 md:py-5 flex items-center justify-between border-b border-slate-100">
+           <div className="flex flex-wrap items-center gap-4">
               <div className="h-12 w-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-lg shadow-amber-100">
                 <Shuffle size={24} />
               </div>
@@ -86,7 +86,7 @@ export default function EncodeTool() {
               </div>
            </div>
 
-           <div className="flex items-center gap-3">
+           <div className="flex flex-wrap items-center gap-3">
               <button
                 onClick={() => setShowHistory(!showHistory)}
                 className={`tool-button-secondary h-10 px-4 ${showHistory ? 'ring-2 ring-amber-500/20 border-amber-200 text-amber-600' : ''}`}
@@ -109,7 +109,7 @@ export default function EncodeTool() {
            </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-8 bg-slate-50/20">
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50/20">
            <div className="max-w-7xl mx-auto space-y-8">
               <div className="grid grid-cols-1 xl:grid-cols-[1fr_48px_1fr] gap-4 items-center">
                  {/* Input Pane */}

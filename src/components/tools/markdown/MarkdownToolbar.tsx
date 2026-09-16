@@ -1,5 +1,6 @@
 import { Fragment } from 'react'
 import type { ReactNode } from 'react'
+import { ArrowUpToLine } from 'lucide-react'
 import Tooltip from '../../ui/Tooltip'
 import ToolbarMenu from './ToolbarMenu'
 import ToolbarMenuContent from './ToolbarMenus'
@@ -26,6 +27,11 @@ export type MarkdownToolbarProps = {
   state?: Record<string, ToolbarItemState>
   /** 右端插槽：视图模式切换、内核切换等 */
   trailing?: ReactNode
+  /**
+   * 「返回顶部」。由宿主给状态（滚离顶部才显示）与回调，
+   * 工具栏只负责摆在最右端 —— 放最右是有意的：它出现/消失时不会推挤左边的按钮。
+   */
+  backToTop?: { visible: boolean; onClick: () => void }
 }
 
 /** 工具栏上的一个渲染单元：一颗平铺按钮，或一个分组折叠菜单 */
@@ -49,6 +55,7 @@ export default function MarkdownToolbar({
   onMenuCommand,
   state,
   trailing,
+  backToTop,
 }: MarkdownToolbarProps) {
   const commands = commandsFor(engine)
   const menus = menusFor(engine)
@@ -150,7 +157,28 @@ export default function MarkdownToolbar({
      * 分组菜单因此走 createPortal + position: fixed 挂到 body 下（见 ToolbarMenu），
      * 否则既会被 overflow-x-auto 裁掉，又会被浮条盖住。
      */
-    <div className="relative z-40 flex h-10 flex-shrink-0 flex-nowrap items-center gap-0.5 overflow-x-auto scrollbar-hide border-b border-slate-200/80 bg-white px-2 dark:border-dark-border dark:bg-dark-panel">
+    <div className="relative z-40 flex h-10 flex-shrink-0 flex-nowrap items-center gap-0.5 overflow-x-auto scrollbar-hide border-b max-md:border-b-0 max-md:border-t border-slate-200/80 bg-white px-2 dark:border-dark-border dark:bg-dark-panel">
+      {/*
+        「返回顶部」放在最左端，不是最右端、也不是左端组的末尾。
+        工具栏在手机上横向溢出（内容近 800px、视口 390px），只有最左端在默认
+        滚动位置下一定可见 —— 放到别处都要横向滚动才看得到，等于失效。
+        滚动回顶部时用 invisible 占位而不是卸载：否则它会推着后面所有按钮左右跳。
+      */}
+      {backToTop && (
+        <Tooltip content="返回顶部">
+          <button
+            type="button"
+            onClick={backToTop.onClick}
+            aria-label="返回顶部"
+            className={`mr-1 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-brand-600 dark:hover:bg-dark-hover dark:hover:text-brand-400 ${
+              backToTop.visible ? '' : 'invisible'
+            }`}
+          >
+            <ArrowUpToLine className="h-3.5 w-3.5" />
+          </button>
+        </Tooltip>
+      )}
+
       {left.map((entry, index) => renderEntry(entry, left[index - 1]))}
 
       {/* 把右端那一组顶到另一端 */}

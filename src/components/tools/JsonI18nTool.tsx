@@ -69,7 +69,7 @@ const DEFAULT_PROTECTED_TERMS = ["QQlink", "QQLink"];
 
 /** 统一控件尺寸：高度 36px、圆角、字号 */
 const UI = {
-  row: "flex items-center gap-2 min-h-9",
+  row: "flex flex-wrap items-center gap-2 min-h-9",
   divider: "w-px h-5 bg-slate-200 shrink-0 mx-0.5",
   btn: "inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-600 transition hover:bg-slate-50 hover:border-slate-300 shrink-0",
   btnActive: "inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-lg border text-xs font-semibold shrink-0",
@@ -639,7 +639,7 @@ export default function JsonI18nTool() {
       <div className="flex-1 flex flex-col min-w-0 h-full">
         {/* Header */}
         <div className="px-6 h-16 flex items-center justify-between border-b border-slate-100 shrink-0">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <div className="h-10 w-10 rounded-xl bg-brand-600 text-white flex items-center justify-center shadow-md shadow-brand-100">
               <Languages size={20} />
             </div>
@@ -652,7 +652,7 @@ export default function JsonI18nTool() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => setShowHistory(!showHistory)}
               className={`${UI.btn} ${showHistory ? "!border-brand-200 !bg-brand-50 !text-brand-600" : ""}`}

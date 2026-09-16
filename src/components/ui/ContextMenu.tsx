@@ -18,6 +18,7 @@ import {
   TextSelect,
   Trash2,
 } from 'lucide-react'
+import { useIsMobile } from '../../hooks/useIsMobile'
 import { copyText, readText } from '../../utils/clipboard'
 import { usePresence } from '../../hooks/usePresence'
 import { useToast } from './Toast'
@@ -176,8 +177,17 @@ export function ContextMenuProvider({ children }: { children: ReactNode }) {
     setNav(INITIAL_NAV)
   }, [])
 
+  // 移动端不弹自绘右键菜单：触屏没有右键，长按弹出的这块面板既盖住内容又难点准，
+  // 里面的动作在移动端都有别的入口（顶栏「更多」、抽屉底部等）。
+  const isMobile = useIsMobile()
+
   const openContextMenu = useCallback(
     (event: ReactMouseEvent | MouseEvent, items: ContextMenuItem[]) => {
+      // 这里仍要 preventDefault：否则长按会接着弹 WebView 的原生长按菜单
+      if (isMobile) {
+        event.preventDefault()
+        return
+      }
       const usable = (items || []).filter(Boolean)
       if (!usable.length) return
       event.preventDefault()
@@ -186,7 +196,7 @@ export function ContextMenuProvider({ children }: { children: ReactNode }) {
       setNav(INITIAL_NAV)
       setPlacement({ left: event.clientX, top: event.clientY, ready: false })
     },
-    []
+    [isMobile]
   )
 
   /*

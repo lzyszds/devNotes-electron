@@ -38,6 +38,7 @@ import { milkdownSearchPlugin } from '../../utils/milkdownSearch'
 import { floatingBar } from '../../utils/milkdownFloatingBar'
 import { collectOutline } from '../../utils/milkdownOutline'
 import type { OutlineItem } from '../../utils/milkdownOutline'
+import { subscribeOutline } from '../../utils/editorBus'
 import { useEditorContextMenu } from '../../hooks/useEditorContextMenu'
 import { usePresence } from '../../hooks/usePresence'
 import MarkdownToolbar from './markdown/MarkdownToolbar'
@@ -92,6 +93,8 @@ export type MilkdownMarkdownEditorProps = {
   /** 全屏预览态（只读 + 铺满视口）。由宿主统一切换，两个内核共用同一份状态 */
   preview?: boolean
   onTogglePreview?: () => void
+  /** 「返回顶部」：状态与回调都在宿主（NotesTool），这里只透传给工具栏 */
+  backToTop?: { visible: boolean; onClick: () => void }
 }
 
 /** 标题下拉的选项。0 表示退回正文,与 Cherry 侧的「正文」项对齐 */
@@ -172,6 +175,7 @@ export default function MilkdownMarkdownEditor({
   fullscreen = false,
   preview = false,
   onTogglePreview,
+  backToTop,
 }: MilkdownMarkdownEditorProps) {
   const { registerInsertHandler, handleExport } = useNotes()
 
@@ -207,6 +211,9 @@ export default function MilkdownMarkdownEditor({
   const [readPercent, setReadPercent] = useState(0)
   // 查找替换条只由编辑器自己管：宿主那边没有别的入口会打开它
   const [searchOpen, setSearchOpen] = useState(false)
+
+  // 移动端顶栏的「大纲」按钮在别的组件里，靠总线把开关递进来
+  useEffect(() => subscribeOutline(setOutlineExpanded), [])
   /**
    * 实例就绪后才把编辑器交给斜杠菜单/块手柄。
    *
@@ -797,19 +804,23 @@ export default function MilkdownMarkdownEditor({
         outlineItems.length ? 'has-outline' : ''
       } ${className}`}
     >
-      {/* 预览态是只读的，工具栏上每一颗按钮都点不出效果 */}
+      {/* 预览态是只读的，工具栏上每一颗按钮都点不出效果。
+          移动端把工具栏挪到底部，当作键盘上方的格式配件条。 */}
       {!preview && (
-        <MarkdownToolbar
-          engine="milkdown"
-          onCommand={handleCommand}
-          // 分组折叠菜单（格式 / 插入）里的命令走这条，与平铺按钮分开
-          onMenuCommand={handleMenuCommand}
-          // Milkdown 不像 Cherry 那样把状态渲染进 DOM，active 态由这里给出
-          state={toolbarState}
-        />
+        <div className="max-md:order-2 max-md:bg-white max-md:pb-[env(safe-area-inset-bottom)] max-md:dark:bg-dark-panel">
+          <MarkdownToolbar
+            engine="milkdown"
+            onCommand={handleCommand}
+            // 分组折叠菜单（格式 / 插入）里的命令走这条，与平铺按钮分开
+            onMenuCommand={handleMenuCommand}
+            // Milkdown 不像 Cherry 那样把状态渲染进 DOM，active 态由这里给出
+            state={toolbarState}
+            backToTop={backToTop}
+          />
+        </div>
       )}
 
-      <div className="relative min-h-0 flex-1 overflow-hidden">
+      <div className="relative min-h-0 flex-1 overflow-hidden max-md:order-1">
         <div
           ref={mountRef}
           onContextMenu={handleContextMenu}
