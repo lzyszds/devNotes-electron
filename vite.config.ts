@@ -4,45 +4,49 @@ import electron from 'vite-plugin-electron'
 import renderer from 'vite-plugin-electron-renderer'
 import path from 'path'
 
-export default defineConfig({
-  plugins: [
-    react(),
-    electron([
-      {
-        entry: 'electron/main.ts',
-        onstart(options) {
-          options.startup()
-        },
-        vite: {
-          build: {
-            sourcemap: true,
-            minify: false,
-            outDir: 'dist-electron',
-            rollupOptions: {
-              external: ['electron']
-            }
-          }
-        }
+// 移动端(Capacitor)只需要 Web 产物，跳过 Electron 主进程打包
+const isCapacitorBuild = process.env.BUILD_TARGET === 'capacitor'
+
+const electronPlugins = [
+  electron([
+    {
+      entry: 'electron/main.ts',
+      onstart(options) {
+        options.startup()
       },
-      {
-        entry: 'electron/preload.ts',
-        onstart(options) {
-          options.reload()
-        },
-        vite: {
-          build: {
-            sourcemap: true,
-            minify: false,
-            outDir: 'dist-electron',
-            rollupOptions: {
-              external: ['electron']
-            }
+      vite: {
+        build: {
+          sourcemap: true,
+          minify: false,
+          outDir: 'dist-electron',
+          rollupOptions: {
+            external: ['electron']
           }
         }
       }
-    ]),
-    renderer()
-  ],
+    },
+    {
+      entry: 'electron/preload.ts',
+      onstart(options) {
+        options.reload()
+      },
+      vite: {
+        build: {
+          sourcemap: true,
+          minify: false,
+          outDir: 'dist-electron',
+          rollupOptions: {
+            external: ['electron']
+          }
+        }
+      }
+    }
+  ]),
+  renderer()
+]
+
+export default defineConfig({
+  plugins: [react(), ...(isCapacitorBuild ? [] : electronPlugins)],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src')

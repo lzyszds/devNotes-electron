@@ -128,8 +128,8 @@ function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
-    minWidth: 1000,
-    minHeight: 600,
+    minWidth: 380,
+    minHeight: 520,
     title: 'devNotes',
     // 无边框：系统的标题栏和菜单栏都不要，顶部只保留应用自绘的那条 bar。
     // 代价是拖拽、双击最大化、最小化/最大化/关闭全部落到渲染层的 drag-region 与三个圆点上。
@@ -171,8 +171,8 @@ function createToolWindow(toolName: string) {
   const toolWindow = new BrowserWindow({
     width: 1280,
     height: 800,
-    minWidth: 1000,
-    minHeight: 600,
+    minWidth: 380,
+    minHeight: 520,
     title: `devNotes - ${toolName}`,
     frame: false,
     webPreferences: {
