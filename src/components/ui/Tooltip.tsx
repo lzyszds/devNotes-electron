@@ -116,12 +116,19 @@ export default function Tooltip({
     }
   }, [anchor, hide])
 
-  // 量到气泡实际尺寸后再定位，并保证在 paint 之前完成，避免第一帧闪在错误位置
+  /*
+   * 量到气泡实际尺寸后再定位，并保证在 paint 之前完成，避免第一帧闪在错误位置。
+   *
+   * 依赖里必须带上 mounted：气泡由 usePresence 推迟一帧才挂上（它把「挂载」与「打开」
+   * 拆成了两件事），命中 anchor 变化的那一次提交时 portal 还没渲染、bubbleRef 是空的。
+   * 少这一项，effect 会当场 return 且此后再不重跑 —— pos 永远是 null，气泡就一直蹲在
+   * 视口左上角（渲染时的 `?? 0` 兜底）。
+   */
   useLayoutEffect(() => {
     const bubble = bubbleRef.current
     if (!anchor || !bubble) return
     setPos(computeTooltipPosition(anchor, bubble.getBoundingClientRect(), placement))
-  }, [anchor, placement])
+  }, [anchor, placement, mounted])
 
   if (!isValidElement(children)) return children
 

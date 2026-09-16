@@ -107,8 +107,13 @@ function SubmenuPanel({ open, children }: { open: boolean; children: ReactNode }
     top: 0,
   })
 
-  // 先隐藏挂载量尺寸，贴右/下边缘时翻转，避免被视口裁掉
-  // 依赖 open：面板改为常驻挂载后，得靠这个每次展开都重新量一遍
+  /*
+   * 先隐藏挂载量尺寸，贴右/下边缘时翻转，避免被视口裁掉。
+   *
+   * 依赖 open 是为了每次展开都重新量一遍；带上 mounted 则是因为面板由 usePresence
+   * 推迟一帧才挂上 —— 命中 open 变化的那次提交里 panelRef 还是空的，少了它这个 effect
+   * 会当场 return 且此后再不重跑，style.visibility 永远停在 hidden，二级菜单等于隐身。
+   */
   useLayoutEffect(() => {
     if (!open) return
     const panel = panelRef.current
@@ -131,7 +136,7 @@ function SubmenuPanel({ open, children }: { open: boolean; children: ReactNode }
       right: flip ? '100%' : 'auto',
       top: overflowBottom > 0 ? -Math.min(overflowBottom, maxShiftUp) : 0,
     })
-  }, [open])
+  }, [open, mounted])
 
   if (!mounted) return null
 
@@ -184,7 +189,13 @@ export function ContextMenuProvider({ children }: { children: ReactNode }) {
     []
   )
 
-  // 先以隐藏状态挂载，测量真实尺寸后再落位，贴边时向内收拢
+  /*
+   * 先以隐藏状态挂载，测量真实尺寸后再落位，贴边时向内收拢。
+   *
+   * 依赖里必须带上 mounted：面板由 usePresence 推迟一帧才挂上，命中 anchor 变化的那次
+   * 提交时 menuRef 还是空的。少这一项，effect 当场 return 且此后再不重跑 —— ready 永远
+   * 停在 false，菜单会一直 visibility: hidden，点右键什么也看不到。
+   */
   useLayoutEffect(() => {
     if (!anchor || !menuRef.current) return
     // 同上：必须用布局尺寸而不是 getBoundingClientRect（入场动画带 scale，量出来偏小）
@@ -196,7 +207,7 @@ export function ContextMenuProvider({ children }: { children: ReactNode }) {
       top: Math.max(VIEWPORT_PADDING, Math.min(anchor.y, maxTop)),
       ready: true,
     })
-  }, [anchor])
+  }, [anchor, mounted])
 
   // 关闭时机：外部按下、Esc、滚动、窗口尺寸变化/失焦
   useEffect(() => {
