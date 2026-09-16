@@ -5,6 +5,7 @@ import type { Editor } from '@milkdown/kit/core'
 import { editorViewCtx } from '@milkdown/kit/core'
 import { TooltipProvider } from '@milkdown/kit/plugin/tooltip'
 import type { EditorView } from '@milkdown/kit/prose/view'
+import Tooltip from '../../ui/Tooltip'
 
 export type FloatingBarOptions = {
   /** 什么时候该浮出来。每次视图更新、每次滚动/松手都会问一次 */
@@ -243,20 +244,23 @@ export type FloatingBarButtonProps = {
 
 export function FloatingBarButton({ icon: Icon, label, active, onClick }: FloatingBarButtonProps) {
   return (
-    <button
-      type="button"
-      title={label}
-      aria-label={label}
-      aria-pressed={active || undefined}
-      onClick={onClick}
-      className={`flex-shrink-0 rounded-md p-1 transition-colors ${
-        active
-          ? 'bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300'
-          : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-dark-hover dark:hover:text-white'
-      }`}
-    >
-      <Icon className="h-3.5 w-3.5" />
-    </button>
+    // 走全站自绘的 Tooltip，而不是原生 title：原生气泡出现慢、样式不跟主题，
+    // 而且浮条上全是纯图标按钮，不给说明根本看不出是干什么的
+    <Tooltip content={label}>
+      <button
+        type="button"
+        aria-label={label}
+        aria-pressed={active || undefined}
+        onClick={onClick}
+        className={`flex-shrink-0 rounded-md p-1 transition-colors ${
+          active
+            ? 'bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300'
+            : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-dark-hover dark:hover:text-white'
+        }`}
+      >
+        <Icon className="h-3.5 w-3.5" />
+      </button>
+    </Tooltip>
   )
 }
 

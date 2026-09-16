@@ -51,11 +51,21 @@ import { bumpEnhanceTheme, enhancePluginKey, milkdownEnhance } from '../../utils
 import {
   getCurrentHeadingLevel,
   getMilkdownLinkAtCursor,
+  insertBlockMarkdown,
+  insertInlineMarkdown,
   insertMilkdownImage,
   runMilkdownCommand,
+  setInlineBackgroundColor,
+  setInlineFontSize,
+  setInlineTextColor,
   setMilkdownHeading,
   setMilkdownLink,
+  toggleHighlight,
+  toggleSubscript,
+  toggleSuperscript,
+  toggleUnderline,
 } from './markdown/milkdownCommands'
+import { SNIPPETS } from '../../utils/markdownSnippets'
 import type { MarkdownCommand } from './markdown/toolbarSpec'
 import type { ToolbarItemState } from './markdown/MarkdownToolbar'
 
@@ -639,6 +649,84 @@ export default function MilkdownMarkdownEditor({
     [focusEditor, onOpenSearch, onToggleFullscreen, onToggleOutline, onTogglePreview, toggleOutlinePanel]
   )
 
+  /**
+   * 分组折叠菜单里的命令。
+   *
+   * 与 handleCommand 分开是因为入口形态不同：平铺按钮传的是整条命令声明，
+   * 菜单传的是 id 加一个可选的值（字号档位、色值、表情）。
+   * 「清除格式 / 缩进」不走 milkdownCommands —— 那两条实现在适配器上
+   * （unwrapSelection / indentLines），它们同时要服务右键菜单，不宜在这里再抄一份。
+   */
+  const handleMenuCommand = useCallback(
+    (id: string, payload?: string | number) => {
+      const editor = editorRef.current
+      if (!editor || !readyRef.current) return
+
+      switch (id) {
+        // —— 格式菜单：行内样式 ——
+        case 'underline':
+          toggleUnderline(editor)
+          break
+        case 'superscript':
+          toggleSuperscript(editor)
+          break
+        case 'subscript':
+          toggleSubscript(editor)
+          break
+        case 'highlight':
+          toggleHighlight(editor)
+          break
+        // 清除格式与缩进落在适配器上，与右键菜单共用同一份实现
+        case 'clear-format':
+          adapter.unwrapSelection()
+          break
+        case 'indent':
+          adapter.indentLines(1)
+          break
+        case 'outdent':
+          adapter.indentLines(-1)
+          break
+        case 'font-size':
+          setInlineFontSize(editor, Number(payload) || 0)
+          break
+        case 'text-color':
+          setInlineTextColor(editor, String(payload ?? ''))
+          break
+        case 'bg-color':
+          setInlineBackgroundColor(editor, String(payload ?? ''))
+          break
+
+        // —— 插入菜单 ——
+        // 块级片段强制以独立块形式落盘，确保 ::: 位于行首；表情走行内模式
+        case 'md-panel':
+          insertBlockMarkdown(editor, SNIPPETS.panel)
+          break
+        case 'md-timeline':
+          insertBlockMarkdown(editor, SNIPPETS.timeline)
+          break
+        case 'md-chart':
+          insertBlockMarkdown(editor, SNIPPETS.mermaid)
+          break
+        case 'md-toc':
+          insertBlockMarkdown(editor, SNIPPETS.toc)
+          break
+        case 'md-footnote':
+          insertBlockMarkdown(editor, SNIPPETS.footnote)
+          break
+        case 'md-math':
+          insertBlockMarkdown(editor, SNIPPETS.math)
+          break
+        case 'md-emoji':
+          insertInlineMarkdown(editor, String(payload ?? ''))
+          break
+        default:
+          return
+      }
+      focusEditor()
+    },
+    [adapter, focusEditor]
+  )
+
   // Esc 关掉查找条。只在条子开着时挂监听，且不抢输入框自己的 Esc
   useEffect(() => {
     if (!searchOpen) return
@@ -714,6 +802,8 @@ export default function MilkdownMarkdownEditor({
         <MarkdownToolbar
           engine="milkdown"
           onCommand={handleCommand}
+          // 分组折叠菜单（格式 / 插入）里的命令走这条，与平铺按钮分开
+          onMenuCommand={handleMenuCommand}
           // Milkdown 不像 Cherry 那样把状态渲染进 DOM，active 态由这里给出
           state={toolbarState}
         />
@@ -743,7 +833,11 @@ export default function MilkdownMarkdownEditor({
 
         {/* 这几条的宿主元素会被 Provider 搬到 document.body 下，与编辑区不同坐标系
             （用 fixed 定位），所以放在哪一层都行 */}
-        <SelectionToolbar editor={ready} providerRef={selectionBarRef} />
+        <SelectionToolbar
+          editor={ready}
+          providerRef={selectionBarRef}
+          onClearFormat={() => adapter.unwrapSelection()}
+        />
         <InsertToolbar editor={ready} providerRef={insertBarRef} />
 
         {/* 常驻挂载：开关交给 open，退出动画才有机会跑完（见 usePresence） */}

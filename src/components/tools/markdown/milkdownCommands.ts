@@ -1,7 +1,8 @@
-import { editorViewCtx } from '@milkdown/kit/core'
+import { editorViewCtx, parserCtx } from '@milkdown/kit/core'
 import type { Editor } from '@milkdown/kit/core'
 import type { Ctx } from '@milkdown/kit/ctx'
 import type { EditorState } from '@milkdown/kit/prose/state'
+import { Slice } from '@milkdown/kit/prose/model'
 import { redoCommand, undoCommand } from '@milkdown/kit/plugin/history'
 import {
   createCodeBlockCommand,
@@ -18,7 +19,7 @@ import {
 } from '@milkdown/kit/preset/commonmark'
 import { insertTableCommand, toggleStrikethroughCommand } from '@milkdown/kit/preset/gfm'
 import type { MarkType } from '@milkdown/kit/prose/model'
-import { callCommand } from '@milkdown/kit/utils'
+import { callCommand, insert } from '@milkdown/kit/utils'
 import { markNameForTag, STYLED_TAG } from '../../../utils/milkdownInlineTag'
 
 /**
@@ -353,6 +354,17 @@ export function toggleUnderline(editor: Editor | null): boolean {
   return toggleInlineTag(editor, 'u')
 }
 
+/**
+ * 高亮 `<mark>…</mark>`。
+ *
+ * `mark` 早就在 milkdownInlineTag 的 TAGS 白名单与 milkdownHtmlView 的
+ * KNOWN_TAGS 里（解析、渲染、序列化三处都通），缺的只是这颗按钮 —— 直接复用
+ * toggleInlineTag，不另写实现。
+ */
+export function toggleHighlight(editor: Editor | null): boolean {
+  return toggleInlineTag(editor, 'mark')
+}
+
 /** 上标 `<sup>…</sup>` */
 export function toggleSuperscript(editor: Editor | null): boolean {
   return toggleInlineTag(editor, 'sup')
@@ -491,3 +503,38 @@ export function getCurrentHeadingLevel(editor: Editor | null): number {
     return 0
   })
 }
+
+/**
+ * 行内 Markdown 片段（表情等）：
+ * 走 insert(markdown, true) 的 inline 通道，作为纯文本/行内节点插入，不产生多余的独立段落。
+ */
+export function insertInlineMarkdown(editor: Editor | null, markdown: string): boolean {
+  if (!editor || !markdown) return false
+  editor.action(insert(markdown, true))
+  return true
+}
+
+/**
+ * 块级 Markdown 片段（提示面板、时间线、图表、目录、公式）：
+ * 强制以 openStart=0, openEnd=0 的整块 Slice 替换选区，保证 `:::` 标记
+ * 始终落在独立段落的开头，绝不与当前光标所在行的文本拼接（拼接会导致装饰器匹配失败）。
+ */
+export function insertBlockMarkdown(editor: Editor | null, markdown: string): boolean {
+  if (!editor || !markdown) return false
+  return editor.action((ctx) => {
+    const view = ctx.get(editorViewCtx)
+    const parser = ctx.get(parserCtx)
+    const doc = parser(markdown)
+    if (!doc) return false
+
+    view.dispatch(
+      view.state.tr
+        .replaceSelection(new Slice(doc.content, 0, 0))
+        .scrollIntoView()
+    )
+    return true
+  })
+}
+
+/** 兼容旧调用的别名 */
+export const insertMarkdownSnippet = insertBlockMarkdown

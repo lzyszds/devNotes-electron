@@ -1,12 +1,18 @@
 import type { ComponentType } from 'react'
 import {
+  Baseline,
   Bold,
   ChartNoAxesColumn,
   Code,
   Download,
+  Eraser,
   GitCommitVertical,
+  Hash,
   Heading,
+  Highlighter,
   Image as ImageIcon,
+  IndentDecrease,
+  IndentIncrease,
   Italic,
   LayoutPanelTop,
   Link as LinkIcon,
@@ -16,17 +22,44 @@ import {
   ListTree,
   Maximize2,
   Minus,
+  PaintBucket,
+  Paintbrush,
+  Plus,
   Presentation,
   Redo2,
   Search,
+  Sigma,
+  Smile,
   SquareCode,
   Strikethrough,
+  Subscript,
+  Superscript,
   Table as TableIcon,
   TextQuote,
+  Underline,
   Undo2,
 } from 'lucide-react'
 
 export type MarkdownEngine = 'cherry' | 'milkdown'
+
+/** 分组折叠菜单的 id。置了 menu 的命令不再平铺，改为收进对应菜单里 */
+export type ToolbarMenuId = 'format' | 'insert'
+
+export type MarkdownMenuSpec = {
+  id: ToolbarMenuId
+  /** 触发器上的文字标签 */
+  label: string
+  icon: ComponentType<{ className?: string }>
+  /**
+   * 决定触发器在工具栏上的落点。取值与 MarkdownCommand.group 同一套编号，
+   * 且取「它前面那一组的号」—— 渲染时会稳定排序，菜单正好落在该组命令之后。
+   */
+  group: number
+  /** 弹层宽度（px） */
+  width: number
+  /** 哪些内核下渲染这个菜单 */
+  engines: MarkdownEngine[]
+}
 
 export type MarkdownCommand = {
   /** 统一命令 id，同时用作状态表的键 */
@@ -55,6 +88,12 @@ export type MarkdownCommand = {
    * 用于「宿主自己实现、两个内核共用」的命令（如 outline 走 cherry.toggleToc()）。
    */
   cherryHostOnly?: true
+  /**
+   * 收进某个分组折叠菜单，不在工具栏上平铺。
+   * 工具栏一行放不下二十多颗按钮，同类能力折进菜单里更清爽；
+   * 高频项（加粗/斜体/列表/链接…）保持平铺，不牺牲一次点击的执行效率。
+   */
+  menu?: ToolbarMenuId
 }
 
 /**
@@ -108,15 +147,70 @@ export const MARKDOWN_COMMANDS: MarkdownCommand[] = [
   // 不经过 Cherry 的原生按钮，所以标 cherryHostOnly 而不是 cherry。
   { id: 'preview', label: '预览', icon: Presentation, group: 6, align: 'right', cherryHostOnly: true, milkdown: true },
   { id: 'export', label: '导出', icon: Download, group: 6, align: 'right', cherry: 'export', milkdown: true },
+
+  // ================= 「格式」菜单（Milkdown 专属） =================
+  // Cherry 的同类能力挂在它的气泡工具栏（bubble）上，顶部工具栏没有对应的隐形原生
+  // 按钮可供派发（见 dispatch.ts），所以这几项只标 milkdown：Cherry 下不渲染这个菜单。
+  { id: 'underline', label: '下划线', icon: Underline, group: 2, menu: 'format', milkdown: true },
+  { id: 'superscript', label: '上标', icon: Superscript, group: 2, menu: 'format', milkdown: true },
+  { id: 'subscript', label: '下标', icon: Subscript, group: 2, menu: 'format', milkdown: true },
+  { id: 'highlight', label: '高亮', icon: Highlighter, group: 2, menu: 'format', milkdown: true },
+  { id: 'clear-format', label: '清除格式', icon: Eraser, group: 2, menu: 'format', milkdown: true },
+  { id: 'indent', label: '增加缩进', icon: IndentIncrease, group: 2, menu: 'format', milkdown: true },
+  { id: 'outdent', label: '减少缩进', icon: IndentDecrease, group: 2, menu: 'format', milkdown: true },
+  // 下面三项不是「点一下就执行」，菜单里给它们色板与档位（见 FormatMenu）
+  { id: 'font-size', label: '字号', icon: Baseline, group: 2, menu: 'format', milkdown: true },
+  { id: 'text-color', label: '文字颜色', icon: Paintbrush, group: 2, menu: 'format', milkdown: true },
+  { id: 'bg-color', label: '背景色', icon: PaintBucket, group: 2, menu: 'format', milkdown: true },
+
+  // ================= 「插入」菜单（Milkdown 专属） =================
+  // 面板 / 时间线 / 图表 / 目录 的渲染层早就有了（milkdownEnhance 的装饰器：
+  // CONTAINERS / TIMELINE / MERMAID / TOC 四套分支），这里补的是「插一段带这种
+  // 语法的 Markdown」这个入口 —— 装饰器认的是语法本身，不关心它从哪来。
+  { id: 'md-panel', label: '提示面板', icon: LayoutPanelTop, group: 4, menu: 'insert', milkdown: true },
+  { id: 'md-timeline', label: '时间线', icon: GitCommitVertical, group: 4, menu: 'insert', milkdown: true },
+  { id: 'md-chart', label: '图表', icon: ChartNoAxesColumn, group: 4, menu: 'insert', milkdown: true },
+  { id: 'md-toc', label: '目录', icon: ListTree, group: 4, menu: 'insert', milkdown: true },
+  { id: 'md-footnote', label: '脚注', icon: Hash, group: 4, menu: 'insert', milkdown: true },
+  { id: 'md-math', label: '数学公式', icon: Sigma, group: 4, menu: 'insert', milkdown: true },
+  { id: 'md-emoji', label: '表情', icon: Smile, group: 4, menu: 'insert', milkdown: true },
 ]
 
 /**
- * 某内核下该命令是否可用：声明了对应字段就有。
- * cherryHidden 的项只进原生配置、不在自绘工具栏上渲染，所以这里排除掉。
+ * 工具栏上的分组折叠菜单。
+ *
+ * group 取「它前面那一组的编号」：渲染时命令与菜单会一起按 group 稳定排序，
+ * 菜单因此正好落在该组命令的末尾（如 format 接在行内格式那组之后）。
+ */
+export const TOOLBAR_MENUS: MarkdownMenuSpec[] = [
+  { id: 'format', label: '格式', icon: Paintbrush, group: 2, width: 248, engines: ['milkdown'] },
+  { id: 'insert', label: '插入', icon: Plus, group: 4, width: 212, engines: ['milkdown'] },
+]
+
+/**
+ * 某内核下在自绘工具栏上平铺展示的命令清单。
+ * cherryHidden（只进原生配置）与声明了 menu（收进折叠菜单）的项排除掉。
  */
 export function commandsFor(engine: MarkdownEngine): MarkdownCommand[] {
   return MARKDOWN_COMMANDS.filter((item) => {
     if (item.cherryHidden) return false
+    if (item.menu) return false
+    return engine === 'cherry' ? item.cherry || item.cherryHostOnly : item.milkdown
+  })
+}
+
+/** 某个内核下可用的分组折叠菜单清单 */
+export function menusFor(engine: MarkdownEngine): MarkdownMenuSpec[] {
+  return TOOLBAR_MENUS.filter((menu) => menu.engines.includes(engine))
+}
+
+/** 某个下拉菜单里包含的命令清单 */
+export function menuCommandsFor(
+  engine: MarkdownEngine,
+  menu: ToolbarMenuId
+): MarkdownCommand[] {
+  return MARKDOWN_COMMANDS.filter((item) => {
+    if (item.menu !== menu) return false
     return engine === 'cherry' ? item.cherry || item.cherryHostOnly : item.milkdown
   })
 }

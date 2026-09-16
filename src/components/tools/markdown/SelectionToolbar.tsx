@@ -6,8 +6,11 @@ import type { EditorView } from '@milkdown/kit/prose/view'
 import {
   Baseline,
   Bold,
+  Code,
+  Eraser,
   Highlighter,
   Italic,
+  PaintBucket,
   Palette,
   Strikethrough,
   Subscript,
@@ -16,11 +19,13 @@ import {
   Underline,
 } from 'lucide-react'
 import { FloatingBarButton, FloatingBarDivider, FloatingBarShell, useFloatingBar } from './FloatingBar'
+import { BACKGROUND_COLORS, FONT_SIZES, TEXT_COLORS } from './inlinePalette'
 import {
   runMilkdownCommand,
   setInlineBackgroundColor,
   setInlineFontSize,
   setInlineTextColor,
+  toggleHighlight,
   toggleSubscript,
   toggleSuperscript,
   toggleUnderline,
@@ -30,6 +35,11 @@ export type SelectionToolbarProps = {
   editor: Editor | null
   /** 由编辑器组件持有，闭包进驱动插件；见 milkdownFloatingBar.ts */
   providerRef: MutableRefObject<TooltipProvider | null>
+  /**
+   * 「清除格式」。实现在适配器上（与格式菜单、右键菜单共用同一份），
+   * 这里不重复一份，由宿主透传下来。
+   */
+  onClearFormat: () => void
 }
 
 /** 选中了「有内容的」文字才浮出来 */
@@ -40,49 +50,6 @@ function hasTextSelection(view: EditorView): boolean {
   // 拖选经过空行时整段可能只有空白字符，这种情况弹出来没意义
   return view.state.doc.textBetween(selection.from, selection.to).trim().length > 0
 }
-
-/**
- * 字号档位。数值与 Cherry 的 Size 菜单一一对应（12/17/24/32），
- * 写出来的标记也一致，两个内核共用一份 Markdown 时必须对齐。
- */
-const FONT_SIZES = [
-  { px: 12, label: '小' },
-  { px: 17, label: '中' },
-  { px: 24, label: '大' },
-  { px: 32, label: '超大' },
-] as const
-
-/**
- * 文字颜色。Cherry 的调色盘是一整块 HSV 拾色器（含最近使用色），
- * 这里只取常用色做成一格小色板 —— 做不了同等保真度，够用即可。
- */
-const TEXT_COLORS = [
-  '#e60000',
-  '#ff8000',
-  '#e6b800',
-  '#2e9e4f',
-  '#0099ff',
-  '#6600cc',
-  '#999999',
-  '#1f2937',
-] as const
-
-/**
- * 文字背景色。**带透明度**，不是实色 —— 实色在深色主题下会把正文的字压得看不见，
- * 而底色是写进 Markdown 的内联样式，CSS 覆盖不掉，只能一开始就选一个明暗两种主题
- * 下都读得清的写法。半透明色叠在任意底色上都只是一层淡色，两种主题都不影响阅读，
- * 项目自己的高亮（`<mark>`）走的也是这条路子。
- */
-const BACKGROUND_COLORS = [
-  'rgba(230, 0, 0, 0.32)',
-  'rgba(255, 128, 0, 0.32)',
-  'rgba(230, 184, 0, 0.38)',
-  'rgba(46, 158, 79, 0.3)',
-  'rgba(0, 153, 255, 0.3)',
-  'rgba(102, 0, 204, 0.28)',
-  'rgba(100, 116, 139, 0.28)',
-  'rgba(236, 72, 153, 0.3)',
-] as const
 
 /** 一排色块。文字色与背景色共用，只是取值与回调不同 */
 function SwatchGrid({
@@ -96,7 +63,7 @@ function SwatchGrid({
     // 拦住 mousedown，否则点色块会让编辑区失焦、选区随即消失
     <div
       onMouseDown={(event) => event.preventDefault()}
-      className="mt-1 grid grid-cols-8 gap-1 rounded-lg border border-slate-200/80 bg-white p-1.5 shadow-lg dark:border-dark-border dark:bg-dark-panel"
+      className="mb-1 grid grid-cols-8 gap-1 rounded-lg border border-slate-200/80 bg-white p-1.5 shadow-lg dark:border-dark-border dark:bg-dark-panel"
     >
       {colors.map((color) => (
         <button
@@ -113,18 +80,26 @@ function SwatchGrid({
 }
 
 /**
- * 选中文字后浮出的格式菜单，对齐双栏内核（Cherry）的 bubble 工具条。
+ * 选中文字后浮出的格式菜单。
  *
- * 按钮清单与 `CherryMarkdownEditor` 里 `toolbars.bubble` 的配置逐项对应：
+ * 按钮清单源自 `CherryMarkdownEditor` 里 `toolbars.bubble` 的配置：
  *   bold / italic / underline / strikethrough / sub / sup / quote | size / color
+ * 在此之上补了三件主工具栏有、气泡里却缺的行内文本工具：
+ *   inline-code / highlight / clear-format
  * （背景色是 Cherry 的 `color` 菜单里「文字颜色 / 背景色」两个页签之一，
  * 这里拆成独立一颗按钮，比 Cherry 少一次点击。）
- * 两个内核的浮条长得一样、点出来的东西也一样，切换内核时不会觉得换了套工具。
+ *
+ * 注意：补的这三件只有 Milkdown 侧有 —— Cherry 的 bubble 菜单清单里没有对应项，
+ * 那边的气泡保持原样，两个内核的气泡不再逐项对齐。
  *
  * 命令执行完**不主动隐藏**：加粗之后通常还要接着点斜体，Cherry 的 bubble 也是这个行为。
  * 真正让浮条消失的是选区塌陷（点一下空白处），那时插件自然会问出 false。
  */
-export default function SelectionToolbar({ editor, providerRef }: SelectionToolbarProps) {
+export default function SelectionToolbar({
+  editor,
+  providerRef,
+  onClearFormat,
+}: SelectionToolbarProps) {
   // null = 不展开；其余 = 展开对应的小面板
   const [panel, setPanel] = useState<'size' | 'color' | 'bg' | null>(null)
 
@@ -171,7 +146,12 @@ export default function SelectionToolbar({ editor, providerRef }: SelectionToolb
   return (
     <>
       {renderPortal(
-        <div className="flex flex-col items-center">
+        /*
+         * col-reverse：小面板排在浮条**上方**。
+         * 浮条本身是压在选区上方的，面板再往下挂就会盖住正在编辑的那行文字；
+         * 反序排列后展开的面板朝上生长，不挡正文。间距随之改成 mb-*（见下）。
+         */
+        <div className="flex flex-col-reverse items-center">
           <FloatingBarShell>
             <FloatingBarButton
               icon={Bold}
@@ -194,6 +174,11 @@ export default function SelectionToolbar({ editor, providerRef }: SelectionToolb
               onClick={() => runMilkdownCommand(editor, 'strike')}
             />
             <FloatingBarButton
+              icon={Code}
+              label="行内代码"
+              onClick={() => runMilkdownCommand(editor, 'inline-code')}
+            />
+            <FloatingBarButton
               icon={Subscript}
               label="下标"
               onClick={() => toggleSubscript(editor)}
@@ -208,6 +193,12 @@ export default function SelectionToolbar({ editor, providerRef }: SelectionToolb
               label="引用"
               onClick={() => runMilkdownCommand(editor, 'quote')}
             />
+            <FloatingBarButton
+              icon={Highlighter}
+              label="高亮"
+              onClick={() => toggleHighlight(editor)}
+            />
+            <FloatingBarButton icon={Eraser} label="清除格式" onClick={onClearFormat} />
 
             <FloatingBarDivider />
 
@@ -224,18 +215,19 @@ export default function SelectionToolbar({ editor, providerRef }: SelectionToolb
               onClick={() => setPanel((prev) => (prev === 'color' ? null : 'color'))}
             />
             <FloatingBarButton
-              icon={Highlighter}
+              icon={PaintBucket}
               label="背景色"
               active={panel === 'bg'}
               onClick={() => setPanel((prev) => (prev === 'bg' ? null : 'bg'))}
             />
           </FloatingBarShell>
 
-          {/* 小面板挂在浮条下方。同样要拦住 mousedown，否则编辑区一失焦选区就没了 */}
+          {/* 小面板挂在浮条上方（外层是 col-reverse）。同样要拦住 mousedown，
+              否则编辑区一失焦选区就没了 */}
           {panel === 'size' && (
             <div
               onMouseDown={(event) => event.preventDefault()}
-              className="mt-1 flex items-center gap-0.5 rounded-lg border border-slate-200/80 bg-white px-1 py-0.5 shadow-lg dark:border-dark-border dark:bg-dark-panel"
+              className="mb-1 flex items-center gap-0.5 rounded-lg border border-slate-200/80 bg-white px-1 py-0.5 shadow-lg dark:border-dark-border dark:bg-dark-panel"
             >
               {FONT_SIZES.map((item) => (
                 <button

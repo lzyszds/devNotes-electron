@@ -49,8 +49,36 @@ export const SNIPPETS = {
   toc: '\n[TOC]\n',
   todo: '- [ ] ',
   quote: '> ',
-  /** Cherry 的提示块语法 */
-  panel: ['::: primary 标题', '内容', ':::', ''].join('\n'),
+  /**
+   * 提示块。类型用 Cherry 的默认值 `primary` —— 它同时是 Cherry 认不出类型时的
+   * 回落值，也就是说 Cherry 那边无论怎么写都会落到这一种；Milkdown 的
+   * milkdownEnhance.CONTAINERS 早先漏了它，现已补上（含配套的 --primary 色调）。
+   * 两边都认 `::: primary`，切内核不会变样。
+   */
+  panel: ['::: primary 提示说明', '这里是内容', ':::', ''].join('\n'),
+  /**
+   * 项目演进时间线。
+   *
+   * 采用与样板文档（notesStore.ts）完全一致的 Mermaid timeline 语法：
+   * 在 Cherry 与 Milkdown 两个内核下均天然高保真渲染为矢量时间线卡片，
+   * 彻底规避私有容器语法在不同解析器间的方言冲突。
+   */
+  timeline: [
+    '```mermaid',
+    'timeline',
+    '    title 项目演进时间线',
+    '    2026 Q1 : 需求分析 : 方案设计',
+    '    2026 Q2 : 核心框架搭建 : 交互体验完善',
+    '    2026 Q3 : 正式发版 : 持续迭代',
+    '```',
+    '',
+  ].join('\n'),
+  /** Mermaid 图表代码块（可被 milkdownEnhance 的 isMermaidBlock 识别并渲染为卡片） */
+  mermaid: ['```mermaid', 'graph TD', '  A[开始] --> B[处理]', '  B --> C[完成]', '```', ''].join('\n'),
+  /** 脚注语法 */
+  footnote: ['[^1]', '', '[^1]: 脚注补充说明内容', ''].join('\n'),
+  /** 数学公式块（CommonMark/GFM 兼容的 $$ 片段） */
+  math: ['$$', 'f(x) = \\int_{-\\infty}^\\infty \\hat f(\\xi)\\,e^{2 \\pi i \\xi x} \\,d\\xi', '$$', ''].join('\n'),
   image: '![图片描述](https://)',
   link: '[链接文字](https://)',
 } as const
