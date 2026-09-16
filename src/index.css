@@ -2261,6 +2261,16 @@ html.dark .fe-mermaid-badge {
   opacity: 0.35;
 }
 
+/* primary：Cherry 面板的默认类型（认不出的类型也回落到它）——
+   Milkdown 侧补上这一种，用 Cherry 原生按钮插出来的面板才不会显示成裸文本 */
+.fe-container-head--primary,
+.fe-container-body--primary,
+.fe-container-close--primary,
+.fe-container-inline--primary {
+  --fe-tone: #64748b;
+  --fe-bg: rgba(100, 116, 139, 0.06);
+}
+
 .fe-container-head--info,
 .fe-container-body--info,
 .fe-container-close--info,
@@ -2323,6 +2333,10 @@ html.dark .fe-container-close {
   --fe-bg: rgba(255, 255, 255, 0.035);
 }
 
+html.dark .fe-container-head--primary,
+html.dark .fe-container-body--primary,
+html.dark .fe-container-close--primary,
+.fe-container-inline--primary { --fe-tone: #94a3b8; }
 html.dark .fe-container-head--info,
 html.dark .fe-container-body--info,
 html.dark .fe-container-close--info,
@@ -2714,6 +2728,38 @@ html.dark .fe-mermaid-tab:hover {
 html.dark .fe-mermaid-tab.is-active {
   background: #1b1f2b;
   color: rgb(var(--brand-300-rgb, 143 215 224));
+}
+
+/*
+ * 「删除该图表」。用 margin-left:auto 推到页签栏最右端：页签天天点、删除偶尔点，
+ * 隔开一段距离免得误触。常驻可见而不是 hover 才浮现 —— 这一栏本来就两三个元素，
+ * 藏着反而找不到。
+ */
+.fe-mermaid-tab-delete {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  padding: 3px 7px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.fe-mermaid-tab-delete:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #e11d48;
+}
+
+html.dark .fe-mermaid-tab-delete {
+  color: #64748b;
+}
+
+html.dark .fe-mermaid-tab-delete:hover {
+  background: rgba(239, 68, 68, 0.16);
+  color: #fb7185;
 }
 
 /* 图表源码块：预览态整个隐去；源码态把上下外边距收掉，紧贴页签 */

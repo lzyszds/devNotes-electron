@@ -72,6 +72,8 @@ const ICON_PATHS: Record<string, string> = {
   copy: '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
   check: '<path d="M20 6 9 17l-5-5"/>',
   caret: '<path d="m6 9 6 6 6-6"/>',
+  trash:
+    '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/>',
 }
 
 /** 渲染成一段可直接塞进 innerHTML 的 SVG */
@@ -81,6 +83,7 @@ function svgIcon(name: string): string {
 }
 
 const CONTAINERS: Record<string, { icon: string }> = {
+  primary: { icon: 'info' },
   info: { icon: 'info' },
   note: { icon: 'note' },
   tip: { icon: 'tip' },
@@ -180,8 +183,14 @@ function mermaidKey(code: string): string {
   return `${code.length}:${code.slice(0, 40)}`
 }
 
-/** 「预览 / 源码」页签。挂在代码块**上方**，切换的是源码块的显隐，见 buildDecorations */
-function createMermaidTabs(view: EditorView, key: string, showSource: boolean): HTMLElement {
+/** 「预览 / 源码」页签 + 删除。挂在代码块**上方**，切换的是源码块的显隐，见 buildDecorations */
+function createMermaidTabs(
+  view: EditorView,
+  key: string,
+  showSource: boolean,
+  blockPos: number,
+  blockSize: number
+): HTMLElement {
   const bar = document.createElement('div')
   bar.className = 'fe-mermaid-tabs'
   bar.contentEditable = 'false'
@@ -206,6 +215,40 @@ function createMermaidTabs(view: EditorView, key: string, showSource: boolean): 
 
   bar.appendChild(makeTab('预览', !showSource, false))
   bar.appendChild(makeTab('源码', showSource, true))
+
+  /*
+   * 「删除该图表」。
+   *
+   * 页签栏是这个图表唯一的常驻 UI，而删除原先只能走左侧块手柄（得先把鼠标挪出
+   * 编辑区）或者整块选中再删，都不顺手。放栏尾而不是紧贴页签：页签天天点、
+   * 删除偶尔点，隔开一段距离免得误触。
+   */
+  const delBtn = document.createElement('button')
+  delBtn.type = 'button'
+  delBtn.className = 'fe-mermaid-tab-delete'
+  delBtn.title = '删除该图表'
+  delBtn.innerHTML = svgIcon('trash')
+  delBtn.addEventListener('mousedown', (event) => event.preventDefault())
+  delBtn.addEventListener('click', (event) => {
+    event.preventDefault()
+    event.stopPropagation()
+
+    // 文档只剩这一块时不能直接删空：schema 要求 doc 至少有一个块，换成空段落
+    const tr =
+      view.state.doc.childCount === 1
+        ? view.state.tr.replaceWith(
+            blockPos,
+            blockPos + blockSize,
+            view.state.schema.nodes.paragraph.create()
+          )
+        : view.state.tr.delete(blockPos, blockPos + blockSize)
+
+    tr.setSelection(TextSelection.near(tr.doc.resolve(Math.min(blockPos, tr.doc.content.size))))
+    view.dispatch(tr)
+    view.focus()
+  })
+  bar.appendChild(delBtn)
+
   return bar
 }
 
@@ -853,10 +896,14 @@ function buildDecorations(
       const showSource = openSources.includes(key)
 
       decos.push(
-        Decoration.widget(pos, (view) => createMermaidTabs(view, key, showSource), {
-          side: -1,
-          key: `mermaid-tabs-${key}-${showSource}`,
-        })
+        Decoration.widget(
+          pos,
+          (view) => createMermaidTabs(view, key, showSource, pos, node.nodeSize),
+          {
+            side: -1,
+            key: `mermaid-tabs-${key}-${showSource}`,
+          }
+        )
       )
 
       if (showSource) {
@@ -969,15 +1016,25 @@ function buildDecorations(
       )
       decos.push(Decoration.node(pos, pos + node.nodeSize, { class: 'fe-toc-marker-block' }))
       const items = collectHeadings(state)
-      const digest = items.map((item) => `${item.level}:${item.text}`).join('|')
       decos.push(
-        Decoration.widget(
-          pos + node.nodeSize,
-          (view) => createTocCard(items, view, tocOpen),
-          // key 里**不能**带 tocOpen：一变就重建 DOM，卡片会跟着抖
-          { side: 1, key: `toc-${digest}` }
-        )
+        Decoration.widget(pos + node.nodeSize, (view) => createTocCard(items, view, tocOpen), {
+          side: 1,
+          /*
+           * key 固定成常量，既不随 tocOpen 变、也不随标题变。
+           *
+           * 目录内容跟着标题走，改一个标题就可能变一次；key 里放内容指纹的话，
+           * ProseMirror 每次都会销毁重建整块 DOM，`@starting-style` 的入场位移
+           * （opacity + translateY(-4px)）跟着重放 —— 看上去就是「一改标题目录就跳一下」。
+           * 内容因此改走下面的原地刷新。
+           */
+          key: 'toc',
+          destroy: (dom) => {
+            if (liveTocCard?.el === dom) liveTocCard = null
+          },
+        })
       )
+      // 卡片已经在文档里了就原地刷新；首次构建时它还没被创建（widget 是惰性的），交给 factory
+      liveTocCard?.update(items, tocOpen)
     }
 
     return true
@@ -987,28 +1044,43 @@ function buildDecorations(
 }
 
 /**
+ * 文档里那张目录卡片的活体引用。
+ *
+ * 目录内容跟着标题走，正文一改就要刷新；靠它原地更新，避免整块重建。
+ * widget 被移除时（[TOC] 标记被删掉、切走文档）在 destroy 里清空，
+ * 免得留着一个已经脱离文档的元素继续被刷。
+ */
+let liveTocCard: { el: HTMLElement; update: (items: TocItem[], open: boolean) => void } | null = null
+
+/**
  * 目录卡片。
  *
- * ⚠️ 展开与收起是**同一棵 DOM**，靠 `is-collapsed` 切类名，不重建。
- * 早先是两个不同 widget（收起态换成一颗胶囊），widget 的 key 里还带着 tocOpen ——
- * 每点一次就换 key，ProseMirror 便销毁重建整块，卡片上的入场动画跟着重放，
- * 视觉上就是「点一下抖一下」。现在 key 固定，点击只在本地切类名 + 派发状态。
+ * ⚠️ 展开与收起、以及标题清单的更新，都**不靠重建 DOM**。
+ *
+ * 收起态靠 `is-collapsed` 切类名。早先是两个不同 widget（收起态换成一颗胶囊），
+ * widget 的 key 里还带着 tocOpen —— 每点一次就换 key，ProseMirror 便销毁重建整块，
+ * 卡片上的入场动画跟着重放，视觉上就是「点一下抖一下」。
+ *
+ * 内容同理：widget 的 key 现在固定成 'toc'，标题变了就调下面注册的 `update`
+ * 原地换掉列表。key 里放内容指纹的话，改一次标题就重建一次 DOM，
+ * `@starting-style` 那段入场位移（opacity + translateY(-4px)，配 0.26s 的 transition）
+ * 跟着重放 —— 就是「一改标题目录就跳一下」。
  */
 function createTocCard(items: TocItem[], view: EditorView, open: boolean): HTMLElement {
   const card = document.createElement('div')
-  card.className = `fe-toc-card${open ? '' : ' is-collapsed'}`
+  card.className = 'fe-toc-card'
   card.contentEditable = 'false'
 
   const head = document.createElement('div')
   head.className = 'fe-toc-head'
-  head.innerHTML = `<span class="fe-toc-title">${svgIcon('note')}<span>本文目录</span></span><span class="fe-toc-count">${items.length} 小节</span>`
+  head.innerHTML = `<span class="fe-toc-title">${svgIcon('note')}<span>本文目录</span></span>`
+
+  const count = document.createElement('span')
+  count.className = 'fe-toc-count'
 
   const toggle = document.createElement('button')
   toggle.type = 'button'
   toggle.className = 'fe-toc-collapse'
-  toggle.textContent = open ? '收起' : '展开'
-  toggle.title = open ? '收起目录' : '展开目录'
-  toggle.setAttribute('aria-expanded', String(open))
   toggle.addEventListener('mousedown', (event) => event.preventDefault())
   toggle.addEventListener('click', (event) => {
     event.preventDefault()
@@ -1018,30 +1090,57 @@ function createTocCard(items: TocItem[], view: EditorView, open: boolean): HTMLE
     toggle.textContent = collapsed ? '展开' : '收起'
     toggle.title = collapsed ? '展开目录' : '收起目录'
     toggle.setAttribute('aria-expanded', String(!collapsed))
-    // 再同步进插件 state，这样文档变动触发重建时不会跳回默认态
+    // 再同步进插件 state，这样文档变动触发刷新时不会跳回默认态
     view.dispatch(view.state.tr.setMeta(enhancePluginKey, { toc: !collapsed }))
   })
-  head.appendChild(toggle)
+
+  head.append(count, toggle)
   card.appendChild(head)
 
   const body = document.createElement('div')
   body.className = 'fe-toc-body'
+  card.appendChild(body)
 
-  if (!items.length) {
-    const empty = document.createElement('div')
-    empty.className = 'fe-toc-empty'
-    empty.textContent = '暂无标题'
-    body.appendChild(empty)
-  } else {
+  /** 上一次画出来的清单指纹，只比标题本身、不含位置；null 表示还没画过 */
+  let digest: string | null = null
+
+  const update = (next: TocItem[], isOpen: boolean) => {
+    // 开合态每次都对齐：它由插件 state 决定，跟清单变没变无关
+    card.classList.toggle('is-collapsed', !isOpen)
+    toggle.textContent = isOpen ? '收起' : '展开'
+    toggle.title = isOpen ? '收起目录' : '展开目录'
+    toggle.setAttribute('aria-expanded', String(isOpen))
+
+    /*
+     * 只比 level + text，不比 pos：正文里随便敲个字，标题的位置就整体挪了，
+     * 带上 pos 等于每敲一下都重画一遍列表。位置在点击时现取（见下面的行点击）。
+     */
+    const nextDigest = next.map((item) => `${item.level}:${item.text}`).join('|')
+    if (nextDigest === digest) return
+    digest = nextDigest
+
+    count.textContent = `${next.length} 小节`
+
+    if (!next.length) {
+      const empty = document.createElement('div')
+      empty.className = 'fe-toc-empty'
+      empty.textContent = '暂无标题'
+      body.replaceChildren(empty)
+      return
+    }
+
     const list = document.createElement('div')
     list.className = 'fe-toc-list'
-    items.forEach((item) => {
+    next.forEach((item, index) => {
       const row = document.createElement('div')
       row.className = `fe-toc-item fe-toc-item--${Math.min(item.level, 4)}`
       row.textContent = item.text
       row.addEventListener('mousedown', (event) => event.preventDefault())
       row.addEventListener('click', () => {
-        const pos = Math.min(item.pos + 1, view.state.doc.content.size)
+        // 卡片不随正文重建，行里闭包住的 pos 早就过期了 —— 按序号现取一次
+        const target = collectHeadings(view.state)[index]
+        if (!target) return
+        const pos = Math.min(target.pos + 1, view.state.doc.content.size)
         view.dispatch(
           view.state.tr
             .setSelection(TextSelection.near(view.state.doc.resolve(pos), 1))
@@ -1051,10 +1150,11 @@ function createTocCard(items: TocItem[], view: EditorView, open: boolean): HTMLE
       })
       list.appendChild(row)
     })
-    body.appendChild(list)
+    body.replaceChildren(list)
   }
 
-  card.appendChild(body)
+  liveTocCard = { el: card, update }
+  update(items, open)
   return card
 }
 /* ============================ 导出插件 ============================ */
