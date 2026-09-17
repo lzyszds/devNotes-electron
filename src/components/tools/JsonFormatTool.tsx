@@ -10,17 +10,15 @@ import {
   CheckCircle2,
   AlertTriangle,
   History,
-  Clock,
   ChevronRight,
   ChevronDown,
   Braces,
-  X,
   ListTree,
   Type,
 } from "lucide-react";
-import { usePresence } from "../../hooks/usePresence";
 import { useToolHistory } from "../../hooks/useToolHistory";
 import { useHistoryContextMenu } from "../../hooks/useHistoryContextMenu";
+import { ToolBadge, ToolHistoryOverlay, ToolShell } from "../ui";
 import Tooltip from "../ui/Tooltip";
 
 type JsonFormatToolProps = {
@@ -62,13 +60,13 @@ const TreeNode = ({
 
   const renderValue = (val: any) => {
     if (val === null)
-      return <span className="text-rose-500 font-bold italic">null</span>;
+      return <span className="text-rose-500 dark:text-rose-400 font-bold italic">null</span>;
     if (typeof val === "string")
-      return <span className="text-emerald-600">"{val}"</span>;
+      return <span className="text-emerald-600 dark:text-emerald-400">"{val}"</span>;
     if (typeof val === "number")
-      return <span className="text-sky-600 font-bold">{val}</span>;
+      return <span className="text-sky-600 dark:text-sky-400 font-bold">{val}</span>;
     if (typeof val === "boolean")
-      return <span className="text-amber-600 font-bold">{val.toString()}</span>;
+      return <span className="text-amber-600 dark:text-amber-400 font-bold">{val.toString()}</span>;
     return null;
   };
 
@@ -76,10 +74,10 @@ const TreeNode = ({
     return (
       <div className="flex items-start py-0.5 group">
         {label && (
-          <span className="text-slate-900 font-bold mr-2">"{label}":</span>
+          <span className="text-slate-900 dark:text-slate-100 font-bold mr-2">"{label}":</span>
         )}
         {renderValue(value)}
-        {!isLast && <span className="text-slate-400">,</span>}
+        {!isLast && <span className="text-slate-400 dark:text-slate-500">,</span>}
       </div>
     );
   }
@@ -87,10 +85,10 @@ const TreeNode = ({
   return (
     <div className="flex flex-col">
       <div
-        className="flex items-center py-0.5 cursor-pointer group hover:bg-slate-50 rounded px-1 -ml-1 transition-colors"
+        className="flex items-center py-0.5 cursor-pointer group hover:bg-slate-50 dark:hover:bg-dark-hover rounded px-1 -ml-1 transition-colors"
         onClick={() => !isEmpty && setIsExpanded(!isExpanded)}
       >
-        <div className="w-4 h-4 flex items-center justify-center mr-1 text-slate-300">
+        <div className="w-4 h-4 flex items-center justify-center mr-1 text-slate-300 dark:text-slate-600">
           {!isEmpty &&
             (isExpanded ? (
               <ChevronDown size={12} />
@@ -99,25 +97,25 @@ const TreeNode = ({
             ))}
         </div>
         {label && (
-          <span className="text-slate-900 font-bold mr-2">"{label}":</span>
+          <span className="text-slate-900 dark:text-slate-100 font-bold mr-2">"{label}":</span>
         )}
-        <span className="text-slate-400 font-bold">
+        <span className="text-slate-400 dark:text-slate-500 font-bold">
           {isArray ? "[" : "{"}
           {!isExpanded && !isEmpty && (
-            <span className="mx-1 text-slate-300 text-[10px]">...</span>
+            <span className="mx-1 text-slate-300 dark:text-slate-600 text-[10px]">...</span>
           )}
           {!isExpanded && (isArray ? "]" : "}")}
         </span>
-        {!isExpanded && !isLast && <span className="text-slate-400">,</span>}
+        {!isExpanded && !isLast && <span className="text-slate-400 dark:text-slate-500">,</span>}
         {!isExpanded && isArray && value.length > 0 && (
-          <span className="ml-3 text-[10px] font-black text-slate-300 uppercase tracking-tighter bg-slate-100 px-1.5 rounded">
+          <span className="ml-3 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tighter bg-slate-100 dark:bg-dark-hover px-1.5 rounded">
             {value.length} 个项目
           </span>
         )}
       </div>
 
       {isExpanded && !isEmpty && (
-        <div className="ml-4 border-l border-slate-100 pl-4 transition-all animate-in slide-in-from-left-1 duration-200">
+        <div className="ml-4 border-l border-slate-100 dark:border-dark-border pl-4 transition-all">
           {isArray
             ? value.map((item, i) => (
                 <TreeNode
@@ -139,9 +137,9 @@ const TreeNode = ({
 
       {isExpanded && (
         <div className="py-0.5">
-          <span className="text-slate-400 font-bold ml-5">
+          <span className="text-slate-400 dark:text-slate-500 font-bold ml-5">
             {isArray ? "]" : "}"}
-            {!isLast && <span className="text-slate-400">,</span>}
+            {!isLast && <span className="text-slate-400 dark:text-slate-500">,</span>}
           </span>
         </div>
       )}
@@ -194,11 +192,42 @@ const buildDiffLines = (leftText: string, rightText: string): DiffLine[] => {
 };
 
 const diffStyles: Record<DiffLine["status"], string> = {
-  same: "text-slate-400",
-  added: "bg-emerald-50 text-emerald-700 border-l-2 border-emerald-500",
-  removed: "bg-rose-50 text-rose-700 border-l-2 border-rose-500",
-  changed: "bg-amber-50 text-amber-700 border-l-2 border-amber-500",
+  same: "text-slate-400 dark:text-slate-500",
+  added:
+    "bg-emerald-50 text-emerald-700 border-l-2 border-emerald-500 dark:bg-emerald-500/10 dark:text-emerald-300",
+  removed:
+    "bg-rose-50 text-rose-700 border-l-2 border-rose-500 dark:bg-rose-500/10 dark:text-rose-300",
+  changed:
+    "bg-amber-50 text-amber-700 border-l-2 border-amber-500 dark:bg-amber-500/10 dark:text-amber-300",
 };
+
+/** 统计卡的语义色：匹配=灰、新增=绿、删除=红、修改=琥珀，深浅两套都写死，
+ *  不用模板字符串拼类名 —— 拼出来的类名 Tailwind 扫不到，只是碰巧别处有同名字符串才生效 */
+const DIFF_STAT_TONES = {
+  same: {
+    box: "border-slate-100 dark:border-dark-border",
+    label: "text-slate-500 dark:text-slate-400",
+  },
+  added: {
+    box: "border-emerald-100 dark:border-emerald-500/25",
+    label: "text-emerald-500 dark:text-emerald-400",
+  },
+  removed: {
+    box: "border-rose-100 dark:border-rose-500/25",
+    label: "text-rose-500 dark:text-rose-400",
+  },
+  changed: {
+    box: "border-amber-100 dark:border-amber-500/25",
+    label: "text-amber-500 dark:text-amber-400",
+  },
+} as const;
+
+const CARD = "bg-white dark:bg-dark-panel rounded-2xl border border-slate-200/90 dark:border-dark-border shadow-sm flex flex-col min-h-0";
+const CARD_HEAD = "px-4 py-2.5 border-b border-slate-100 dark:border-dark-border bg-slate-50/50 dark:bg-dark-sidebar/40 rounded-t-2xl flex items-center justify-between gap-2 flex-shrink-0";
+const CARD_HEAD_LABEL = "text-xs font-semibold text-slate-700 dark:text-slate-300";
+const CARD_FOOT = "px-4 py-2.5 border-t border-slate-100 dark:border-dark-border bg-slate-50/40 dark:bg-dark-sidebar/30 rounded-b-2xl flex items-center justify-end gap-3 text-xs flex-shrink-0";
+const ICON_BTN = "p-1.5 rounded-lg text-slate-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-500/10 dark:hover:text-brand-400 transition disabled:opacity-40 disabled:pointer-events-none";
+const BODY_TEXTAREA = "w-full flex-1 bg-transparent resize-none outline-none font-mono text-slate-800 dark:text-slate-100 text-sm leading-relaxed placeholder:text-slate-400 dark:placeholder:text-slate-600";
 
 /* --- Main Tool Component --- */
 
@@ -212,8 +241,6 @@ export default function JsonFormatTool({
   const [leftInput, setLeftInput] = useState("");
   const [rightInput, setRightInput] = useState("");
   const [showHistory, setShowHistory] = useState(false);
-  // 历史浮层退出动画：面板 180ms、遮罩 160ms，取长者
-  const { mounted: historyMounted, state: historyState } = usePresence(showHistory, 180);
 
   const { history, saveHistory, clearHistory, removeHistoryItem } = useToolHistory<string>(
     mode === "diff" ? "json-diff" : "json-format",
@@ -341,500 +368,351 @@ export default function JsonFormatTool({
 
   if (mode === "diff") {
     return (
-      <div className="relative flex h-full bg-slate-50/30 overflow-hidden">
-        <div className="flex-1 flex flex-col min-w-0">
-          {/* Action Header */}
-          <div className="flex-wrap gap-3 px-4 py-4 md:px-8 md:py-5 flex items-center justify-between border-b border-slate-100 shrink-0 bg-white">
-            <div className="flex flex-wrap items-center gap-4">
-              <div className="h-12 w-12 rounded-2xl bg-brand-600 text-white flex items-center justify-center shadow-lg shadow-brand-100">
-                <GitCompareArrows size={24} />
-              </div>
-              <div>
-                <h2 className="text-xl font-black text-slate-900 tracking-tight">
-                  JSON 内容比对
-                </h2>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">
-                  逐行分析两个 JSON 的差异
-                </p>
-              </div>
+      <ToolShell
+        icon={GitCompareArrows}
+        title="JSON 内容比对"
+        subtitle="逐行分析两个 JSON 的差异"
+        badge={
+          diffLines.length > 0 ? <ToolBadge tone="brand">{diffLines.length} 行</ToolBadge> : undefined
+        }
+        actions={
+          <>
+            <button
+              onClick={() => setShowHistory(!showHistory)}
+              className={`tool-button-secondary h-9 ${
+                showHistory
+                  ? "ring-2 ring-brand-500/20 border-brand-200 text-brand-600 dark:border-brand-500/40 dark:text-brand-400"
+                  : ""
+              }`}
+            >
+              <History size={15} />
+              <span>比对历史</span>
+            </button>
+            <button
+              onClick={() => {
+                setLeftInput("");
+                setRightInput("");
+              }}
+              className="tool-button-secondary h-9 text-rose-500 hover:text-rose-600 hover:bg-rose-50 border-rose-100 dark:text-rose-400 dark:border-rose-500/30 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
+            >
+              <Trash2 size={15} />
+              <span>清空</span>
+            </button>
+            <button
+              onClick={() => {
+                if (!leftInput || !rightInput) return;
+                saveHistory(
+                  JSON.stringify({ left: leftInput, right: rightInput }),
+                  `比对: ${leftInput.slice(0, 10)}...`,
+                );
+              }}
+              className="tool-button-primary h-9 px-5"
+            >
+              <Copy size={15} />
+              <span>复制结果</span>
+            </button>
+          </>
+        }
+        overlay={
+          <ToolHistoryOverlay
+            open={showHistory}
+            onClose={() => setShowHistory(false)}
+            title="历史比对记录"
+            items={history}
+            onClear={clearHistory}
+            onPick={(item) => {
+              try {
+                const data = JSON.parse(item.data);
+                setLeftInput(data.left || item.data);
+                setRightInput(data.right || "");
+              } catch {
+                setLeftInput(item.data);
+              }
+              setShowHistory(false);
+            }}
+            onItemContextMenu={openDiffHistoryMenu}
+            renderItemTitle={(item) => item.title || "无标题比对"}
+          />
+        }
+      >
+        {/* 差异统计 */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 shrink-0">
+          {(
+            [
+              { key: "same", label: "匹配", value: diffStats.same },
+              { key: "added", label: "新增", value: diffStats.added },
+              { key: "removed", label: "删除", value: diffStats.removed },
+              { key: "changed", label: "修改", value: diffStats.changed },
+            ] as const
+          ).map((stat) => (
+            <div
+              key={stat.key}
+              className={`p-4 rounded-2xl border bg-white dark:bg-dark-panel shadow-sm ${DIFF_STAT_TONES[stat.key].box}`}
+            >
+              <p
+                className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${DIFF_STAT_TONES[stat.key].label}`}
+              >
+                {stat.label}
+              </p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white tabular-nums">
+                {stat.value}
+              </p>
             </div>
+          ))}
+        </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={() => setShowHistory(!showHistory)}
-                className={`tool-button-secondary h-10 px-4 ${showHistory ? "ring-2 ring-brand-500/20 border-brand-200 text-brand-600" : ""}`}
-              >
-                <History size={16} />
-                <span>比对历史</span>
-              </button>
-              <div className="w-px h-6 bg-slate-100 mx-2" />
-              <button
-                onClick={() => {
-                  setLeftInput("");
-                  setRightInput("");
-                }}
-                className="tool-button-secondary h-10 px-4 text-rose-500 hover:text-rose-600 hover:bg-rose-50 border-rose-100"
-              >
-                <Trash2 size={16} />
-                <span>清空</span>
-              </button>
-              <button
-                onClick={() => {
-                  if (!leftInput || !rightInput) return;
-                  saveHistory(
-                    JSON.stringify({ left: leftInput, right: rightInput }),
-                    `比对: ${leftInput.slice(0, 10)}...`,
-                  );
-                }}
-                className="tool-button-primary h-10 px-4 bg-brand-600 hover:bg-brand-700 shadow-brand-100"
-              >
-                <Copy size={16} />
-                <span>复制结果</span>
-              </button>
+        {/* 两份 JSON */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 flex-1 min-h-[400px]">
+          <div className={CARD}>
+            <div className={CARD_HEAD}>
+              <span className={CARD_HEAD_LABEL}>原始 JSON（左侧）</span>
+              <span className="text-[11px] text-slate-400 dark:text-slate-500">
+                {leftInput.length} 字符
+              </span>
+            </div>
+            <div className="flex-1 p-4 flex flex-col min-h-0">
+              <textarea
+                value={leftInput}
+                onChange={(e) => setLeftInput(e.target.value)}
+                placeholder="在这里粘贴原始 JSON..."
+                className={BODY_TEXTAREA}
+              />
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-6 space-y-6 flex flex-col">
-            {/* Stats Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 shrink-0">
-              {[
-                { label: "匹配", value: diffStats.same, color: "slate" },
-                { label: "新增", value: diffStats.added, color: "emerald" },
-                { label: "删除", value: diffStats.removed, color: "rose" },
-                { label: "修改", value: diffStats.changed, color: "amber" },
-              ].map((stat) => (
-                <div
-                  key={stat.label}
-                  className={`p-4 rounded-xl border bg-white shadow-sm border-${stat.color}-100`}
-                >
-                  <p
-                    className={`text-[10px] font-black uppercase tracking-widest text-${stat.color}-500 mb-1`}
-                  >
-                    {stat.label}
-                  </p>
-                  <p className="text-2xl font-black text-slate-900">
-                    {stat.value}
-                  </p>
-                </div>
-              ))}
+          <div className={CARD}>
+            <div className={CARD_HEAD}>
+              <span className={CARD_HEAD_LABEL}>比对 JSON（右侧）</span>
+              <span className="text-[11px] text-slate-400 dark:text-slate-500">
+                {rightInput.length} 字符
+              </span>
             </div>
-
-            {/* Inputs */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 min-h-[400px] h-full">
-              <div className="flex flex-col gap-2 h-full">
-                <label className="tool-label px-1 shrink-0">
-                  原始 JSON (左侧)
-                </label>
-                <textarea
-                  value={leftInput}
-                  onChange={(e) => setLeftInput(e.target.value)}
-                  placeholder="在这里粘贴原始 JSON..."
-                  className="tool-textarea flex-1 border-slate-200/60 shadow-sm min-h-[300px]"
-                />
-              </div>
-              <div className="flex flex-col gap-2 h-full">
-                <label className="tool-label px-1 shrink-0">
-                  比对 JSON (右侧)
-                </label>
-                <textarea
-                  value={rightInput}
-                  onChange={(e) => setRightInput(e.target.value)}
-                  placeholder="在这里粘贴要比对的 JSON..."
-                  className="tool-textarea flex-1 border-slate-200/60 shadow-sm min-h-[300px]"
-                />
-              </div>
+            <div className="flex-1 p-4 flex flex-col min-h-0">
+              <textarea
+                value={rightInput}
+                onChange={(e) => setRightInput(e.target.value)}
+                placeholder="在这里粘贴要比对的 JSON..."
+                className={BODY_TEXTAREA}
+              />
             </div>
-
-            {/* Comparison Table */}
-            {!diffError && diffLines.length > 0 && (
-              <div className="tool-panel p-0 overflow-hidden border-slate-200/60 flex flex-col">
-                <div className="bg-slate-50/80 px-4 py-2 border-b border-slate-100 flex items-center justify-between shrink-0">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                    逐行差异视图
-                  </span>
-                  <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white border border-slate-200 shadow-sm">
-                    <CheckCircle2 size={10} className="text-emerald-500" />
-                    <span className="text-[9px] font-bold text-slate-500 uppercase">
-                      实时比对中
-                    </span>
-                  </div>
-                </div>
-                <div className="divide-y divide-slate-50 overflow-y-auto scrollbar-hide">
-                  {diffLines.map((line, index) => (
-                    <div
-                      key={index}
-                      className="grid grid-cols-[48px_1fr_1fr] group transition-colors hover:bg-slate-50/50 shrink-0"
-                    >
-                      <div className="py-2 px-3 text-[10px] font-mono text-slate-300 border-r border-slate-50 bg-slate-50/30 flex justify-center items-center">
-                        {String(index + 1).padStart(2, "0")}
-                      </div>
-                      <div
-                        className={`py-2 px-4 font-mono text-[11px] whitespace-pre-wrap break-all border-r border-slate-50/50 ${line.status === "removed" || line.status === "changed" ? diffStyles[line.status] : "text-slate-600"}`}
-                      >
-                        {line.left || " "}
-                      </div>
-                      <div
-                        className={`py-2 px-4 font-mono text-[11px] whitespace-pre-wrap break-all ${line.status === "added" || line.status === "changed" ? diffStyles[line.status] : "text-slate-600"}`}
-                      >
-                        {line.right || " "}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
-        {historyMounted && (
-          <div className="history-overlay" data-state={historyState}>
-            <button
-              type="button"
-              aria-label="关闭历史记录"
-              className="history-overlay-backdrop"
-              onClick={() => setShowHistory(false)}
-            />
-            <div
-              className="history-overlay-panel" data-state={historyState}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="p-6 border-b border-slate-200/70 bg-white/80 flex items-center justify-between shrink-0">
-                <div className="flex items-center gap-3 text-slate-900">
-                  <div className="h-10 w-10 rounded-2xl bg-brand-50 text-brand-600 flex items-center justify-center">
-                    <Clock size={18} />
+        {/* 逐行差异 */}
+        {!diffError && diffLines.length > 0 && (
+          <div className={`${CARD} flex-1 min-h-[320px]`}>
+            <div className={CARD_HEAD}>
+              <span className={CARD_HEAD_LABEL}>逐行差异视图</span>
+              <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium border border-emerald-200/70 bg-emerald-50 text-emerald-700 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300">
+                <CheckCircle2 size={11} />
+                实时比对中
+              </span>
+            </div>
+            <div className="flex-1 min-h-0 divide-y divide-slate-50 dark:divide-dark-border overflow-y-auto">
+              {diffLines.map((line, index) => (
+                <div
+                  key={index}
+                  className="grid grid-cols-[48px_1fr_1fr] group transition-colors hover:bg-slate-50/50 dark:hover:bg-dark-hover/40 shrink-0"
+                >
+                  <div className="py-2 px-3 text-[10px] font-mono text-slate-300 dark:text-slate-600 border-r border-slate-50 dark:border-dark-border bg-slate-50/30 dark:bg-dark-sidebar/30 flex justify-center items-center">
+                    {String(index + 1).padStart(2, "0")}
                   </div>
-                  <div>
-                    <p className="text-[11px] font-black uppercase tracking-[0.18em]">
-                      历史比对记录
-                    </p>
-                    <p className="text-[10px] font-bold text-slate-400">
-                      点击记录可一键恢复左右 JSON
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={clearHistory}
-                    className="text-[10px] font-black text-slate-400 hover:text-rose-500 transition uppercase"
+                  <div
+                    className={`py-2 px-4 font-mono text-[11px] whitespace-pre-wrap break-all border-r border-slate-50/50 dark:border-dark-border ${
+                      line.status === "removed" || line.status === "changed"
+                        ? diffStyles[line.status]
+                        : "text-slate-600 dark:text-slate-300"
+                    }`}
                   >
-                    清空
-                  </button>
-                  <Tooltip content="关闭历史记录">
-                    <button
-                      onClick={() => setShowHistory(false)}
-                      className="p-2 rounded-xl hover:bg-slate-100 text-slate-400"
-                    >
-                      <X size={14} />
-                    </button>
-                  </Tooltip>
-                </div>
-              </div>
-              <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50">
-                {history.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-20 text-slate-300">
-                    <Clock size={32} className="mb-2 opacity-20" />
-                    <p className="text-[10px] font-bold uppercase tracking-widest">
-                      暂无记录
-                    </p>
+                    {line.left || " "}
                   </div>
-                ) : (
-                  history.map((item) => (
-                    <button
-                      key={item.id}
-                      onContextMenu={(e) => openDiffHistoryMenu(e, item)}
-                      onClick={() => {
-                        try {
-                          const data = JSON.parse(item.data);
-                          setLeftInput(data.left || item.data);
-                          setRightInput(data.right || "");
-                        } catch {
-                          setLeftInput(item.data);
-                        }
-                        setShowHistory(false);
-                      }}
-                      className="w-full text-left p-4 rounded-2xl bg-white border border-slate-200/70 shadow-sm hover:border-brand-500 hover:shadow-brand-500/10 transition-all group relative"
-                    >
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-[9px] font-bold text-slate-300 font-mono">
-                          {new Date(item.timestamp).toLocaleString()}
-                        </span>
-                        <ChevronRight
-                          size={14}
-                          className="text-slate-200 group-hover:text-brand-500 transition-colors"
-                        />
-                      </div>
-                      <p className="text-[11px] font-bold text-slate-700 truncate">
-                        {item.title || "无标题比对"}
-                      </p>
-                    </button>
-                  ))
-                )}
-              </div>
+                  <div
+                    className={`py-2 px-4 font-mono text-[11px] whitespace-pre-wrap break-all ${
+                      line.status === "added" || line.status === "changed"
+                        ? diffStyles[line.status]
+                        : "text-slate-600 dark:text-slate-300"
+                    }`}
+                  >
+                    {line.right || " "}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
-      </div>
+      </ToolShell>
     );
   }
 
   return (
-    <div className="relative flex h-full bg-white overflow-hidden text-slate-900">
-      <div className="flex-1 flex flex-col min-w-0 h-full">
-        {/* Action Header */}
-        <div className="flex-wrap gap-3 px-4 py-4 md:px-8 md:py-5 flex items-center justify-between border-b border-slate-100 shrink-0">
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="h-12 w-12 rounded-2xl bg-brand-600 text-white flex items-center justify-center shadow-lg shadow-brand-100">
-              <Braces size={24} />
-            </div>
-            <div>
-              <h2 className="text-xl font-black text-slate-900 tracking-tight">
-                JSON 格式化工具
-              </h2>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">
-                双翼布局：左侧编辑，右侧即时美化预览
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => setShowHistory(!showHistory)}
-              className={`tool-button-secondary h-10 px-4 ${showHistory ? "ring-2 ring-brand-500/20 border-brand-200 text-brand-600" : ""}`}
-            >
-              <History size={16} />
-              <span>历史记录</span>
-            </button>
-            <div className="w-px h-6 bg-slate-100 mx-2" />
-            <div className="flex gap-2">
-              <button
-                onClick={formatJson}
-                className="tool-button-primary h-10 bg-brand-600 hover:bg-brand-700 shadow-brand-100"
-              >
-                <Wand2 size={16} /> 美化
-              </button>
-              <button
-                onClick={compressJson}
-                className="tool-button-secondary h-10 px-4"
-              >
-                <Minimize2 size={16} /> 压缩
-              </button>
-              <button
-                onClick={sortKeys}
-                className="tool-button-secondary h-10 px-4"
-              >
-                <ArrowUpDown size={16} /> 排序
-              </button>
-              <Tooltip content="清空输入与结果">
-                <button
-                  onClick={() => {
-                    setInput("");
-                    setOutput("");
-                    setError("");
-                  }}
-                  className="tool-button-secondary h-10 w-10 p-0 text-rose-500"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </Tooltip>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-hidden p-6 bg-slate-50/20">
-          <div className="max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
-            {/* Left Wing: Input Area */}
-            <div className="flex flex-col gap-3 min-w-0 h-full overflow-hidden">
-              <div className="flex items-center justify-between px-1 shrink-0 h-[26px]">
-                <label className="tool-label mb-0">原始 JSON 输入</label>
-                <span className="text-[9px] font-bold text-slate-300 uppercase tracking-tighter">
-                  {input.length} 字符
-                </span>
-              </div>
-              <div className="relative group flex-1 overflow-hidden">
-                <textarea
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder="请在此粘贴 JSON 内容..."
-                  className="tool-textarea h-full border-slate-200 shadow-sm focus:shadow-brand-500/5 group-hover:border-slate-300"
-                />
-                {input && (
-                  <Tooltip content="清空输入">
-                    <button
-                      onClick={() => setInput("")}
-                      className="absolute right-4 top-4 p-2 rounded-lg bg-slate-100 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-50 hover:text-rose-500"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </Tooltip>
-                )}
-              </div>
-            </div>
-
-            {/* Right Wing: Output Area */}
-            <div className="flex flex-col gap-3 min-w-0 h-full overflow-hidden">
-              <div className="flex items-center justify-between px-1 shrink-0">
-                <div className="flex items-center gap-6">
-                  <label className="tool-label mb-0">处理结果展示</label>
-                  <div className="flex items-center p-0.5 bg-slate-100 rounded-lg">
-                    <button
-                      onClick={() => setViewMode("text")}
-                      className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-[9px] font-black uppercase tracking-wider transition-all ${viewMode === "text" ? "bg-white text-brand-600 shadow-sm" : "text-slate-400 hover:text-slate-600"}`}
-                    >
-                      <Type size={11} /> 文本
-                    </button>
-                    <button
-                      onClick={() => setViewMode("tree")}
-                      className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-[9px] font-black uppercase tracking-wider transition-all ${viewMode === "tree" ? "bg-white text-brand-600 shadow-sm" : "text-slate-400 hover:text-slate-600"}`}
-                    >
-                      <ListTree size={11} /> 树形
-                    </button>
-                  </div>
-                </div>
-                <div className="flex gap-1.5">
-                  <Tooltip content="复制结果">
-                    <button
-                      onClick={copyOutput}
-                      disabled={!output}
-                      className="p-1.5 rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-900 hover:text-white transition-all"
-                    >
-                      <Copy size={14} />
-                    </button>
-                  </Tooltip>
-                  <Tooltip content="下载结果">
-                    <button
-                      onClick={downloadOutput}
-                      disabled={!output}
-                      className="p-1.5 rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-900 hover:text-white transition-all"
-                    >
-                      <Download size={14} />
-                    </button>
-                  </Tooltip>
-                </div>
-              </div>
-
-              <div className="flex-1 overflow-hidden relative h-full">
-                {error ? (
-                  <div className="status-note h-full flex flex-col items-center justify-center border-rose-100 bg-rose-50/50 text-rose-600 text-center p-8">
-                    <AlertTriangle size={32} className="mb-3 opacity-20" />
-                    <p className="text-[10px] font-black uppercase tracking-tight mb-1">
-                      解析错误
-                    </p>
-                    <p className="text-xs font-medium max-w-xs">{error}</p>
-                  </div>
-                ) : output ? (
-                  <div className="h-full tool-panel border-brand-100 bg-brand-50/[0.02] overflow-hidden flex flex-col p-0 shadow-inner">
-                    {viewMode === "text" ? (
-                      <textarea
-                        value={output}
-                        readOnly
-                        placeholder="格式化结果将在此显示..."
-                        className="w-full h-full border-none bg-transparent font-mono text-[13px] leading-relaxed p-6 resize-none outline-none text-brand-900 placeholder:text-brand-200"
-                      />
-                    ) : (
-                      <div className="h-full overflow-y-auto p-6 scrollbar-hide">
-                        {parsedOutput ? (
-                          <JsonTreeView data={parsedOutput} />
-                        ) : (
-                          <div className="text-slate-300 italic text-xs">
-                            正在渲染树形结构...
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="h-full rounded-xl border border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-300 text-[10px] font-bold uppercase tracking-[0.2em] italic gap-3">
-                    <Minimize2 size={24} className="opacity-20" />
-                    等待美化操作...
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {historyMounted && (
-        <div className="history-overlay" data-state={historyState}>
+    <ToolShell
+      icon={Braces}
+      title="JSON 格式化工具"
+      subtitle="双翼布局：左侧编辑，右侧即时美化预览"
+      badge={output ? <ToolBadge tone="brand">{output.length} 字符</ToolBadge> : undefined}
+      actions={
+        <>
           <button
-            type="button"
-            aria-label="关闭历史记录"
-            className="history-overlay-backdrop"
-            onClick={() => setShowHistory(false)}
-          />
-          <div
-            className="history-overlay-panel" data-state={historyState}
-            onClick={(e) => e.stopPropagation()}
+            onClick={() => setShowHistory(!showHistory)}
+            className={`tool-button-secondary h-9 ${
+              showHistory
+                ? "ring-2 ring-brand-500/20 border-brand-200 text-brand-600 dark:border-brand-500/40 dark:text-brand-400"
+                : ""
+            }`}
           >
-            <div className="p-6 border-b border-slate-200/70 bg-white/80 flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-3 text-slate-900">
-                <div className="h-10 w-10 rounded-2xl bg-brand-50 text-brand-600 flex items-center justify-center">
-                  <History size={18} />
-                </div>
-                <div>
-                  <p className="text-[11px] font-black uppercase tracking-[0.18em]">
-                    历史记录
-                  </p>
-                  <p className="text-[10px] font-bold text-slate-400">
-                    最近格式化过的 JSON 片段
-                  </p>
-                </div>
-              </div>
+            <History size={15} />
+            <span>历史记录</span>
+          </button>
+          <button onClick={formatJson} className="tool-button-primary h-9 px-5">
+            <Wand2 size={15} />
+            <span>美化</span>
+          </button>
+          <button onClick={compressJson} className="tool-button-secondary h-9">
+            <Minimize2 size={15} />
+            <span>压缩</span>
+          </button>
+          <button onClick={sortKeys} className="tool-button-secondary h-9">
+            <ArrowUpDown size={15} />
+            <span>排序</span>
+          </button>
+          <Tooltip content="清空输入与结果">
+            <button
+              onClick={() => {
+                setInput("");
+                setOutput("");
+                setError("");
+              }}
+              className="tool-button-secondary h-9 w-9 p-0 text-rose-500 dark:text-rose-400"
+            >
+              <Trash2 size={15} />
+            </button>
+          </Tooltip>
+        </>
+      }
+      scroll={false}
+      overlay={
+        <ToolHistoryOverlay
+          open={showHistory}
+          onClose={() => setShowHistory(false)}
+          title="历史记录"
+          items={history}
+          onClear={clearHistory}
+          onPick={(item) => {
+            setInput(item.data);
+            setShowHistory(false);
+          }}
+          onItemContextMenu={openFormatHistoryMenu}
+        />
+      }
+    >
+      <div className="flex-1 min-h-0 p-4 md:p-6 lg:p-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 h-full">
+          {/* 原始输入 */}
+          <div className={CARD}>
+            <div className={CARD_HEAD}>
+              <span className={CARD_HEAD_LABEL}>原始 JSON 输入</span>
+              <span className="text-[11px] text-slate-400 dark:text-slate-500">
+                {input.length} 字符
+              </span>
+            </div>
+            <div className="flex-1 p-4 flex flex-col min-h-0">
+              <textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="请在此粘贴 JSON 内容..."
+                className={BODY_TEXTAREA}
+              />
+            </div>
+            <div className={CARD_FOOT}>
+              <button
+                onClick={() => setInput("")}
+                disabled={!input}
+                className="px-3 py-1 bg-white dark:bg-dark-panel hover:bg-slate-50 dark:hover:bg-dark-hover text-slate-700 dark:text-slate-200 font-medium border border-slate-200 dark:border-dark-border rounded-md transition shadow-2xs flex items-center gap-1.5 disabled:opacity-40 disabled:pointer-events-none"
+              >
+                <Trash2 size={13} className="text-slate-500 dark:text-slate-400" />
+                <span>清空输入</span>
+              </button>
+            </div>
+          </div>
+
+          {/* 处理结果 */}
+          <div className={CARD}>
+            <div className={CARD_HEAD}>
+              <span className={CARD_HEAD_LABEL}>处理结果展示</span>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={clearHistory}
-                  className="text-[10px] font-black text-slate-400 hover:text-rose-500 transition uppercase"
-                >
-                  清空
-                </button>
-                <Tooltip content="关闭历史记录">
+                <div className="flex items-center p-0.5 bg-slate-100 dark:bg-dark-sidebar rounded-lg">
                   <button
-                    onClick={() => setShowHistory(false)}
-                    className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-900 transition-colors"
+                    onClick={() => setViewMode("text")}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-semibold transition-all ${
+                      viewMode === "text"
+                        ? "bg-white dark:bg-dark-panel text-brand-600 dark:text-brand-400 shadow-2xs"
+                        : "text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
+                    }`}
                   >
-                    <X size={16} />
+                    <Type size={11} /> 文本
+                  </button>
+                  <button
+                    onClick={() => setViewMode("tree")}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-semibold transition-all ${
+                      viewMode === "tree"
+                        ? "bg-white dark:bg-dark-panel text-brand-600 dark:text-brand-400 shadow-2xs"
+                        : "text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
+                    }`}
+                  >
+                    <ListTree size={11} /> 树形
+                  </button>
+                </div>
+                <Tooltip content="复制结果">
+                  <button onClick={copyOutput} disabled={!output} className={ICON_BTN}>
+                    <Copy size={15} />
+                  </button>
+                </Tooltip>
+                <Tooltip content="下载结果">
+                  <button onClick={downloadOutput} disabled={!output} className={ICON_BTN}>
+                    <Download size={15} />
                   </button>
                 </Tooltip>
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50">
-              {history.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-20 text-slate-300">
-                  <Clock size={32} className="mb-2 opacity-20" />
-                  <p className="text-[10px] font-bold uppercase tracking-widest">
-                    暂无记录
-                  </p>
+
+            <div className="flex-1 min-h-0 flex flex-col">
+              {error ? (
+                <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-rose-600 dark:text-rose-300">
+                  <AlertTriangle size={32} className="mb-3 opacity-20" />
+                  <p className="text-[10px] font-bold uppercase tracking-tight mb-1">解析错误</p>
+                  <p className="text-xs font-medium max-w-xs whitespace-pre-line">{error}</p>
+                </div>
+              ) : output ? (
+                <div className="flex-1 min-h-0 m-4 rounded-xl border border-brand-100 dark:border-brand-500/20 bg-brand-50/[0.02] dark:bg-brand-500/[0.04] overflow-hidden flex flex-col">
+                  {viewMode === "text" ? (
+                    <textarea
+                      value={output}
+                      readOnly
+                      placeholder="格式化结果将在此显示..."
+                      className="w-full h-full border-none bg-transparent font-mono text-sm leading-relaxed p-4 resize-none outline-none text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-600"
+                    />
+                  ) : (
+                    <div className="h-full overflow-y-auto p-4">
+                      {parsedOutput ? (
+                        <JsonTreeView data={parsedOutput} />
+                      ) : (
+                        <div className="text-slate-300 dark:text-slate-600 italic text-xs">
+                          正在渲染树形结构...
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               ) : (
-                history.map((item) => (
-                  <button
-                    key={item.id}
-                    onContextMenu={(e) => openFormatHistoryMenu(e, item)}
-                    onClick={() => {
-                      setInput(item.data);
-                      setShowHistory(false);
-                    }}
-                    className="w-full text-left p-5 rounded-2xl bg-white border border-slate-200/70 shadow-sm hover:border-brand-600 hover:shadow-brand-500/10 transition-all group"
-                  >
-                    <p className="text-[11px] font-black text-slate-800 mb-3 truncate pr-4">
-                      {item.title}
-                    </p>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">
-                        {new Date(item.timestamp).toLocaleString()}
-                      </span>
-                      <ChevronRight
-                        size={12}
-                        className="text-slate-300 group-hover:text-brand-600 transition-colors"
-                      />
-                    </div>
-                  </button>
-                ))
+                <div className="flex-1 m-4 rounded-xl border border-dashed border-slate-200 dark:border-dark-border flex flex-col items-center justify-center text-slate-300 dark:text-slate-600 text-[11px] font-bold uppercase tracking-[0.2em] gap-3">
+                  <Minimize2 size={24} className="opacity-20" />
+                  等待美化操作...
+                </div>
               )}
             </div>
           </div>
         </div>
-      )}
-    </div>
+      </div>
+    </ToolShell>
   );
 }

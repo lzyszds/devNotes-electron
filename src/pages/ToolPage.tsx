@@ -30,7 +30,7 @@ const toolComponents: Record<string, React.ComponentType<any>> = {
 
 function ToolLoading() {
   return (
-    <div className="flex h-full items-center justify-center bg-white text-slate-400 text-sm font-medium">
+    <div className="flex h-full items-center justify-center bg-white dark:bg-dark-bg text-slate-400 text-sm font-medium">
       正在加载工具…
     </div>
   )
@@ -51,7 +51,7 @@ export default function ToolPage({ toolId }: { toolId: string }) {
   }
 
   return (
-    <div className="app-scene h-full w-full bg-white flex flex-col overflow-hidden">
+    <div className="app-scene h-full w-full bg-white dark:bg-dark-bg flex flex-col overflow-hidden">
       {/* 移除 ToolPage 层的滚动和内边距，让内部工具组件控制其布局和滚动 */}
       <div className="flex-1 h-full overflow-hidden">
         <Suspense fallback={<ToolLoading />}>

@@ -2,8 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import {
   ArrowRight,
   ArrowRightLeft,
-  ChevronRight,
-  Clock,
   Copy,
   History,
   Languages,
@@ -11,13 +9,11 @@ import {
   Trash2,
   TriangleAlert,
   Volume2,
-  X,
 } from 'lucide-react'
-import { usePresence } from '../../hooks/usePresence'
 import { useToolHistory } from '../../hooks/useToolHistory'
 import { useHistoryContextMenu } from '../../hooks/useHistoryContextMenu'
 import Tooltip from '../ui/Tooltip'
-import { Select, type SelectOption } from '../ui'
+import { Select, ToolBadge, ToolHistoryOverlay, ToolShell, type SelectOption } from '../ui'
 import { useToast } from '../ui/Toast'
 import { copyText } from '../../utils/clipboard'
 import {
@@ -225,8 +221,6 @@ export default function TextTranslateTool() {
   const [unwrapLines, setUnwrapLines] = useState(false)
   // 最近一次翻译的耗时（毫秒），显示在译文卡片底栏
   const [elapsed, setElapsed] = useState<number | null>(null)
-  // 历史浮层退出动画：面板 180ms、遮罩 160ms，取长者
-  const { mounted: historyMounted, state: historyState } = usePresence(showHistory, 180)
   const { showToast } = useToast()
 
   // 交换语言时用来回填目标语言：记住最近一次明确选过的源语言
@@ -388,450 +382,375 @@ export default function TextTranslateTool() {
     setElapsed(null)
   }
 
-  // 顶栏的引擎健康度：未配置时是醒目的琥珀色可点入口，否则显示引擎名与最近耗时
-  const healthTone = needsConfig
-    ? 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300'
-    : 'border-emerald-200/70 bg-emerald-50 text-emerald-700 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300'
-
   return (
-    <div className="relative flex h-full min-h-0 bg-slate-50/60 dark:bg-dark-bg overflow-hidden text-slate-900 dark:text-slate-100">
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* 顶部工具栏：引擎状态、引擎切换、历史记录 */}
-        <div className="flex-wrap gap-3 px-4 py-3 md:px-8 md:py-4 bg-white dark:bg-dark-panel border-b border-slate-200/80 dark:border-dark-border flex items-center justify-between flex-shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="h-10 w-10 rounded-xl bg-brand-600 flex items-center justify-center text-white shadow-sm shadow-brand-500/20 flex-shrink-0">
-              <Languages size={20} />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-base font-bold text-slate-900 dark:text-white leading-none">
-                  多语言智能翻译
-                </h2>
+    <ToolShell
+      icon={Languages}
+      title="多语言智能翻译"
+      subtitle={engineSummary}
+      badge={
+        needsConfig ? (
+          <Tooltip content="打开设置里的翻译接口配置">
+            <ToolBadge tone="amber" onClick={() => openAppSettings('translate-api')}>
+              未配置，点此填写接口
+            </ToolBadge>
+          </Tooltip>
+        ) : (
+          <ToolBadge tone="emerald" pulse className="hidden sm:flex">
+            {API_OPTIONS.find((item) => item.value === api)?.label ?? api}
+            {elapsed !== null ? ` · ${elapsed}ms` : ' · 就绪'}
+          </ToolBadge>
+        )
+      }
+      actions={
+        <>
+          <Select<TranslationAPI>
+            value={api}
+            onChange={setApi}
+            options={API_OPTIONS}
+            className="w-40"
+            title="翻译引擎"
+          />
 
-                {needsConfig ? (
-                  <Tooltip content="打开设置里的翻译接口配置">
-                    <button
-                      onClick={() => openAppSettings('translate-api')}
-                      className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium border transition hover:brightness-[0.98] ${healthTone}`}
-                    >
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                      <span>未配置，点此填写接口</span>
-                    </button>
-                  </Tooltip>
-                ) : (
-                  <span
-                    className={`hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium border ${healthTone}`}
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    <span>
-                      {API_OPTIONS.find((item) => item.value === api)?.label ?? api}
-                      {elapsed !== null ? ` · ${elapsed}ms` : ' · 就绪'}
-                    </span>
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 truncate">{engineSummary}</p>
-            </div>
+          <button
+            onClick={() => setShowHistory(!showHistory)}
+            className={`tool-button-secondary h-9 ${
+              showHistory
+                ? 'ring-2 ring-brand-500/20 border-brand-200 text-brand-600 dark:border-brand-500/40 dark:text-brand-400'
+                : ''
+            }`}
+          >
+            <History size={15} />
+            <span>历史记录</span>
+          </button>
+        </>
+      }
+      // 内容区自己带滚动容器：下面这块是整页排布，交给外壳反而要拆两层
+      scroll={false}
+      overlay={
+        <ToolHistoryOverlay
+          open={showHistory}
+          onClose={() => setShowHistory(false)}
+          title="最近翻译"
+          items={history}
+          onClear={clearHistory}
+          onPick={(item) => {
+            setInput(item.data)
+            setShowHistory(false)
+          }}
+          onItemContextMenu={openHistoryMenu}
+        />
+      }
+    >
+      {/* 主工作区 */}
+      <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 flex flex-col gap-4">
+        {/* MyMemory 不支持自动检测，提前说清楚，别让它把原文当译文返回 */}
+        {mymemoryAutoBlocked && (
+          <div className="status-note border-amber-100 bg-amber-50/30 text-amber-700 flex items-start gap-2 flex-shrink-0">
+            <TriangleAlert size={14} className="mt-px shrink-0" />
+            <span>MyMemory 不支持自动检测源语言，请指定源语言或改用 GTX。</span>
           </div>
+        )}
 
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <Select<TranslationAPI>
-              value={api}
-              onChange={setApi}
-              options={API_OPTIONS}
-              className="w-40"
-              title="翻译引擎"
-            />
-
-            <button
-              onClick={() => setShowHistory(!showHistory)}
-              className={`tool-button-secondary h-9 ${showHistory ? 'ring-2 ring-brand-500/20 border-brand-200 text-brand-600' : ''}`}
-            >
-              <History size={15} />
-              <span>历史记录</span>
-            </button>
+        {error && (
+          <div className="status-note border-rose-100 bg-rose-50/30 text-rose-600 flex items-start gap-2 flex-shrink-0">
+            <TriangleAlert size={14} className="mt-px shrink-0" />
+            <p className="whitespace-pre-line">{error}</p>
           </div>
-        </div>
+        )}
 
-        {/* 主工作区 */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 flex flex-col gap-4">
-          {/* MyMemory 不支持自动检测，提前说清楚，别让它把原文当译文返回 */}
-          {mymemoryAutoBlocked && (
-            <div className="status-note border-amber-100 bg-amber-50/30 text-amber-700 flex items-start gap-2 flex-shrink-0">
-              <TriangleAlert size={14} className="mt-px shrink-0" />
-              <span>MyMemory 不支持自动检测源语言，请指定源语言或改用 GTX。</span>
-            </div>
-          )}
-
-          {error && (
-            <div className="status-note border-rose-100 bg-rose-50/30 text-rose-600 flex items-start gap-2 flex-shrink-0">
-              <TriangleAlert size={14} className="mt-px shrink-0" />
-              <p className="whitespace-pre-line">{error}</p>
-            </div>
-          )}
-
-          {/* 双子卡片：原文 / 译文 */}
-          <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 min-h-[440px]">
-            {/* ---------------- 原文 ---------------- */}
-            <div className="bg-white dark:bg-dark-panel rounded-2xl border border-slate-200/90 dark:border-dark-border shadow-sm flex flex-col min-h-0 transition duration-150">
-              <div className="px-4 py-2.5 border-b border-slate-100 dark:border-dark-border flex items-start justify-between gap-2 bg-slate-50/50 dark:bg-dark-sidebar/40 rounded-t-2xl flex-shrink-0">
-                {/* 语言区自己换行，整条不做横向滚动 —— 滚动容器会把「更多」下拉截断在边上 */}
-                <div className="flex flex-wrap items-center gap-1.5 min-w-0">
-                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 mr-1 flex-shrink-0">源语言:</span>
-                  {SOURCE_PILLS.map((code) => {
-                    const active = sourceLang === code
-                    return (
-                      <button
-                        key={code}
-                        type="button"
-                        onClick={() => handleSourceChange(code)}
-                        className={`px-2.5 py-1 rounded-md text-xs flex-shrink-0 transition ${
-                          active
-                            ? 'font-semibold bg-white dark:bg-dark-panel text-brand-700 dark:text-brand-400 shadow-2xs border border-brand-100 dark:border-brand-500/30'
-                            : 'font-medium text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-dark-hover hover:text-slate-800 dark:hover:text-slate-200'
-                        }`}
-                      >
-                        {code === AUTO_LANG ? '自动检测' : langName(code)}
-                      </button>
-                    )
-                  })}
-                  {/* pill 放不下 20 种语言，其余走这个下拉 */}
-                  <Select
-                    value={SOURCE_PILLS.includes(sourceLang) ? '' : sourceLang}
-                    onChange={handleSourceChange}
-                    options={SOURCE_OPTIONS.filter((item) => !SOURCE_PILLS.includes(item.value))}
-                    className="w-[92px]"
-                    size="sm"
-                    placeholder="更多…"
-                    title="更多源语言"
-                  />
-                </div>
-
-                {/* 自动双向下方向由输入决定，互换按钮没有意义，收起来 */}
-                {targetLang !== AUTO_TARGET && (
-                  <Tooltip content="互换源语言与目标语言">
+        {/* 双子卡片：原文 / 译文 */}
+        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 min-h-[440px]">
+          {/* ---------------- 原文 ---------------- */}
+          <div className="bg-white dark:bg-dark-panel rounded-2xl border border-slate-200/90 dark:border-dark-border shadow-sm flex flex-col min-h-0 transition duration-150">
+            <div className="px-4 py-2.5 border-b border-slate-100 dark:border-dark-border flex items-start justify-between gap-2 bg-slate-50/50 dark:bg-dark-sidebar/40 rounded-t-2xl flex-shrink-0">
+              {/* 语言区自己换行，整条不做横向滚动 —— 滚动容器会把「更多」下拉截断在边上 */}
+              <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 mr-1 flex-shrink-0">源语言:</span>
+                {SOURCE_PILLS.map((code) => {
+                  const active = sourceLang === code
+                  return (
                     <button
+                      key={code}
                       type="button"
-                      onClick={handleSwap}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-500/10 dark:hover:text-brand-400 transition flex-shrink-0"
+                      onClick={() => handleSourceChange(code)}
+                      className={`px-2.5 py-1 rounded-md text-xs flex-shrink-0 transition ${
+                        active
+                          ? 'font-semibold bg-white dark:bg-dark-panel text-brand-700 dark:text-brand-400 shadow-2xs border border-brand-100 dark:border-brand-500/30'
+                          : 'font-medium text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-dark-hover hover:text-slate-800 dark:hover:text-slate-200'
+                      }`}
                     >
-                      <ArrowRightLeft size={15} />
+                      {code === AUTO_LANG ? '自动检测' : langName(code)}
                     </button>
-                  </Tooltip>
-                )}
-              </div>
-
-              <div className="flex-1 p-4 flex flex-col min-h-0">
-                <textarea
-                  value={input}
-                  onChange={(e) => {
-                    setInput(e.target.value)
-                    if (error) setError('')
-                  }}
-                  onKeyDown={(e) => {
-                    // 回车即翻译，Shift + 回车换行；翻不了的时候把回车让给默认的换行行为
-                    if (e.key !== 'Enter' || e.shiftKey || !canTranslate) return
-                    // 中文/日文输入法用回车确认候选词，这一下不能算「提交」
-                    if (e.nativeEvent.isComposing) return
-                    e.preventDefault()
-                    void handleTranslate()
-                  }}
-                  className="w-full flex-1 bg-transparent resize-none outline-none text-slate-800 dark:text-slate-100 text-sm leading-relaxed placeholder:text-slate-400 dark:placeholder:text-slate-600"
+                  )
+                })}
+                {/* pill 放不下 20 种语言，其余走这个下拉 */}
+                <Select
+                  value={SOURCE_PILLS.includes(sourceLang) ? '' : sourceLang}
+                  onChange={handleSourceChange}
+                  options={SOURCE_OPTIONS.filter((item) => !SOURCE_PILLS.includes(item.value))}
+                  className="w-[92px]"
+                  size="sm"
+                  placeholder="更多…"
+                  title="更多源语言"
                 />
               </div>
 
-              <div className="px-4 py-2.5 border-t border-slate-100 dark:border-dark-border flex items-center justify-between gap-3 text-xs text-slate-400 bg-slate-50/40 dark:bg-dark-sidebar/30 rounded-b-2xl flex-shrink-0">
-                <div className="flex items-center gap-3 min-w-0">
-                  <label className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={unwrapLines}
-                      onChange={(e) => setUnwrapLines(e.target.checked)}
-                      className="w-3.5 h-3.5 rounded border-slate-300 dark:border-dark-border text-brand-600 focus:ring-0"
-                    />
-                    <span>合并断行（PDF/代码）</span>
-                  </label>
-                  {input && (
-                    <>
-                      <span className="text-slate-200 dark:text-dark-border">|</span>
-                      <button
-                        onClick={clearAll}
-                        className="flex items-center gap-1 hover:text-rose-600 transition-colors"
-                      >
-                        <Trash2 size={13} />
-                        <span>清空</span>
-                      </button>
-                    </>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className="font-mono text-slate-500 dark:text-slate-500">
-                    {input.length} 字符
-                  </span>
-                  <Tooltip content="朗读原文">
-                    <button
-                      type="button"
-                      onClick={() => speakText(input, sourceSpeakLang)}
-                      disabled={!input.trim()}
-                      className="p-1 rounded-lg text-slate-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-500/10 dark:hover:text-brand-400 transition disabled:opacity-40 disabled:pointer-events-none"
-                    >
-                      <Volume2 size={14} />
-                    </button>
-                  </Tooltip>
-                </div>
-              </div>
-            </div>
-
-            {/* ---------------- 译文 ---------------- */}
-            <div className="bg-white dark:bg-dark-panel rounded-2xl border border-slate-200/90 dark:border-dark-border shadow-sm flex flex-col min-h-0">
-              <div className="px-4 py-2.5 border-b border-slate-100 dark:border-dark-border flex items-start justify-between gap-2 bg-slate-50/50 dark:bg-dark-sidebar/40 rounded-t-2xl flex-shrink-0">
-                <div className="flex flex-wrap items-center gap-1.5 min-w-0">
-                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 mr-1 flex-shrink-0">目标语言:</span>
-
-                  {/* 自动双向：方向随输入走，不必每次手动切 */}
+              {/* 自动双向下方向由输入决定，互换按钮没有意义，收起来 */}
+              {targetLang !== AUTO_TARGET && (
+                <Tooltip content="互换源语言与目标语言">
                   <button
                     type="button"
-                    onClick={() => setTargetLang(AUTO_TARGET)}
-                    className={`px-2.5 py-1 rounded-md text-xs flex-shrink-0 transition ${
-                      targetLang === AUTO_TARGET
-                        ? 'font-semibold bg-white dark:bg-dark-panel text-brand-700 dark:text-brand-400 shadow-2xs border border-brand-100 dark:border-brand-500/30'
-                        : 'font-medium text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-dark-hover hover:text-slate-800 dark:hover:text-slate-200'
-                    }`}
+                    onClick={handleSwap}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-500/10 dark:hover:text-brand-400 transition flex-shrink-0"
                   >
-                    自动双向
+                    <ArrowRightLeft size={15} />
                   </button>
-
-
-                  {TARGET_PILLS.map((code) => {
-                    const active = targetLang === code
-                    return (
-                      <button
-                        key={code}
-                        type="button"
-                        onClick={() => setTargetLang(code)}
-                        className={`px-2.5 py-1 rounded-md text-xs flex-shrink-0 transition ${
-                          active
-                            ? 'font-semibold bg-white dark:bg-dark-panel text-brand-700 dark:text-brand-400 shadow-2xs border border-brand-100 dark:border-brand-500/30'
-                            : 'font-medium text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-dark-hover hover:text-slate-800 dark:hover:text-slate-200'
-                        }`}
-                      >
-                        {langName(code)}
-                      </button>
-                    )
-                  })}
-                  <Select
-                    value={TARGET_PILLS.includes(targetLang) ? '' : targetLang}
-                    onChange={setTargetLang}
-                    options={TARGET_OPTIONS.filter((item) => !TARGET_PILLS.includes(item.value))}
-                    className="w-[92px]"
-                    size="sm"
-                    placeholder="更多…"
-                    title="更多目标语言"
-                  />
-                </div>
-
-              </div>
-
-              <div className="flex-1 p-4 flex flex-col min-h-0">
-                {/*
-                  加载态与占位文案走同一个内联槽位，不做绝对定位浮在上层 ——
-                  浮层会和下面的占位文字叠在一起，两者字号、基线都对不齐。
-                */}
-                <div className="flex-1 select-text overflow-y-auto whitespace-pre-wrap break-words text-slate-800 dark:text-slate-100 text-sm leading-relaxed">
-                  {output ? (
-                    output
-                  ) : isTranslating ? (
-                    <span className="flex items-center gap-2 text-brand-600 dark:text-brand-400">
-                      <Loader2 size={14} className="animate-spin flex-shrink-0" />
-                      <span>
-                        翻译中
-                        {progress.total > 0 ? ` ${progress.current}/${progress.total}` : '…'}
-                      </span>
-                    </span>
-                  ) : (
-                    <span className="text-slate-300 dark:text-slate-600 italic">译文将实时在此呈现…</span>
-                  )}
-                </div>
-              </div>
-
-              <div className="px-4 py-2.5 border-t border-slate-100 dark:border-dark-border flex items-center justify-between gap-3 text-xs bg-slate-50/40 dark:bg-dark-sidebar/30 rounded-b-2xl flex-shrink-0">
-                <div className="flex items-center gap-3 min-w-0">
-                  {/* 「我的语言」只服务于自动判方向；手动选定了语言时它没有作用，就不占位置。
-                      下拉朝上展开：底栏贴着卡片下沿，往下弹会被外层容器裁掉 */}
-                  {targetLang === AUTO_TARGET && (
-                    <span className="flex items-center gap-1.5 min-w-0">
-                      <Select
-                        value={primaryLang}
-                        onChange={setPrimaryLang}
-                        options={TARGET_OPTIONS}
-                        className="w-[88px]"
-                        size="sm"
-                        placement="up"
-                        title="自动双向时，译回哪一种语言"
-                      />
-                      {/* 有内容时把这次实际要译到的语言亮出来，省得猜方向 */}
-                      {input.trim() && (
-                        <span className="text-brand-600 dark:text-brand-400 font-medium truncate">
-                          → {langName(effectiveTarget)}
-                        </span>
-                      )}
-                    </span>
-                  )}
-
-                  {/* 已有译文时重新翻译，正文不动（避免整段闪一下），进度落在这里 */}
-                  <span className="font-mono font-medium flex-shrink-0">
-                    {isTranslating ? (
-                      <span className="flex items-center gap-1.5 text-brand-600 dark:text-brand-400">
-                        <Loader2 size={12} className="animate-spin" />
-                        翻译中…
-                      </span>
-                    ) : elapsed !== null ? (
-                      <span className="text-emerald-600 dark:text-emerald-400">● 耗时 {elapsed}ms</span>
-                    ) : null}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <Tooltip content="朗读译文">
-                    <button
-                      type="button"
-                      onClick={() => speakText(output, effectiveTarget)}
-                      disabled={!output}
-                      className="p-1 rounded-lg text-slate-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-500/10 dark:hover:text-brand-400 transition disabled:opacity-40 disabled:pointer-events-none"
-                    >
-                      <Volume2 size={14} />
-                    </button>
-                  </Tooltip>
-                  <button
-                    onClick={() => void handleCopyOutput()}
-                    disabled={!output}
-                    className="px-3 py-1 bg-white dark:bg-dark-panel hover:bg-slate-50 dark:hover:bg-dark-hover text-slate-700 dark:text-slate-200 font-medium border border-slate-200 dark:border-dark-border rounded-md transition shadow-2xs flex items-center gap-1.5 disabled:opacity-40 disabled:pointer-events-none"
-                  >
-                    <Copy size={13} className="text-slate-500 dark:text-slate-400" />
-                    <span>复制译文</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* 底部动作条 */}
-          <div className="bg-white dark:bg-dark-panel rounded-xl border border-slate-200/80 dark:border-dark-border px-4 py-3 md:px-5 flex items-center justify-between gap-3 flex-wrap shadow-2xs flex-shrink-0">
-            <div className="flex items-center gap-4 md:gap-6 flex-wrap">
-              <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={autoTranslate}
-                  onChange={(e) => setAutoTranslate(e.target.checked)}
-                  className="w-4 h-4 rounded border-slate-300 dark:border-dark-border text-brand-600 focus:ring-0"
-                />
-                <span>实时自动翻译（防抖 {AUTO_DEBOUNCE_MS}ms）</span>
-              </label>
-              <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500">
-                <span>快捷键:</span>
-                <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-slate-100 dark:bg-dark-hover border border-slate-200 dark:border-dark-border border-b-2 rounded text-slate-500 dark:text-slate-400">
-                  Enter
-                </kbd>
-                <span>立即翻译</span>
-                <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-slate-100 dark:bg-dark-hover border border-slate-200 dark:border-dark-border border-b-2 rounded text-slate-500 dark:text-slate-400">
-                  Shift
-                </kbd>
-                <span>+</span>
-                <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-slate-100 dark:bg-dark-hover border border-slate-200 dark:border-dark-border border-b-2 rounded text-slate-500 dark:text-slate-400">
-                  Enter
-                </kbd>
-                <span>换行</span>
-              </div>
-            </div>
-
-            <button
-              onClick={() => void handleTranslate()}
-              disabled={!canTranslate}
-              className="tool-button-primary h-9 px-5 bg-brand-600 hover:bg-brand-700 shadow-sm shadow-brand-500/20 disabled:opacity-40"
-            >
-              {isTranslating ? (
-                <>
-                  <Loader2 size={15} className="animate-spin" />
-                  <span>翻译中…</span>
-                </>
-              ) : (
-                <>
-                  <span>立即翻译</span>
-                  <ArrowRight size={14} />
-                </>
+                </Tooltip>
               )}
-            </button>
-          </div>
-        </div>
-      </div>
+            </div>
 
-      {historyMounted && (
-        <div className="history-overlay" data-state={historyState}>
-          <button
-            type="button"
-            aria-label="关闭历史记录"
-            className="history-overlay-backdrop"
-            onClick={() => setShowHistory(false)}
-          />
-          <div className="history-overlay-panel" data-state={historyState} onClick={(e) => e.stopPropagation()}>
-            <div className="p-6 border-b border-slate-200/70 dark:border-dark-border bg-white/80 dark:bg-dark-panel/80 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-slate-900 dark:text-white font-black text-xs uppercase tracking-widest">
-                <History size={18} className="text-brand-600" />
-                最近翻译
+            <div className="flex-1 p-4 flex flex-col min-h-0">
+              <textarea
+                value={input}
+                onChange={(e) => {
+                  setInput(e.target.value)
+                  if (error) setError('')
+                }}
+                onKeyDown={(e) => {
+                  // 回车即翻译，Shift + 回车换行；翻不了的时候把回车让给默认的换行行为
+                  if (e.key !== 'Enter' || e.shiftKey || !canTranslate) return
+                  // 中文/日文输入法用回车确认候选词，这一下不能算「提交」
+                  if (e.nativeEvent.isComposing) return
+                  e.preventDefault()
+                  void handleTranslate()
+                }}
+                className="w-full flex-1 bg-transparent resize-none outline-none text-slate-800 dark:text-slate-100 text-sm leading-relaxed placeholder:text-slate-400 dark:placeholder:text-slate-600"
+              />
+            </div>
+
+            <div className="px-4 py-2.5 border-t border-slate-100 dark:border-dark-border flex items-center justify-between gap-3 text-xs text-slate-400 bg-slate-50/40 dark:bg-dark-sidebar/30 rounded-b-2xl flex-shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <label className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={unwrapLines}
+                    onChange={(e) => setUnwrapLines(e.target.checked)}
+                    className="w-3.5 h-3.5 rounded border-slate-300 dark:border-dark-border text-brand-600 focus:ring-0"
+                  />
+                  <span>合并断行（PDF/代码）</span>
+                </label>
+                {input && (
+                  <>
+                    <span className="text-slate-200 dark:text-dark-border">|</span>
+                    <button
+                      onClick={clearAll}
+                      className="flex items-center gap-1 hover:text-rose-600 transition-colors"
+                    >
+                      <Trash2 size={13} />
+                      <span>清空</span>
+                    </button>
+                  </>
+                )}
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={clearHistory}
-                  className="text-[10px] font-black text-slate-400 hover:text-rose-500 transition uppercase"
-                >
-                  清空
-                </button>
-                <Tooltip content="关闭历史记录">
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <span className="font-mono text-slate-500 dark:text-slate-500">
+                  {input.length} 字符
+                </span>
+                <Tooltip content="朗读原文">
                   <button
-                    onClick={() => setShowHistory(false)}
-                    className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-dark-hover text-slate-400"
+                    type="button"
+                    onClick={() => speakText(input, sourceSpeakLang)}
+                    disabled={!input.trim()}
+                    className="p-1 rounded-lg text-slate-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-500/10 dark:hover:text-brand-400 transition disabled:opacity-40 disabled:pointer-events-none"
                   >
-                    <X size={14} />
+                    <Volume2 size={14} />
                   </button>
                 </Tooltip>
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50 dark:bg-dark-bg/50">
-              {history.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-20 text-slate-300 dark:text-slate-600">
-                  <Clock size={32} className="mb-2 opacity-20" />
-                  <p className="text-[10px] font-bold uppercase tracking-widest">暂无记录</p>
-                </div>
-              ) : (
-                history.map((item) => (
-                  <button
-                    key={item.id}
-                    onContextMenu={(e) => openHistoryMenu(e, item)}
-                    onClick={() => {
-                      setInput(item.data)
-                      setShowHistory(false)
-                    }}
-                    className="w-full text-left p-5 rounded-2xl bg-white dark:bg-dark-panel border border-slate-200/60 dark:border-dark-border shadow-sm hover:border-brand-600 hover:shadow-brand-500/10 transition-all group"
-                  >
-                    <p className="text-[11px] font-black text-slate-800 dark:text-slate-200 mb-2 truncate pr-4">
-                      {item.title || item.data}
-                    </p>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">
-                        {new Date(item.timestamp).toLocaleString()}
+          </div>
+
+          {/* ---------------- 译文 ---------------- */}
+          <div className="bg-white dark:bg-dark-panel rounded-2xl border border-slate-200/90 dark:border-dark-border shadow-sm flex flex-col min-h-0">
+            <div className="px-4 py-2.5 border-b border-slate-100 dark:border-dark-border flex items-start justify-between gap-2 bg-slate-50/50 dark:bg-dark-sidebar/40 rounded-t-2xl flex-shrink-0">
+              <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 mr-1 flex-shrink-0">目标语言:</span>
+
+                {/* 自动双向：方向随输入走，不必每次手动切 */}
+                <button
+                  type="button"
+                  onClick={() => setTargetLang(AUTO_TARGET)}
+                  className={`px-2.5 py-1 rounded-md text-xs flex-shrink-0 transition ${
+                    targetLang === AUTO_TARGET
+                      ? 'font-semibold bg-white dark:bg-dark-panel text-brand-700 dark:text-brand-400 shadow-2xs border border-brand-100 dark:border-brand-500/30'
+                      : 'font-medium text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-dark-hover hover:text-slate-800 dark:hover:text-slate-200'
+                  }`}
+                >
+                  自动双向
+                </button>
+
+
+                {TARGET_PILLS.map((code) => {
+                  const active = targetLang === code
+                  return (
+                    <button
+                      key={code}
+                      type="button"
+                      onClick={() => setTargetLang(code)}
+                      className={`px-2.5 py-1 rounded-md text-xs flex-shrink-0 transition ${
+                        active
+                          ? 'font-semibold bg-white dark:bg-dark-panel text-brand-700 dark:text-brand-400 shadow-2xs border border-brand-100 dark:border-brand-500/30'
+                          : 'font-medium text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-dark-hover hover:text-slate-800 dark:hover:text-slate-200'
+                      }`}
+                    >
+                      {langName(code)}
+                    </button>
+                  )
+                })}
+                <Select
+                  value={TARGET_PILLS.includes(targetLang) ? '' : targetLang}
+                  onChange={setTargetLang}
+                  options={TARGET_OPTIONS.filter((item) => !TARGET_PILLS.includes(item.value))}
+                  className="w-[92px]"
+                  size="sm"
+                  placeholder="更多…"
+                  title="更多目标语言"
+                />
+              </div>
+
+            </div>
+
+            <div className="flex-1 p-4 flex flex-col min-h-0">
+              {/*
+                加载态与占位文案走同一个内联槽位，不做绝对定位浮在上层 ——
+                浮层会和下面的占位文字叠在一起，两者字号、基线都对不齐。
+              */}
+              <div className="flex-1 select-text overflow-y-auto whitespace-pre-wrap break-words text-slate-800 dark:text-slate-100 text-sm leading-relaxed">
+                {output ? (
+                  output
+                ) : isTranslating ? (
+                  <span className="flex items-center gap-2 text-brand-600 dark:text-brand-400">
+                    <Loader2 size={14} className="animate-spin flex-shrink-0" />
+                    <span>
+                      翻译中
+                      {progress.total > 0 ? ` ${progress.current}/${progress.total}` : '…'}
+                    </span>
+                  </span>
+                ) : (
+                  <span className="text-slate-300 dark:text-slate-600 italic">译文将实时在此呈现…</span>
+                )}
+              </div>
+            </div>
+
+            <div className="px-4 py-2.5 border-t border-slate-100 dark:border-dark-border flex items-center justify-between gap-3 text-xs bg-slate-50/40 dark:bg-dark-sidebar/30 rounded-b-2xl flex-shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                {/* 「我的语言」只服务于自动判方向；手动选定了语言时它没有作用，就不占位置。
+                    下拉朝上展开：底栏贴着卡片下沿，往下弹会被外层容器裁掉 */}
+                {targetLang === AUTO_TARGET && (
+                  <span className="flex items-center gap-1.5 min-w-0">
+                    <Select
+                      value={primaryLang}
+                      onChange={setPrimaryLang}
+                      options={TARGET_OPTIONS}
+                      className="w-[88px]"
+                      size="sm"
+                      placement="up"
+                      title="自动双向时，译回哪一种语言"
+                    />
+                    {/* 有内容时把这次实际要译到的语言亮出来，省得猜方向 */}
+                    {input.trim() && (
+                      <span className="text-brand-600 dark:text-brand-400 font-medium truncate">
+                        → {langName(effectiveTarget)}
                       </span>
-                      <ChevronRight
-                        size={10}
-                        className="text-slate-300 group-hover:text-brand-600 transition-colors"
-                      />
-                    </div>
+                    )}
+                  </span>
+                )}
+
+                {/* 已有译文时重新翻译，正文不动（避免整段闪一下），进度落在这里 */}
+                <span className="font-mono font-medium flex-shrink-0">
+                  {isTranslating ? (
+                    <span className="flex items-center gap-1.5 text-brand-600 dark:text-brand-400">
+                      <Loader2 size={12} className="animate-spin" />
+                      翻译中…
+                    </span>
+                  ) : elapsed !== null ? (
+                    <span className="text-emerald-600 dark:text-emerald-400">● 耗时 {elapsed}ms</span>
+                  ) : null}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <Tooltip content="朗读译文">
+                  <button
+                    type="button"
+                    onClick={() => speakText(output, effectiveTarget)}
+                    disabled={!output}
+                    className="p-1 rounded-lg text-slate-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-500/10 dark:hover:text-brand-400 transition disabled:opacity-40 disabled:pointer-events-none"
+                  >
+                    <Volume2 size={14} />
                   </button>
-                ))
-              )}
+                </Tooltip>
+                <button
+                  onClick={() => void handleCopyOutput()}
+                  disabled={!output}
+                  className="px-3 py-1 bg-white dark:bg-dark-panel hover:bg-slate-50 dark:hover:bg-dark-hover text-slate-700 dark:text-slate-200 font-medium border border-slate-200 dark:border-dark-border rounded-md transition shadow-2xs flex items-center gap-1.5 disabled:opacity-40 disabled:pointer-events-none"
+                >
+                  <Copy size={13} className="text-slate-500 dark:text-slate-400" />
+                  <span>复制译文</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      )}
-    </div>
+
+        {/* 底部动作条 */}
+        <div className="bg-white dark:bg-dark-panel rounded-xl border border-slate-200/80 dark:border-dark-border px-4 py-3 md:px-5 flex items-center justify-between gap-3 flex-wrap shadow-2xs flex-shrink-0">
+          <div className="flex items-center gap-4 md:gap-6 flex-wrap">
+            <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={autoTranslate}
+                onChange={(e) => setAutoTranslate(e.target.checked)}
+                className="w-4 h-4 rounded border-slate-300 dark:border-dark-border text-brand-600 focus:ring-0"
+              />
+              <span>实时自动翻译（防抖 {AUTO_DEBOUNCE_MS}ms）</span>
+            </label>
+            <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500">
+              <span>快捷键:</span>
+              <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-slate-100 dark:bg-dark-hover border border-slate-200 dark:border-dark-border border-b-2 rounded text-slate-500 dark:text-slate-400">
+                Enter
+              </kbd>
+              <span>立即翻译</span>
+              <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-slate-100 dark:bg-dark-hover border border-slate-200 dark:border-dark-border border-b-2 rounded text-slate-500 dark:text-slate-400">
+                Shift
+              </kbd>
+              <span>+</span>
+              <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-slate-100 dark:bg-dark-hover border border-slate-200 dark:border-dark-border border-b-2 rounded text-slate-500 dark:text-slate-400">
+                Enter
+              </kbd>
+              <span>换行</span>
+            </div>
+          </div>
+
+          <button
+            onClick={() => void handleTranslate()}
+            disabled={!canTranslate}
+            className="tool-button-primary h-9 px-5 bg-brand-600 hover:bg-brand-700 shadow-sm shadow-brand-500/20 disabled:opacity-40"
+          >
+            {isTranslating ? (
+              <>
+                <Loader2 size={15} className="animate-spin" />
+                <span>翻译中…</span>
+              </>
+            ) : (
+              <>
+                <span>立即翻译</span>
+                <ArrowRight size={14} />
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </ToolShell>
   )
 }

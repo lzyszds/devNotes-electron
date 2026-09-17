@@ -1,9 +1,11 @@
 import { useState } from 'react'
-import { Copy, Trash2, History, Clock, ChevronRight, Shuffle, ArrowRightLeft, Sparkles, X } from 'lucide-react'
-import { usePresence } from '../../hooks/usePresence'
+import { ChevronRight, Copy, History, Shuffle, Trash2, TriangleAlert } from 'lucide-react'
 import { useToolHistory } from '../../hooks/useToolHistory'
 import { useHistoryContextMenu } from '../../hooks/useHistoryContextMenu'
+import { ToolBadge, ToolHistoryOverlay, ToolShell } from '../ui'
 import Tooltip from '../ui/Tooltip'
+import { useToast } from '../ui/Toast'
+import { copyText } from '../../utils/clipboard'
 
 const encodeTypes = [
   { id: 'base64', name: 'Base64', icon: 'B64', encode: (s: string) => btoa(unescape(encodeURIComponent(s))), decode: (s: string) => decodeURIComponent(escape(atob(s))) },
@@ -26,11 +28,9 @@ export default function EncodeTool() {
   const [activeType, setActiveType] = useState('base64')
   const [error, setError] = useState('')
   const [showHistory, setShowHistory] = useState(false)
-  // 历史浮层退出动画：面板 180ms、遮罩 160ms，取长者
-  const { mounted: historyMounted, state: historyState } = usePresence(showHistory, 180)
+  const { showToast } = useToast()
 
   const { history, saveHistory, clearHistory, removeHistoryItem } = useToolHistory<string>('encode')
-  // 历史记录右键菜单
   const openHistoryMenu = useHistoryContextMenu<string>({
     onUse: (item) => {
       setInput(item.data)
@@ -39,15 +39,14 @@ export default function EncodeTool() {
     onRemove: removeHistoryItem,
   })
 
+  const currentType = encodeTypes.find((t) => t.id === activeType) ?? encodeTypes[0]
+
   const handleEncode = () => {
     if (!input.trim()) return
-    const type = encodeTypes.find(t => t.id === activeType)
-    if (!type) return
     try {
-      const result = type.encode(input)
-      setOutput(result)
+      setOutput(currentType.encode(input))
       setError('')
-      saveHistory(input, `${type.name} 编码`)
+      saveHistory(input, `${currentType.name} 编码`)
     } catch (e) {
       setError('编码失败: ' + (e as Error).message)
     }
@@ -55,178 +54,183 @@ export default function EncodeTool() {
 
   const handleDecode = () => {
     if (!input.trim()) return
-    const type = encodeTypes.find(t => t.id === activeType)
-    if (!type) return
     try {
-      const result = type.decode(input)
-      setOutput(result)
+      setOutput(currentType.decode(input))
       setError('')
-      saveHistory(input, `${type.name} 解码`)
+      saveHistory(input, `${currentType.name} 解码`)
     } catch (e) {
       setError('解码失败: ' + (e as Error).message)
     }
   }
 
-  const copyOutput = () => {
-    if (output) navigator.clipboard.writeText(output)
+  const clearAll = () => {
+    setInput('')
+    setOutput('')
+    setError('')
+  }
+
+  const copyOutput = async () => {
+    if (!output) return
+    const ok = await copyText(output)
+    showToast(ok ? '已复制结果' : '复制失败', ok ? 'default' : 'error')
   }
 
   return (
-    <div className="relative flex h-full min-h-0 md:min-h-[600px] bg-white overflow-hidden text-slate-900">
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Action Header */}
-        <div className="flex-wrap gap-3 px-4 py-4 md:px-8 md:py-5 flex items-center justify-between border-b border-slate-100">
-           <div className="flex flex-wrap items-center gap-4">
-              <div className="h-12 w-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-lg shadow-amber-100">
-                <Shuffle size={24} />
-              </div>
-              <div>
-                <h2 className="text-xl font-black text-slate-900 tracking-tight">万能编解码工作室</h2>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">支持 Base64、URL、Unicode 及 HTML 实体转换</p>
-              </div>
-           </div>
+    <ToolShell
+      icon={Shuffle}
+      title="万能编解码工作室"
+      subtitle="支持 Base64、URL、Unicode 及 HTML 实体转换"
+      badge={<ToolBadge tone="emerald" className="hidden sm:flex">{currentType.name} · 就绪</ToolBadge>}
+      actions={
+        <>
+          {/* 编码方式切换：分段控件，与设置面板里的接口类型切换同一形态 */}
+          <div className="flex gap-0.5 p-0.5 bg-slate-100 dark:bg-dark-sidebar rounded-xl border border-slate-200/60 dark:border-dark-border">
+            {encodeTypes.map((type) => {
+              const active = activeType === type.id
+              return (
+                <button
+                  key={type.id}
+                  type="button"
+                  onClick={() => {
+                    setActiveType(type.id)
+                    setError('')
+                  }}
+                  className={`px-3 py-1 rounded-lg text-[11px] font-semibold transition-all ${
+                    active
+                      ? 'bg-white dark:bg-dark-panel text-brand-600 dark:text-brand-400 shadow-2xs'
+                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                  }`}
+                >
+                  {type.name}
+                </button>
+              )
+            })}
+          </div>
 
-           <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={() => setShowHistory(!showHistory)}
+            className={`tool-button-secondary h-9 ${
+              showHistory
+                ? 'ring-2 ring-brand-500/20 border-brand-200 text-brand-600 dark:border-brand-500/40 dark:text-brand-400'
+                : ''
+            }`}
+          >
+            <History size={15} />
+            <span>历史记录</span>
+          </button>
+        </>
+      }
+      overlay={
+        <ToolHistoryOverlay
+          open={showHistory}
+          onClose={() => setShowHistory(false)}
+          title="历史文本片段"
+          items={history}
+          onClear={clearHistory}
+          onPick={(item) => {
+            setInput(item.data)
+            setShowHistory(false)
+          }}
+          onItemContextMenu={openHistoryMenu}
+        />
+      }
+    >
+      {error && (
+        <div className="status-note border-rose-100 bg-rose-50/30 text-rose-600 dark:border-rose-500/25 dark:bg-rose-500/10 dark:text-rose-300 flex items-start gap-2 flex-shrink-0">
+          <TriangleAlert size={14} className="mt-px shrink-0" />
+          <p className="whitespace-pre-line">{error}</p>
+        </div>
+      )}
+
+      <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 min-h-[440px]">
+        {/* ---------------- 原始内容 ---------------- */}
+        <div className="bg-white dark:bg-dark-panel rounded-2xl border border-slate-200/90 dark:border-dark-border shadow-sm flex flex-col min-h-0">
+          <div className="px-4 py-2.5 border-b border-slate-100 dark:border-dark-border flex items-center justify-between gap-2 bg-slate-50/50 dark:bg-dark-sidebar/40 rounded-t-2xl flex-shrink-0">
+            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">原始内容</span>
+            <Tooltip content="清空输入与结果">
               <button
-                onClick={() => setShowHistory(!showHistory)}
-                className={`tool-button-secondary h-10 px-4 ${showHistory ? 'ring-2 ring-amber-500/20 border-amber-200 text-amber-600' : ''}`}
+                type="button"
+                onClick={clearAll}
+                disabled={!input && !output}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 dark:hover:text-rose-400 transition disabled:opacity-40 disabled:pointer-events-none"
               >
-                <History size={16} />
-                <span>转换历史</span>
+                <Trash2 size={15} />
               </button>
-              <div className="w-px h-6 bg-slate-100" />
-              <div className="flex gap-1.5 p-1 bg-slate-100 rounded-xl">
-                 {encodeTypes.map(type => (
-                   <button
-                    key={type.id}
-                    onClick={() => { setActiveType(type.id); setError(''); }}
-                    className={`px-4 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all ${activeType === type.id ? 'bg-white text-amber-600 shadow-sm shadow-amber-500/5' : 'text-slate-400 hover:text-slate-600'}`}
-                   >
-                     {type.name}
-                   </button>
-                 ))}
-              </div>
-           </div>
+            </Tooltip>
+          </div>
+
+          <div className="flex-1 p-4 flex flex-col min-h-0">
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="在这里输入需要转换的文本…"
+              className="w-full flex-1 bg-transparent resize-none outline-none font-mono text-slate-800 dark:text-slate-100 text-sm leading-relaxed placeholder:text-slate-400 dark:placeholder:text-slate-600"
+            />
+          </div>
+
+          <div className="px-4 py-2.5 border-t border-slate-100 dark:border-dark-border flex items-center justify-end gap-3 text-xs bg-slate-50/40 dark:bg-dark-sidebar/30 rounded-b-2xl flex-shrink-0">
+            <span className="font-mono text-slate-500 dark:text-slate-500">{input.length} 字符</span>
+          </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50/20">
-           <div className="max-w-7xl mx-auto space-y-8">
-              <div className="grid grid-cols-1 xl:grid-cols-[1fr_48px_1fr] gap-4 items-center">
-                 {/* Input Pane */}
-                 <div className="space-y-3">
-                    <div className="flex items-center justify-between px-1">
-                       <label className="tool-label">原始内容 (输入)</label>
-                       <Tooltip content="清空输入与结果">
-                          <button onClick={() => { setInput(''); setOutput(''); setError(''); }} className="p-1 text-slate-300 hover:text-rose-500 transition-colors">
-                             <Trash2 size={14} />
-                          </button>
-                       </Tooltip>
-                    </div>
-                    <textarea
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      placeholder="在这里输入需要转换的文本..."
-                      className="tool-textarea min-h-[400px] border-slate-200 shadow-sm"
-                    />
-                 </div>
+        {/* ---------------- 处理结果 ---------------- */}
+        <div className="bg-white dark:bg-dark-panel rounded-2xl border border-slate-200/90 dark:border-dark-border shadow-sm flex flex-col min-h-0">
+          <div className="px-4 py-2.5 border-b border-slate-100 dark:border-dark-border flex items-center justify-between gap-2 bg-slate-50/50 dark:bg-dark-sidebar/40 rounded-t-2xl flex-shrink-0">
+            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">处理结果</span>
+            <span className="text-[11px] text-slate-400 dark:text-slate-500">{currentType.name}</span>
+          </div>
 
-                 {/* Middle Arrows/Controls */}
-                 <div className="flex xl:flex-col justify-center items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-300 shadow-sm">
-                       <ArrowRightLeft size={18} className="xl:rotate-90" />
-                    </div>
-                 </div>
+          <div className="flex-1 p-4 flex flex-col min-h-0">
+            <div className="flex-1 select-text overflow-y-auto whitespace-pre-wrap break-words font-mono text-slate-800 dark:text-slate-100 text-sm leading-relaxed">
+              {output || (
+                <span className="text-slate-300 dark:text-slate-600 italic">转换结果将在此呈现…</span>
+              )}
+            </div>
+          </div>
 
-                 {/* Output Pane */}
-                 <div className="space-y-3">
-                    <div className="flex items-center justify-between px-1">
-                       <label className="tool-label">处理结果 (输出)</label>
-                       <Tooltip content="复制结果">
-                          <button onClick={copyOutput} disabled={!output} className="p-1.5 rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-900 hover:text-white transition-all disabled:opacity-30">
-                             <Copy size={14} />
-                          </button>
-                       </Tooltip>
-                    </div>
-                    <div className="relative">
-                       {error ? (
-                         <div className="status-note min-h-[400px] flex flex-col items-center justify-center border-rose-100 bg-rose-50/30 text-rose-600 p-8 text-center">
-                            <Sparkles size={32} className="mb-3 opacity-20" />
-                            <p className="text-[10px] font-black uppercase mb-1">转换出错</p>
-                            <p className="text-xs font-medium">{error}</p>
-                         </div>
-                       ) : (
-                         <textarea
-                            value={output}
-                            readOnly
-                            placeholder="转换结果将在此显示..."
-                            className={`tool-textarea min-h-[400px] border-amber-100 bg-amber-50/10 font-bold text-amber-900 placeholder:text-amber-200`}
-                         />
-                       )}
-                    </div>
-                 </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex justify-center gap-4">
-                 <button 
-                  onClick={handleEncode}
-                  className="tool-button-primary h-14 px-12 bg-slate-900 shadow-xl shadow-slate-100 text-sm group"
-                 >
-                   立即进行编码 <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
-                 </button>
-                 <button 
-                  onClick={handleDecode}
-                  className="tool-button-secondary h-14 px-12 text-sm border-slate-200"
-                 >
-                   尝试进行解码
-                 </button>
-              </div>
-           </div>
+          <div className="px-4 py-2.5 border-t border-slate-100 dark:border-dark-border flex items-center justify-end gap-3 text-xs bg-slate-50/40 dark:bg-dark-sidebar/30 rounded-b-2xl flex-shrink-0">
+            <span className="font-mono text-slate-500 dark:text-slate-500">{output.length} 字符</span>
+            <button
+              type="button"
+              onClick={() => void copyOutput()}
+              disabled={!output}
+              className="px-3 py-1 bg-white dark:bg-dark-panel hover:bg-slate-50 dark:hover:bg-dark-hover text-slate-700 dark:text-slate-200 font-medium border border-slate-200 dark:border-dark-border rounded-md transition shadow-2xs flex items-center gap-1.5 disabled:opacity-40 disabled:pointer-events-none"
+            >
+              <Copy size={13} className="text-slate-500 dark:text-slate-400" />
+              <span>复制结果</span>
+            </button>
+          </div>
         </div>
       </div>
 
-       {historyMounted && (
-       <div className="history-overlay" data-state={historyState}>
-          <button type="button" aria-label="关闭历史记录" className="history-overlay-backdrop" onClick={() => setShowHistory(false)} />
-          <div className="history-overlay-panel" data-state={historyState} onClick={(e) => e.stopPropagation()}>
-          <div className="p-6 border-b border-slate-200/70 bg-white/80 flex items-center justify-between">
-            <div className="flex items-center gap-2 text-slate-900 font-black text-xs uppercase tracking-widest">
-              <History size={18} className="text-amber-500" />
-              历史文本片段
-            </div>
-            <div className="flex items-center gap-2">
-              <button onClick={clearHistory} className="text-[10px] font-black text-slate-400 hover:text-rose-500 transition uppercase">清空</button>
-              <Tooltip content="关闭历史记录">
-                <button onClick={() => setShowHistory(false)} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400"><X size={14}/></button>
-              </Tooltip>
-            </div>
-          </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50">
-             {history.length === 0 ? (
-               <div className="flex flex-col items-center justify-center py-20 text-slate-300">
-                  <Clock size={32} className="mb-2 opacity-20" />
-                  <p className="text-[10px] font-bold uppercase tracking-widest">暂无记录</p>
-               </div>
-             ) : (
-               history.map((item) => (
-                <button
-                  key={item.id}
-                  onContextMenu={(e) => openHistoryMenu(e, item)}
-                  onClick={() => { setInput(item.data); setShowHistory(false); }}
-                  className="w-full text-left p-5 rounded-2xl bg-white border border-slate-200/60 shadow-sm hover:border-amber-500 hover:shadow-amber-500/10 transition-all group"
-                >
-                  <p className="text-[11px] font-black text-slate-800 mb-2 truncate pr-4">{item.title}</p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{new Date(item.timestamp).toLocaleString()}</span>
-                    <ChevronRight size={10} className="text-slate-300 group-hover:text-amber-600 transition-colors" />
-                  </div>
-                </button>
-               ))
-             )}
-          </div>
-          </div>
-       </div>
-       )}
-    </div>
+      {/* 底部动作条 */}
+      <div className="bg-white dark:bg-dark-panel rounded-xl border border-slate-200/80 dark:border-dark-border px-4 py-3 md:px-5 flex items-center justify-between gap-3 flex-wrap shadow-2xs flex-shrink-0">
+        <span className="text-xs text-slate-400 dark:text-slate-500">
+          当前方式：
+          <span className="font-semibold text-slate-600 dark:text-slate-300">{currentType.name}</span>
+          ，编码把原文转成该格式，解码反过来
+        </span>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleDecode}
+            disabled={!input.trim()}
+            className="tool-button-secondary h-9"
+          >
+            解码
+          </button>
+          <button
+            type="button"
+            onClick={handleEncode}
+            disabled={!input.trim()}
+            className="tool-button-primary h-9 px-5"
+          >
+            <span>编码</span>
+            <ChevronRight size={14} />
+          </button>
+        </div>
+      </div>
+    </ToolShell>
   )
 }

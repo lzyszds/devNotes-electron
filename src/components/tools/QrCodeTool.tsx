@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
-import { Download, Copy, RefreshCw, History, Clock, ChevronRight, QrCode, Type, Move, Palette, X } from 'lucide-react'
-import { usePresence } from '../../hooks/usePresence'
+import { Copy, Download, History, Move, Palette, QrCode, RefreshCw, Type } from 'lucide-react'
 import { useToolHistory } from '../../hooks/useToolHistory'
 import { useHistoryContextMenu } from '../../hooks/useHistoryContextMenu'
+import { ToolBadge, ToolHistoryOverlay, ToolShell } from '../ui'
 import Tooltip from '../ui/Tooltip'
+import { useToast } from '../ui/Toast'
 
 export default function QrCodeTool() {
   const [text, setText] = useState('https://fehelper.com')
@@ -12,13 +13,11 @@ export default function QrCodeTool() {
   const [fgColor, setFgColor] = useState('#000000')
   const [bgColor, setBgColor] = useState('#ffffff')
   const [showHistory, setShowHistory] = useState(false)
-  // 历史浮层退出动画：面板 180ms、遮罩 160ms，取长者
-  const { mounted: historyMounted, state: historyState } = usePresence(showHistory, 180)
-  
+  const { showToast } = useToast()
+
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   const { history, saveHistory, clearHistory, removeHistoryItem } = useToolHistory<string>('qr-code')
-  // 历史记录右键菜单
   const openHistoryMenu = useHistoryContextMenu<string>({
     onUse: (item) => {
       setText(item.data)
@@ -27,28 +26,25 @@ export default function QrCodeTool() {
     onRemove: removeHistoryItem,
   })
 
-  // Simple QR code generator
+  // 简易二维码绘制：定位图案 + 按内容散列的伪数据点
   const generateQR = () => {
     if (!text.trim()) return
-    
+
     const canvas = canvasRef.current
     if (!canvas) return
-    
+
     const ctx = canvas.getContext('2d')
     if (!ctx) return
-    
+
     canvas.width = size
     canvas.height = size
-    
-    // Background
+
     ctx.fillStyle = bgColor
     ctx.fillRect(0, 0, size, size)
-    
-    // Generate pattern
+
     const cellSize = size / 25
     ctx.fillStyle = fgColor
-    
-    // Position patterns (corners)
+
     const drawPositionPattern = (x: number, y: number) => {
       ctx.fillRect(x, y, 7 * cellSize, 7 * cellSize)
       ctx.fillStyle = bgColor
@@ -56,12 +52,11 @@ export default function QrCodeTool() {
       ctx.fillStyle = fgColor
       ctx.fillRect(x + 2 * cellSize, y + 2 * cellSize, 3 * cellSize, 3 * cellSize)
     }
-    
+
     drawPositionPattern(0, 0)
     drawPositionPattern(18 * cellSize, 0)
     drawPositionPattern(0, 18 * cellSize)
-    
-    // Data pattern (simplified)
+
     for (let i = 0; i < 25; i++) {
       for (let j = 0; j < 25; j++) {
         if ((i < 7 && j < 7) || (i < 7 && j > 17) || (i > 17 && j < 7)) continue
@@ -88,195 +83,220 @@ export default function QrCodeTool() {
 
   const copyQR = async () => {
     if (!qrDataUrl) return
-    const response = await fetch(qrDataUrl)
-    const blob = await response.blob()
-    await navigator.clipboard.write([
-      new ClipboardItem({ 'image/png': blob })
-    ])
+    try {
+      const blob = await (await fetch(qrDataUrl)).blob()
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+      showToast('已复制二维码图片')
+    } catch {
+      showToast('复制失败', 'error')
+    }
   }
 
   const saveToHistoryManual = () => {
     if (!text.trim()) return
     saveHistory(text, text.slice(0, 30) + '...')
+    showToast('已收藏到历史记录')
   }
 
   return (
-    <div className="relative flex h-full min-h-0 md:min-h-[600px] bg-white overflow-hidden text-slate-900">
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Action Header */}
-        <div className="flex-wrap gap-3 px-4 py-4 md:px-8 md:py-5 flex items-center justify-between border-b border-slate-100">
-           <div className="flex flex-wrap items-center gap-4">
-              <div className="h-12 w-12 rounded-2xl bg-brand-600 text-white flex items-center justify-center shadow-lg shadow-brand-100">
-                <QrCode size={24} />
-              </div>
-              <div>
-                <h2 className="text-xl font-black text-slate-900 tracking-tight">二维码工作台</h2>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">快速生成可自定义样式的二维码</p>
-              </div>
-           </div>
+    <ToolShell
+      icon={QrCode}
+      title="二维码工作台"
+      subtitle="快速生成可自定义样式的二维码"
+      badge={
+        <ToolBadge tone="brand">
+          {size} × {size} px
+        </ToolBadge>
+      }
+      actions={
+        <>
+          <button
+            onClick={() => setShowHistory(!showHistory)}
+            className={`tool-button-secondary h-9 ${
+              showHistory
+                ? 'ring-2 ring-brand-500/20 border-brand-200 text-brand-600 dark:border-brand-500/40 dark:text-brand-400'
+                : ''
+            }`}
+          >
+            <History size={15} />
+            <span>生成历史</span>
+          </button>
+          <button onClick={downloadQR} disabled={!qrDataUrl} className="tool-button-primary h-9 px-5">
+            <Download size={15} />
+            <span>导出图片</span>
+          </button>
+        </>
+      }
+      overlay={
+        <ToolHistoryOverlay
+          open={showHistory}
+          onClose={() => setShowHistory(false)}
+          title="历史内容库"
+          items={history}
+          onClear={clearHistory}
+          onPick={(item) => {
+            setText(item.data)
+            setShowHistory(false)
+          }}
+          onItemContextMenu={openHistoryMenu}
+        />
+      }
+    >
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-4 items-start">
+        {/* ---------------- 内容与参数 ---------------- */}
+        <div className="space-y-4">
+          <div className="bg-white dark:bg-dark-panel rounded-2xl border border-slate-200/90 dark:border-dark-border shadow-sm flex flex-col">
+            <div className="px-4 py-2.5 border-b border-slate-100 dark:border-dark-border bg-slate-50/50 dark:bg-dark-sidebar/40 rounded-t-2xl flex-shrink-0">
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                <Type size={13} className="text-brand-600 dark:text-brand-400" />
+                二维码内容（URL / 文本）
+              </span>
+            </div>
 
-           <div className="flex flex-wrap items-center gap-3">
-              <button
-                onClick={() => setShowHistory(!showHistory)}
-                className={`tool-button-secondary h-10 px-4 ${showHistory ? 'ring-2 ring-brand-500/20 border-brand-200 text-brand-600' : ''}`}
-              >
-                <History size={16} />
-                <span>生成历史</span>
-              </button>
-              <div className="w-px h-6 bg-slate-100" />
-              <button onClick={downloadQR} disabled={!qrDataUrl} className="tool-button-primary h-10 bg-brand-600 hover:bg-brand-700 shadow-brand-100 px-6">
-                <Download size={16} /> 导出图片
-              </button>
-           </div>
+            <div className="p-4 flex flex-col">
+              <textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="输入需要转换成二维码的内容…"
+                className="w-full min-h-[140px] bg-transparent resize-none outline-none text-slate-800 dark:text-slate-100 text-sm leading-relaxed placeholder:text-slate-400 dark:placeholder:text-slate-600"
+              />
+            </div>
+
+            <div className="px-4 py-2.5 border-t border-slate-100 dark:border-dark-border flex items-center justify-end gap-3 text-xs bg-slate-50/40 dark:bg-dark-sidebar/30 rounded-b-2xl flex-shrink-0">
+              <span className="font-mono text-slate-500 dark:text-slate-500">{text.length} 字符</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* 尺寸 */}
+            <div className="bg-white dark:bg-dark-panel rounded-2xl border border-slate-200/90 dark:border-dark-border shadow-sm flex flex-col">
+              <div className="px-4 py-2.5 border-b border-slate-100 dark:border-dark-border bg-slate-50/50 dark:bg-dark-sidebar/40 rounded-t-2xl flex-shrink-0">
+                <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  <Move size={13} className="text-brand-600 dark:text-brand-400" />
+                  尺寸规格
+                </span>
+              </div>
+              <div className="flex-1 p-4 flex flex-col gap-4">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl font-bold text-slate-900 dark:text-white tabular-nums">{size}</span>
+                  <span className="text-[11px] text-slate-400 dark:text-slate-500">像素</span>
+                </div>
+                <input
+                  type="range"
+                  min="120"
+                  max="500"
+                  step="20"
+                  value={size}
+                  onChange={(e) => setSize(Number(e.target.value))}
+                  className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-slate-200 dark:bg-dark-hover accent-brand-600"
+                />
+                <p className="text-[10px] text-slate-400 dark:text-slate-500">120 ~ 500 px，步进 20</p>
+              </div>
+            </div>
+
+            {/* 配色 */}
+            <div className="bg-white dark:bg-dark-panel rounded-2xl border border-slate-200/90 dark:border-dark-border shadow-sm flex flex-col">
+              <div className="px-4 py-2.5 border-b border-slate-100 dark:border-dark-border bg-slate-50/50 dark:bg-dark-sidebar/40 rounded-t-2xl flex-shrink-0">
+                <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  <Palette size={13} className="text-brand-600 dark:text-brand-400" />
+                  外观配色
+                </span>
+              </div>
+              <div className="flex-1 p-4 flex flex-col gap-3">
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200/80 dark:border-dark-border bg-slate-50 dark:bg-dark-sidebar px-3 py-2">
+                  <div className="flex items-center gap-2.5">
+                    <input
+                      type="color"
+                      value={fgColor}
+                      onChange={(e) => setFgColor(e.target.value)}
+                      className="w-8 h-8 rounded-lg border-0 bg-transparent cursor-pointer"
+                    />
+                    <span className="text-[11px] text-slate-600 dark:text-slate-300">前景色</span>
+                  </div>
+                  <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500">{fgColor}</span>
+                </div>
+
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200/80 dark:border-dark-border bg-slate-50 dark:bg-dark-sidebar px-3 py-2">
+                  <div className="flex items-center gap-2.5">
+                    <input
+                      type="color"
+                      value={bgColor}
+                      onChange={(e) => setBgColor(e.target.value)}
+                      className="w-8 h-8 rounded-lg border-0 bg-transparent cursor-pointer"
+                    />
+                    <span className="text-[11px] text-slate-600 dark:text-slate-300">背景色</span>
+                  </div>
+                  <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500">{bgColor}</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50/20">
-           <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-10">
-              {/* Configuration Column */}
-              <div className="space-y-6">
-                 {/* Text Input */}
-                 <div className="tool-panel space-y-4">
-                    <div className="flex items-center gap-2">
-                       <Type size={16} className="text-slate-400" />
-                       <label className="tool-label mb-0">二维码内容 (URL/文本)</label>
-                    </div>
-                    <textarea
-                      value={text}
-                      onChange={(e) => setText(e.target.value)}
-                      placeholder="输入需要转换成二维码的内容..."
-                      className="tool-textarea min-h-[160px] border-slate-200 shadow-sm"
-                    />
-                    <div className="flex justify-end">
-                       <button onClick={saveToHistoryManual} className="text-[10px] font-black text-slate-400 hover:text-brand-600 transition-colors uppercase tracking-widest">
-                          收藏到历史记录
-                       </button>
-                    </div>
-                 </div>
+        {/* ---------------- 预览 ---------------- */}
+        <div className="bg-white dark:bg-dark-panel rounded-2xl border border-slate-200/90 dark:border-dark-border shadow-sm flex flex-col">
+          <div className="px-4 py-2.5 border-b border-slate-100 dark:border-dark-border bg-slate-50/50 dark:bg-dark-sidebar/40 rounded-t-2xl flex items-center justify-between gap-2 flex-shrink-0">
+            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">预览</span>
+            <span className="text-[11px] text-slate-400 dark:text-slate-500">1:1 渲染视图</span>
+          </div>
 
-                 {/* Customization Grid */}
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Size Selector */}
-                    <div className="tool-panel">
-                       <div className="flex items-center gap-2 mb-6">
-                          <Move size={16} className="text-slate-400" />
-                          <label className="tool-label mb-0">尺寸规格</label>
-                       </div>
-                       <div className="space-y-4">
-                          <div className="flex items-center justify-between">
-                             <span className="text-3xl font-black text-slate-900">{size}</span>
-                             <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">像素 (PX)</span>
-                          </div>
-                          <input
-                             type="range"
-                             min="120"
-                             max="500"
-                             step="20"
-                             value={size}
-                             onChange={(e) => setSize(Number(e.target.value))}
-                             className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-slate-200 accent-brand-600"
-                          />
-                       </div>
-                    </div>
+          <div className="flex-1 p-6 flex items-center justify-center">
+            <div className="rounded-xl overflow-hidden border border-slate-100 dark:border-dark-border bg-white p-3 shadow-inner">
+              <canvas ref={canvasRef} className="hidden" />
+              {qrDataUrl ? (
+                <img
+                  src={qrDataUrl}
+                  alt="QR Code"
+                  className="max-w-full block"
+                  style={{ width: size, height: size }}
+                />
+              ) : (
+                <div
+                  className="flex items-center justify-center bg-white"
+                  style={{ width: size, height: size }}
+                >
+                  <QrCode size={48} className="text-slate-100 animate-pulse" />
+                </div>
+              )}
+            </div>
+          </div>
 
-                    {/* Color Picker */}
-                    <div className="tool-panel">
-                       <div className="flex items-center gap-2 mb-6">
-                          <Palette size={16} className="text-slate-400" />
-                          <label className="tool-label mb-0">外观配色</label>
-                       </div>
-                       <div className="space-y-4">
-                          <div className="flex items-center justify-between bg-slate-50 p-2 rounded-xl border border-slate-100">
-                             <div className="flex items-center gap-3">
-                                <input type="color" value={fgColor} onChange={(e) => setFgColor(e.target.value)} className="w-8 h-8 rounded-lg border-0 bg-transparent cursor-pointer" />
-                                <span className="text-[10px] font-black text-slate-500 uppercase">前景色</span>
-                             </div>
-                             <span className="text-[10px] font-mono font-bold text-slate-300">{fgColor}</span>
-                          </div>
-                          <div className="flex items-center justify-between bg-slate-50 p-2 rounded-xl border border-slate-100">
-                             <div className="flex items-center gap-3">
-                                <input type="color" value={bgColor} onChange={(e) => setBgColor(e.target.value)} className="w-8 h-8 rounded-lg border-0 bg-transparent cursor-pointer" />
-                                <span className="text-[10px] font-black text-slate-500 uppercase">背景色</span>
-                             </div>
-                             <span className="text-[10px] font-mono font-bold text-slate-300">{bgColor}</span>
-                          </div>
-                       </div>
-                    </div>
-                 </div>
-
-                 <button onClick={generateQR} className="tool-button-secondary w-full h-12 border-slate-200 text-slate-500 font-black uppercase tracking-widest">
-                    <RefreshCw size={16} /> 强制重新生成
-                 </button>
-              </div>
-
-              {/* Preview Column */}
-              <div className="flex flex-col items-center">
-                 <div className="workspace-card p-10 bg-white shadow-2xl shadow-brand-500/5 relative group">
-                    <div className="absolute inset-0 bg-brand-500/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-                    <div className="relative border-4 border-slate-50 rounded-2xl overflow-hidden shadow-inner bg-slate-50 p-4">
-                       <canvas ref={canvasRef} className="hidden" />
-                       {qrDataUrl ? (
-                         <img src={qrDataUrl} alt="QR Code" className="max-w-full" style={{ width: size, height: size }} />
-                       ) : (
-                         <div className="flex items-center justify-center bg-white" style={{ width: size, height: size }}>
-                            <QrCode size={48} className="text-slate-100 animate-pulse" />
-                         </div>
-                       )}
-                    </div>
-                 </div>
-
-                 <div className="mt-8 flex gap-4">
-                    <button onClick={copyQR} className="tool-button-secondary h-12 px-8 shadow-sm">
-                       <Copy size={16} /> 复制图片
-                    </button>
-                 </div>
-                 <p className="mt-6 text-[10px] font-bold text-slate-300 uppercase tracking-widest">高清 1:1 渲染视图</p>
-              </div>
-           </div>
+          <div className="px-4 py-2.5 border-t border-slate-100 dark:border-dark-border flex items-center justify-end gap-3 text-xs bg-slate-50/40 dark:bg-dark-sidebar/30 rounded-b-2xl flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => void copyQR()}
+              disabled={!qrDataUrl}
+              className="px-3 py-1 bg-white dark:bg-dark-panel hover:bg-slate-50 dark:hover:bg-dark-hover text-slate-700 dark:text-slate-200 font-medium border border-slate-200 dark:border-dark-border rounded-md transition shadow-2xs flex items-center gap-1.5 disabled:opacity-40 disabled:pointer-events-none"
+            >
+              <Copy size={13} className="text-slate-500 dark:text-slate-400" />
+              <span>复制图片</span>
+            </button>
+          </div>
         </div>
       </div>
 
-       {historyMounted && (
-       <div className="history-overlay" data-state={historyState}>
-          <button type="button" aria-label="关闭历史记录" className="history-overlay-backdrop" onClick={() => setShowHistory(false)} />
-          <div className="history-overlay-panel" data-state={historyState} onClick={(e) => e.stopPropagation()}>
-          <div className="p-6 border-b border-slate-200/70 bg-white/80 flex items-center justify-between">
-            <div className="flex items-center gap-2 text-slate-900 font-black text-xs uppercase tracking-widest">
-              <QrCode size={18} className="text-brand-600" />
-              历史内容库
-            </div>
-            <div className="flex items-center gap-2">
-              <button onClick={clearHistory} className="text-[10px] font-black text-slate-400 hover:text-rose-500 transition uppercase">清空</button>
-              <Tooltip content="关闭历史记录">
-                <button onClick={() => setShowHistory(false)} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400"><X size={14}/></button>
-              </Tooltip>
-            </div>
-          </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50">
-             {history.length === 0 ? (
-               <div className="flex flex-col items-center justify-center py-20 text-slate-300">
-                  <Clock size={32} className="mb-2 opacity-20" />
-                  <p className="text-[10px] font-bold uppercase tracking-widest">暂无记录</p>
-               </div>
-             ) : (
-               history.map((item) => (
-                <button
-                  key={item.id}
-                  onContextMenu={(e) => openHistoryMenu(e, item)}
-                  onClick={() => { setText(item.data); setShowHistory(false); }}
-                  className="w-full text-left p-5 rounded-2xl bg-white border border-slate-200/60 shadow-sm hover:border-brand-600 hover:shadow-brand-500/10 transition-all group"
-                >
-                  <p className="text-[11px] font-black text-slate-800 mb-2 truncate pr-4">{item.data}</p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{new Date(item.timestamp).toLocaleDateString()}</span>
-                    <ChevronRight size={10} className="text-slate-300 group-hover:text-brand-600 transition-colors" />
-                  </div>
-                </button>
-               ))
-             )}
-          </div>
-          </div>
-       </div>
-       )}
-    </div>
+      {/* 底部动作条 */}
+      <div className="bg-white dark:bg-dark-panel rounded-xl border border-slate-200/80 dark:border-dark-border px-4 py-3 md:px-5 flex items-center justify-between gap-3 flex-wrap shadow-2xs flex-shrink-0">
+        <span className="text-xs text-slate-400 dark:text-slate-500">
+          改内容或参数会即时重绘；这里生成的图案仅供占位示意
+        </span>
+        <div className="flex items-center gap-2">
+          <Tooltip content="把当前内容收藏到历史记录">
+            <button
+              onClick={saveToHistoryManual}
+              disabled={!text.trim()}
+              className="tool-button-secondary h-9"
+            >
+              <History size={14} />
+              <span>收藏内容</span>
+            </button>
+          </Tooltip>
+          <button onClick={generateQR} className="tool-button-secondary h-9">
+            <RefreshCw size={14} />
+            <span>重新生成</span>
+          </button>
+        </div>
+      </div>
+    </ToolShell>
   )
 }
