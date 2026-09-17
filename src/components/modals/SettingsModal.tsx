@@ -1,15 +1,16 @@
 import { useEffect } from 'react'
-import { Cloud, Languages, Loader2, Settings2, X } from 'lucide-react'
+import { Cloud, Languages, Loader2, Settings2, Volume2, X } from 'lucide-react'
 import type { ComponentType } from 'react'
 import { useNotes } from '../../context/NotesContext'
 import { usePresence } from '../../hooks/usePresence'
 import GeneralPanel from '../settings/GeneralPanel'
 import CloudflareSyncPanel from '../settings/CloudflareSyncPanel'
 import TranslateApiPanel from '../settings/TranslateApiPanel'
+import SpeechPanel from '../settings/SpeechPanel'
 import Tooltip from '../ui/Tooltip'
 import type { ThemeId } from '../../utils/theme'
 
-export type SettingsSection = 'general' | 'cloud-sync' | 'translate-api'
+export type SettingsSection = 'general' | 'cloud-sync' | 'translate-api' | 'speech'
 
 export interface SettingsModalProps {
   open: boolean
@@ -42,6 +43,12 @@ const SECTIONS: SectionMeta[] = [
     label: 'AI 与翻译',
     hint: '在线翻译接口与模型配置',
     icon: Languages,
+  },
+  {
+    id: 'speech',
+    label: '语音朗读',
+    hint: '朗读音色、语速与音量',
+    icon: Volume2,
   },
 ]
 
@@ -171,6 +178,7 @@ export default function SettingsModal({
             )}
             {section === 'cloud-sync' && <CloudflareSyncPanel />}
             {section === 'translate-api' && <TranslateApiPanel />}
+            {section === 'speech' && <SpeechPanel />}
           </div>
         </div>
       </div>
