@@ -52,15 +52,15 @@ export default function ToolHistoryOverlay<T = unknown>({
       />
       <div className="history-overlay-panel" data-state={state} onClick={(e) => e.stopPropagation()}>
         <div className="p-6 border-b border-slate-200/70 dark:border-dark-border bg-white/80 dark:bg-dark-panel/80 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-slate-900 dark:text-white font-black text-xs uppercase tracking-widest">
-            <History size={18} className="text-brand-600 dark:text-brand-400" />
+          <div className="flex items-center gap-2 text-slate-900 dark:text-white text-[13px] font-semibold">
+            <History size={16} className="text-brand-600 dark:text-brand-400" />
             {title}
           </div>
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={onClear}
-              className="text-[10px] font-black text-slate-400 hover:text-rose-500 transition uppercase"
+              className="text-[11px] font-medium text-slate-400 hover:text-rose-500 transition"
             >
               清空
             </button>
@@ -79,8 +79,8 @@ export default function ToolHistoryOverlay<T = unknown>({
         <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50 dark:bg-dark-bg/50">
           {items.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-slate-300 dark:text-slate-600">
-              <Clock size={32} className="mb-2 opacity-20" />
-              <p className="text-[10px] font-bold uppercase tracking-widest">{emptyText}</p>
+              <Clock size={28} className="mb-2.5 opacity-40" />
+              <p className="text-xs">{emptyText}</p>
             </div>
           ) : (
             items.map((item) => (
@@ -89,19 +89,19 @@ export default function ToolHistoryOverlay<T = unknown>({
                 type="button"
                 onContextMenu={(e) => onItemContextMenu?.(e, item)}
                 onClick={() => onPick(item)}
-                className="w-full text-left p-5 rounded-2xl bg-white dark:bg-dark-panel border border-slate-200/60 dark:border-dark-border shadow-sm hover:border-brand-600 hover:shadow-brand-500/10 transition-all group"
+                className="w-full text-left p-4 rounded-xl bg-white dark:bg-dark-panel border border-slate-200/60 dark:border-dark-border shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:border-brand-400 hover:shadow-sm transition-all group"
               >
-                <p className="text-[11px] font-black text-slate-800 dark:text-slate-200 mb-2 truncate pr-4">
+                <p className="text-[13px] font-medium text-slate-800 dark:text-slate-200 mb-2 truncate pr-4">
                   {renderItemTitle
                     ? renderItemTitle(item)
                     : item.title || String(item.data ?? '')}
                 </p>
                 <div className="flex items-center justify-between">
-                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">
+                  <span className="text-[11px] text-slate-400">
                     {new Date(item.timestamp).toLocaleString()}
                   </span>
                   <ChevronRight
-                    size={10}
+                    size={12}
                     className="text-slate-300 group-hover:text-brand-600 transition-colors"
                   />
                 </div>

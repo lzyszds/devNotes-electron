@@ -13,7 +13,20 @@ import {
 import { useToolHistory } from '../../hooks/useToolHistory'
 import { useHistoryContextMenu } from '../../hooks/useHistoryContextMenu'
 import Tooltip from '../ui/Tooltip'
-import { Select, ToolBadge, ToolHistoryOverlay, ToolShell, type SelectOption } from '../ui'
+import {
+  BTN,
+  Select,
+  ToolActionBar,
+  ToolBadge,
+  ToolCard,
+  ToolCardFooter,
+  ToolHistoryOverlay,
+  ToolNotice,
+  ToolShell,
+  iconButtonClass,
+  pillClass,
+  type SelectOption,
+} from '../ui'
 import { useToast } from '../ui/Toast'
 import { copyText } from '../../utils/clipboard'
 import {
@@ -445,27 +458,27 @@ export default function TextTranslateTool() {
       <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 flex flex-col gap-4">
         {/* MyMemory 不支持自动检测，提前说清楚，别让它把原文当译文返回 */}
         {mymemoryAutoBlocked && (
-          <div className="status-note border-amber-100 bg-amber-50/30 text-amber-700 flex items-start gap-2 flex-shrink-0">
-            <TriangleAlert size={14} className="mt-px shrink-0" />
+          <ToolNotice tone="warn" icon={TriangleAlert} className="flex-shrink-0">
             <span>MyMemory 不支持自动检测源语言，请指定源语言或改用 GTX。</span>
-          </div>
+          </ToolNotice>
         )}
 
         {error && (
-          <div className="status-note border-rose-100 bg-rose-50/30 text-rose-600 flex items-start gap-2 flex-shrink-0">
-            <TriangleAlert size={14} className="mt-px shrink-0" />
+          <ToolNotice tone="error" icon={TriangleAlert} className="flex-shrink-0">
             <p className="whitespace-pre-line">{error}</p>
-          </div>
+          </ToolNotice>
         )}
 
         {/* 双子卡片：原文 / 译文 */}
-        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 min-h-[440px]">
+        <div className="tool-cascade flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 min-h-[440px]">
           {/* ---------------- 原文 ---------------- */}
-          <div className="bg-white dark:bg-dark-panel rounded-2xl border border-slate-200/90 dark:border-dark-border shadow-sm flex flex-col min-h-0 transition duration-150">
-            <div className="px-4 py-2.5 border-b border-slate-100 dark:border-dark-border flex items-start justify-between gap-2 bg-slate-50/50 dark:bg-dark-sidebar/40 rounded-t-2xl flex-shrink-0">
-              {/* 语言区自己换行，整条不做横向滚动 —— 滚动容器会把「更多」下拉截断在边上 */}
-              <div className="flex flex-wrap items-center gap-1.5 min-w-0">
-                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 mr-1 flex-shrink-0">源语言:</span>
+          <ToolCard>
+            {/* 语言区自己换行，整条不做横向滚动 —— 滚动容器会把「更多」下拉截断在边上 */}
+            <div className="flex items-start justify-between gap-2 px-4 py-2 min-h-11 border-b border-slate-100 dark:border-dark-border shrink-0">
+              <div className="flex flex-wrap items-center gap-1 min-w-0">
+                <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500 mr-1 shrink-0">
+                  源语言
+                </span>
                 {SOURCE_PILLS.map((code) => {
                   const active = sourceLang === code
                   return (
@@ -473,11 +486,7 @@ export default function TextTranslateTool() {
                       key={code}
                       type="button"
                       onClick={() => handleSourceChange(code)}
-                      className={`px-2.5 py-1 rounded-md text-xs flex-shrink-0 transition ${
-                        active
-                          ? 'font-semibold bg-white dark:bg-dark-panel text-brand-700 dark:text-brand-400 shadow-2xs border border-brand-100 dark:border-brand-500/30'
-                          : 'font-medium text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-dark-hover hover:text-slate-800 dark:hover:text-slate-200'
-                      }`}
+                      className={pillClass(active)}
                     >
                       {code === AUTO_LANG ? '自动检测' : langName(code)}
                     </button>
@@ -501,7 +510,7 @@ export default function TextTranslateTool() {
                   <button
                     type="button"
                     onClick={handleSwap}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-500/10 dark:hover:text-brand-400 transition flex-shrink-0"
+                    className={iconButtonClass('neutral', 'shrink-0')}
                   >
                     <ArrowRightLeft size={15} />
                   </button>
@@ -509,7 +518,7 @@ export default function TextTranslateTool() {
               )}
             </div>
 
-            <div className="flex-1 p-4 flex flex-col min-h-0">
+            <div className="flex-1 min-h-0 p-4 flex flex-col">
               <textarea
                 value={input}
                 onChange={(e) => {
@@ -524,18 +533,18 @@ export default function TextTranslateTool() {
                   e.preventDefault()
                   void handleTranslate()
                 }}
-                className="w-full flex-1 bg-transparent resize-none outline-none text-slate-800 dark:text-slate-100 text-sm leading-relaxed placeholder:text-slate-400 dark:placeholder:text-slate-600"
+                className="w-full flex-1 bg-transparent resize-none outline-none text-[13px] leading-7 text-slate-800 dark:text-slate-100 placeholder:text-slate-300 dark:placeholder:text-slate-600"
               />
             </div>
 
-            <div className="px-4 py-2.5 border-t border-slate-100 dark:border-dark-border flex items-center justify-between gap-3 text-xs text-slate-400 bg-slate-50/40 dark:bg-dark-sidebar/30 rounded-b-2xl flex-shrink-0">
+            <ToolCardFooter>
               <div className="flex items-center gap-3 min-w-0">
-                <label className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 cursor-pointer select-none">
+                <label className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={unwrapLines}
                     onChange={(e) => setUnwrapLines(e.target.checked)}
-                    className="w-3.5 h-3.5 rounded border-slate-300 dark:border-dark-border text-brand-600 focus:ring-0"
+                    className="w-3.5 h-3.5 rounded border-slate-300 dark:border-dark-border accent-brand-600 focus:ring-0"
                   />
                   <span>合并断行（PDF/代码）</span>
                 </label>
@@ -544,51 +553,46 @@ export default function TextTranslateTool() {
                     <span className="text-slate-200 dark:text-dark-border">|</span>
                     <button
                       onClick={clearAll}
-                      className="flex items-center gap-1 hover:text-rose-600 transition-colors"
+                      className="flex items-center gap-1 text-[11px] hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
                     >
-                      <Trash2 size={13} />
+                      <Trash2 size={12} />
                       <span>清空</span>
                     </button>
                   </>
                 )}
               </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <span className="font-mono text-slate-500 dark:text-slate-500">
-                  {input.length} 字符
-                </span>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="font-mono">{input.length} 字符</span>
                 <Tooltip content="朗读原文">
                   <button
                     type="button"
                     onClick={() => speakText(input, sourceSpeakLang)}
                     disabled={!input.trim()}
-                    className="p-1 rounded-lg text-slate-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-500/10 dark:hover:text-brand-400 transition disabled:opacity-40 disabled:pointer-events-none"
+                    className={iconButtonClass('brand')}
                   >
                     <Volume2 size={14} />
                   </button>
                 </Tooltip>
               </div>
-            </div>
-          </div>
+            </ToolCardFooter>
+          </ToolCard>
 
           {/* ---------------- 译文 ---------------- */}
-          <div className="bg-white dark:bg-dark-panel rounded-2xl border border-slate-200/90 dark:border-dark-border shadow-sm flex flex-col min-h-0">
-            <div className="px-4 py-2.5 border-b border-slate-100 dark:border-dark-border flex items-start justify-between gap-2 bg-slate-50/50 dark:bg-dark-sidebar/40 rounded-t-2xl flex-shrink-0">
-              <div className="flex flex-wrap items-center gap-1.5 min-w-0">
-                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 mr-1 flex-shrink-0">目标语言:</span>
+          <ToolCard>
+            <div className="flex items-start justify-between gap-2 px-4 py-2 min-h-11 border-b border-slate-100 dark:border-dark-border shrink-0">
+              <div className="flex flex-wrap items-center gap-1 min-w-0">
+                <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500 mr-1 shrink-0">
+                  目标语言
+                </span>
 
                 {/* 自动双向：方向随输入走，不必每次手动切 */}
                 <button
                   type="button"
                   onClick={() => setTargetLang(AUTO_TARGET)}
-                  className={`px-2.5 py-1 rounded-md text-xs flex-shrink-0 transition ${
-                    targetLang === AUTO_TARGET
-                      ? 'font-semibold bg-white dark:bg-dark-panel text-brand-700 dark:text-brand-400 shadow-2xs border border-brand-100 dark:border-brand-500/30'
-                      : 'font-medium text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-dark-hover hover:text-slate-800 dark:hover:text-slate-200'
-                  }`}
+                  className={pillClass(targetLang === AUTO_TARGET)}
                 >
                   自动双向
                 </button>
-
 
                 {TARGET_PILLS.map((code) => {
                   const active = targetLang === code
@@ -597,11 +601,7 @@ export default function TextTranslateTool() {
                       key={code}
                       type="button"
                       onClick={() => setTargetLang(code)}
-                      className={`px-2.5 py-1 rounded-md text-xs flex-shrink-0 transition ${
-                        active
-                          ? 'font-semibold bg-white dark:bg-dark-panel text-brand-700 dark:text-brand-400 shadow-2xs border border-brand-100 dark:border-brand-500/30'
-                          : 'font-medium text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-dark-hover hover:text-slate-800 dark:hover:text-slate-200'
-                      }`}
+                      className={pillClass(active)}
                     >
                       {langName(code)}
                     </button>
@@ -617,15 +617,14 @@ export default function TextTranslateTool() {
                   title="更多目标语言"
                 />
               </div>
-
             </div>
 
-            <div className="flex-1 p-4 flex flex-col min-h-0">
+            <div className="flex-1 min-h-0 p-4 flex flex-col">
               {/*
                 加载态与占位文案走同一个内联槽位，不做绝对定位浮在上层 ——
                 浮层会和下面的占位文字叠在一起，两者字号、基线都对不齐。
               */}
-              <div className="flex-1 select-text overflow-y-auto whitespace-pre-wrap break-words text-slate-800 dark:text-slate-100 text-sm leading-relaxed">
+              <div className="flex-1 select-text overflow-y-auto whitespace-pre-wrap break-words text-[13px] leading-7 text-slate-800 dark:text-slate-100">
                 {output ? (
                   output
                 ) : isTranslating ? (
@@ -637,12 +636,12 @@ export default function TextTranslateTool() {
                     </span>
                   </span>
                 ) : (
-                  <span className="text-slate-300 dark:text-slate-600 italic">译文将实时在此呈现…</span>
+                  <span className="text-slate-300 dark:text-slate-600">译文将实时在此呈现…</span>
                 )}
               </div>
             </div>
 
-            <div className="px-4 py-2.5 border-t border-slate-100 dark:border-dark-border flex items-center justify-between gap-3 text-xs bg-slate-50/40 dark:bg-dark-sidebar/30 rounded-b-2xl flex-shrink-0">
+            <ToolCardFooter>
               <div className="flex items-center gap-3 min-w-0">
                 {/* 「我的语言」只服务于自动判方向；手动选定了语言时它没有作用，就不占位置。
                     下拉朝上展开：底栏贴着卡片下沿，往下弹会被外层容器裁掉 */}
@@ -667,7 +666,7 @@ export default function TextTranslateTool() {
                 )}
 
                 {/* 已有译文时重新翻译，正文不动（避免整段闪一下），进度落在这里 */}
-                <span className="font-mono font-medium flex-shrink-0">
+                <span className="font-mono font-medium shrink-0">
                   {isTranslating ? (
                     <span className="flex items-center gap-1.5 text-brand-600 dark:text-brand-400">
                       <Loader2 size={12} className="animate-spin" />
@@ -679,63 +678,67 @@ export default function TextTranslateTool() {
                 </span>
               </div>
 
-              <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="flex items-center gap-1.5 shrink-0">
                 <Tooltip content="朗读译文">
                   <button
                     type="button"
                     onClick={() => speakText(output, effectiveTarget)}
                     disabled={!output}
-                    className="p-1 rounded-lg text-slate-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-500/10 dark:hover:text-brand-400 transition disabled:opacity-40 disabled:pointer-events-none"
+                    className={iconButtonClass('brand')}
                   >
                     <Volume2 size={14} />
                   </button>
                 </Tooltip>
-                <button
-                  onClick={() => void handleCopyOutput()}
-                  disabled={!output}
-                  className="px-3 py-1 bg-white dark:bg-dark-panel hover:bg-slate-50 dark:hover:bg-dark-hover text-slate-700 dark:text-slate-200 font-medium border border-slate-200 dark:border-dark-border rounded-md transition shadow-2xs flex items-center gap-1.5 disabled:opacity-40 disabled:pointer-events-none"
-                >
-                  <Copy size={13} className="text-slate-500 dark:text-slate-400" />
-                  <span>复制译文</span>
-                </button>
+                <Tooltip content="复制译文">
+                  <button
+                    type="button"
+                    onClick={() => void handleCopyOutput()}
+                    disabled={!output}
+                    className={iconButtonClass('brand')}
+                  >
+                    <Copy size={15} />
+                  </button>
+                </Tooltip>
               </div>
-            </div>
-          </div>
+            </ToolCardFooter>
+          </ToolCard>
         </div>
 
         {/* 底部动作条 */}
-        <div className="bg-white dark:bg-dark-panel rounded-xl border border-slate-200/80 dark:border-dark-border px-4 py-3 md:px-5 flex items-center justify-between gap-3 flex-wrap shadow-2xs flex-shrink-0">
-          <div className="flex items-center gap-4 md:gap-6 flex-wrap">
-            <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={autoTranslate}
-                onChange={(e) => setAutoTranslate(e.target.checked)}
-                className="w-4 h-4 rounded border-slate-300 dark:border-dark-border text-brand-600 focus:ring-0"
-              />
-              <span>实时自动翻译（防抖 {AUTO_DEBOUNCE_MS}ms）</span>
-            </label>
-            <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500">
-              <span>快捷键:</span>
-              <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-slate-100 dark:bg-dark-hover border border-slate-200 dark:border-dark-border border-b-2 rounded text-slate-500 dark:text-slate-400">
-                Enter
-              </kbd>
-              <span>立即翻译</span>
-              <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-slate-100 dark:bg-dark-hover border border-slate-200 dark:border-dark-border border-b-2 rounded text-slate-500 dark:text-slate-400">
-                Shift
-              </kbd>
-              <span>+</span>
-              <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-slate-100 dark:bg-dark-hover border border-slate-200 dark:border-dark-border border-b-2 rounded text-slate-500 dark:text-slate-400">
-                Enter
-              </kbd>
-              <span>换行</span>
+        <ToolActionBar
+          info={
+            <div className="flex items-center gap-4 md:gap-6 flex-wrap">
+              <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={autoTranslate}
+                  onChange={(e) => setAutoTranslate(e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-300 dark:border-dark-border accent-brand-600 focus:ring-0"
+                />
+                <span>实时自动翻译（防抖 {AUTO_DEBOUNCE_MS}ms）</span>
+              </label>
+              <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-slate-400 dark:text-slate-500">
+                <span>快捷键:</span>
+                <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-slate-100 dark:bg-dark-hover border border-slate-200 dark:border-dark-border border-b-2 rounded text-slate-500 dark:text-slate-400">
+                  Enter
+                </kbd>
+                <span>立即翻译</span>
+                <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-slate-100 dark:bg-dark-hover border border-slate-200 dark:border-dark-border border-b-2 rounded text-slate-500 dark:text-slate-400">
+                  Shift
+                </kbd>
+                <span>+</span>
+                <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-slate-100 dark:bg-dark-hover border border-slate-200 dark:border-dark-border border-b-2 rounded text-slate-500 dark:text-slate-400">
+                  Enter
+                </kbd>
+                <span>换行</span>
+              </div>
             </div>
-          </div>
-
+          }
+        >
           <button
             onClick={() => void handleTranslate()}
             disabled={!canTranslate}
-            className="tool-button-primary h-9 px-5 bg-brand-600 hover:bg-brand-700 shadow-sm shadow-brand-500/20 disabled:opacity-40"
+            className={BTN.primary}
           >
             {isTranslating ? (
               <>
@@ -749,7 +752,7 @@ export default function TextTranslateTool() {
               </>
             )}
           </button>
-        </div>
+        </ToolActionBar>
       </div>
     </ToolShell>
   )

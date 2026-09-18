@@ -36,16 +36,21 @@ function ToolLoading() {
   )
 }
 
+/**
+ * 工具页容器。
+ *
+ * 切换动画不在这里做 —— 页面本身不动、也不交叉淡化（那样总有一层要淡出，
+ * 免不了发虚），改成各工具内容自己「级联落位」：顶栏瞬间就位，卡片依次落下，
+ * 见 index.css 的 .tool-cascade。
+ */
 export default function ToolPage({ toolId }: { toolId: string }) {
   const tool = tools.find((item) => item.id === toolId)
   const ToolComponent = toolId ? toolComponents[toolId] : null
 
   if (!tool || !ToolComponent) {
     return (
-      <div className="flex h-full items-center justify-center bg-white">
-        <div className="text-center">
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight">未找到工具</h2>
-        </div>
+      <div className="flex h-full items-center justify-center bg-white dark:bg-dark-bg">
+        <h2 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">未找到工具</h2>
       </div>
     )
   }

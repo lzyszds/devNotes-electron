@@ -1,4 +1,5 @@
-import type { ComponentType, ReactNode } from 'react'
+import { forwardRef } from 'react'
+import type { ComponentType, ReactNode, Ref } from 'react'
 
 type IconComponent = ComponentType<{ size?: number | string; className?: string }>
 
@@ -36,17 +37,25 @@ export interface ToolBadgeProps {
   children: ReactNode
 }
 
-/** 标题右侧的状态徽章 */
-export function ToolBadge({
-  tone = 'emerald',
-  dot = true,
-  pulse = false,
-  onClick,
-  className: extraClassName = '',
-  children,
-}: ToolBadgeProps) {
+/**
+ * 标题右侧的状态徽章。
+ *
+ * 必须转发 ref：Tooltip 是用 cloneElement 把 ref 挂到子元素上来定位气泡的，
+ * 函数组件不接 ref 的话，外面套一层 Tooltip 就会报警告、气泡也定位不到。
+ */
+export const ToolBadge = forwardRef<HTMLElement, ToolBadgeProps>(function ToolBadge(
+  {
+    tone = 'emerald',
+    dot = true,
+    pulse = false,
+    onClick,
+    className: extraClassName = '',
+    children,
+  },
+  ref,
+) {
   const { box, dot: dotClass } = BADGE_TONES[tone]
-  const className = `flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium border transition ${box} ${extraClassName}`
+  const className = `inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full text-[11px] font-medium border transition ${box} ${extraClassName}`
   const content = (
     <>
       {dot && <span className={`w-1.5 h-1.5 rounded-full ${dotClass} ${pulse ? 'animate-pulse' : ''}`} />}
@@ -56,13 +65,22 @@ export function ToolBadge({
 
   if (onClick) {
     return (
-      <button type="button" onClick={onClick} className={`${className} hover:brightness-[0.98]`}>
+      <button
+        ref={ref as Ref<HTMLButtonElement>}
+        type="button"
+        onClick={onClick}
+        className={`${className} hover:brightness-[0.98]`}
+      >
         {content}
       </button>
     )
   }
-  return <span className={className}>{content}</span>
-}
+  return (
+    <span ref={ref as Ref<HTMLSpanElement>} className={className}>
+      {content}
+    </span>
+  )
+})
 
 export interface ToolShellProps {
   /** 顶栏左侧图标（lucide 组件） */
@@ -77,11 +95,16 @@ export interface ToolShellProps {
   /** 顶栏右侧操作区：引擎下拉、历史记录按钮等 */
   actions?: ReactNode
   /**
+   * 「中控命令轨」：标题下方的一条白色工具栏，放模式切换、引擎选择等高频控件。
+   * 传了就在标题与内容区之间渲染一条 command-rail 风格的横条。
+   */
+  rail?: ReactNode
+  /**
    * 内容区是否套一层带内边距的滚动容器（默认套）。
    * 满高双栏这类自己要管滚动的布局传 false。
    */
   scroll?: boolean
-  /** 追加到内容区容器上的类名 */
+  /** 追加类名 */
   contentClassName?: string
   /** 浮层（历史记录等）。必须挂在根节点下 —— .history-overlay 靠 absolute 定位 */
   overlay?: ReactNode
@@ -101,6 +124,7 @@ export default function ToolShell({
   subtitle,
   badge,
   actions,
+  rail,
   scroll = true,
   contentClassName = '',
   overlay,
@@ -109,26 +133,29 @@ export default function ToolShell({
   return (
     <div className="relative flex h-full min-h-0 bg-slate-50/60 dark:bg-dark-bg overflow-hidden text-slate-900 dark:text-slate-100">
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="flex-wrap gap-3 px-4 py-3 md:px-8 md:py-4 bg-white dark:bg-dark-panel border-b border-slate-200/80 dark:border-dark-border flex items-center justify-between flex-shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
+        <header className="flex-wrap gap-3 px-4 py-3 md:px-6 md:py-3 bg-white dark:bg-dark-panel border-b border-slate-200/70 dark:border-dark-border flex items-center justify-between flex-shrink-0">
+          <div className="flex items-center gap-3.5 min-w-0">
+            {/* 渐变 squircle 图标 + 品牌色光晕，内缘一道高光 */}
             <div
               className={`h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${
                 iconTone === 'brand'
-                  ? 'bg-brand-600 text-white shadow-sm shadow-brand-500/20'
-                  : 'bg-slate-100 text-slate-400 dark:bg-dark-hover dark:text-slate-500'
+                  ? 'bg-brand-600 text-white shadow-md shadow-brand-500/25 inset-highlight'
+                  : 'bg-slate-200 text-slate-500 dark:bg-dark-hover dark:text-slate-500'
               }`}
             >
-              <Icon size={20} />
+              <Icon size={19} />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-base font-bold text-slate-900 dark:text-white leading-none">
+                <h2 className="text-[17px] font-bold tracking-[-0.2px] text-slate-900 dark:text-white leading-none">
                   {title}
                 </h2>
                 {badge}
               </div>
               {subtitle && (
-                <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 truncate">{subtitle}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 truncate">
+                  {subtitle}
+                </p>
               )}
             </div>
           </div>
@@ -136,9 +163,17 @@ export default function ToolShell({
           {actions && <div className="flex items-center gap-2 flex-shrink-0">{actions}</div>}
         </header>
 
+        {rail && (
+          <div className="px-4 md:px-6 py-3 shrink-0 bg-white dark:bg-dark-panel">
+            <div className="bg-white dark:bg-dark-panel border border-slate-200/70 dark:border-dark-border rounded-[10px] shadow-[0_1px_3px_rgba(0,0,0,0.03),0_6px_16px_-4px_rgba(0,0,0,0.03)] px-3 py-2 flex items-center justify-between gap-3 flex-wrap">
+              {rail}
+            </div>
+          </div>
+        )}
+
         {scroll ? (
           <div
-            className={`flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 flex flex-col gap-4 ${contentClassName}`}
+            className={`flex-1 overflow-y-auto p-4 md:p-6 flex flex-col gap-3.5 ${contentClassName}`}
           >
             {children}
           </div>

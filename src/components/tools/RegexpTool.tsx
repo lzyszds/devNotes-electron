@@ -2,7 +2,20 @@ import { useState } from 'react'
 import { Binary, Code2, Copy, Filter, History, ListTree, Search, Trash2, TriangleAlert } from 'lucide-react'
 import { useToolHistory } from '../../hooks/useToolHistory'
 import { useHistoryContextMenu } from '../../hooks/useHistoryContextMenu'
-import { ToolBadge, ToolHistoryOverlay, ToolShell } from '../ui'
+import {
+  BODY_TEXTAREA,
+  ToolBadge,
+  ToolCard,
+  ToolCardFooter,
+  ToolCardHeader,
+  ToolEmpty,
+  ToolHistoryOverlay,
+  ToolNotice,
+  ToolShell,
+  ToolTag,
+  iconButtonClass,
+  pillClass,
+} from '../ui'
 import Tooltip from '../ui/Tooltip'
 import { useToast } from '../ui/Toast'
 import { copyText } from '../../utils/clipboard'
@@ -127,72 +140,74 @@ export default function RegexpTool() {
       }
     >
       {error && (
-        <div className="status-note border-rose-100 bg-rose-50/30 text-rose-600 dark:border-rose-500/25 dark:bg-rose-500/10 dark:text-rose-300 flex items-start gap-2 flex-shrink-0">
-          <TriangleAlert size={14} className="mt-px shrink-0" />
+        <ToolNotice tone="error" icon={TriangleAlert}>
           <p className="whitespace-pre-line font-mono">{error}</p>
-        </div>
+        </ToolNotice>
       )}
 
       {/* 正则表达式 */}
-      <div className="bg-white dark:bg-dark-panel rounded-2xl border border-slate-200/90 dark:border-dark-border shadow-sm flex-shrink-0">
-        <div className="px-4 py-2.5 border-b border-slate-100 dark:border-dark-border bg-slate-50/50 dark:bg-dark-sidebar/40 rounded-t-2xl flex items-center justify-between gap-2">
-          <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">正则表达式</span>
-          <div className="flex gap-1">
-            {FLAG_OPTIONS.map((f) => {
-              const active = flags.includes(f)
-              return (
-                <button
-                  key={f}
-                  type="button"
-                  onClick={() => toggleFlag(f)}
-                  title={`修饰符 ${f}`}
-                  className={`w-7 h-7 rounded-lg text-[11px] font-bold uppercase transition ${
-                    active
-                      ? 'bg-brand-600 text-white shadow-sm'
-                      : 'bg-white dark:bg-dark-panel border border-slate-200 dark:border-dark-border text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
-                  }`}
-                >
-                  {f}
-                </button>
-              )
-            })}
-          </div>
-        </div>
+      <ToolCard fill={false}>
+        <ToolCardHeader
+          title="正则表达式"
+          sublabel={<span className="font-mono">/{pattern || '…'}/{flags}</span>}
+          actions={
+            <div className="flex gap-1">
+              {FLAG_OPTIONS.map((f) => {
+                const active = flags.includes(f)
+                return (
+                  <button
+                    key={f}
+                    type="button"
+                    onClick={() => toggleFlag(f)}
+                    title={`修饰符 ${f}`}
+                    className={`h-7 w-7 rounded-lg text-[11px] font-bold uppercase transition-colors ${
+                      active
+                        ? 'bg-brand-600 text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-600 dark:bg-dark-hover dark:text-slate-500 dark:hover:bg-dark-border dark:hover:text-slate-300'
+                    }`}
+                  >
+                    {f}
+                  </button>
+                )
+              })}
+            </div>
+          }
+        />
 
         <div className="p-4 space-y-3">
-          <div className="flex items-center gap-2 rounded-xl border border-slate-200/80 dark:border-dark-border bg-slate-50 dark:bg-dark-sidebar px-4 py-3 focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/10 transition">
-            <span className="text-lg font-mono text-slate-300 dark:text-slate-600">/</span>
+          <div className="flex items-center gap-2 h-11 rounded-[10px] border border-slate-200/80 dark:border-dark-border bg-white dark:bg-dark-panel px-3.5 focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-500/10 transition">
+            <span className="text-base font-mono text-slate-300 dark:text-slate-600">/</span>
             <input
               type="text"
               value={pattern}
               onChange={(e) => setPattern(e.target.value)}
               placeholder="在此输入正则表达式 (例如: [a-z0-9]+)"
-              className="flex-1 min-w-0 bg-transparent border-none outline-none font-mono text-base font-bold text-slate-900 dark:text-white placeholder:text-slate-300 dark:placeholder:text-slate-600"
+              className="flex-1 min-w-0 bg-transparent border-none outline-none font-mono text-[13px] font-medium text-slate-900 dark:text-white placeholder:text-slate-300 dark:placeholder:text-slate-600"
             />
-            <span className="text-lg font-mono text-slate-300 dark:text-slate-600">/</span>
+            <span className="text-base font-mono text-slate-300 dark:text-slate-600">/</span>
             <input
               type="text"
               value={flags}
               onChange={(e) => setFlags(e.target.value)}
               placeholder="修饰符"
               title="修饰符"
-              className="w-14 bg-transparent border-none outline-none font-mono text-base font-bold text-brand-600 dark:text-brand-400 text-center placeholder:text-slate-300 dark:placeholder:text-slate-600"
+              className="w-14 bg-transparent border-none outline-none font-mono text-[13px] font-medium text-brand-600 dark:text-brand-400 text-center placeholder:text-slate-300 dark:placeholder:text-slate-600"
             />
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest shrink-0">
+            <span className="flex items-center gap-1.5 text-[11px] font-medium text-slate-400 dark:text-slate-500 shrink-0">
               <Filter size={12} />
               常用库
             </span>
-            <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+            <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
               {templates.map((t) => (
                 <button
                   key={t.name}
                   type="button"
                   onClick={() => useTemplate(t.pattern)}
                   title={t.desc}
-                  className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-dark-border bg-white dark:bg-dark-panel text-[11px] font-semibold text-slate-500 dark:text-slate-400 hover:border-brand-500 hover:text-brand-600 dark:hover:text-brand-400 transition whitespace-nowrap"
+                  className={pillClass(false, 'whitespace-nowrap')}
                 >
                   {t.name}
                 </button>
@@ -200,61 +215,67 @@ export default function RegexpTool() {
             </div>
           </div>
         </div>
-      </div>
+      </ToolCard>
 
       {/* 待测试文本 / 匹配结果 */}
-      <div className="flex-1 grid grid-cols-1 xl:grid-cols-2 gap-4 min-h-[440px]">
-        <div className="bg-white dark:bg-dark-panel rounded-2xl border border-slate-200/90 dark:border-dark-border shadow-sm flex flex-col min-h-0">
-          <div className="px-4 py-2.5 border-b border-slate-100 dark:border-dark-border flex items-center justify-between gap-2 bg-slate-50/50 dark:bg-dark-sidebar/40 rounded-t-2xl flex-shrink-0">
-            <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
-              <Code2 size={13} className="text-brand-600 dark:text-brand-400" />
-              待测试文本
-            </span>
-            <Tooltip content="清空测试文本">
-              <button
-                type="button"
-                onClick={() => {
-                  setTestText('')
-                  setMatches([])
-                }}
-                disabled={!testText}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 dark:hover:text-rose-400 transition disabled:opacity-40 disabled:pointer-events-none"
-              >
-                <Trash2 size={15} />
-              </button>
-            </Tooltip>
-          </div>
+      <div className="tool-cascade flex-1 grid grid-cols-1 xl:grid-cols-2 gap-4 min-h-[440px]">
+        <ToolCard>
+          <ToolCardHeader
+            title="待测试文本"
+            icon={Code2}
+            actions={
+              <Tooltip content="清空测试文本">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTestText('')
+                    setMatches([])
+                  }}
+                  disabled={!testText}
+                  className={iconButtonClass('danger')}
+                >
+                  <Trash2 size={15} />
+                </button>
+              </Tooltip>
+            }
+          />
 
-          <div className="flex-1 p-4 flex flex-col min-h-0">
+          <div className="flex-1 min-h-0 p-4 flex flex-col">
             <textarea
               value={testText}
               onChange={(e) => setTestText(e.target.value)}
               placeholder="在此输入需要进行正则匹配测试的长文本…"
-              className="w-full flex-1 bg-transparent resize-none outline-none font-mono text-slate-800 dark:text-slate-100 text-sm leading-relaxed placeholder:text-slate-400 dark:placeholder:text-slate-600"
+              className={BODY_TEXTAREA}
             />
           </div>
 
-          <div className="px-4 py-2.5 border-t border-slate-100 dark:border-dark-border flex items-center justify-end gap-3 text-xs bg-slate-50/40 dark:bg-dark-sidebar/30 rounded-b-2xl flex-shrink-0">
-            <span className="font-mono text-slate-500 dark:text-slate-500">{testText.length} 字符</span>
-          </div>
-        </div>
+          <ToolCardFooter>
+            <span className="font-mono">{testText.length} 字符</span>
+          </ToolCardFooter>
+        </ToolCard>
 
-        <div className="bg-white dark:bg-dark-panel rounded-2xl border border-slate-200/90 dark:border-dark-border shadow-sm flex flex-col min-h-0">
-          <div className="px-4 py-2.5 border-b border-slate-100 dark:border-dark-border flex items-center justify-between gap-2 bg-slate-50/50 dark:bg-dark-sidebar/40 rounded-t-2xl flex-shrink-0">
-            <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
-              <ListTree size={13} className="text-brand-600 dark:text-brand-400" />
-              匹配提取结果
-            </span>
-            <span className="text-[11px] text-slate-400 dark:text-slate-500">{matches.length} 项</span>
-          </div>
+        <ToolCard>
+          <ToolCardHeader
+            title="匹配提取结果"
+            icon={ListTree}
+            meta={<ToolTag tone="brand">{matches.length} 项</ToolTag>}
+            actions={
+              <Tooltip content="复制全部匹配">
+                <button
+                  type="button"
+                  onClick={() => void copyAll()}
+                  disabled={matches.length === 0}
+                  className={iconButtonClass('brand')}
+                >
+                  <Copy size={15} />
+                </button>
+              </Tooltip>
+            }
+          />
 
           <div className="flex-1 min-h-0 flex flex-col">
             {error ? (
-              <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-rose-600 dark:text-rose-300">
-                <TriangleAlert size={28} className="mb-3 opacity-30" />
-                <p className="text-[10px] font-black uppercase mb-1">语法错误</p>
-                <p className="text-xs font-medium font-mono leading-relaxed">{error}</p>
-              </div>
+              <ToolEmpty icon={TriangleAlert} title="正则语法错误" hint={error} className="flex-1" />
             ) : matches.length > 0 ? (
               <div className="flex-1 divide-y divide-slate-50 dark:divide-dark-border overflow-y-auto">
                 {matches.map((match, i) => (
@@ -272,29 +293,15 @@ export default function RegexpTool() {
                 ))}
               </div>
             ) : (
-              <div className="flex-1 flex flex-col items-center justify-center py-16 text-slate-300 dark:text-slate-600 px-8 text-center">
-                <Search size={36} className="mb-3 opacity-15" />
-                <p className="text-[11px] font-bold uppercase tracking-widest leading-relaxed">
-                  未检测到匹配项
-                  <br />
-                  请调整正则或输入文本
-                </p>
-              </div>
+              <ToolEmpty
+                icon={Search}
+                title="未检测到匹配项"
+                hint="请调整正则表达式或输入测试文本"
+                className="flex-1"
+              />
             )}
           </div>
-
-          <div className="px-4 py-2.5 border-t border-slate-100 dark:border-dark-border flex items-center justify-end gap-3 text-xs bg-slate-50/40 dark:bg-dark-sidebar/30 rounded-b-2xl flex-shrink-0">
-            <button
-              type="button"
-              onClick={() => void copyAll()}
-              disabled={matches.length === 0}
-              className="px-3 py-1 bg-white dark:bg-dark-panel hover:bg-slate-50 dark:hover:bg-dark-hover text-slate-700 dark:text-slate-200 font-medium border border-slate-200 dark:border-dark-border rounded-md transition shadow-2xs flex items-center gap-1.5 disabled:opacity-40 disabled:pointer-events-none"
-            >
-              <Copy size={13} className="text-slate-500 dark:text-slate-400" />
-              <span>全部复制</span>
-            </button>
-          </div>
-        </div>
+        </ToolCard>
       </div>
     </ToolShell>
   )

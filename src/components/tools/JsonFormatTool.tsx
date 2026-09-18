@@ -18,7 +18,18 @@ import {
 } from "lucide-react";
 import { useToolHistory } from "../../hooks/useToolHistory";
 import { useHistoryContextMenu } from "../../hooks/useHistoryContextMenu";
-import { ToolBadge, ToolHistoryOverlay, ToolShell } from "../ui";
+import {
+  CodeEditor,
+  Segmented,
+  StatTile,
+  ToolBadge,
+  ToolCard,
+  ToolCardHeader,
+  ToolEmpty,
+  ToolHistoryOverlay,
+  ToolShell,
+  iconButtonClass,
+} from "../ui";
 import Tooltip from "../ui/Tooltip";
 
 type JsonFormatToolProps = {
@@ -201,33 +212,13 @@ const diffStyles: Record<DiffLine["status"], string> = {
     "bg-amber-50 text-amber-700 border-l-2 border-amber-500 dark:bg-amber-500/10 dark:text-amber-300",
 };
 
-/** 统计卡的语义色：匹配=灰、新增=绿、删除=红、修改=琥珀，深浅两套都写死，
- *  不用模板字符串拼类名 —— 拼出来的类名 Tailwind 扫不到，只是碰巧别处有同名字符串才生效 */
-const DIFF_STAT_TONES = {
-  same: {
-    box: "border-slate-100 dark:border-dark-border",
-    label: "text-slate-500 dark:text-slate-400",
-  },
-  added: {
-    box: "border-emerald-100 dark:border-emerald-500/25",
-    label: "text-emerald-500 dark:text-emerald-400",
-  },
-  removed: {
-    box: "border-rose-100 dark:border-rose-500/25",
-    label: "text-rose-500 dark:text-rose-400",
-  },
-  changed: {
-    box: "border-amber-100 dark:border-amber-500/25",
-    label: "text-amber-500 dark:text-amber-400",
-  },
-} as const;
-
-const CARD = "bg-white dark:bg-dark-panel rounded-2xl border border-slate-200/90 dark:border-dark-border shadow-sm flex flex-col min-h-0";
-const CARD_HEAD = "px-4 py-2.5 border-b border-slate-100 dark:border-dark-border bg-slate-50/50 dark:bg-dark-sidebar/40 rounded-t-2xl flex items-center justify-between gap-2 flex-shrink-0";
-const CARD_HEAD_LABEL = "text-xs font-semibold text-slate-700 dark:text-slate-300";
-const CARD_FOOT = "px-4 py-2.5 border-t border-slate-100 dark:border-dark-border bg-slate-50/40 dark:bg-dark-sidebar/30 rounded-b-2xl flex items-center justify-end gap-3 text-xs flex-shrink-0";
-const ICON_BTN = "p-1.5 rounded-lg text-slate-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-500/10 dark:hover:text-brand-400 transition disabled:opacity-40 disabled:pointer-events-none";
-const BODY_TEXTAREA = "w-full flex-1 bg-transparent resize-none outline-none font-mono text-slate-800 dark:text-slate-100 text-sm leading-relaxed placeholder:text-slate-400 dark:placeholder:text-slate-600";
+/** 统计卡的语义色：匹配=灰、新增=绿、删除=红、修改=琥珀 */
+const DIFF_STAT_TONES: Record<DiffLine["status"], { tone: "neutral" | "emerald" | "rose" | "amber" }> = {
+  same: { tone: "neutral" },
+  added: { tone: "emerald" },
+  removed: { tone: "rose" },
+  changed: { tone: "amber" },
+};
 
 /* --- Main Tool Component --- */
 
@@ -445,69 +436,48 @@ export default function JsonFormatTool({
               { key: "changed", label: "修改", value: diffStats.changed },
             ] as const
           ).map((stat) => (
-            <div
+            <StatTile
               key={stat.key}
-              className={`p-4 rounded-2xl border bg-white dark:bg-dark-panel shadow-sm ${DIFF_STAT_TONES[stat.key].box}`}
-            >
-              <p
-                className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${DIFF_STAT_TONES[stat.key].label}`}
-              >
-                {stat.label}
-              </p>
-              <p className="text-2xl font-bold text-slate-900 dark:text-white tabular-nums">
-                {stat.value}
-              </p>
-            </div>
+              label={stat.label}
+              value={stat.value}
+              tone={DIFF_STAT_TONES[stat.key].tone}
+            />
           ))}
         </div>
 
         {/* 两份 JSON */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 flex-1 min-h-[400px]">
-          <div className={CARD}>
-            <div className={CARD_HEAD}>
-              <span className={CARD_HEAD_LABEL}>原始 JSON（左侧）</span>
-              <span className="text-[11px] text-slate-400 dark:text-slate-500">
-                {leftInput.length} 字符
-              </span>
-            </div>
-            <div className="flex-1 p-4 flex flex-col min-h-0">
-              <textarea
-                value={leftInput}
-                onChange={(e) => setLeftInput(e.target.value)}
-                placeholder="在这里粘贴原始 JSON..."
-                className={BODY_TEXTAREA}
-              />
-            </div>
-          </div>
+        <div className="tool-cascade grid grid-cols-1 xl:grid-cols-2 gap-4 flex-1 min-h-[400px]">
+          <ToolCard>
+            <ToolCardHeader title="原始 JSON（左侧）" meta={`${leftInput.length} 字符`} />
+            <CodeEditor
+              value={leftInput}
+              onChange={setLeftInput}
+              placeholder="在这里粘贴原始 JSON..."
+            />
+          </ToolCard>
 
-          <div className={CARD}>
-            <div className={CARD_HEAD}>
-              <span className={CARD_HEAD_LABEL}>比对 JSON（右侧）</span>
-              <span className="text-[11px] text-slate-400 dark:text-slate-500">
-                {rightInput.length} 字符
-              </span>
-            </div>
-            <div className="flex-1 p-4 flex flex-col min-h-0">
-              <textarea
-                value={rightInput}
-                onChange={(e) => setRightInput(e.target.value)}
-                placeholder="在这里粘贴要比对的 JSON..."
-                className={BODY_TEXTAREA}
-              />
-            </div>
-          </div>
+          <ToolCard>
+            <ToolCardHeader title="比对 JSON（右侧）" meta={`${rightInput.length} 字符`} />
+            <CodeEditor
+              value={rightInput}
+              onChange={setRightInput}
+              placeholder="在这里粘贴要比对的 JSON..."
+            />
+          </ToolCard>
         </div>
 
         {/* 逐行差异 */}
         {!diffError && diffLines.length > 0 && (
-          <div className={`${CARD} flex-1 min-h-[320px]`}>
-            <div className={CARD_HEAD}>
-              <span className={CARD_HEAD_LABEL}>逐行差异视图</span>
-              <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium border border-emerald-200/70 bg-emerald-50 text-emerald-700 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300">
-                <CheckCircle2 size={11} />
-                实时比对中
-              </span>
-            </div>
+          <ToolCard className="flex-1 min-h-[320px]">
+            <ToolCardHeader
+              title="逐行差异视图"
+              actions={
+                <ToolBadge tone="emerald">
+                  <CheckCircle2 size={11} />
+                  实时比对中
+                </ToolBadge>
+              }
+            />
             <div className="flex-1 min-h-0 divide-y divide-slate-50 dark:divide-dark-border overflow-y-auto">
               {diffLines.map((line, index) => (
                 <div
@@ -538,7 +508,7 @@ export default function JsonFormatTool({
                 </div>
               ))}
             </div>
-          </div>
+          </ToolCard>
         )}
       </ToolShell>
     );
@@ -605,112 +575,92 @@ export default function JsonFormatTool({
         />
       }
     >
-      <div className="flex-1 min-h-0 p-4 md:p-6 lg:p-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 h-full">
+      <div className="flex-1 min-h-0 p-4 md:p-6">
+        <div className="tool-cascade grid grid-cols-1 lg:grid-cols-2 gap-4 h-full">
           {/* 原始输入 */}
-          <div className={CARD}>
-            <div className={CARD_HEAD}>
-              <span className={CARD_HEAD_LABEL}>原始 JSON 输入</span>
-              <span className="text-[11px] text-slate-400 dark:text-slate-500">
-                {input.length} 字符
-              </span>
-            </div>
-            <div className="flex-1 p-4 flex flex-col min-h-0">
-              <textarea
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="请在此粘贴 JSON 内容..."
-                className={BODY_TEXTAREA}
-              />
-            </div>
-            <div className={CARD_FOOT}>
-              <button
-                onClick={() => setInput("")}
-                disabled={!input}
-                className="px-3 py-1 bg-white dark:bg-dark-panel hover:bg-slate-50 dark:hover:bg-dark-hover text-slate-700 dark:text-slate-200 font-medium border border-slate-200 dark:border-dark-border rounded-md transition shadow-2xs flex items-center gap-1.5 disabled:opacity-40 disabled:pointer-events-none"
-              >
-                <Trash2 size={13} className="text-slate-500 dark:text-slate-400" />
-                <span>清空输入</span>
-              </button>
-            </div>
-          </div>
+          <ToolCard>
+            <ToolCardHeader
+              title="原始 JSON 输入"
+              meta={`${input.length} 字符`}
+              actions={
+                <Tooltip content="清空输入">
+                  <button
+                    onClick={() => setInput("")}
+                    disabled={!input}
+                    className={iconButtonClass("danger")}
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </Tooltip>
+              }
+            />
+
+            <CodeEditor
+              value={input}
+              onChange={setInput}
+              placeholder="请在此粘贴 JSON 内容..."
+            />
+          </ToolCard>
 
           {/* 处理结果 */}
-          <div className={CARD}>
-            <div className={CARD_HEAD}>
-              <span className={CARD_HEAD_LABEL}>处理结果展示</span>
-              <div className="flex items-center gap-2">
-                <div className="flex items-center p-0.5 bg-slate-100 dark:bg-dark-sidebar rounded-lg">
-                  <button
-                    onClick={() => setViewMode("text")}
-                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-semibold transition-all ${
-                      viewMode === "text"
-                        ? "bg-white dark:bg-dark-panel text-brand-600 dark:text-brand-400 shadow-2xs"
-                        : "text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
-                    }`}
-                  >
-                    <Type size={11} /> 文本
-                  </button>
-                  <button
-                    onClick={() => setViewMode("tree")}
-                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-semibold transition-all ${
-                      viewMode === "tree"
-                        ? "bg-white dark:bg-dark-panel text-brand-600 dark:text-brand-400 shadow-2xs"
-                        : "text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
-                    }`}
-                  >
-                    <ListTree size={11} /> 树形
-                  </button>
-                </div>
-                <Tooltip content="复制结果">
-                  <button onClick={copyOutput} disabled={!output} className={ICON_BTN}>
-                    <Copy size={15} />
-                  </button>
-                </Tooltip>
-                <Tooltip content="下载结果">
-                  <button onClick={downloadOutput} disabled={!output} className={ICON_BTN}>
-                    <Download size={15} />
-                  </button>
-                </Tooltip>
-              </div>
-            </div>
+          <ToolCard>
+            <ToolCardHeader
+              title="处理结果"
+              actions={
+                <>
+                  <Segmented
+                    value={viewMode}
+                    onChange={setViewMode}
+                    options={[
+                      { value: "text", label: "文本", icon: Type },
+                      { value: "tree", label: "树形", icon: ListTree },
+                    ]}
+                  />
+                  <Tooltip content="复制结果">
+                    <button onClick={copyOutput} disabled={!output} className={iconButtonClass("brand")}>
+                      <Copy size={15} />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content="下载结果">
+                    <button
+                      onClick={downloadOutput}
+                      disabled={!output}
+                      className={iconButtonClass("brand")}
+                    >
+                      <Download size={15} />
+                    </button>
+                  </Tooltip>
+                </>
+              }
+            />
 
             <div className="flex-1 min-h-0 flex flex-col">
               {error ? (
-                <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-rose-600 dark:text-rose-300">
-                  <AlertTriangle size={32} className="mb-3 opacity-20" />
-                  <p className="text-[10px] font-bold uppercase tracking-tight mb-1">解析错误</p>
-                  <p className="text-xs font-medium max-w-xs whitespace-pre-line">{error}</p>
-                </div>
+                <ToolEmpty
+                  icon={AlertTriangle}
+                  title="解析错误"
+                  hint={error}
+                  className="flex-1"
+                />
               ) : output ? (
-                <div className="flex-1 min-h-0 m-4 rounded-xl border border-brand-100 dark:border-brand-500/20 bg-brand-50/[0.02] dark:bg-brand-500/[0.04] overflow-hidden flex flex-col">
-                  {viewMode === "text" ? (
-                    <textarea
-                      value={output}
-                      readOnly
-                      placeholder="格式化结果将在此显示..."
-                      className="w-full h-full border-none bg-transparent font-mono text-sm leading-relaxed p-4 resize-none outline-none text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-600"
-                    />
-                  ) : (
-                    <div className="h-full overflow-y-auto p-4">
-                      {parsedOutput ? (
-                        <JsonTreeView data={parsedOutput} />
-                      ) : (
-                        <div className="text-slate-300 dark:text-slate-600 italic text-xs">
-                          正在渲染树形结构...
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
+                viewMode === "text" ? (
+                  <CodeEditor value={output} readOnly placeholder="格式化结果将在此显示..." />
+                ) : (
+                  <div className="flex-1 min-h-0 overflow-y-auto p-4">
+                    {parsedOutput ? (
+                      <JsonTreeView data={parsedOutput} />
+                    ) : (
+                      <div className="text-slate-300 dark:text-slate-600 text-xs">
+                        正在渲染树形结构...
+                      </div>
+                    )}
+                  </div>
+                )
               ) : (
-                <div className="flex-1 m-4 rounded-xl border border-dashed border-slate-200 dark:border-dark-border flex flex-col items-center justify-center text-slate-300 dark:text-slate-600 text-[11px] font-bold uppercase tracking-[0.2em] gap-3">
-                  <Minimize2 size={24} className="opacity-20" />
-                  等待美化操作...
-                </div>
+                <ToolEmpty icon={Braces} title="等待美化操作" hint="粘贴 JSON 后点击「美化」" className="flex-1" />
               )}
             </div>
-          </div>
+          </ToolCard>
         </div>
       </div>
     </ToolShell>

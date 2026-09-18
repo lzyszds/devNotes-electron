@@ -1,8 +1,16 @@
 import { useState, useEffect } from 'react'
-import { ArrowRight, Calendar, Clock, Copy, Hash, History, Timer } from 'lucide-react'
+import { ArrowRight, Calendar, Clock, Copy, Hash, History } from 'lucide-react'
 import { useToolHistory } from '../../hooks/useToolHistory'
 import { useHistoryContextMenu } from '../../hooks/useHistoryContextMenu'
-import { ToolBadge, ToolHistoryOverlay, ToolShell } from '../ui'
+import {
+  BTN,
+  ToolBadge,
+  ToolCard,
+  ToolCardHeader,
+  ToolHistoryOverlay,
+  ToolShell,
+  iconButtonClass,
+} from '../ui'
 import Tooltip from '../ui/Tooltip'
 import { useToast } from '../ui/Toast'
 import { copyText } from '../../utils/clipboard'
@@ -95,62 +103,50 @@ export default function TimestampTool() {
       }
     >
       {/* 实时系统时钟 */}
-      <div className="relative overflow-hidden rounded-2xl bg-slate-900 border border-slate-200/90 dark:border-dark-border shadow-sm p-6 flex-shrink-0">
-        <div className="absolute top-0 right-0 p-6 opacity-[0.05] pointer-events-none">
-          <Timer size={140} />
-        </div>
-
-        <div className="relative z-10 space-y-5">
-          <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">
-              实时系统时钟
+      <ToolCard fill={false}>
+        <div className="px-5 py-4 flex flex-wrap items-center gap-x-8 gap-y-4">
+          <div className="flex items-center gap-3.5 min-w-0">
+            <span className="relative flex h-2 w-2 shrink-0">
+              <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60 animate-ping" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
             </span>
-          </div>
-
-          <div className="space-y-1">
-            <div className="text-5xl font-mono font-black tracking-tighter leading-none text-white">
-              {currentTime.toLocaleTimeString('zh-CN', { hour12: false })}
-            </div>
-            <p className="text-base font-bold text-slate-400 tracking-wide">
-              {currentTime.toLocaleDateString('zh-CN', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-                weekday: 'short',
-              })}
-            </p>
-          </div>
-
-          <div className="flex gap-3 flex-wrap">
-            <div className="px-4 py-2 rounded-xl bg-white/[0.05] border border-white/10">
-              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1 text-center">
-                秒 (Epoch)
+            <div className="min-w-0">
+              <div className="font-mono text-[28px] font-semibold tracking-tight leading-none text-slate-900 dark:text-white tabular-nums">
+                {currentTime.toLocaleTimeString('zh-CN', { hour12: false })}
+              </div>
+              <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1.5">
+                {currentTime.toLocaleDateString('zh-CN', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                  weekday: 'short',
+                })}
               </p>
-              <p className="text-sm font-mono font-bold text-brand-300">
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <div className="rounded-xl border border-slate-200/70 dark:border-dark-border bg-slate-50/70 dark:bg-dark-hover/40 px-3.5 py-2">
+              <p className="text-[11px] text-slate-400 dark:text-slate-500 mb-1">秒 (Epoch)</p>
+              <p className="font-mono text-[13px] font-semibold text-brand-600 dark:text-brand-400 tabular-nums">
                 {Math.floor(currentTime.getTime() / 1000)}
               </p>
             </div>
-            <div className="px-4 py-2 rounded-xl bg-white/[0.05] border border-white/10">
-              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1 text-center">
-                毫秒 (Millis)
+            <div className="rounded-xl border border-slate-200/70 dark:border-dark-border bg-slate-50/70 dark:bg-dark-hover/40 px-3.5 py-2">
+              <p className="text-[11px] text-slate-400 dark:text-slate-500 mb-1">毫秒 (Millis)</p>
+              <p className="font-mono text-[13px] font-semibold text-sky-600 dark:text-sky-400 tabular-nums">
+                {currentTime.getTime()}
               </p>
-              <p className="text-sm font-mono font-bold text-sky-300">{currentTime.getTime()}</p>
             </div>
           </div>
         </div>
-      </div>
+      </ToolCard>
 
       {/* 两个方向的转换 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="tool-cascade grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* 时间戳 → 日期 */}
-        <div className="bg-white dark:bg-dark-panel rounded-2xl border border-slate-200/90 dark:border-dark-border shadow-sm flex flex-col">
-          <div className="px-4 py-2.5 border-b border-slate-100 dark:border-dark-border bg-slate-50/50 dark:bg-dark-sidebar/40 rounded-t-2xl flex-shrink-0">
-            <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
-              <Hash size={13} className="text-brand-600 dark:text-brand-400" />
-              时间戳 转 日期
-            </span>
-          </div>
+        <ToolCard>
+          <ToolCardHeader title="时间戳 转 日期" icon={Hash} />
 
           <div className="flex-1 p-4 flex flex-col gap-3">
             <input
@@ -163,7 +159,7 @@ export default function TimestampTool() {
             <button
               onClick={timestampToDate}
               disabled={!inputTimestamp}
-              className="tool-button-primary h-9 w-full"
+              className={`${BTN.primary} w-full`}
             >
               <span>开始转换</span>
               <ArrowRight size={14} />
@@ -171,19 +167,19 @@ export default function TimestampTool() {
 
             <div className="mt-auto">
               {timestampResult ? (
-                <div className="p-3 rounded-xl bg-brand-50 dark:bg-brand-500/10 border border-brand-100 dark:border-brand-500/25 flex items-center justify-between gap-3">
+                <div className="p-3 rounded-xl bg-brand-50/60 dark:bg-brand-500/10 border border-brand-100 dark:border-brand-500/20 flex items-center justify-between gap-3">
                   <div className="flex flex-col min-w-0">
-                    <span className="text-[10px] font-bold text-brand-500 dark:text-brand-400 uppercase mb-0.5">
+                    <span className="text-[11px] text-brand-600/80 dark:text-brand-400/80 mb-0.5">
                       本地时间
                     </span>
-                    <span className="text-sm font-bold text-brand-900 dark:text-brand-200 truncate">
+                    <span className="text-[13px] font-semibold text-brand-900 dark:text-brand-100 truncate">
                       {timestampResult}
                     </span>
                   </div>
                   <Tooltip content="复制本地时间">
                     <button
                       onClick={() => void copy(timestampResult, '本地时间')}
-                      className="p-1.5 rounded-lg text-brand-600 dark:text-brand-400 hover:bg-brand-100 dark:hover:bg-brand-500/20 transition flex-shrink-0"
+                      className={iconButtonClass('brand')}
                     >
                       <Copy size={14} />
                     </button>
@@ -196,28 +192,23 @@ export default function TimestampTool() {
               )}
             </div>
           </div>
-        </div>
+        </ToolCard>
 
         {/* 日期 → 时间戳 */}
-        <div className="bg-white dark:bg-dark-panel rounded-2xl border border-slate-200/90 dark:border-dark-border shadow-sm flex flex-col">
-          <div className="px-4 py-2.5 border-b border-slate-100 dark:border-dark-border bg-slate-50/50 dark:bg-dark-sidebar/40 rounded-t-2xl flex-shrink-0">
-            <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
-              <Calendar size={13} className="text-brand-600 dark:text-brand-400" />
-              日期 转 时间戳
-            </span>
-          </div>
+        <ToolCard>
+          <ToolCardHeader title="日期 转 时间戳" icon={Calendar} />
 
           <div className="flex-1 p-4 flex flex-col gap-3">
             <input
               type="datetime-local"
               value={inputDate}
               onChange={(e) => setInputDate(e.target.value)}
-              className="tool-input h-[44px]"
+              className="tool-input"
             />
             <button
               onClick={dateToTimestamp}
               disabled={!inputDate}
-              className="tool-button-primary h-9 w-full"
+              className={`${BTN.primary} w-full`}
             >
               <span>开始转换</span>
               <ArrowRight size={14} />
@@ -225,19 +216,19 @@ export default function TimestampTool() {
 
             <div className="mt-auto">
               {dateResult ? (
-                <div className="p-3 rounded-xl bg-brand-50 dark:bg-brand-500/10 border border-brand-100 dark:border-brand-500/25 flex items-center justify-between gap-3">
+                <div className="p-3 rounded-xl bg-brand-50/60 dark:bg-brand-500/10 border border-brand-100 dark:border-brand-500/20 flex items-center justify-between gap-3">
                   <div className="flex flex-col min-w-0">
-                    <span className="text-[10px] font-bold text-brand-500 dark:text-brand-400 uppercase mb-0.5">
+                    <span className="text-[11px] text-brand-600/80 dark:text-brand-400/80 mb-0.5">
                       UNIX 时间戳
                     </span>
-                    <span className="text-sm font-bold text-brand-900 dark:text-brand-200 truncate">
+                    <span className="text-[13px] font-semibold text-brand-900 dark:text-brand-100 truncate">
                       {dateResult}
                     </span>
                   </div>
                   <Tooltip content="复制 UNIX 时间戳">
                     <button
                       onClick={() => void copy(dateResult, 'UNIX 时间戳')}
-                      className="p-1.5 rounded-lg text-brand-600 dark:text-brand-400 hover:bg-brand-100 dark:hover:bg-brand-500/20 transition flex-shrink-0"
+                      className={iconButtonClass('brand')}
                     >
                       <Copy size={14} />
                     </button>
@@ -250,7 +241,7 @@ export default function TimestampTool() {
               )}
             </div>
           </div>
-        </div>
+        </ToolCard>
       </div>
     </ToolShell>
   )

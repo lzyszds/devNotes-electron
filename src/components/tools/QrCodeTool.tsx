@@ -2,7 +2,18 @@ import { useState, useRef, useEffect } from 'react'
 import { Copy, Download, History, Move, Palette, QrCode, RefreshCw, Type } from 'lucide-react'
 import { useToolHistory } from '../../hooks/useToolHistory'
 import { useHistoryContextMenu } from '../../hooks/useHistoryContextMenu'
-import { ToolBadge, ToolHistoryOverlay, ToolShell } from '../ui'
+import {
+  BTN,
+  ToolActionBar,
+  ToolBadge,
+  ToolCard,
+  ToolCardFooter,
+  ToolCardHeader,
+  ToolHistoryOverlay,
+  ToolShell,
+  ToolTag,
+  iconButtonClass,
+} from '../ui'
 import Tooltip from '../ui/Tooltip'
 import { useToast } from '../ui/Toast'
 
@@ -142,43 +153,36 @@ export default function QrCodeTool() {
         />
       }
     >
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-4 items-start">
+      <div className="tool-cascade flex-1 grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-4 items-start">
         {/* ---------------- 内容与参数 ---------------- */}
         <div className="space-y-4">
-          <div className="bg-white dark:bg-dark-panel rounded-2xl border border-slate-200/90 dark:border-dark-border shadow-sm flex flex-col">
-            <div className="px-4 py-2.5 border-b border-slate-100 dark:border-dark-border bg-slate-50/50 dark:bg-dark-sidebar/40 rounded-t-2xl flex-shrink-0">
-              <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
-                <Type size={13} className="text-brand-600 dark:text-brand-400" />
-                二维码内容（URL / 文本）
-              </span>
-            </div>
+          <ToolCard fill={false}>
+            <ToolCardHeader title="二维码内容" icon={Type} meta="URL / 文本" />
 
             <div className="p-4 flex flex-col">
               <textarea
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 placeholder="输入需要转换成二维码的内容…"
-                className="w-full min-h-[140px] bg-transparent resize-none outline-none text-slate-800 dark:text-slate-100 text-sm leading-relaxed placeholder:text-slate-400 dark:placeholder:text-slate-600"
+                className="w-full min-h-[120px] bg-transparent resize-none outline-none text-[13px] leading-6 text-slate-800 dark:text-slate-100 placeholder:text-slate-300 dark:placeholder:text-slate-600"
               />
             </div>
 
-            <div className="px-4 py-2.5 border-t border-slate-100 dark:border-dark-border flex items-center justify-end gap-3 text-xs bg-slate-50/40 dark:bg-dark-sidebar/30 rounded-b-2xl flex-shrink-0">
-              <span className="font-mono text-slate-500 dark:text-slate-500">{text.length} 字符</span>
-            </div>
-          </div>
+            <ToolCardFooter>
+              <span className="font-mono">{text.length} 字符</span>
+            </ToolCardFooter>
+          </ToolCard>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* 尺寸 */}
-            <div className="bg-white dark:bg-dark-panel rounded-2xl border border-slate-200/90 dark:border-dark-border shadow-sm flex flex-col">
-              <div className="px-4 py-2.5 border-b border-slate-100 dark:border-dark-border bg-slate-50/50 dark:bg-dark-sidebar/40 rounded-t-2xl flex-shrink-0">
-                <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  <Move size={13} className="text-brand-600 dark:text-brand-400" />
-                  尺寸规格
-                </span>
-              </div>
-              <div className="flex-1 p-4 flex flex-col gap-4">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-3xl font-bold text-slate-900 dark:text-white tabular-nums">{size}</span>
+            <ToolCard fill={false}>
+              <ToolCardHeader title="尺寸规格" icon={Move} />
+
+              <div className="p-4 flex flex-col gap-4">
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-[28px] font-semibold text-slate-900 dark:text-white tabular-nums leading-none">
+                    {size}
+                  </span>
                   <span className="text-[11px] text-slate-400 dark:text-slate-500">像素</span>
                 </div>
                 <input
@@ -188,60 +192,68 @@ export default function QrCodeTool() {
                   step="20"
                   value={size}
                   onChange={(e) => setSize(Number(e.target.value))}
-                  className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-slate-200 dark:bg-dark-hover accent-brand-600"
+                  className="tool-range"
                 />
-                <p className="text-[10px] text-slate-400 dark:text-slate-500">120 ~ 500 px，步进 20</p>
+                <p className="text-[11px] text-slate-400 dark:text-slate-500">120 ~ 500 px，步进 20</p>
               </div>
-            </div>
+            </ToolCard>
 
             {/* 配色 */}
-            <div className="bg-white dark:bg-dark-panel rounded-2xl border border-slate-200/90 dark:border-dark-border shadow-sm flex flex-col">
-              <div className="px-4 py-2.5 border-b border-slate-100 dark:border-dark-border bg-slate-50/50 dark:bg-dark-sidebar/40 rounded-t-2xl flex-shrink-0">
-                <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  <Palette size={13} className="text-brand-600 dark:text-brand-400" />
-                  外观配色
-                </span>
-              </div>
-              <div className="flex-1 p-4 flex flex-col gap-3">
-                <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200/80 dark:border-dark-border bg-slate-50 dark:bg-dark-sidebar px-3 py-2">
-                  <div className="flex items-center gap-2.5">
+            <ToolCard fill={false}>
+              <ToolCardHeader title="外观配色" icon={Palette} />
+
+              <div className="p-4 flex flex-col gap-2.5">
+                <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-200/70 dark:border-dark-border bg-slate-50/70 dark:bg-dark-hover/40 pl-2.5 pr-3 py-2 cursor-pointer">
+                  <span className="flex items-center gap-2.5">
                     <input
                       type="color"
                       value={fgColor}
                       onChange={(e) => setFgColor(e.target.value)}
-                      className="w-8 h-8 rounded-lg border-0 bg-transparent cursor-pointer"
+                      className="w-7 h-7 rounded-lg border-0 bg-transparent cursor-pointer p-0"
                     />
-                    <span className="text-[11px] text-slate-600 dark:text-slate-300">前景色</span>
-                  </div>
-                  <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500">{fgColor}</span>
-                </div>
+                    <span className="text-xs font-medium text-slate-600 dark:text-slate-300">前景色</span>
+                  </span>
+                  <span className="text-[11px] font-mono text-slate-400 dark:text-slate-500">{fgColor}</span>
+                </label>
 
-                <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200/80 dark:border-dark-border bg-slate-50 dark:bg-dark-sidebar px-3 py-2">
-                  <div className="flex items-center gap-2.5">
+                <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-200/70 dark:border-dark-border bg-slate-50/70 dark:bg-dark-hover/40 pl-2.5 pr-3 py-2 cursor-pointer">
+                  <span className="flex items-center gap-2.5">
                     <input
                       type="color"
                       value={bgColor}
                       onChange={(e) => setBgColor(e.target.value)}
-                      className="w-8 h-8 rounded-lg border-0 bg-transparent cursor-pointer"
+                      className="w-7 h-7 rounded-lg border-0 bg-transparent cursor-pointer p-0"
                     />
-                    <span className="text-[11px] text-slate-600 dark:text-slate-300">背景色</span>
-                  </div>
-                  <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500">{bgColor}</span>
-                </div>
+                    <span className="text-xs font-medium text-slate-600 dark:text-slate-300">背景色</span>
+                  </span>
+                  <span className="text-[11px] font-mono text-slate-400 dark:text-slate-500">{bgColor}</span>
+                </label>
               </div>
-            </div>
+            </ToolCard>
           </div>
         </div>
 
         {/* ---------------- 预览 ---------------- */}
-        <div className="bg-white dark:bg-dark-panel rounded-2xl border border-slate-200/90 dark:border-dark-border shadow-sm flex flex-col">
-          <div className="px-4 py-2.5 border-b border-slate-100 dark:border-dark-border bg-slate-50/50 dark:bg-dark-sidebar/40 rounded-t-2xl flex items-center justify-between gap-2 flex-shrink-0">
-            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">预览</span>
-            <span className="text-[11px] text-slate-400 dark:text-slate-500">1:1 渲染视图</span>
-          </div>
+        <ToolCard fill={false}>
+          <ToolCardHeader
+            title="预览"
+            meta={<ToolTag tone="emerald">{size} × {size} px</ToolTag>}
+            actions={
+              <Tooltip content="复制图片">
+                <button
+                  type="button"
+                  onClick={() => void copyQR()}
+                  disabled={!qrDataUrl}
+                  className={iconButtonClass('brand')}
+                >
+                  <Copy size={15} />
+                </button>
+              </Tooltip>
+            }
+          />
 
-          <div className="flex-1 p-6 flex items-center justify-center">
-            <div className="rounded-xl overflow-hidden border border-slate-100 dark:border-dark-border bg-white p-3 shadow-inner">
+          <div className="p-6 flex items-center justify-center bg-slate-50/50 dark:bg-dark-bg/30 rounded-b-2xl">
+            <div className="rounded-xl overflow-hidden bg-white p-3 shadow-[0_1px_3px_rgba(15,23,42,0.08)] ring-1 ring-slate-200/60">
               <canvas ref={canvasRef} className="hidden" />
               {qrDataUrl ? (
                 <img
@@ -260,43 +272,22 @@ export default function QrCodeTool() {
               )}
             </div>
           </div>
-
-          <div className="px-4 py-2.5 border-t border-slate-100 dark:border-dark-border flex items-center justify-end gap-3 text-xs bg-slate-50/40 dark:bg-dark-sidebar/30 rounded-b-2xl flex-shrink-0">
-            <button
-              type="button"
-              onClick={() => void copyQR()}
-              disabled={!qrDataUrl}
-              className="px-3 py-1 bg-white dark:bg-dark-panel hover:bg-slate-50 dark:hover:bg-dark-hover text-slate-700 dark:text-slate-200 font-medium border border-slate-200 dark:border-dark-border rounded-md transition shadow-2xs flex items-center gap-1.5 disabled:opacity-40 disabled:pointer-events-none"
-            >
-              <Copy size={13} className="text-slate-500 dark:text-slate-400" />
-              <span>复制图片</span>
-            </button>
-          </div>
-        </div>
+        </ToolCard>
       </div>
 
       {/* 底部动作条 */}
-      <div className="bg-white dark:bg-dark-panel rounded-xl border border-slate-200/80 dark:border-dark-border px-4 py-3 md:px-5 flex items-center justify-between gap-3 flex-wrap shadow-2xs flex-shrink-0">
-        <span className="text-xs text-slate-400 dark:text-slate-500">
-          改内容或参数会即时重绘；这里生成的图案仅供占位示意
-        </span>
-        <div className="flex items-center gap-2">
-          <Tooltip content="把当前内容收藏到历史记录">
-            <button
-              onClick={saveToHistoryManual}
-              disabled={!text.trim()}
-              className="tool-button-secondary h-9"
-            >
-              <History size={14} />
-              <span>收藏内容</span>
-            </button>
-          </Tooltip>
-          <button onClick={generateQR} className="tool-button-secondary h-9">
-            <RefreshCw size={14} />
-            <span>重新生成</span>
+      <ToolActionBar info="改内容或参数会即时重绘；这里生成的图案仅供占位示意">
+        <Tooltip content="把当前内容收藏到历史记录">
+          <button onClick={saveToHistoryManual} disabled={!text.trim()} className={BTN.secondary}>
+            <History size={14} />
+            <span>收藏内容</span>
           </button>
-        </div>
-      </div>
+        </Tooltip>
+        <button onClick={generateQR} className={BTN.secondary}>
+          <RefreshCw size={14} />
+          <span>重新生成</span>
+        </button>
+      </ToolActionBar>
     </ToolShell>
   )
 }

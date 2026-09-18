@@ -1,8 +1,17 @@
 import { useState, useEffect } from 'react'
-import { Copy, Eye, EyeOff, History, RefreshCw, Settings2, ShieldCheck, Zap } from 'lucide-react'
+import { Check, Copy, Eye, EyeOff, History, RefreshCw, Settings2, ShieldCheck, Zap } from 'lucide-react'
 import { useToolHistory } from '../../hooks/useToolHistory'
 import { useHistoryContextMenu } from '../../hooks/useHistoryContextMenu'
-import { ToolBadge, ToolHistoryOverlay, ToolShell } from '../ui'
+import {
+  BTN,
+  ToolActionBar,
+  ToolBadge,
+  ToolCard,
+  ToolCardHeader,
+  ToolHistoryOverlay,
+  ToolShell,
+  iconButtonClass,
+} from '../ui'
 import Tooltip from '../ui/Tooltip'
 import { useToast } from '../ui/Toast'
 import { copyText } from '../../utils/clipboard'
@@ -148,41 +157,52 @@ export default function PasswordTool() {
       }
     >
       {/* 生成结果 */}
-      <div className="bg-white dark:bg-dark-panel rounded-2xl border border-slate-200/90 dark:border-dark-border shadow-sm p-6 flex-shrink-0">
-        <div className="flex items-center justify-between gap-2 mb-4">
-          <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">生成的随机密钥</span>
-          <div className="flex items-center gap-1.5">
-            <Tooltip content={showPassword ? '隐藏密码' : '显示密码'}>
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-500/10 dark:hover:text-brand-400 transition"
-              >
-                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </Tooltip>
-            <Tooltip content="复制密码">
-              <button
-                type="button"
-                onClick={() => void copyPassword()}
-                disabled={!password}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-500/10 dark:hover:text-brand-400 transition disabled:opacity-40 disabled:pointer-events-none"
-              >
-                <Copy size={16} />
-              </button>
-            </Tooltip>
+      <ToolCard fill={false}>
+        <ToolCardHeader
+          title="生成的随机密钥"
+          actions={
+            <>
+              <Tooltip content={showPassword ? '隐藏密码' : '显示密码'}>
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className={iconButtonClass('brand')}
+                >
+                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </Tooltip>
+              <Tooltip content="复制密码">
+                <button
+                  type="button"
+                  onClick={() => void copyPassword()}
+                  disabled={!password}
+                  className={iconButtonClass('brand')}
+                >
+                  <Copy size={15} />
+                </button>
+              </Tooltip>
+            </>
+          }
+        />
+
+        <div className="p-5">
+          <div className="font-mono text-[22px] md:text-[26px] font-semibold tracking-tight break-all select-text text-slate-900 dark:text-white leading-snug">
+            {showPassword ? password : password.replace(/./g, '•')}
           </div>
-        </div>
 
-        <div className="font-mono text-2xl md:text-3xl font-bold tracking-tight break-all select-text text-slate-900 dark:text-white">
-          {showPassword ? password : password.replace(/./g, '•')}
-        </div>
-
-        <div className="mt-6 space-y-2">
-          <div className="flex items-center justify-between text-[11px]">
-            <span className="text-slate-400 dark:text-slate-500">密码强度</span>
+          <div className="mt-5 flex items-center gap-3">
+            <div className="flex gap-1.5 flex-1 max-w-[280px]">
+              {[0, 1, 2, 3].map((step) => (
+                <span
+                  key={step}
+                  className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${
+                    strength >= (step + 1) * 25 ? getStrengthColor() : 'bg-slate-100 dark:bg-dark-hover'
+                  }`}
+                />
+              ))}
+            </div>
             <span
-              className={`font-semibold ${
+              className={`text-[11px] font-semibold ${
                 strength < 40
                   ? 'text-rose-500'
                   : strength < 70
@@ -193,28 +213,19 @@ export default function PasswordTool() {
               {getStrengthText()}
             </span>
           </div>
-          <div className="h-1.5 w-full bg-slate-100 dark:bg-dark-hover rounded-full overflow-hidden">
-            <div
-              className={`h-full ${getStrengthColor()} transition-all duration-500`}
-              style={{ width: `${strength}%` }}
-            />
-          </div>
         </div>
-      </div>
+      </ToolCard>
 
       {/* 生成参数 */}
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr] gap-4">
-        <div className="bg-white dark:bg-dark-panel rounded-2xl border border-slate-200/90 dark:border-dark-border shadow-sm flex flex-col">
-          <div className="px-4 py-2.5 border-b border-slate-100 dark:border-dark-border bg-slate-50/50 dark:bg-dark-sidebar/40 rounded-t-2xl flex-shrink-0">
-            <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
-              <Settings2 size={13} className="text-brand-600 dark:text-brand-400" />
-              密码字符长度
-            </span>
-          </div>
+      <div className="tool-cascade grid grid-cols-1 md:grid-cols-[1fr_2fr] gap-4">
+        <ToolCard>
+          <ToolCardHeader title="密码字符长度" icon={Settings2} />
 
           <div className="flex-1 p-4 flex flex-col justify-center gap-4">
-            <div className="flex items-baseline gap-2">
-              <span className="text-4xl font-bold text-slate-900 dark:text-white tabular-nums">{length}</span>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-[32px] font-semibold text-slate-900 dark:text-white tabular-nums leading-none">
+                {length}
+              </span>
               <span className="text-[11px] text-slate-400 dark:text-slate-500">位</span>
             </div>
             <input
@@ -223,65 +234,70 @@ export default function PasswordTool() {
               max="64"
               value={length}
               onChange={(e) => setLength(Number(e.target.value))}
-              className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-slate-200 dark:bg-dark-hover accent-brand-600"
+              className="tool-range"
             />
-            <p className="text-[10px] text-slate-400 dark:text-slate-500">4 位最短，64 位最长</p>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500">4 位最短，64 位最长</p>
           </div>
-        </div>
+        </ToolCard>
 
-        <div className="bg-white dark:bg-dark-panel rounded-2xl border border-slate-200/90 dark:border-dark-border shadow-sm flex flex-col">
-          <div className="px-4 py-2.5 border-b border-slate-100 dark:border-dark-border bg-slate-50/50 dark:bg-dark-sidebar/40 rounded-t-2xl flex-shrink-0">
-            <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
-              <Zap size={13} className="text-brand-600 dark:text-brand-400" />
-              包含字符类型
-            </span>
-          </div>
+        <ToolCard>
+          <ToolCardHeader title="包含字符类型" icon={Zap} />
 
-          <div className="flex-1 p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="flex-1 p-4 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             {Object.entries(CHAR_OPTIONS).map(([key, val]) => {
               const active = options[key as keyof typeof options]
               return (
                 <label
                   key={key}
-                  className={`flex items-center justify-between gap-3 p-3 rounded-xl border cursor-pointer transition ${
+                  className={`flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer transition-colors ${
                     active
-                      ? 'border-brand-300 bg-brand-50/50 dark:border-brand-500/40 dark:bg-brand-500/10'
-                      : 'border-slate-200 dark:border-dark-border opacity-60'
+                      ? 'border-brand-200/70 bg-brand-50/50 dark:border-brand-500/30 dark:bg-brand-500/10'
+                      : 'border-slate-200/70 dark:border-dark-border hover:bg-slate-50 dark:hover:bg-dark-hover'
                   }`}
                 >
-                  <div className="flex flex-col min-w-0">
-                    <span className="text-[11px] font-semibold text-slate-900 dark:text-white">
-                      {val.label}
-                    </span>
-                    <span className="text-[10px] text-slate-400 dark:text-slate-500">{val.sub}</span>
-                  </div>
                   <input
                     type="checkbox"
                     checked={active}
                     onChange={(e) => setOptions((prev) => ({ ...prev, [key]: e.target.checked }))}
-                    className="w-4 h-4 rounded border-slate-300 dark:border-dark-border text-brand-600 focus:ring-0 cursor-pointer"
+                    className="sr-only"
                   />
+                  <span
+                    className={`w-4 h-4 rounded-[5px] border flex items-center justify-center shrink-0 transition-colors ${
+                      active
+                        ? 'border-brand-600 bg-brand-600 text-white'
+                        : 'border-slate-300 dark:border-slate-600'
+                    }`}
+                  >
+                    {active && <Check size={11} strokeWidth={3} />}
+                  </span>
+                  <span className="flex flex-col min-w-0">
+                    <span className="text-xs font-semibold text-slate-800 dark:text-slate-100">
+                      {val.label}
+                    </span>
+                    <span className="text-[11px] font-mono text-slate-400 dark:text-slate-500">
+                      {val.sub}
+                    </span>
+                  </span>
                 </label>
               )
             })}
           </div>
-        </div>
+        </ToolCard>
       </div>
 
       {/* 底部动作条 */}
-      <div className="bg-white dark:bg-dark-panel rounded-xl border border-slate-200/80 dark:border-dark-border px-4 py-3 md:px-5 flex items-center justify-between gap-3 flex-wrap shadow-2xs flex-shrink-0">
-        <span className="text-xs text-slate-400 dark:text-slate-500">
-          密码只在本机生成，不会上传；存入历史的条目可以在「密码库」里找回
-        </span>
+      <ToolActionBar
+        info="密码只在本机生成，不会上传；存入历史的条目可以在「密码库」里找回"
+      >
         <button
           onClick={saveToHistoryManual}
           disabled={!password}
-          className="tool-button-secondary h-9"
+          className={BTN.secondary}
         >
           <History size={14} />
           <span>存入保险箱历史</span>
         </button>
-      </div>
+      </ToolActionBar>
     </ToolShell>
   )
 }

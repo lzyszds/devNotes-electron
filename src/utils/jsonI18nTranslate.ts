@@ -125,6 +125,8 @@ export interface TranslateBatchOptions {
   textConcurrency?: number;
   protectedTerms?: string[];
   onProgress?: (done: number, total: number) => void;
+  /** 返回 true 时不再派发新的翻译请求（用于「暂停」） */
+  shouldStop?: () => boolean;
 }
 
 export interface TranslateBatchResult {
@@ -147,6 +149,7 @@ export async function translateTextBatch(
     textConcurrency = DEFAULT_TEXT_CONCURRENCY,
     protectedTerms = [],
     onProgress,
+    shouldStop,
   } = options;
 
   // 自定义接口走独立路径：失败即报错，绝不改道 MyMemory
@@ -159,7 +162,8 @@ export async function translateTextBatch(
       providerConfig,
       textConcurrency,
       protectedTerms,
-      onProgress
+      onProgress,
+      shouldStop
     );
   }
 
@@ -181,7 +185,8 @@ export async function translateTextBatch(
           texts,
           translateOne,
           textConcurrency,
-          onProgress
+          onProgress,
+          shouldStop
         );
         const hasAny = results.some((r, i) => r && r.trim() && r !== texts[i]);
         if (hasAny) {
@@ -198,7 +203,8 @@ export async function translateTextBatch(
     texts,
     translateOneMyMemoryProtected,
     Math.min(3, textConcurrency),
-    onProgress
+    onProgress,
+    shouldStop
   );
   const hasAny = results.some((r, i) => r && r.trim() && r !== texts[i]);
   if (hasAny) {
@@ -221,7 +227,8 @@ async function translateBatchWithProvider(
   config: TranslateApiConfig | undefined,
   textConcurrency: number,
   protectedTerms: string[],
-  onProgress?: (done: number, total: number) => void
+  onProgress?: (done: number, total: number) => void,
+  shouldStop?: () => boolean
 ): Promise<TranslateBatchResult> {
   const label = providerLabel(provider);
 
@@ -263,7 +270,8 @@ async function translateBatchWithProvider(
     texts,
     translateOne,
     Math.min(4, textConcurrency),
-    onProgress
+    onProgress,
+    shouldStop
   );
 
   if (failed === 0) {
@@ -371,6 +379,8 @@ export interface MultiLangTranslateOptions {
   textConcurrency?: number;
   langConcurrency?: number;
   protectedTerms?: string[];
+  /** 返回 true 时不再派发新的翻译请求（用于「暂停」） */
+  shouldStop?: () => boolean;
   onLangStart?: (lang: string) => void;
   onLangProgress?: (lang: string, done: number, total: number) => void;
   onLangComplete?: (result: LangTranslateResult) => void;
@@ -390,6 +400,7 @@ export async function translateMultiLang(
     textConcurrency = DEFAULT_TEXT_CONCURRENCY,
     langConcurrency = DEFAULT_LANG_CONCURRENCY,
     protectedTerms = [],
+    shouldStop,
     onLangStart,
     onLangProgress,
     onLangComplete,
@@ -412,6 +423,7 @@ export async function translateMultiLang(
         providerConfig,
         textConcurrency,
         protectedTerms,
+        shouldStop,
         onProgress: (done, total) => {
           onLangProgress?.(targetLang, done, total);
         },

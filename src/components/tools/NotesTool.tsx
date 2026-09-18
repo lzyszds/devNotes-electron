@@ -266,7 +266,7 @@ export default function NotesTool() {
       {/* 顶部文档条：左显示当前文档名（列表滚动后仍能确认在编辑哪一篇），右为内核切换。
           预览态下它是「工具」，整条收掉；移动端标题已在顶栏、缩放靠手势，这条一并收掉 */}
       {!previewing && !isMobile && (
-      <div className="relative z-40 flex-shrink-0 h-9 px-3 flex items-center justify-between gap-3 border-b border-slate-200/80 dark:border-dark-border bg-slate-50 dark:bg-dark-sidebar">
+      <div className="relative z-40 flex-shrink-0 h-9 px-3 flex items-center justify-between gap-3 border-b border-slate-200/80 dark:border-dark-border">
         <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-slate-400 dark:text-slate-500">
           {activeNote.title || '未命名文档'}
         </span>

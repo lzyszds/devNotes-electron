@@ -674,6 +674,21 @@ html.dark ::-webkit-scrollbar-thumb:hover {
   }
 }
 
+/*
+ * 工作台级联落位：切换工具时顶栏瞬间就位，下面的卡片自上而下依次落位，
+ * 每张相隔 40ms。页面本身不移动、也不交叉淡化 —— 动的是内容自己。
+ */
+@keyframes tool-card-land {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 @keyframes overlay-fade-in {
   from {
     opacity: 0;
@@ -754,6 +769,29 @@ html.dark ::-webkit-scrollbar-thumb:hover {
     transform-origin: center center;
   }
 
+  /*
+   * 级联落位的容器：挂在直接摆着卡片的那一层上，它的每个直接子元素依次落位。
+   *
+   * 用 nth-child 排延迟而不是让外面传进来：卡片数量各工具不同，但都是「自上而下
+   * 一块块铺下去」这一个意思，排在 CSS 里各处不必各写一遍。
+   * 第 5 个往后不再加延迟 —— 再拖就成慢动作了。
+   */
+  .tool-cascade > * {
+    animation: tool-card-land 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .tool-cascade > *:nth-child(2) {
+    animation-delay: 40ms;
+  }
+
+  .tool-cascade > *:nth-child(3) {
+    animation-delay: 80ms;
+  }
+
+  .tool-cascade > *:nth-child(4) {
+    animation-delay: 120ms;
+  }
+
   .motion-lift {
     @apply transition-all duration-300;
   }
@@ -772,35 +810,70 @@ html.dark ::-webkit-scrollbar-thumb:hover {
     @apply rounded-xl border border-slate-50 bg-[#F9FAFB] transition-colors duration-200;
   }
 
+  /* 渐变块内缘高光（顶栏 squircle、渐变按钮共用） */
+  .inset-highlight {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  }
+
   /* Premium Form Inputs */
   .tool-input {
-    @apply w-full rounded-xl border border-slate-200/80 bg-white px-4 py-2.5 text-[13px] font-medium text-slate-800 outline-none transition-all duration-200 placeholder:text-slate-400 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 dark:border-dark-border dark:bg-dark-panel dark:text-slate-100 dark:placeholder:text-slate-600;
+    @apply w-full h-9 rounded-[10px] border border-slate-200/80 bg-white px-3 text-[13px] text-slate-800 outline-none transition-all duration-200 placeholder:text-slate-300 focus:border-brand-400 focus:ring-2 focus:ring-brand-500/10 dark:border-dark-border dark:bg-dark-panel dark:text-slate-100 dark:placeholder:text-slate-600;
   }
 
   .tool-textarea {
-    @apply tool-input min-h-[200px] resize-none font-mono text-[13px] leading-6 py-4;
+    @apply tool-input h-auto min-h-[200px] resize-none font-mono leading-6 py-3;
+  }
+
+  /* 滑杆：轨道细、滑块白底描边，深浅两套同一形态 */
+  .tool-range {
+    @apply w-full h-1.5 cursor-pointer appearance-none rounded-full bg-slate-200 outline-none dark:bg-dark-hover;
+  }
+
+  .tool-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 9999px;
+    background: #fff;
+    border: 2px solid rgb(var(--brand-600-rgb, 33 131 151));
+    box-shadow: 0 1px 3px rgb(15 23 42 / 0.18);
+    transition: transform 150ms ease;
+  }
+
+  .tool-range::-webkit-slider-thumb:hover {
+    transform: scale(1.08);
+  }
+
+  .tool-range::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 9999px;
+    background: #fff;
+    border: 2px solid rgb(var(--brand-600-rgb, 33 131 151));
+    box-shadow: 0 1px 3px rgb(15 23 42 / 0.18);
   }
 
   /* Action Buttons */
   .tool-button-primary {
-    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-brand-600 px-5 py-2.5 text-xs font-bold text-white shadow-sm transition-all duration-200 hover:bg-brand-700 hover:shadow-md active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none;
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-brand-600 px-4 h-9 text-[13px] font-semibold text-white shadow-sm shadow-brand-600/20 transition-all duration-150 hover:bg-brand-700 active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none;
   }
 
   .tool-button-secondary {
-    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-bold text-slate-600 transition-all duration-200 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none dark:border-dark-border dark:bg-dark-panel dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-dark-hover dark:hover:text-white;
+    @apply inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-[10px] border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-600 transition-all duration-150 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none dark:border-dark-border dark:bg-dark-panel dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-dark-hover dark:hover:text-white;
   }
 
   .tool-button-accent {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-sky-500 px-5 py-2.5 text-xs font-bold text-white shadow-sm transition-all duration-200 hover:bg-sky-600 hover:shadow-md active:scale-[0.97];
+    @apply inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-[10px] bg-sky-500 px-4 text-xs font-semibold text-white shadow-sm transition-all duration-150 hover:bg-sky-600 active:scale-[0.98];
   }
 
   /* Typography & Labels */
   .tool-label {
-    @apply mb-2 block text-[10px] font-black text-slate-400 uppercase tracking-[0.1em] dark:text-slate-500;
+    @apply block text-[11px] font-semibold text-slate-500 dark:text-slate-400;
   }
 
   .status-note {
-    @apply rounded-xl border px-4 py-3 text-xs font-medium transition-all duration-300;
+    @apply rounded-xl border px-3.5 py-2.5 text-xs leading-relaxed transition-all duration-300;
   }
 
   /* Tool Chips (Categories/Tags) */
@@ -932,6 +1005,7 @@ html.dark ::-webkit-scrollbar-thumb:hover {
   .context-menu,
   .context-menu-submenu,
   .app-scene,
+  .tool-cascade > *,
   .history-overlay,
   .toast-item,
   .tooltip-bubble,
