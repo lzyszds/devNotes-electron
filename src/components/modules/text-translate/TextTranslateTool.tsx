@@ -10,9 +10,9 @@ import {
   TriangleAlert,
   Volume2,
 } from 'lucide-react'
-import { useToolHistory } from '../../hooks/useToolHistory'
-import { useHistoryContextMenu } from '../../hooks/useHistoryContextMenu'
-import Tooltip from '../ui/Tooltip'
+import { useHistoryContextMenu } from '../../../hooks/useHistoryContextMenu'
+import { AUTO_TARGET, useTranslate } from '../../../context/TranslateContext'
+import Tooltip from '../../ui/Tooltip'
 import {
   BTN,
   Select,
@@ -26,9 +26,9 @@ import {
   iconButtonClass,
   pillClass,
   type SelectOption,
-} from '../ui'
-import { useToast } from '../ui/Toast'
-import { copyText } from '../../utils/clipboard'
+} from '../../ui'
+import { useToast } from '../../ui/Toast'
+import { copyText } from '../../../utils/clipboard'
 import {
   describeProvider,
   isProvider,
@@ -37,11 +37,11 @@ import {
   providerLabel,
   subscribeTranslateConfig,
   type TranslateApiConfig,
-} from '../../utils/translateConfig'
-import { translateTextBatch, type TranslationAPI } from '../../utils/jsonI18nTranslate'
-import { openAppSettings } from '../../utils/settingsBus'
-import { speak } from '../../utils/speechSettings'
-import { AUTO_LANG, LANGUAGES, langName } from '../../utils/languages'
+} from '../../../utils/translateConfig'
+import { translateTextBatch, type TranslationAPI } from '../../../utils/jsonI18nTranslate'
+import { openAppSettings } from '../../../utils/settingsBus'
+import { speak } from '../../../utils/speechSettings'
+import { AUTO_LANG, LANGUAGES, langName } from '../../../utils/languages'
 
 const API_OPTIONS: SelectOption<TranslationAPI>[] = [
   { value: 'gtx', label: 'GTX' },
@@ -65,15 +65,10 @@ const TARGET_OPTIONS: SelectOption[] = LANGUAGES.map((item) => ({
 const SOURCE_PILLS = [AUTO_LANG, 'en', 'zh']
 const TARGET_PILLS = ['zh', 'en']
 
-/**
- * 「自动双向」哨兵值。它不是语言码，而是「按输入内容自己决定方向」的模式：
- * 输入是「我的语言」就译到它的对应语言，否则一律译回「我的语言」。
- * 用独立字符串而不是 'auto'，免得和源语言的 AUTO_LANG 撞上。
+/*
+ * 「自动双向」哨兵值 AUTO_TARGET 与「我的语言」的持久化都归模块 context 管
+ * （见 context/TranslateContext.tsx）—— 专属侧边栏要读同一份语言偏好。
  */
-const AUTO_TARGET = 'auto-pair'
-
-/** 「我的语言」的持久化键 */
-const PRIMARY_LANG_KEY = 'text-translate-primary-lang'
 
 /** 「我的语言」对应的另一半；没列到的语言统一配英文 */
 const COUNTERPART: Record<string, string> = {
@@ -213,38 +208,47 @@ function unwrapHardBreaks(text: string): string {
 }
 
 export default function TextTranslateTool() {
-  const [input, setInput] = useState('')
-  const [output, setOutput] = useState('')
-  const [sourceLang, setSourceLang] = useState<string>(AUTO_LANG)
-  // 默认「自动双向」：输入中文出英文、输入英文出中文，不必每次手动切
-  const [targetLang, setTargetLang] = useState<string>(AUTO_TARGET)
-  // 「我的语言」：自动双向时用它定方向，手动选过就记住
-  const [primaryLang, setPrimaryLang] = useState<string>(
-    () => localStorage.getItem(PRIMARY_LANG_KEY) || 'zh'
-  )
+  // 语言偏好、输入输出、历史都在模块 context 里：专属侧边栏与这里共用同一份数据
+  const {
+    input,
+    setInput,
+    output,
+    setOutput,
+    sourceLang,
+    setSourceLang,
+    targetLang,
+    setTargetLang,
+    primaryLang,
+    setPrimaryLang,
+    swapLanguages,
+    history,
+    saveHistory,
+    clearHistory,
+    removeHistoryItem,
+    useHistoryItem,
+    isTranslating,
+    setIsTranslating,
+    elapsed,
+    setElapsed,
+  } = useTranslate()
+
   // 默认走 LibreTranslate：这是设置里已配置好的自定义接口，GTX 在部分网络下不可达
   const [api, setApi] = useState<TranslationAPI>('libretranslate')
   const [translateConfig, setTranslateConfig] = useState<TranslateApiConfig | null>(null)
-  const [isTranslating, setIsTranslating] = useState(false)
   const [progress, setProgress] = useState({ current: 0, total: 0 })
   const [error, setError] = useState('')
   const [showHistory, setShowHistory] = useState(false)
   // 输入停顿即翻；默认开，与设计稿一致
   const [autoTranslate, setAutoTranslate] = useState(true)
   const [unwrapLines, setUnwrapLines] = useState(false)
-  // 最近一次翻译的耗时（毫秒），显示在译文卡片底栏
-  const [elapsed, setElapsed] = useState<number | null>(null)
   const { showToast } = useToast()
 
-  // 交换语言时用来回填目标语言：记住最近一次明确选过的源语言
-  const lastSourceRef = useRef('en')
   // 代际 id：翻译请求没有 AbortSignal，用它在响应回来时丢弃过期的结果
   const runIdRef = useRef(0)
 
-  const { history, saveHistory, clearHistory, removeHistoryItem } = useToolHistory<string>('text-translate')
   const openHistoryMenu = useHistoryContextMenu<string>({
     onUse: (item) => {
-      setInput(item.data)
+      useHistoryItem(item.data)
       setShowHistory(false)
     },
     onRemove: removeHistoryItem,
@@ -255,10 +259,6 @@ export default function TextTranslateTool() {
     loadTranslateConfig().then(setTranslateConfig)
     return subscribeTranslateConfig(setTranslateConfig)
   }, [])
-
-  useEffect(() => {
-    localStorage.setItem(PRIMARY_LANG_KEY, primaryLang)
-  }, [primaryLang])
 
   // 自动双向时方向随输入走；手动选了语言就照手动来
   const effectiveTarget =
@@ -277,21 +277,10 @@ export default function TextTranslateTool() {
         ? 'MyMemory 免费接口 · 需指定源语言'
         : describeProvider(translateConfig)
 
-  const handleSourceChange = (value: string) => {
-    setSourceLang(value)
-    if (value !== AUTO_LANG) lastSourceRef.current = value
-  }
+  // 选源语言时顺带记下「最近一次明确选择」，交换语言要用它兜底 —— context 内部处理
+  const handleSourceChange = setSourceLang
 
-  const handleSwap = () => {
-    const resolvedSource = sourceLang === AUTO_LANG ? lastSourceRef.current : sourceLang
-    setSourceLang(targetLang)
-    setTargetLang(resolvedSource)
-    // 译文回填到输入框，可以立刻回译校验
-    if (output) {
-      setInput(output)
-      setOutput(input)
-    }
-  }
+  const handleSwap = swapLanguages
 
   const handleTranslate = async () => {
     if (!input.trim() || isTranslating || mymemoryAutoBlocked) return

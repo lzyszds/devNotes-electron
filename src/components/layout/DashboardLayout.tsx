@@ -34,7 +34,8 @@ import {
   Settings,
   Sparkles,
 } from 'lucide-react'
-import { tools, toolCategories } from '../../types'
+import { allModules, tools, toolCategories } from '../../types'
+import TranslateSidebar from '../modules/text-translate/TranslateSidebar'
 import ToolPage from '../../pages/ToolPage'
 import { useNotes } from '../../context/NotesContext'
 import SettingsModal, { type SettingsSection } from '../modals/SettingsModal'
@@ -174,6 +175,8 @@ export default function DashboardLayout({
   } = useNotes()
 
   const isMarkdownActive = activeTabId === 'markdown-notes'
+  // 文本翻译是独立模块，二级侧边栏换成它自己的「翻译方向 + 历史」面板
+  const isTranslateActive = activeTabId === 'text-translate'
   const [isMobileMoreOpen, setIsMobileMoreOpen] = useState(false)
   // 移动端顶栏的「已保存 · N 字」胶囊。字数走编辑器总线，
   // 免得顶栏和底部状态栏各算一套、口径对不上。
@@ -479,7 +482,8 @@ export default function DashboardLayout({
     })),
   ].filter((item) => item.title.toLowerCase().includes(cmdSearch.toLowerCase()))
 
-  const currentTool = tools.find((t) => t.id === activeTabId)
+  // 独立模块不在工具库里，得一起查，否则面包屑上的名字会掉成「工具」
+  const currentTool = allModules.find((t) => t.id === activeTabId)
 
   // 顶栏标题右键菜单:笔记视图给出文档动作,工具视图给出工具动作
   const handleBreadcrumbContextMenu = (e: ReactMouseEvent) => {
@@ -561,12 +565,12 @@ export default function DashboardLayout({
       >
         {isMobile ? (
           <>
-            {/* 左：笔记页开文档抽屉，其他工具返回工具中心 */}
-            {isMarkdownActive ? (
+            {/* 左：笔记页与翻译模块有二级侧边栏，其余工具返回工具中心 */}
+            {isMarkdownActive || isTranslateActive ? (
               <button
                 onClick={() => setIsSidebarOpen(true)}
                 className="no-drag -ml-1.5 p-1.5 rounded-lg text-slate-600 dark:text-slate-300 active:bg-slate-100 dark:active:bg-dark-hover"
-                title="打开文档列表"
+                title={isMarkdownActive ? '打开文档列表' : '打开翻译面板'}
               >
                 <Menu className="w-5 h-5" />
               </button>
@@ -648,8 +652,8 @@ export default function DashboardLayout({
             <ChevronLeft className="w-5 h-5" />
           </button>
 
-          {/* 移动端只有笔记页有二级目录，其余工具没有可折叠的目录 */}
-          {(!isMobile || isMarkdownActive) && (
+          {/* 移动端只有笔记页与翻译模块有二级面板，其余工具没有可折叠的目录 */}
+          {(!isMobile || isMarkdownActive || isTranslateActive) && (
             <Tooltip content={isSidebarOpen ? '折叠侧边栏 (⌘B)' : '展开侧边栏 (⌘B)'}>
               <button
                 onClick={() => setIsSidebarOpen((prev) => !prev)}
@@ -803,6 +807,9 @@ export default function DashboardLayout({
                 )}
               </button>
             </Tooltip>
+            {/* 分隔线：上面两个是独立模块（Markdown 笔记 / 文本翻译），下面是工具库小工具 */}
+            <div className="h-[1px] w-6 mx-auto bg-slate-200 dark:bg-dark-border" />
+
             {/* JSON 格式化 */}
             <Tooltip content="JSON 格式化">
               <button
@@ -1127,6 +1134,9 @@ export default function DashboardLayout({
                 )}
               </div>
             </>
+          ) : isTranslateActive ? (
+            /* 文本翻译模块的专属侧边栏：翻译方向 + 历史记录，不再是「组件工具库」那套列表 */
+            <TranslateSidebar />
           ) : (
             /* 其它工具时的侧边栏：分类与工具列表导航 */
             <>

@@ -1,6 +1,6 @@
 import type { MouseEvent as ReactMouseEvent } from 'react'
 import { ArrowLeft, BarChart3, TrendingUp, Clock, Zap } from 'lucide-react'
-import { tools } from '../types'
+import { allModules } from '../types'
 import WindowControls from '../components/layout/WindowControls'
 import Tooltip from '../components/ui/Tooltip'
 
@@ -15,7 +15,7 @@ export default function Stats({ usageStats, onBack }: StatsProps) {
     .map(([id, count]) => ({
       id,
       count,
-      tool: tools.find(t => t.id === id)
+      tool: allModules.find(t => t.id === id)
     }))
     .filter(item => item.tool)
     .sort((a, b) => b.count - a.count)

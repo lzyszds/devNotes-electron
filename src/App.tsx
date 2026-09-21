@@ -3,6 +3,7 @@ import Home from './pages/Home'
 import DashboardLayout from './components/layout/DashboardLayout'
 import Stats from './pages/Stats'
 import { NotesProvider } from './context/NotesContext'
+import { TranslateProvider } from './context/TranslateContext'
 import { ContextMenuProvider } from './components/ui/ContextMenu'
 import { ToastProvider } from './components/ui/Toast'
 import {
@@ -81,30 +82,34 @@ function App() {
     <ToastProvider>
       <ContextMenuProvider>
         <NotesProvider onFileOpenNavigate={navigateToNotes}>
-          {viewMode === 'stats' && (
-            <Stats usageStats={usageStats} onBack={navigateToHub} />
-          )}
+          {/* 文本翻译是独立模块：语言偏好、输入输出、历史放在自己的 Provider 里，
+              翻译页与它的专属二级侧边栏共用同一份状态 */}
+          <TranslateProvider>
+            {viewMode === 'stats' && (
+              <Stats usageStats={usageStats} onBack={navigateToHub} />
+            )}
 
-          {viewMode === 'dashboard' && (
-            <DashboardLayout
-              activeTabId={activeTabId || 'markdown-notes'}
-              onOpenTool={openTool}
-              onBackToHub={navigateToHub}
-              onOpenStats={navigateToStats}
-              theme={theme}
-              onToggleTheme={toggleTheme}
-              onSelectTheme={selectTheme}
-            />
-          )}
+            {viewMode === 'dashboard' && (
+              <DashboardLayout
+                activeTabId={activeTabId || 'markdown-notes'}
+                onOpenTool={openTool}
+                onBackToHub={navigateToHub}
+                onOpenStats={navigateToStats}
+                theme={theme}
+                onToggleTheme={toggleTheme}
+                onSelectTheme={selectTheme}
+              />
+            )}
 
-          {viewMode === 'hub' && (
-            <Home
-              onOpenTool={openTool}
-              onOpenStats={navigateToStats}
-              onBack={() => setViewMode('dashboard')}
-              usageStats={usageStats}
-            />
-          )}
+            {viewMode === 'hub' && (
+              <Home
+                onOpenTool={openTool}
+                onOpenStats={navigateToStats}
+                onBack={() => setViewMode('dashboard')}
+                usageStats={usageStats}
+              />
+            )}
+          </TranslateProvider>
         </NotesProvider>
       </ContextMenuProvider>
     </ToastProvider>

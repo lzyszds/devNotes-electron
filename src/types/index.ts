@@ -21,12 +21,15 @@ export const toolCategories: ToolCategory[] = [
   { id: 'calculator', name: '计算器', icon: 'Calculator' },
 ]
 
+/**
+ * 工具库成员：工具中心的网格、二级侧边栏的「组件工具库」列表都由它渲染。
+ * 只放"随手用一下"的小工具 —— 独立模块（见下）不进这里。
+ */
 export const tools: Tool[] = [
   { id: 'markdown-notes', name: 'Markdown 笔记', icon: 'FileText', description: '本地笔记编辑器，支持双栏与所见即所得两种模式', category: 'productivity' },
   { id: 'json-format', name: 'JSON 美化', icon: 'Braces', description: 'JSON 格式化、排序、压缩', category: 'dev' },
   { id: 'json-diff', name: 'JSON 比对', icon: 'GitCompare', description: 'JSON 结构化比较', category: 'dev' },
   { id: 'json-i18n', name: 'JSON 翻译', icon: 'Languages', description: 'JSON 多语言翻译，支持 JSONPath 和键名映射', category: 'dev' },
-  { id: 'text-translate', name: '文本翻译', icon: 'Languages', description: '中英日韩等 20 种语言互译，支持自动检测源语言', category: 'productivity' },
   { id: 'websocket', name: 'WS 测试工具', icon: 'Radio', description: 'WebSocket 连接和消息测试', category: 'dev' },
   { id: 'qr-code', name: '二维码', icon: 'QrCode', description: '二维码生成和解码', category: 'image' },
   { id: 'en-decode', name: '编码转换', icon: 'ArrowLeftRight', description: 'Base64/URL/Unicode/MD5', category: 'encode' },
@@ -36,3 +39,14 @@ export const tools: Tool[] = [
   { id: 'base64', name: 'Base64', icon: 'FileCode', description: 'Base64 编码解码', category: 'encode' },
   { id: 'url', name: 'URL 编码', icon: 'Link2', description: 'URL 编码解码', category: 'encode' },
 ]
+
+/**
+ * 独立模块：不列入工具库，有自己的入口与专属二级侧边栏，按"模块"而不是"工具"来演进。
+ * 仍复用 Tool 结构，好让使用统计、图标映射、面包屑这些按 id 查找的地方统一处理。
+ */
+export const standaloneModules: Tool[] = [
+  { id: 'text-translate', name: '文本翻译', icon: 'Languages', description: '中英日韩等 20 种语言互译，支持自动检测源语言', category: 'productivity' },
+]
+
+/** 工具库 + 独立模块。按 id 查名字/图标的地方用它，别用 tools，否则独立模块会漏掉 */
+export const allModules: Tool[] = [...tools, ...standaloneModules]

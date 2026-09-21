@@ -7,8 +7,8 @@ import TimestampTool from '../components/tools/TimestampTool'
 import RegexpTool from '../components/tools/RegexpTool'
 import PasswordTool from '../components/tools/PasswordTool'
 import WebsocketTool from '../components/tools/WebsocketTool'
-import TextTranslateTool from '../components/tools/TextTranslateTool'
-import { tools } from '../types'
+import TextTranslateTool from '../components/modules/text-translate/TextTranslateTool'
+import { allModules } from '../types'
 
 const NotesTool = lazy(() => import('../components/tools/NotesTool'))
 
@@ -44,7 +44,7 @@ function ToolLoading() {
  * 见 index.css 的 .tool-cascade。
  */
 export default function ToolPage({ toolId }: { toolId: string }) {
-  const tool = tools.find((item) => item.id === toolId)
+  const tool = allModules.find((item) => item.id === toolId)
   const ToolComponent = toolId ? toolComponents[toolId] : null
 
   if (!tool || !ToolComponent) {
