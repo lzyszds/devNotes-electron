@@ -672,7 +672,9 @@ export default function JsonI18nTool() {
         {/* Toolbar */}
         {/* 单行中控条：只留高频操作，其余全部收进设置弹窗 */}
         <div className="px-4 md:px-6 pt-3 shrink-0">
-          <div className="bg-white dark:bg-dark-panel border border-slate-200/70 dark:border-dark-border rounded-[10px] shadow-[0_1px_3px_rgba(0,0,0,0.03),0_6px_16px_-4px_rgba(0,0,0,0.03)] px-3 h-12 flex items-center gap-2.5 flex-wrap overflow-hidden">
+          {/* 不能用 overflow-hidden：语言下拉是 absolute top-full 挂在这里面的，裁掉就整块不可见。
+              高度用 min-h-12 兜底，窄屏换行时容器自己变高，而不是把控件裁出白框外 */}
+          <div className="bg-white dark:bg-dark-panel border border-slate-200/70 dark:border-dark-border rounded-[10px] shadow-[0_1px_3px_rgba(0,0,0,0.03),0_6px_16px_-4px_rgba(0,0,0,0.03)] px-3 min-h-12 py-1.5 flex items-center gap-2.5 flex-wrap">
             <div className={UI.segment}>
               {(
                 [
@@ -713,7 +715,8 @@ export default function JsonI18nTool() {
             <div className="relative">
               <button
                 onClick={() => setShowSourceDropdown(!showSourceDropdown)}
-                className={UI.btn}
+                // z 要高过下面那层点外关闭的遮罩（z-10），否则展开时再点按钮会被遮罩吃掉
+                className={`${UI.btn} relative z-20`}
               >
                 <Globe size={14} className="text-slate-400" />
                 {langName(sourceLang)}
@@ -750,7 +753,7 @@ export default function JsonI18nTool() {
             <div className="relative">
               <button
                 onClick={() => setShowTargetDropdown(!showTargetDropdown)}
-                className={`${UI.btnActive} border-brand-200 dark:border-brand-500/30 bg-brand-50 dark:bg-brand-500/10 text-brand-700 dark:text-brand-300 hover:bg-brand-100 dark:hover:bg-brand-500/20`}
+                className={`${UI.btnActive} relative z-20 border-brand-200 dark:border-brand-500/30 bg-brand-50 dark:bg-brand-500/10 text-brand-700 dark:text-brand-300 hover:bg-brand-100 dark:hover:bg-brand-500/20`}
               >
                 <Languages size={14} />
                 {targetLangs.length === 0 ? "选择语言" : `${targetLangs.length} 种`}
@@ -1231,7 +1234,15 @@ export default function JsonI18nTool() {
                       title="并发 Worker 数"
                       options={[6, 12, 20, 30].map((n) => ({ value: n, label: `${n} workers` }))}
                     />
-                    <button onClick={() => openAppSettings("translate-api")} className={UI.btn}>
+                    {/* 先把本层设置弹窗关掉再开全局设置：全局设置是 z-[60]，
+                        比本弹窗（z-[70]）低一层，不关的话新窗口会开在下面、还被这层遮罩挡着 */}
+                    <button
+                      onClick={() => {
+                        setShowSettingsModal(false)
+                        openAppSettings("translate-api")
+                      }}
+                      className={UI.btn}
+                    >
                       接口配置…
                     </button>
                   </div>
