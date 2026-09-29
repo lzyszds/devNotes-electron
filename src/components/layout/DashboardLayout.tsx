@@ -15,6 +15,7 @@ import {
   Braces,
   Radio,
   QrCode,
+  FileImage,
   LayoutGrid,
   BarChart3,
   Trash2,
@@ -818,6 +819,22 @@ export default function DashboardLayout({
               >
                 <QrCode className="w-4 h-4" />
                 {activeTabId === 'qr-code' && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-brand-600 rounded-r-md" />
+                )}
+              </button>
+            </Tooltip>
+
+            {/* 图片转换 */}
+            <Tooltip content="图片转换">
+              <button
+                onClick={() => onOpenTool('image-convert')}
+                className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${activeTabId === 'image-convert'
+                  ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-brand-400'
+                  : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
+                  }`}
+              >
+                <FileImage className="w-4 h-4" />
+                {activeTabId === 'image-convert' && (
                   <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-brand-600 rounded-r-md" />
                 )}
               </button>
