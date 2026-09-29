@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
-import { Copy, Download, History, Move, Palette, QrCode, RefreshCw, Type } from 'lucide-react'
+import QRCode from 'qrcode'
+import { Copy, Download, FileWarning, History, Move, Palette, QrCode, RefreshCw, Type } from 'lucide-react'
 import { useToolHistory } from '../../hooks/useToolHistory'
 import { useHistoryContextMenu } from '../../hooks/useHistoryContextMenu'
 import {
@@ -10,8 +11,8 @@ import {
   ToolCardFooter,
   ToolCardHeader,
   ToolHistoryOverlay,
+  ToolNotice,
   ToolShell,
-  ToolTag,
   iconButtonClass,
 } from '../ui'
 import Tooltip from '../ui/Tooltip'
@@ -20,6 +21,7 @@ import { useToast } from '../ui/Toast'
 export default function QrCodeTool() {
   const [text, setText] = useState('https://fehelper.com')
   const [qrDataUrl, setQrDataUrl] = useState('')
+  const [qrError, setQrError] = useState('')
   const [size, setSize] = useState(240)
   const [fgColor, setFgColor] = useState('#000000')
   const [bgColor, setBgColor] = useState('#ffffff')
@@ -37,51 +39,44 @@ export default function QrCodeTool() {
     onRemove: removeHistoryItem,
   })
 
-  // 简易二维码绘制：定位图案 + 按内容散列的伪数据点
-  const generateQR = () => {
-    if (!text.trim()) return
-
+  /**
+   * 真正生成二维码。
+   *
+   * 走 qrcode 库的 toCanvas：它做完整的 QR 编码（数据分块、GF(256) 里德-所罗门
+   * 纠错、掩模评估、格式信息）。早先这里是照着二维码长相手绘的散列占位图案，
+   * 不含纠错码，扫不出来 —— 别再改回手绘。
+   *
+   * 颜色经 toDataURL 传给库：库内部用 canvas 画，靠这两个字段定前景/背景。
+   */
+  const generateQR = async () => {
     const canvas = canvasRef.current
     if (!canvas) return
-
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-
-    canvas.width = size
-    canvas.height = size
-
-    ctx.fillStyle = bgColor
-    ctx.fillRect(0, 0, size, size)
-
-    const cellSize = size / 25
-    ctx.fillStyle = fgColor
-
-    const drawPositionPattern = (x: number, y: number) => {
-      ctx.fillRect(x, y, 7 * cellSize, 7 * cellSize)
-      ctx.fillStyle = bgColor
-      ctx.fillRect(x + cellSize, y + cellSize, 5 * cellSize, 5 * cellSize)
-      ctx.fillStyle = fgColor
-      ctx.fillRect(x + 2 * cellSize, y + 2 * cellSize, 3 * cellSize, 3 * cellSize)
+    if (!text.trim()) {
+      setQrDataUrl('')
+      setQrError('')
+      return
     }
 
-    drawPositionPattern(0, 0)
-    drawPositionPattern(18 * cellSize, 0)
-    drawPositionPattern(0, 18 * cellSize)
-
-    for (let i = 0; i < 25; i++) {
-      for (let j = 0; j < 25; j++) {
-        if ((i < 7 && j < 7) || (i < 7 && j > 17) || (i > 17 && j < 7)) continue
-        const hash = (text.charCodeAt((i * 3 + j) % text.length) || 0) + i * 7 + j * 13
-        if (hash % 2 === 0) {
-          ctx.fillRect(j * cellSize, i * cellSize, cellSize, cellSize)
-        }
-      }
+    try {
+      // margin 4 是规范要求的最小静默区，小于它很多扫码器识别不了
+      await QRCode.toCanvas(canvas, text, {
+        width: size,
+        margin: 4,
+        errorCorrectionLevel: 'M',
+        color: { dark: fgColor, light: bgColor },
+      })
+      setQrDataUrl(canvas.toDataURL('image/png'))
+      setQrError('')
+    } catch (err) {
+      // 内容超出二维码容量上限时会抛错，别让整页白屏
+      const message = err instanceof Error ? err.message : String(err)
+      setQrDataUrl('')
+      setQrError(/code length overflow|too long/i.test(message) ? '内容太长，超出二维码容量上限' : '生成失败：' + message)
     }
-    setQrDataUrl(canvas.toDataURL('image/png'))
   }
 
   useEffect(() => {
-    generateQR()
+    void generateQR()
   }, [text, size, fgColor, bgColor])
 
   const downloadQR = () => {
@@ -153,6 +148,12 @@ export default function QrCodeTool() {
         />
       }
     >
+      {qrError && (
+        <ToolNotice tone="error" icon={FileWarning}>
+          {qrError}
+        </ToolNotice>
+      )}
+
       <div className="tool-cascade flex-1 grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-4 items-start">
         {/* ---------------- 内容与参数 ---------------- */}
         <div className="space-y-4">
@@ -237,7 +238,8 @@ export default function QrCodeTool() {
         <ToolCard fill={false}>
           <ToolCardHeader
             title="预览"
-            meta={<ToolTag tone="emerald">{size} × {size} px</ToolTag>}
+            // meta 自带一层灰底，只能传纯文本；套 ToolTag 会双层叠色
+            meta={`${size} × ${size} px`}
             actions={
               <Tooltip content="复制图片">
                 <button
@@ -276,7 +278,7 @@ export default function QrCodeTool() {
       </div>
 
       {/* 底部动作条 */}
-      <ToolActionBar info="改内容或参数会即时重绘；这里生成的图案仅供占位示意">
+      <ToolActionBar info="改内容或颜色会即时重绘；含纠错码，可直接扫码使用">
         <Tooltip content="把当前内容收藏到历史记录">
           <button onClick={saveToHistoryManual} disabled={!text.trim()} className={BTN.secondary}>
             <History size={14} />
