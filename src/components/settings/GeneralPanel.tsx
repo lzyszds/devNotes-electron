@@ -13,6 +13,7 @@ import {
   Settings,
   ShieldCheck,
   Sparkles,
+  Star,
   Sun,
 } from 'lucide-react'
 import Select from '../ui/Select'
@@ -80,6 +81,15 @@ const SHORTCUT_ITEMS: ShortcutItem[] = [
     description: '立即在当前知识库中创建一篇崭新的空白文档，光标自动聚焦标题开始创作。',
     category: '写作编辑',
     icon: FilePlus,
+  },
+  {
+    id: 'cmd-shift-b',
+    keys: '⌘ ⇧ B',
+    keyParts: ['⌘', '⇧', 'B'],
+    label: '切换当前文档书签',
+    description: '为正在编辑的文档加上或移除书签。带书签的文档会固定在知识库列表最上方，方便随时回到常看的那几篇。',
+    category: '写作编辑',
+    icon: Star,
   },
   {
     id: 'cmd-e',

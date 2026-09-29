@@ -17,9 +17,10 @@ import {
   QrCode,
   LayoutGrid,
   BarChart3,
-  Plus,
   Trash2,
   Pencil,
+  BookmarkPlus,
+  BookmarkMinus,
   FileCode,
   ArrowLeftRight,
   Languages,
@@ -36,6 +37,7 @@ import {
 } from 'lucide-react'
 import { allModules, tools, toolCategories } from '../../types'
 import TranslateSidebar from '../modules/text-translate/TranslateSidebar'
+import NotesSidebar from '../modules/markdown-notes/NotesSidebar'
 import ToolPage from '../../pages/ToolPage'
 import { useNotes } from '../../context/NotesContext'
 import SettingsModal, { type SettingsSection } from '../modals/SettingsModal'
@@ -66,45 +68,6 @@ function readSidebarWidth(): number {
   return Math.min(Math.max(saved, SIDEBAR_MIN_WIDTH), SIDEBAR_MAX_WIDTH)
 }
 
-/** 格式化文档更新时间为友好的简短标签（如：15:42、昨天、9月10日、2025/3/1） */
-function formatNoteTime(timestamp: number | string): string {
-  const date = new Date(timestamp)
-  if (Number.isNaN(date.getTime())) return ''
-  const now = new Date()
-  const isToday =
-    date.getFullYear() === now.getFullYear() &&
-    date.getMonth() === now.getMonth() &&
-    date.getDate() === now.getDate()
-  if (isToday) {
-    return date.toLocaleTimeString('zh-CN', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    })
-  }
-  const yesterday = new Date(now)
-  yesterday.setDate(now.getDate() - 1)
-  const isYesterday =
-    date.getFullYear() === yesterday.getFullYear() &&
-    date.getMonth() === yesterday.getMonth() &&
-    date.getDate() === yesterday.getDate()
-  if (isYesterday) return '昨天'
-
-  if (date.getFullYear() === now.getFullYear()) {
-    return `${date.getMonth() + 1}月${date.getDate()}日`
-  }
-  return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`
-}
-
-/** 提取文档摘要预览，剥离 Markdown 语法标记 */
-function getNotePreviewSnippet(content: string): string {
-  if (!content) return '暂无内容'
-  const clean = content
-    .replace(/^[#>-]+\s+/gm, '')
-    .replace(/[*_`~]/g, '')
-    .trim()
-  return clean.slice(0, 60) || '暂无内容'
-}
 
 interface DashboardLayoutProps {
   activeTabId: string
@@ -144,27 +107,20 @@ export default function DashboardLayout({
   const [cmdSearch, setCmdSearch] = useState('')
   const [toolFilter, setToolFilter] = useState('')
   const [activeCategory, setActiveCategory] = useState('all')
-  // 文档重命名：就地编辑中的文档 id 与草稿名称
-  const [renamingNoteId, setRenamingNoteId] = useState<string | null>(null)
-  const [renameDraft, setRenameDraft] = useState('')
 
   const cmdInputRef = useRef<HTMLInputElement>(null)
   const sidebarRef = useRef<HTMLElement>(null)
-  // Esc 取消时置位，避免随后的 blur 把旧草稿又提交回去
-  const skipRenameCommitRef = useRef(false)
 
   // 获取全局 Notes 状态
   const {
     activeNote,
     saveStatus,
-    keyword: noteKeyword,
-    setKeyword: setNoteKeyword,
-    filteredNotes,
     handleCreate: handleCreateNote,
     handleOpenSampleNote,
-    handleSelect: handleSelectNote,
     handleDelete: handleDeleteNote,
     handleRename: handleRenameNote,
+    handleToggleBookmark,
+    scope,
     handleExport: handleExportNote,
     insertText,
     cfConfig,
@@ -187,12 +143,6 @@ export default function DashboardLayout({
   useEffect(() => {
     if (isMobile) setIsSidebarOpen(false)
   }, [isMobile])
-
-  // 移动端从抽屉里选中文档后自动收起，否则抽屉会一直盖住刚打开的笔记
-  const selectNote = (id: string) => {
-    handleSelectNote(id)
-    if (isMobile) setIsSidebarOpen(false)
-  }
 
   const { openContextMenu } = useContextMenu()
   const { showToast } = useToast()
@@ -244,30 +194,6 @@ export default function DashboardLayout({
     showToast(ok ? label : '复制失败', ok ? 'default' : 'error')
   }
 
-  // 文档标题改为自定义：双击标题或点击铅笔图标就地重命名
-  const startRenameNote = (id: string, title: string) => {
-    skipRenameCommitRef.current = false
-    setRenamingNoteId(id)
-    setRenameDraft(title || '')
-  }
-
-  const commitRenameNote = () => {
-    if (skipRenameCommitRef.current) {
-      skipRenameCommitRef.current = false
-      return
-    }
-    const id = renamingNoteId
-    setRenamingNoteId(null)
-    if (!id) return
-    const next = renameDraft.trim()
-    if (next) handleRenameNote(id, next)
-  }
-
-  const cancelRenameNote = () => {
-    skipRenameCommitRef.current = true
-    setRenamingNoteId(null)
-  }
-
   // 打开全局设置弹窗，并直接定位到指定分类
   const openSettings = (section: SettingsSection = 'general') => {
     setSettingsSection(section)
@@ -296,13 +222,21 @@ export default function DashboardLayout({
       } else if (isCmd && (e.key === 'e' || e.key === 'E')) {
         e.preventDefault()
         if (isMarkdownActive) void handleExportNote()
+      } else if (isCmd && e.shiftKey && (e.key === 'b' || e.key === 'B')) {
+        // ⌘⇧B 切换当前文档书签。必须排在 ⌘B 之前判断，否则会被折叠侧栏那条吃掉
+        e.preventDefault()
+        if (isMarkdownActive && activeNote) {
+          handleToggleBookmark(activeNote.id)
+          showToast(activeNote.bookmarked ? '已移除书签' : '已加入书签')
+        }
       } else if (isCmd && (e.key === 'b' || e.key === 'B')) {
         e.preventDefault()
         setIsSidebarOpen((prev) => !prev)
       } else if (isCmd && (e.key === 'n' || e.key === 'N')) {
         e.preventDefault()
         if (isMarkdownActive) {
-          handleCreateNote()
+          // 在某个文件夹视图下新建，直接归到该文件夹，省一次「移动到」
+          handleCreateNote(scope.type === 'folder' ? scope.folderId : null)
         } else {
           onOpenTool('markdown-notes')
         }
@@ -314,12 +248,16 @@ export default function DashboardLayout({
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [
+    activeNote,
     handleCreateNote,
     handleExportNote,
+    handleToggleBookmark,
     isCmdOpen,
     isMarkdownActive,
     onOpenTool,
     onToggleTheme,
+    scope,
+    showToast,
   ])
 
   // 打开指令面板时自动聚焦
@@ -495,7 +433,30 @@ export default function DashboardLayout({
           label: '重命名文档',
           icon: <Pencil className="w-3.5 h-3.5" />,
           disabled: !note,
-          onSelect: () => note && startRenameNote(note.id, note.title),
+          // 顶栏没有就地编辑的输入框，改走浏览器 prompt，比跳回侧栏更直接
+          onSelect: () => {
+            if (!note) return
+            const next = window.prompt('重命名文档', note.title)
+            if (next === null) return
+            const trimmed = next.trim()
+            if (!trimmed || trimmed === note.title) return
+            handleRenameNote(note.id, trimmed)
+          },
+        },
+        {
+          id: 'bc-bookmark',
+          label: note?.bookmarked ? '移除书签' : '加入书签',
+          icon: note?.bookmarked ? (
+            <BookmarkMinus className="w-3.5 h-3.5" />
+          ) : (
+            <BookmarkPlus className="w-3.5 h-3.5" />
+          ),
+          disabled: !note,
+          onSelect: () => {
+            if (!note) return
+            handleToggleBookmark(note.id)
+            showToast(note.bookmarked ? '已移除书签' : '已加入书签')
+          },
         },
         {
           id: 'bc-copy-content',
@@ -514,11 +475,15 @@ export default function DashboardLayout({
         { id: 'bc-sep', separator: true },
         {
           id: 'bc-delete',
-          label: '删除文档',
+          label: '移入回收站',
           icon: <Trash2 className="w-3.5 h-3.5" />,
           danger: true,
           disabled: !note,
-          onSelect: () => note && handleDeleteNote(note.id),
+          onSelect: () => {
+            if (!note) return
+            handleDeleteNote(note.id)
+            showToast('已移入回收站')
+          },
         },
       ])
       return
@@ -948,192 +913,7 @@ export default function DashboardLayout({
             }`}
         >
           {isMarkdownActive ? (
-            /* Markdown 知识库文档列表视图（现代两行流） */
-            <>
-              <div className="p-3 border-b border-slate-100 dark:border-dark-border space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-bold text-slate-700 dark:text-slate-200 tracking-tight">
-                      知识库文档
-                    </span>
-                    <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-slate-100 dark:bg-dark-hover text-slate-500 dark:text-slate-400">
-                      {filteredNotes.length}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Tooltip content="打开或新建「全特性与工具支持全景样板」">
-                      <button
-                        onClick={handleOpenSampleNote}
-                        className="flex items-center gap-1 px-2 py-1 bg-slate-100 dark:bg-dark-hover hover:bg-slate-200 dark:hover:bg-dark-border text-slate-600 dark:text-slate-300 rounded-lg text-xs font-medium transition-all"
-                      >
-                        <Sparkles className="w-3 h-3 text-amber-500" />
-                        <span>样板</span>
-                      </button>
-                    </Tooltip>
-                    <button
-                      onClick={handleCreateNote}
-                      className="flex items-center gap-1 px-2.5 py-1 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-medium transition-all shadow-xs"
-                      title="新建文档 (⌘N)"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>新建</span>
-                    </button>
-                  </div>
-                </div>
-                <div className="relative flex items-center">
-                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  <input
-                    type="text"
-                    value={noteKeyword}
-                    onChange={(e) => setNoteKeyword(e.target.value)}
-                    placeholder="过滤文档..."
-                    className="w-full pl-8 pr-7 h-7 text-xs bg-slate-50 dark:bg-dark-sidebar border border-slate-200 dark:border-dark-border rounded-lg outline-none focus:border-brand-500 dark:focus:border-brand-500 transition-all text-slate-800 dark:text-slate-200 placeholder-slate-400"
-                  />
-                  {noteKeyword && (
-                    <button
-                      onClick={() => setNoteKeyword('')}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs"
-                      title="清空"
-                    >
-                      ×
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* 动态文档列表流 */}
-              <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
-                {filteredNotes.map((note) => {
-                  const isActive = note.id === activeNote?.id
-                  return (
-                    <div
-                      key={note.id}
-                      onClick={() => selectNote(note.id)}
-                      onContextMenu={(e) =>
-                        openContextMenu(e, [
-                          {
-                            id: 'note-open',
-                            label: '打开文档',
-                            icon: <FolderOpen className="w-3.5 h-3.5" />,
-                            onSelect: () => selectNote(note.id),
-                          },
-                          {
-                            id: 'note-rename',
-                            label: '重命名',
-                            icon: <Pencil className="w-3.5 h-3.5" />,
-                            shortcut: '双击标题',
-                            onSelect: () => startRenameNote(note.id, note.title),
-                          },
-                          { id: 'note-sep-1', separator: true },
-                          {
-                            id: 'note-copy-content',
-                            label: '复制正文',
-                            icon: <Copy className="w-3.5 h-3.5" />,
-                            disabled: !note.content,
-                            onSelect: () => void copyWithToast(note.content, '已复制正文'),
-                          },
-                          {
-                            id: 'note-copy-title',
-                            label: '复制标题',
-                            icon: <Copy className="w-3.5 h-3.5" />,
-                            disabled: !note.title,
-                            onSelect: () => void copyWithToast(note.title, '已复制标题'),
-                          },
-                          { id: 'note-sep-2', separator: true },
-                          {
-                            id: 'note-export',
-                            label: '导出 .md',
-                            icon: <Download className="w-3.5 h-3.5" />,
-                            onSelect: () => void handleExportNote(note),
-                          },
-                          {
-                            id: 'note-delete',
-                            label: '删除文档',
-                            icon: <Trash2 className="w-3.5 h-3.5" />,
-                            danger: true,
-                            onSelect: () => handleDeleteNote(note.id),
-                          },
-                        ])
-                      }
-                      className={`group relative px-3 py-2.5 rounded-xl cursor-pointer transition-colors ${isActive
-                        ? 'bg-brand-500/10 dark:bg-brand-500/15 text-slate-900 dark:text-white'
-                        : 'hover:bg-slate-100/80 dark:hover:bg-dark-hover/70 text-slate-700 dark:text-slate-300'
-                        }`}
-                    >
-                      {/* 激活指示条：左侧精致青蓝微竖线 */}
-                      {isActive && (
-                        <span className="absolute left-0 top-2 bottom-2 w-[3.5px] bg-brand-600 dark:bg-brand-400 rounded-r" />
-                      )}
-
-                      {/* 第一行：标题 + 右侧弱化时间 */}
-                      <div className="flex items-center justify-between gap-1.5 mb-1">
-                        {renamingNoteId === note.id ? (
-                          <input
-                            autoFocus
-                            value={renameDraft}
-                            maxLength={80}
-                            placeholder="输入文档名称"
-                            onClick={(e) => e.stopPropagation()}
-                            onFocus={(e) => e.currentTarget.select()}
-                            onChange={(e) => setRenameDraft(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault()
-                                commitRenameNote()
-                              } else if (e.key === 'Escape') {
-                                e.preventDefault()
-                                cancelRenameNote()
-                              }
-                            }}
-                            onBlur={commitRenameNote}
-                            className="flex-1 min-w-0 h-6 px-1.5 text-[13.5px] leading-none bg-white dark:bg-dark-sidebar border border-brand-500 rounded outline-none text-slate-900 dark:text-white"
-                          />
-                        ) : (
-                          <h4
-                            onDoubleClick={(e) => {
-                              e.stopPropagation()
-                              startRenameNote(note.id, note.title)
-                            }}
-                            title={`${note.title || '未命名笔记'}（双击重命名）`}
-                            className={`flex-1 min-w-0 truncate text-[13.5px] leading-snug ${isActive
-                              ? 'font-bold text-slate-900 dark:text-white'
-                              : 'font-medium text-slate-800 dark:text-slate-200'
-                              }`}
-                          >
-                            {note.title || '未命名笔记'}
-                          </h4>
-                        )}
-                        <span className="text-[11px] text-slate-400 dark:text-slate-500 font-mono shrink-0 select-none">
-                          {formatNoteTime(note.updatedAt)}
-                        </span>
-                      </div>
-
-                      {/* 第二行：纯净轻量单行摘要 */}
-                      <p className="text-xs text-slate-400 dark:text-slate-500 line-clamp-1 leading-snug">
-                        {getNotePreviewSnippet(note.content)}
-                      </p>
-                    </div>
-                  )
-                })}
-
-                {filteredNotes.length === 0 && (
-                  <div className="h-40 flex flex-col items-center justify-center text-center px-4 text-xs text-slate-400">
-                    <FileText className="w-8 h-8 text-slate-300 dark:text-slate-600 mb-2 stroke-[1.5]" />
-                    {noteKeyword ? (
-                      <>
-                        <p className="font-medium text-slate-500 dark:text-slate-400">无匹配文档</p>
-                        <p className="text-[11px] text-slate-400 mt-0.5">尝试使用其他关键词搜索</p>
-                      </>
-                    ) : (
-                      <>
-                        <p className="font-medium text-slate-500 dark:text-slate-400">暂无知识库文档</p>
-                        <p className="text-[11px] text-slate-400 mt-0.5">点击右上角「新建」开启记录</p>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-            </>
+            <NotesSidebar onAfterSelect={() => isMobile && setIsSidebarOpen(false)} />
           ) : isTranslateActive ? (
             /* 文本翻译模块的专属侧边栏：翻译方向 + 历史记录，不再是「组件工具库」那套列表 */
             <TranslateSidebar />

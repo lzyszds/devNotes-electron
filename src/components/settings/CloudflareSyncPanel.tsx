@@ -59,7 +59,7 @@ function formatRelativeTime(timestamp: number): string {
 /** 全局设置 · 云同步：Cloudflare 备份/同步/快照面板（自 CloudflareSyncModal 迁移而来） */
 export default function CloudflareSyncPanel() {
   const {
-    notes,
+    aliveCount,
     cfConfig,
     cfSyncStatus,
     cfSyncMessage,
@@ -348,7 +348,7 @@ export default function CloudflareSyncPanel() {
                 </div>
                 <div className="flex items-baseline gap-1.5 pt-0.5">
                   <span className="text-2xl font-bold font-mono text-slate-900 dark:text-white tracking-tight">
-                    {notes.length}
+                    {aliveCount}
                   </span>
                   <span className="text-xs text-slate-400">篇</span>
                 </div>
@@ -395,7 +395,7 @@ export default function CloudflareSyncPanel() {
                       <span>推送备份至 Cloudflare</span>
                     </div>
                     <p className="text-[11px] text-slate-400 mt-1">
-                      将本地全部 {notes.length} 篇笔记加密打包推送到云端空间作为最新快照。
+                      将本地全部 {aliveCount} 篇笔记加密打包推送到云端空间作为最新快照。
                     </p>
                   </div>
                   <button
