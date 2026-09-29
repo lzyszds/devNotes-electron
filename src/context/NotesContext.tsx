@@ -9,10 +9,16 @@ import React, {
 } from 'react'
 import {
   createEmptyNote,
+  createFolder,
   deriveTitleFromMarkdown,
   loadNotesState,
   saveNotesState,
+  sortNotes,
+  trashedNotes,
+  visibleFolders,
+  visibleNotes,
   DEFAULT_CONTENT,
+  type FolderItem,
   type NoteItem,
   type NotesState,
 } from '../utils/notesStore'
@@ -45,6 +51,14 @@ interface OpenFilePayload {
   error?: string
 }
 
+/** 侧栏当前在看哪个列表 —— 决定 filteredNotes 的内容与空状态文案 */
+export type NoteScope =
+  | { type: 'all' }
+  /** 只看被收藏的文档（跨文件夹，与「全部」同级） */
+  | { type: 'bookmarks' }
+  | { type: 'folder'; folderId: string }
+  | { type: 'trash' }
+
 interface NotesContextType {
   ready: boolean
   notes: NoteItem[]
@@ -54,11 +68,33 @@ interface NotesContextType {
   message: string
   keyword: string
   setKeyword: (kw: string) => void
+  /** 当前视图范围内的文档（已排除回收站 / 已按书签分组排序） */
   filteredNotes: NoteItem[]
-  handleCreate: () => void
+  /** 回收站里的文档，最近删除的在前 */
+  trashed: NoteItem[]
+  /** 全部未删除文档（跨文件夹，供「全部文档」与计数使用） */
+  aliveCount: number
+  scope: NoteScope
+  setScope: (scope: NoteScope) => void
+  folders: FolderItem[]
+  handleCreateFolder: (name?: string) => string
+  handleRenameFolder: (id: string, name: string) => void
+  handleDeleteFolder: (id: string) => void
+  handleToggleBookmark: (id: string) => void
+  handleMoveToFolder: (id: string, folderId: string | null) => void
+  // 回收站
+  handleRestoreFromTrash: (id: string) => void
+  handlePurgeFromTrash: (id: string) => void
+  handleEmptyTrash: () => void
+  handleCreate: (folderId?: string | null) => void
   handleOpenSampleNote: () => void
   handleSelect: (id: string) => void
+  /** 软删除：移入回收站 */
   handleDelete: (id: string) => void
+  /** 直接从回收站删除，不再二次确认（供右键「彻底删除」在已确认后调用） */
+  handlePurge: (id: string) => void
+  /** 把回收站里的一篇文档按原 id 放回 */
+  handleRestore: (id: string) => void
   handleRename: (id: string, title: string) => void
   handleContentChange: (content: string) => void
   handleExport: (note?: NoteItem) => Promise<void>
@@ -98,8 +134,11 @@ interface NotesProviderProps {
 export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderProps) {
   const [ready, setReady] = useState(false)
   const [notes, setNotes] = useState<NoteItem[]>([])
+  // 含墓碑的完整列表（合并与持久化需要它），对外暴露的是过滤后的 folders
+  const [allFolders, setAllFolders] = useState<FolderItem[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
   const [keyword, setKeyword] = useState('')
+  const [scope, setScope] = useState<NoteScope>({ type: 'all' })
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved')
   const [message, setMessage] = useState('已保存')
   const [viewMode, setViewMode] = useState<ViewMode>('split')
@@ -114,7 +153,7 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
 
   const saveTimerRef = useRef<number | null>(null)
   const cfAutoSyncTimerRef = useRef<number | null>(null)
-  const stateRef = useRef<NotesState>({ notes: [], activeId: null })
+  const stateRef = useRef<NotesState>({ notes: [], folders: [], activeId: null })
   const insertHandlerRef = useRef<((prefix: string, suffix?: string) => void) | null>(null)
   const onFileOpenNavigateRef = useRef<(() => void) | undefined>(undefined)
   const importExternalFileRef = useRef<(file: OpenFilePayload) => void>(() => {})
@@ -158,6 +197,7 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
       const state = await loadNotesState()
       if (cancelled) return
       setNotes(state.notes)
+      setAllFolders(state.folders)
       setActiveId(state.activeId)
       stateRef.current = state
       setReady(true)
@@ -183,11 +223,10 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
         const res = await pullFromCloudflare(cfg)
         if (cancelled) return
         if (res.success && res.remoteState) {
-          const { mergedState, addedFromRemote, updatedFromRemote } = smartMergeNotes(
-            stateRef.current,
-            res.remoteState
-          )
+          const { mergedState, addedFromRemote, updatedFromRemote, removedFolders } =
+            smartMergeNotes(stateRef.current, res.remoteState)
           setNotes(mergedState.notes)
+          setAllFolders(mergedState.folders)
           setActiveId(mergedState.activeId)
           stateRef.current = mergedState
           await saveNotesState(mergedState)
@@ -196,7 +235,11 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
           setCfConfig(updatedCfg)
           await saveCloudflareConfig(updatedCfg)
           setCfSyncStatus('success')
-          setCfSyncMessage(`启动同步完成：新增 ${addedFromRemote} 篇，更新 ${updatedFromRemote} 篇`)
+          setCfSyncMessage(
+            `启动同步完成：新增 ${addedFromRemote} 篇，更新 ${updatedFromRemote} 篇` +
+              // 文件夹在别处被删会让一批文档落回未分类，值得单独说一句
+              (removedFolders > 0 ? `，${removedFolders} 个文件夹已被其他设备删除` : '')
+          )
         } else {
           setCfSyncStatus('idle')
         }
@@ -321,41 +364,93 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
       const prev = stateRef.current
       const next = updater(prev)
       setNotes(next.notes)
+      setAllFolders(next.folders)
       setActiveId(next.activeId)
       persist(next, immediate)
     },
     [persist]
   )
 
-  const activeNote = useMemo(
-    () => notes.find((note) => note.id === activeId) || null,
-    [notes, activeId]
-  )
+  /* 活动文档必须还在（不是回收站里的）：被删进回收站的那一瞬 activeId 会被顺移，
+     但同步合并等路径可能把 activeId 指到一篇已删文档上，这里兜一层 */
+  const activeNote = useMemo(() => {
+    if (!activeId) return null
+    const found = notes.find((note) => note.id === activeId)
+    return found && !found.deletedAt ? found : null
+  }, [notes, activeId])
 
+  const trashed = useMemo(() => trashedNotes(notes), [notes])
+
+  const aliveCount = useMemo(() => visibleNotes(notes).length, [notes])
+
+  /* 对外只给未删除的文件夹：墓碑是实现细节，UI 不该看见它们 */
+  const folders = useMemo(() => visibleFolders(allFolders), [allFolders])
+
+  /*
+   * 当前所在的文件夹被删掉时把视图退回「全部」。
+   *
+   * 放在这里而不是各个删除动作里 —— 文件夹消失的路径不止一条：
+   * 本机删除、云同步合并时对端删的、覆盖式拉取整份换掉。
+   * 只盯着本机那条会让用户在同步之后停在一个已经不存在的文件夹里。
+   */
+  useEffect(() => {
+    if (scope.type !== 'folder') return
+    if (!folders.some((folder) => folder.id === scope.folderId)) {
+      setScope({ type: 'all' })
+    }
+  }, [folders, scope])
+
+  /**
+   * 侧栏列表数据源。范围（全部 / 书签 / 某文件夹 / 回收站）先过一遍，
+   * 再套关键词，最后统一按「书签优先 + 更新时间倒序」排。
+   * 关键词命中标题或正文，与旧行为一致。
+   */
   const filteredNotes = useMemo(() => {
-    const q = keyword.trim().toLowerCase()
-    const list = [...notes].sort((a, b) => b.updatedAt - a.updatedAt)
-    if (!q) return list
-    return list.filter(
-      (note) =>
-        note.title.toLowerCase().includes(q) ||
-        note.content.toLowerCase().includes(q)
-    )
-  }, [notes, keyword])
+    const base =
+      scope.type === 'trash'
+        ? trashed
+        : visibleNotes(notes).filter((note) => {
+            if (scope.type === 'folder') return note.folderId === scope.folderId
+            // 书签视图跨文件夹，只按收藏与否筛
+            if (scope.type === 'bookmarks') return Boolean(note.bookmarked)
+            return true
+          })
 
-  const handleCreate = useCallback(() => {
-    const newDoc = createEmptyNote({
-      title: '未命名笔记 ' + (notes.length + 1),
-      content: '# 未命名笔记\n\n开始记录你的思路...\n',
-    })
-    updateState(
-      (prev) => ({
-        notes: [newDoc, ...prev.notes],
-        activeId: newDoc.id,
-      }),
-      true
-    )
-  }, [notes.length, updateState])
+    const q = keyword.trim().toLowerCase()
+    const matched = q
+      ? base.filter(
+          (note) =>
+            note.title.toLowerCase().includes(q) || note.content.toLowerCase().includes(q)
+        )
+      : base
+
+    // 回收站按删除时间排（trashedNotes 已经排好），其余走统一口径
+    return scope.type === 'trash' ? matched : sortNotes(matched)
+  }, [notes, trashed, scope, keyword])
+
+  const handleCreate = useCallback(
+    (folderId?: string | null) => {
+      const newDoc = createEmptyNote({
+        title: '未命名笔记 ' + (visibleNotes(notes).length + 1),
+        content: '# 未命名笔记\n\n开始记录你的思路...\n',
+        folderId: folderId ?? null,
+        /*
+         * 在书签视图里新建就顺手加书签。否则新文档不带书签、被当前视图过滤掉，
+         * 用户点了「新建」却什么也没出现，像是按钮坏了。
+         */
+        bookmarked: scope.type === 'bookmarks' ? true : undefined,
+      })
+      updateState(
+        (prev) => ({
+          ...prev,
+          notes: [newDoc, ...prev.notes],
+          activeId: newDoc.id,
+        }),
+        true
+      )
+    },
+    [notes, scope, updateState]
+  )
 
   /** 快速打开或创建「全功能与工具支持全景样板」文档 */
   const handleOpenSampleNote = useCallback(() => {
@@ -365,23 +460,37 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
         n.title.includes('全特性') ||
         n.content.includes('Markdown 全特性与工具支持全景样板')
     )
+    // 书签视图下「样板」也该留在当前列表里，否则打开后它不出现，像是没生效
+    const bookmarkIt = scope.type === 'bookmarks'
+
     if (existing) {
-      updateState((prev) => ({ ...prev, activeId: existing.id }), true)
+      updateState(
+        (prev) => ({
+          ...prev,
+          activeId: existing.id,
+          notes: bookmarkIt
+            ? prev.notes.map((n) => (n.id === existing.id ? { ...n, bookmarked: true } : n))
+            : prev.notes,
+        }),
+        true
+      )
       return
     }
 
     const sampleDoc = createEmptyNote({
       title: '✨ Markdown 全特性与工具支持全景样板',
       content: DEFAULT_CONTENT,
+      bookmarked: bookmarkIt ? true : undefined,
     })
     updateState(
       (prev) => ({
+        ...prev,
         notes: [sampleDoc, ...prev.notes],
         activeId: sampleDoc.id,
       }),
       true
     )
-  }, [updateState])
+  }, [scope, updateState])
 
   const handleSelect = useCallback(
     (id: string) => {
@@ -391,29 +500,196 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
     [activeId, updateState]
   )
 
+  /**
+   * 删除 = 软删除（移入回收站）。不再要求「至少保留一篇」——
+   * 删光了列表空着也没关系，回收站里都还在；要真正腾空间走回收站的彻底删除。
+   *
+   * activeId 顺移到「原位置的下一个可见文档」（不足则取上一个），
+   * 而不是整个知识库排完序的第一篇 —— 后者会让删完瞬间跳到某个书签文档上，
+   * 与用户当时列表里看到的位置对不上。
+   */
   const handleDelete = useCallback(
     (id: string) => {
-      if (notes.length <= 1) {
-        window.alert('请至少保留一个文档！')
-        return
-      }
-      const target = notes.find((note) => note.id === id)
-      if (!target) return
-      const ok = window.confirm(`确定删除笔记「${target.title}」吗？`)
-      if (!ok) return
+      const target = stateRef.current.notes.find((note) => note.id === id)
+      if (!target || target.deletedAt) return
 
       updateState((prev) => {
-        const remain = prev.notes.filter((note) => note.id !== id)
-        const nextActive =
-          prev.activeId === id
-            ? remain[0]?.id || null
-            : prev.activeId && remain.some((n) => n.id === prev.activeId)
-              ? prev.activeId
-              : remain[0]?.id || null
-        return { notes: remain, activeId: nextActive }
+        const nextNotes = prev.notes.map((note) =>
+          note.id === id
+            ? { ...note, deletedAt: Date.now(), bookmarked: false }
+            : note
+        )
+
+        let nextActive = prev.activeId
+        if (prev.activeId === id) {
+          // 按当前列表口径排出「删除前」的视图顺序，定位被删文档当时在第几位
+          const orderBefore = sortNotes(
+            visibleNotes(prev.notes).filter((note) => note.folderId === target.folderId)
+          )
+          const goneIndex = orderBefore.findIndex((note) => note.id === id)
+          const nextInPlace = orderBefore[goneIndex + 1]
+          const prevInPlace = orderBefore[goneIndex - 1]
+          const fallback = sortNotes(visibleNotes(nextNotes))[0]
+          // 优先「原位置下一项」，被删的正好是最后一项才回退到上一项
+          nextActive = (nextInPlace || prevInPlace || fallback)?.id ?? null
+        }
+        return { ...prev, notes: nextNotes, activeId: nextActive }
       }, true)
     },
-    [notes, updateState]
+    [updateState]
+  )
+
+  /** 从回收站彻底删除（调用方负责先确认） */
+  const handlePurge = useCallback(
+    (id: string) => {
+      updateState((prev) => {
+        const nextNotes = prev.notes.filter((note) => note.id !== id)
+        // 彻底删掉的正好是当前活动文档时顺移，否则 activeId 会悬空一整个会话
+        const nextActive =
+          prev.activeId === id
+            ? sortNotes(visibleNotes(nextNotes))[0]?.id ?? null
+            : prev.activeId
+        return { ...prev, notes: nextNotes, activeId: nextActive }
+      }, true)
+    },
+    [updateState]
+  )
+
+  /**
+   * 还原：清掉 deletedAt 并激活它。软删除保留了 folderId，所以归属原样回去。
+   *
+   * 刻意**不**离开回收站视图 —— 还原常常是连着做的（清一批误删的），
+   * 每还原一篇就被踢回「全部」得重新点进来，很难用。
+   * 这里只把它从当前列表里移除（它已不再是回收站文档），视图留在原地。
+   */
+  const handleRestore = useCallback(
+    (id: string) => {
+      updateState(
+        (prev) => ({
+          ...prev,
+          notes: prev.notes.map((note) =>
+            note.id === id ? { ...note, deletedAt: undefined } : note
+          ),
+          activeId: id,
+        }),
+        true
+      )
+    },
+    [updateState]
+  )
+
+  const handleEmptyTrash = useCallback(() => {
+    updateState((prev) => {
+      const nextNotes = prev.notes.filter((note) => !note.deletedAt)
+      return {
+        ...prev,
+        notes: nextNotes,
+        activeId:
+          prev.activeId && nextNotes.some((note) => note.id === prev.activeId)
+            ? prev.activeId
+            : sortNotes(visibleNotes(nextNotes))[0]?.id ?? null,
+      }
+    }, true)
+  }, [updateState])
+
+  /** 书签开关。取消书签时不动 updatedAt —— 它不是内容变更，不该顶到列表前面 */
+  const handleToggleBookmark = useCallback(
+    (id: string) => {
+      updateState((prev) => ({
+        ...prev,
+        notes: prev.notes.map((note) =>
+          note.id === id ? { ...note, bookmarked: !note.bookmarked } : note
+        ),
+      }))
+    },
+    [updateState]
+  )
+
+  /**
+   * 移动到文件夹；folderId 传 null 表示移出到未分类。
+   *
+   * 刻意不动 updatedAt —— 归类不是内容变更，不该把文档顶到列表最前。
+   * 改用 folderMovedAt 单独记录归类时间，合并时按它逐字段比，
+   * 这样远端拖进文件夹的动作不会丢，本地的归类也不会被内容更新盖掉。
+   */
+  const handleMoveToFolder = useCallback(
+    (id: string, folderId: string | null) => {
+      updateState((prev) => ({
+        ...prev,
+        notes: prev.notes.map((note) =>
+          note.id === id ? { ...note, folderId, folderMovedAt: Date.now() } : note
+        ),
+      }))
+    },
+    [updateState]
+  )
+
+  // ================= 文件夹 =================
+  const handleCreateFolder = useCallback(
+    (name?: string) => {
+      /*
+       * id 要在**这里**定下来、而不是在 updater 里，因为调用方要靠返回的 id
+       * 立刻进入改名态（见 NotesSidebar.newFolder）。
+       *
+       * 跟完整列表（含墓碑）比 —— 墓碑永久保留，若新文件夹恰好撞上某个墓碑的 id，
+       * 同一 id 会同时存在存活与墓碑两条：合并按 id 覆盖，React 的 key 也会重复。
+       * 撞了就换一个再试（现实中几乎不会发生，是兜底）。
+       */
+      const taken = new Set(stateRef.current.folders.map((item) => item.id))
+      let folder = createFolder(name ?? `新建文件夹 ${folders.length + 1}`)
+      for (let guard = 0; taken.has(folder.id) && guard < 10; guard++) {
+        folder = createFolder(folder.name)
+      }
+      const created = folder
+      updateState((prev) => ({ ...prev, folders: [...prev.folders, created] }), true)
+      return created.id
+    },
+    [folders.length, updateState]
+  )
+
+  const handleRenameFolder = useCallback(
+    (id: string, name: string) => {
+      const next = name.trim().slice(0, 40)
+      if (!next) return
+      // 必须推进 updatedAt：合并靠它判「谁的名字更新」，否则改名在另一端会被当成旧数据
+      updateState((prev) => ({
+        ...prev,
+        folders: prev.folders.map((folder) =>
+          folder.id === id ? { ...folder, name: next, updatedAt: Date.now() } : folder
+        ),
+      }))
+    },
+    [updateState]
+  )
+
+  /**
+   * 删除文件夹：里面的文档归还「未分类」而不是一起删掉。
+   * 文件夹只是个标签，误删文件夹连坐几十篇文档是不可接受的。
+   *
+   * 删的是**标记**不是条目 —— 条目留在数组里当墓碑，合并时才能告诉另一台
+   * 「这个文件夹是被删了」，否则对面那份活着的老数据会把它复活。
+   */
+  const handleDeleteFolder = useCallback(
+    (id: string) => {
+      // 一次会改写这个文件夹下的全部文档，走立即落盘而不是 400ms 防抖 ——
+      // 延迟窗口内退出会把「指向已删文件夹」的 folderId 留在本地
+      updateState((prev) => ({
+        ...prev,
+        folders: prev.folders.map((folder) =>
+          folder.id === id ? { ...folder, deletedAt: Date.now(), updatedAt: Date.now() } : folder
+        ),
+        notes: prev.notes.map((note) =>
+          // 一并推进 folderMovedAt，否则这次「清空归属」会被远端更旧的归类盖回去
+          note.folderId === id
+            ? { ...note, folderId: null, folderMovedAt: Date.now() }
+            : note
+        ),
+      }), true)
+      setScope((prev) =>
+        prev.type === 'folder' && prev.folderId === id ? { type: 'all' } : prev
+      )
+    },
+    [updateState]
   )
 
   // 重命名文档:标题一旦手动指定,此后不再随正文首行变化
@@ -421,7 +697,7 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
     (id: string, title: string) => {
       const next = title.trim().slice(0, 80)
       const target = stateRef.current.notes.find((note) => note.id === id)
-      if (!target || !next || target.title === next) return
+      if (!target || target.deletedAt || !next || target.title === next) return
       updateState(
         (prev) => ({
           ...prev,
@@ -438,7 +714,8 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
       if (!activeId) return
       // 若当前笔记内容未发生任何改变，坚决不触发 updatedAt 更新与自动保存，防止切笔记时目录误跳动
       const currentNote = stateRef.current.notes.find((note) => note.id === activeId)
-      if (currentNote && currentNote.content === content) return
+      if (!currentNote || currentNote.deletedAt) return
+      if (currentNote.content === content) return
 
       updateState((prev) => {
         const target = prev.notes.find((note) => note.id === activeId)
@@ -537,6 +814,7 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
         })
         updateState(
           (prev) => ({
+            ...prev,
             notes: [note, ...prev.notes],
             activeId: note.id,
           }),
@@ -598,6 +876,7 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
         })
         updateState(
           (prev) => ({
+            ...prev,
             notes: [note, ...prev.notes],
             activeId: note.id,
           }),
@@ -669,11 +948,10 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
       }
 
       if (mode === 'merge') {
-        const { mergedState, addedFromRemote, updatedFromRemote } = smartMergeNotes(
-          stateRef.current,
-          res.remoteState
-        )
+        const { mergedState, addedFromRemote, updatedFromRemote, removedFolders } =
+          smartMergeNotes(stateRef.current, res.remoteState)
         setNotes(mergedState.notes)
+        setAllFolders(mergedState.folders)
         setActiveId(mergedState.activeId)
         stateRef.current = mergedState
         await saveNotesState(mergedState)
@@ -682,21 +960,32 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
         setCfConfig(nextCfg)
         await saveCloudflareConfig(nextCfg)
         setCfSyncStatus('success')
-        const msg = `合并成功：新增 ${addedFromRemote} 篇，更新 ${updatedFromRemote} 篇`
+        const msg =
+          `合并成功：新增 ${addedFromRemote} 篇，更新 ${updatedFromRemote} 篇` +
+          (removedFolders > 0 ? `，${removedFolders} 个文件夹已被其他设备删除` : '')
         setCfSyncMessage(msg)
         return { success: true, message: msg, remoteTime: res.remoteTime }
       } else {
-        // overwrite
-        setNotes(res.remoteState.notes)
-        setActiveId(res.remoteState.activeId)
-        stateRef.current = res.remoteState
-        await saveNotesState(res.remoteState)
+        /*
+         * 覆盖：云端整份替换本地。文件夹也一起换 —— 覆盖的语义就是「完全听云端的」，
+         * 这里若还保留本地 folders，就会留下「云端的文档 + 本地的文件夹」这种
+         * 半吊子状态，文档的 folderId 大量对不上而全部落回未分类。
+         */
+        const overwritten: NotesState = {
+          ...res.remoteState,
+          folders: res.remoteState.folders || [],
+        }
+        setNotes(overwritten.notes)
+        setAllFolders(overwritten.folders)
+        setActiveId(overwritten.activeId)
+        stateRef.current = overwritten
+        await saveNotesState(overwritten)
         const now = Date.now()
         const nextCfg = { ...cfConfig, lastSyncTime: now }
         setCfConfig(nextCfg)
         await saveCloudflareConfig(nextCfg)
         setCfSyncStatus('success')
-        const msg = `覆盖成功：已恢复 ${res.remoteState.notes.length} 篇文档`
+        const msg = `覆盖成功：已恢复 ${overwritten.notes.length} 篇文档`
         setCfSyncMessage(msg)
         return { success: true, message: msg, remoteTime: res.remoteTime }
       }
@@ -712,10 +1001,24 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
       // 恢复前先为当前状态创建一个 rollback_guard 备份，防止误操作
       await appendSnapshot(stateRef.current, 'rollback_guard')
 
-      setNotes(target.state.notes)
-      setActiveId(target.state.activeId)
-      stateRef.current = target.state
-      await saveNotesState(target.state)
+      /*
+       * 文件夹一起回滚：快照是「整份状态」，只回滚文档不回滚文件夹会留下
+       * 「旧文档 + 新文件夹」的错位。
+       *
+       * 但 folders 字段是后加的，老快照里可能根本没存（undefined）。
+       * 那种情况保留当前文件夹 —— 总好过把用户的文件夹一次清空。
+       */
+      const restored: NotesState = {
+        ...target.state,
+        folders: Array.isArray(target.state.folders)
+          ? target.state.folders
+          : stateRef.current.folders,
+      }
+      setNotes(restored.notes)
+      setAllFolders(restored.folders)
+      setActiveId(restored.activeId)
+      stateRef.current = restored
+      await saveNotesState(restored)
       return true
     },
     [snapshots, appendSnapshot]
@@ -750,10 +1053,25 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
         keyword,
         setKeyword,
         filteredNotes,
+        trashed,
+        aliveCount,
+        scope,
+        setScope,
+        folders,
+        handleCreateFolder,
+        handleRenameFolder,
+        handleDeleteFolder,
+        handleToggleBookmark,
+        handleMoveToFolder,
+        handleRestoreFromTrash: handleRestore,
+        handlePurgeFromTrash: handlePurge,
+        handleEmptyTrash,
         handleCreate,
         handleOpenSampleNote,
         handleSelect,
         handleDelete,
+        handlePurge,
+        handleRestore,
         handleRename,
         handleContentChange,
         handleExport,
