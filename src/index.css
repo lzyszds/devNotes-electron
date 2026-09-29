@@ -2351,37 +2351,84 @@ html.dark .fe-mermaid-badge {
 }
 
 /* ---------------------------------------------------------- 10.3 容器面板 ::: */
+/*
+ * 克制路线：白底 + 细边框 + 一个小色点，而不是大面积浅色底 + 4px 粗色条。
+ *
+ * 大色块的问题是「每个容器都在抢正文的注意力」——一篇笔记里放三四个面板，
+ * 整页就被染花了；而容器本身多数只是补充说明，不该有这种视觉权重。
+ * 现在语义色只留在标题的图标与颜色上，底色统一为白，与正文融在一起。
+ */
+/*
+ * 容器面板的共用变量。
+ *
+ * ⚠️ 行内形态（p.fe-container-inline）也必须在列表里 —— 它同样用 var(--fe-bg)
+ * 与 var(--fe-border) 上色，而这两个变量只在这里定义。漏掉它的话，
+ * 那两处 var() 全部取不到值：背景透明、边框不画，整个容器就「消失」了，
+ * 只剩一行标题和正文飘在页面上。
+ */
 .fe-container-head,
 .fe-container-body,
-.fe-container-close {
+.fe-container-close,
+.fe-container-inline {
   --fe-tone: rgb(var(--brand-600-rgb, 33 131 151));
-  --fe-bg: rgba(var(--brand-500-rgb, 80 189 207), 0.06);
+  /*
+   * 卡片底色**不能是纯白** —— 正文背景就是 #ffffff，白底画在白底上等于不存在，
+   * 只剩一条边框线，看着像「透明」。
+   * 取一档极浅的冷灰：比正文暗一点点，卡片轮廓就立起来了，又不至于变成色块。
+   */
+  --fe-bg: #fafbfc;
+  --fe-border: rgba(148, 163, 184, 0.32);
   margin: 0 !important;
+}
+
+html.dark .fe-container-head,
+html.dark .fe-container-body,
+html.dark .fe-container-close,
+html.dark .fe-container-inline {
+  /* 深色下反过来 —— 正文底是 #12141a，卡片要比它亮一档 */
+  --fe-bg: rgba(255, 255, 255, 0.035);
+  --fe-border: rgba(255, 255, 255, 0.1);
 }
 
 .fe-container-head {
   margin-top: 1.4em !important;
-  padding: 9px 14px !important;
-  border-left: 4px solid var(--fe-tone);
+  padding: 10px 14px !important;
+  /* 左右与上边描线，下边不画 —— 与 body 接缝处不能有线 */
+  border: 1px solid var(--fe-border);
+  border-bottom: 0;
   border-radius: 10px 10px 0 0;
   background: var(--fe-bg);
   font-size: 13px !important;
-  font-weight: 700 !important;
+  font-weight: 600 !important;
   line-height: 1.6 !important;
-  color: var(--fe-tone) !important;
+  /* 标题不再整行走语义色：只有图标保留，正文用常规字色 */
+  color: #3f3f46 !important;
 }
 
+html.dark .fe-container-head {
+  color: #e4e4e7 !important;
+}
+
+/* 图标保留语义色，并压暗一档 —— 纯饱和的原色扎眼，与「克制」的调子不符 */
 .fe-container-icon {
-  margin-right: 6px;
+  margin-right: 7px;
   font-size: 13px;
+  color: var(--fe-tone);
+  filter: saturate(0.9);
 }
 
 .fe-container-body {
   padding: 4px 14px !important;
-  border-left: 4px solid var(--fe-tone);
+  border-left: 1px solid var(--fe-border);
+  border-right: 1px solid var(--fe-border);
   background: var(--fe-bg);
   font-size: 13.5px !important;
   line-height: 1.7 !important;
+  color: #52525b;
+}
+
+html.dark .fe-container-body {
+  color: #a1a1aa;
 }
 
 .fe-container-body--first {
@@ -2396,14 +2443,15 @@ html.dark .fe-mermaid-badge {
 .fe-container-close {
   margin-bottom: 1.4em !important;
   padding: 2px 14px !important;
-  border-left: 4px solid var(--fe-tone);
+  border: 1px solid var(--fe-border);
+  border-top: 0;
   border-radius: 0 0 10px 10px;
   background: var(--fe-bg);
   font-size: 10px !important;
   line-height: 1.4 !important;
   font-family: var(--fe-mono-font);
   color: var(--fe-tone) !important;
-  opacity: 0.35;
+  opacity: 0.4;
 }
 
 /* primary：Cherry 面板的默认类型（认不出的类型也回落到它）——
@@ -2413,7 +2461,7 @@ html.dark .fe-mermaid-badge {
 .fe-container-close--primary,
 .fe-container-inline--primary {
   --fe-tone: #64748b;
-  --fe-bg: rgba(100, 116, 139, 0.06);
+  /* 底色不再按色调分：统一走基础规则的 --fe-bg（浅色纯白 / 深色微亮） */
 }
 
 .fe-container-head--info,
@@ -2421,7 +2469,6 @@ html.dark .fe-mermaid-badge {
 .fe-container-close--info,
 .fe-container-inline--info {
   --fe-tone: #0284c7;
-  --fe-bg: rgba(2, 132, 199, 0.055);
 }
 
 .fe-container-head--note,
@@ -2429,7 +2476,6 @@ html.dark .fe-mermaid-badge {
 .fe-container-close--note,
 .fe-container-inline--note {
   --fe-tone: #6366f1;
-  --fe-bg: rgba(99, 102, 241, 0.055);
 }
 
 .fe-container-head--tip,
@@ -2437,7 +2483,6 @@ html.dark .fe-mermaid-badge {
 .fe-container-close--tip,
 .fe-container-inline--tip {
   --fe-tone: #059669;
-  --fe-bg: rgba(5, 150, 105, 0.055);
 }
 
 .fe-container-head--success,
@@ -2445,7 +2490,6 @@ html.dark .fe-mermaid-badge {
 .fe-container-close--success,
 .fe-container-inline--success {
   --fe-tone: #10b981;
-  --fe-bg: rgba(16, 185, 129, 0.055);
 }
 
 .fe-container-head--warning,
@@ -2453,7 +2497,6 @@ html.dark .fe-mermaid-badge {
 .fe-container-close--warning,
 .fe-container-inline--warning {
   --fe-tone: #d97706;
-  --fe-bg: rgba(217, 119, 6, 0.055);
 }
 
 .fe-container-head--danger,
@@ -2461,7 +2504,6 @@ html.dark .fe-mermaid-badge {
 .fe-container-close--danger,
 .fe-container-inline--danger {
   --fe-tone: #e11d48;
-  --fe-bg: rgba(225, 29, 72, 0.055);
 }
 
 .fe-container-head--accordion,
@@ -2469,13 +2511,6 @@ html.dark .fe-mermaid-badge {
 .fe-container-close--accordion,
 .fe-container-inline--accordion {
   --fe-tone: #64748b;
-  --fe-bg: rgba(148, 163, 184, 0.07);
-}
-
-html.dark .fe-container-head,
-html.dark .fe-container-body,
-html.dark .fe-container-close {
-  --fe-bg: rgba(255, 255, 255, 0.035);
 }
 
 html.dark .fe-container-head--primary,
@@ -2512,71 +2547,64 @@ html.dark .fe-container-close--accordion,
 .fe-container-inline--accordion { --fe-tone: #94a3b8; }
 
 /* ---------------------------------------------------------- 10.4 GitHub Alert */
+/*
+ * GitHub 的 `> [!NOTE]` 语法。
+ *
+ * 这一种刻意走得比容器面板更轻：**不留底色**，只有一根 2px 的左侧标线 +
+ * 一行小写标题。理由是这个语法本身是「给纯文本环境用的降级形式」（在不支持的
+ * 地方它就是一条普通引用），如果在这里画成一张彩色卡片，反而比容器面板还重，
+ * 两种语法的视觉权重就颠倒了。
+ */
 .fe-alert-head {
   --fe-tone: #0284c7;
   margin: 1.4em 0 0;
-  padding: 9px 16px;
-  border-left: 4px solid var(--fe-tone);
-  border-radius: 10px 10px 0 0;
-  background: rgba(2, 132, 199, 0.055);
-  font-size: 12px;
+  /* 上下留白交给行高：标题只占一行，靠 padding 撑高会显得笨重 */
+  padding: 2px 0 2px 14px;
+  border-left: 2px solid var(--fe-tone);
+  font-size: 11.5px;
   font-weight: 700;
+  letter-spacing: 0.02em;
   color: var(--fe-tone);
   user-select: none;
 }
 
 .fe-alert-icon {
-  margin-right: 6px;
+  margin-right: 5px;
 }
 
 .milkdown-notes-editor .milkdown-content blockquote.fe-alert {
   margin: 0 0 1.4em !important;
-  padding: 2px 16px 10px !important;
-  border-left: 4px solid var(--fe-tone) !important;
-  border-radius: 0 0 10px 10px !important;
-  background: rgba(2, 132, 199, 0.055) !important;
-  color: #475569 !important;
+  padding: 2px 0 2px 14px !important;
+  border-left: 2px solid var(--fe-tone) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: #52525b !important;
   font-style: normal;
+}
+
+html.dark .milkdown-notes-editor .milkdown-content blockquote.fe-alert {
+  background: transparent !important;
+  color: #a1a1aa !important;
 }
 
 .fe-alert--tip,
 .fe-alert-head--tip {
   --fe-tone: #059669;
 }
-.fe-alert-head--tip { background: rgba(5, 150, 105, 0.055); }
-.milkdown-notes-editor .milkdown-content blockquote.fe-alert--tip {
-  background: rgba(5, 150, 105, 0.055) !important;
+
+.fe-alert--important,
+.fe-alert-head--important {
+  --fe-tone: #7c3aed;
 }
 
-.fe-alert--important { --fe-tone: #7c3aed; }
-.fe-alert-head--important { --fe-tone: #7c3aed; background: rgba(124, 58, 237, 0.055); }
-.milkdown-notes-editor .milkdown-content blockquote.fe-alert--important {
-  background: rgba(124, 58, 237, 0.055) !important;
+.fe-alert--warning,
+.fe-alert-head--warning {
+  --fe-tone: #d97706;
 }
 
-.fe-alert--warning { --fe-tone: #d97706; }
-.fe-alert-head--warning { --fe-tone: #d97706; background: rgba(217, 119, 6, 0.055); }
-.milkdown-notes-editor .milkdown-content blockquote.fe-alert--warning {
-  background: rgba(217, 119, 6, 0.055) !important;
-}
-
-.fe-alert--caution { --fe-tone: #e11d48; }
-.fe-alert-head--caution { --fe-tone: #e11d48; background: rgba(225, 29, 72, 0.055); }
-.milkdown-notes-editor .milkdown-content blockquote.fe-alert--caution {
-  background: rgba(225, 29, 72, 0.055) !important;
-}
-
-html.dark .fe-alert-head {
-  background: rgba(255, 255, 255, 0.04);
-}
-html.dark .fe-alert-head--tip { background: rgba(52, 211, 153, 0.07); }
-html.dark .fe-alert-head--important { background: rgba(167, 139, 250, 0.07); }
-html.dark .fe-alert-head--warning { background: rgba(251, 191, 36, 0.07); }
-html.dark .fe-alert-head--caution { background: rgba(251, 113, 133, 0.07); }
-
-html.dark .milkdown-notes-editor .milkdown-content blockquote.fe-alert {
-  background: rgba(56, 189, 248, 0.06) !important;
-  color: #94a3b8 !important;
+.fe-alert--caution,
+.fe-alert-head--caution {
+  --fe-tone: #e11d48;
 }
 html.dark .milkdown-notes-editor .milkdown-content blockquote.fe-alert--tip {
   background: rgba(52, 211, 153, 0.06) !important;
@@ -2794,15 +2822,22 @@ html.dark .fe-toc-item--1 { color: #e2e8f0; }
 .milkdown-notes-editor .milkdown-content p.fe-container-inline {
   margin: 1.2em 0 !important;
   padding: 10px 14px !important;
-  border-left: 4px solid var(--fe-tone);
+  /* 与主容器同一套：细边框 + 白底，不再用 4px 粗色条 */
+  border: 1px solid var(--fe-border);
   border-radius: 10px;
   background: var(--fe-bg);
   font-size: 13.5px !important;
   line-height: 1.7 !important;
+  color: #52525b;
 }
 
+html.dark .milkdown-notes-editor .milkdown-content p.fe-container-inline {
+  color: #a1a1aa;
+}
+
+/* 行内形态没有独立的图标位，标题靠语义色做区分 —— 这里保留上色 */
 .milkdown-notes-editor .milkdown-content .fe-container-title {
-  font-weight: 700;
+  font-weight: 600;
   color: var(--fe-tone);
 }
 
@@ -3227,14 +3262,12 @@ html.dark .cherry-notes-editor .cherry-markdown kbd {
 .fe-alert--note,
 .fe-alert-head--note {
   --fe-tone: #3b6ea5;
-  --fe-bg: rgba(59, 110, 165, 0.07);
 }
 
 .fe-container-head--note,
 .fe-container-body--note,
 .fe-container-close--note {
   --fe-tone: #4f6b9c;
-  --fe-bg: rgba(79, 107, 156, 0.07);
 }
 
 .fe-container-head--tip,
@@ -3246,7 +3279,6 @@ html.dark .cherry-notes-editor .cherry-markdown kbd {
 .fe-alert--tip,
 .fe-alert-head--tip {
   --fe-tone: #2f855a;
-  --fe-bg: rgba(47, 133, 90, 0.075);
 }
 
 .fe-container-head--warning,
@@ -3255,7 +3287,6 @@ html.dark .cherry-notes-editor .cherry-markdown kbd {
 .fe-alert--warning,
 .fe-alert-head--warning {
   --fe-tone: #b7791f;
-  --fe-bg: rgba(183, 121, 31, 0.085);
 }
 
 .fe-container-head--danger,
@@ -3264,13 +3295,11 @@ html.dark .cherry-notes-editor .cherry-markdown kbd {
 .fe-alert--caution,
 .fe-alert-head--caution {
   --fe-tone: #c2557a;
-  --fe-bg: rgba(194, 85, 122, 0.075);
 }
 
 .fe-alert--important,
 .fe-alert-head--important {
   --fe-tone: #7c6bb0;
-  --fe-bg: rgba(124, 107, 176, 0.075);
 }
 
 html.dark .fe-container-head--info,
@@ -3302,32 +3331,39 @@ html.dark .fe-alert-head--caution { --fe-tone: #e79ab5; }
 html.dark .fe-alert--important,
 html.dark .fe-alert-head--important { --fe-tone: #b3a3e0; }
 
-/* ---------------------------------------------------------- 17.3 松一口气的内边距 */
+/* ---------------------------------------------------------- 17.3 内边距 */
+/*
+ * 容器面板走「白底细边框」，内边距按卡片给；
+ * Alert 走「只剩一根左侧竖线」，内边距压到最小 —— 它的表头只有一行小字，
+ * 上下各 11px 是给彩色卡片配的，放在细线形态上会显得松垮。
+ */
 .fe-container-head {
-  padding: 11px 16px !important;
-  font-size: 13.5px !important;
+  padding: 10px 14px !important;
+  font-size: 13px !important;
   line-height: 1.6 !important;
 }
 
 .fe-container-body {
-  padding: 5px 16px !important;
+  padding: 4px 14px !important;
 }
 
 .fe-container-body--first {
-  padding-top: 10px !important;
+  padding-top: 8px !important;
 }
 
 .fe-container-body--last {
-  padding-bottom: 10px !important;
+  padding-bottom: 8px !important;
 }
 
 .fe-alert-head {
-  padding: 11px 18px;
-  font-size: 12.5px;
+  padding: 2px 0 2px 14px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 .milkdown-notes-editor .milkdown-content blockquote.fe-alert {
-  padding: 4px 18px 12px !important;
+  padding: 2px 0 2px 14px !important;
 }
 
 /* ---------------------------------------------------------- 17.4 目录：折叠胶囊 */
@@ -3639,15 +3675,21 @@ html.dark .fe-code-lang-option.is-active {
   vertical-align: 0;
 }
 
-/* 紧凑容器（整块在一个段落里）：padding 放宽，标题与正文之间靠 <br> 分行 */
+/*
+ * 紧凑容器（整块在一个段落里）：标题与正文之间靠 <br> 分行。
+ *
+ * 内边距与主容器（.fe-container-head / -body 的 10px 14px）对齐 ——
+ * 两者在同一篇文档里会前后出现，留白不一致会看着一胖一瘦。
+ * 字号与字重同样跟主容器的标题走（13.5 / 600）。
+ */
 .milkdown-notes-editor .milkdown-content p.fe-container-inline {
-  padding: 12px 16px !important;
-  line-height: 1.65 !important;
+  padding: 10px 14px !important;
+  line-height: 1.7 !important;
 }
 
 .milkdown-notes-editor .milkdown-content .fe-container-title {
-  font-weight: 700;
-  font-size: 13.5px;
+  font-weight: 600;
+  font-size: 13px;
   letter-spacing: 0.01em;
 }
 
@@ -3997,15 +4039,12 @@ html.dark .fe-toc-body {
   padding-right: 16px !important;
 }
 
-/* 标注卡片：表头与引用块之间不留缝 */
-.fe-alert-head {
-  border-radius: 10px 10px 0 0;
-}
-
-.milkdown-notes-editor .milkdown-content blockquote.fe-alert {
-  border-radius: 0 0 10px 10px !important;
-  border-top: 0 !important;
-}
+/* ---------------------------------------------------------- 20.2 标注卡片 */
+/*
+ * Alert 现在不留底色、只有一根左侧竖线（见 10.4），所以不再需要
+ * 「表头与引用块拼成一张卡」那套圆角接缝处理 —— 拼的是一根连续的竖线，
+ * 由上下两块各自的 border-left 自然接上，不用刻意去圆角。
+ */
 
 /* ---------------------------------------------------------- 20.3 目录卡片 */
 /* 表头与列表同处一张卡，圆角只由卡片本身给 */

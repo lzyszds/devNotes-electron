@@ -96,15 +96,16 @@ export const CODE_BLOCK_THEMES: CodeBlockThemePreset[] = CURATED_THEME_IDS.flatM
 })
 
 /**
- * 默认档位。**不取列表第一个**（那现在是 One Dark Pro）。
+ * 默认档位。
  *
- * One Dark Pro 的珊瑚红会把 TSX 里的 import 名、组件名统统染成一片红 ——
- * Web 端只有静态词法分析，没有 VS Code 那层语义高亮来把函数与组件区分开，
- * 于是满屏看着像报错。Tokyo Night 的变量色是柔和的青灰，不依赖语义高亮也有层次。
+ * 取 One Dark Pro —— 与精选清单的第一项一致（列表顺序即展示顺序，
+ * 默认值排第一，用户第一眼看到的就是它，不会出现「默认值藏在列表中间」的怪事）。
  *
- * 它排在列表第一位是因为选的人多、好找，不代表推荐新用户用它当默认。
+ * 已知取舍：它的珊瑚红会把 TSX 里的 import 名、组件名染成一片红 ——
+ * Web 端只有静态词法分析，没有 VS Code 那层语义高亮来区分函数与组件。
+ * 觉得扎眼的话可以在设置里换 Tokyo Night 那类柔和档。
  */
-export const DEFAULT_CODE_BLOCK_THEME: CodeBlockThemeId = 'tokyo-night'
+export const DEFAULT_CODE_BLOCK_THEME: CodeBlockThemeId = 'one-dark-pro'
 
 /** 与同层的编辑器偏好（fehelper-editor-mode / -view / -split）保持一致，直接落 localStorage */
 export const CODE_BLOCK_THEME_STORAGE_KEY = 'fehelper-code-theme'
