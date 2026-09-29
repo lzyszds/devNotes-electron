@@ -25,8 +25,8 @@ const toolComponents: Record<string, React.ComponentType<any>> = {
   'timestamp': TimestampTool,
   'regexp': RegexpTool,
   'password': PasswordTool,
-  'base64': EncodeTool,
-  'url': EncodeTool,
+  'base64': () => <EncodeTool initialType="base64" />,
+  'url': () => <EncodeTool initialType="url" />,
   'websocket': WebsocketTool,
 }
 

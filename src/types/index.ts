@@ -26,10 +26,11 @@ export const toolCategories: ToolCategory[] = [
  * 只放"随手用一下"的小工具 —— 独立模块（见下）不进这里。
  */
 export const tools: Tool[] = [
-  { id: 'markdown-notes', name: 'Markdown 笔记', icon: 'FileText', description: '本地笔记编辑器，支持双栏与所见即所得两种模式', category: 'productivity' },
   { id: 'json-format', name: 'JSON 美化', icon: 'Braces', description: 'JSON 格式化、排序、压缩', category: 'dev' },
   { id: 'json-diff', name: 'JSON 比对', icon: 'GitCompare', description: 'JSON 结构化比较', category: 'dev' },
   { id: 'json-i18n', name: 'JSON 翻译', icon: 'Languages', description: 'JSON 多语言翻译，支持 JSONPath 和键名映射', category: 'dev' },
+  { id: 'base64', name: 'Base64', icon: 'FileCode', description: 'Base64 编码解码', category: 'encode' },
+  { id: 'url', name: 'URL 编码', icon: 'Link2', description: 'URL 编码解码', category: 'encode' },
   { id: 'websocket', name: 'WS 测试工具', icon: 'Radio', description: 'WebSocket 连接和消息测试', category: 'dev' },
   { id: 'qr-code', name: '二维码', icon: 'QrCode', description: '二维码生成和解码', category: 'image' },
   { id: 'image-convert', name: '图片转换', icon: 'FileImage', description: 'PNG / JPEG / WebP 互转，可调画质与尺寸', category: 'image' },
@@ -37,8 +38,6 @@ export const tools: Tool[] = [
   { id: 'timestamp', name: '时间戳', icon: 'Clock', description: '时间戳与日期互转', category: 'encode' },
   { id: 'regexp', name: '正则公式', icon: 'Regex', description: '常用正则表达式', category: 'dev' },
   { id: 'password', name: '密码生成', icon: 'Lock', description: '随机密码生成器', category: 'calculator' },
-  { id: 'base64', name: 'Base64', icon: 'FileCode', description: 'Base64 编码解码', category: 'encode' },
-  { id: 'url', name: 'URL 编码', icon: 'Link2', description: 'URL 编码解码', category: 'encode' },
 ]
 
 /**
@@ -46,6 +45,7 @@ export const tools: Tool[] = [
  * 仍复用 Tool 结构，好让使用统计、图标映射、面包屑这些按 id 查找的地方统一处理。
  */
 export const standaloneModules: Tool[] = [
+  { id: 'markdown-notes', name: 'Markdown 笔记', icon: 'FileText', description: '本地笔记编辑器，支持双栏与所见即所得两种模式', category: 'productivity' },
   { id: 'text-translate', name: '文本翻译', icon: 'Languages', description: '中英日韩等 20 种语言互译，支持自动检测源语言', category: 'productivity' },
 ]
 
