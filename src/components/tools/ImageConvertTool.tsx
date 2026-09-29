@@ -1,20 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { PointerEvent as ReactPointerEvent } from 'react'
 import {
+  Code,
   Copy,
   Download,
   FileImage,
   FileWarning,
   Frame,
+  Globe,
   Image as ImageIcon,
+  Layers,
+  Link,
   Link2,
   Link2Off,
   Loader2,
-  Maximize2,
   Move,
   Palette,
   RefreshCw,
   Scaling,
+  Smartphone,
   Trash2,
   Upload,
   Zap,
@@ -37,6 +40,12 @@ import {
 } from '../ui'
 import Tooltip from '../ui/Tooltip'
 import { useToast } from '../ui/Toast'
+import { copyText } from '../../utils/clipboard'
+import { ICO_SIZES, canvasToIco } from '../../utils/icoEncoder'
+import { blobToDataUrl, bundleZip, downloadBlob, type BundleEntry } from '../../utils/zipBundle'
+
+/** 多倍图导出的倍率。1x/2x 覆盖普通与视网膜屏，3x 给部分安卓 */
+const MULTI_SCALES = [1, 2, 3] as const
 
 /*
  * 图片格式转换 + 尺寸工作台（对标腾讯鲁班）。
@@ -46,31 +55,17 @@ import { useToast } from '../ui/Toast'
  * 以后要加 AVIF、BMP 这类格式，只需在 FORMATS 里补一行；canvas 编不了的
  * 再单独接 wasm 编码器，其余逻辑不用动。
  *
- * 尺寸有三条入口，都改同一份「输出尺寸」状态：预览图上的拖拽手柄、
- * 宽高像素输入框、预设按钮。三者谁动都算数，所以状态不能拆开存 ——
- * 想改这里的尺寸同步逻辑，先看清楚下面尺寸状态那一节的注释。
+ * 尺寸有两条入口，都改同一份「输出尺寸」状态：宽高像素输入框与预设按钮
+ * （外加一条等比滑杆，它算完也写回同一份状态）。所以尺寸不能拆开存 ——
+ * 想改这里的同步逻辑，先看清楚下面尺寸状态那一节的注释。
  */
 
-type FormatValue = 'webp' | 'jpeg' | 'png'
+type FormatValue = 'webp' | 'avif' | 'jpeg' | 'png'
 
 interface Size {
   width: number
   height: number
 }
-
-type ResizeHandle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w'
-
-/** 预览图上八个拖拽手柄的位置与光标 */
-const HANDLES: { key: ResizeHandle; className: string; cursor: string }[] = [
-  { key: 'nw', className: '-top-1 -left-1', cursor: 'nwse-resize' },
-  { key: 'n', className: '-top-1 left-1/2 -translate-x-1/2', cursor: 'ns-resize' },
-  { key: 'ne', className: '-top-1 -right-1', cursor: 'nesw-resize' },
-  { key: 'e', className: '-right-1 top-1/2 -translate-y-1/2', cursor: 'ew-resize' },
-  { key: 'se', className: '-bottom-1 -right-1', cursor: 'nwse-resize' },
-  { key: 's', className: '-bottom-1 left-1/2 -translate-x-1/2', cursor: 'ns-resize' },
-  { key: 'sw', className: '-bottom-1 -left-1', cursor: 'nesw-resize' },
-  { key: 'w', className: '-left-1 top-1/2 -translate-y-1/2', cursor: 'ew-resize' },
-]
 
 /** 常用尺寸预设。长边取值，手机竖图与横图都能对上；over 为真时只缩小不放大 */
 interface SizePreset {
@@ -96,14 +91,6 @@ function fitToLongEdge(source: Size, long: number): Size {
     width: Math.max(1, Math.round(source.width * factor)),
     height: Math.max(1, Math.round(source.height * factor)),
   }
-}
-
-/** 按拖动中点等比缩放，用来保持宽高比 */
-function fitAroundPoint(source: Size, targetW: number, targetH: number): Size {
-  const byW: Size = { width: targetW, height: Math.max(1, Math.round((targetW * source.height) / source.width)) }
-  const byH: Size = { width: Math.max(1, Math.round((targetH * source.width) / source.height)), height: targetH }
-  // 取面积较大的那个，避免在极端比例下缩过头
-  return byW.width * byW.height >= byH.width * byH.height ? byW : byH
 }
 
 /** 用二分法把体积压到目标以下。不依赖任何编码质量模型，直接试真实的编码结果 */
@@ -194,6 +181,15 @@ const FORMATS: ImageFormat[] = [
     hint: '同画质下体积最小，支持透明；旧版软件可能打不开',
   },
   {
+    value: 'avif',
+    label: 'AVIF',
+    mime: 'image/avif',
+    ext: 'avif',
+    lossy: true,
+    alpha: true,
+    hint: '压缩率比 WebP 更高，Next-gen 格式；编码慢，且老浏览器不支持',
+  },
+  {
     value: 'jpeg',
     label: 'JPEG',
     mime: 'image/jpeg',
@@ -220,6 +216,8 @@ interface SourceImage {
   width: number
   height: number
   size: number
+  /** SVG 是矢量的，放大导出不会糊 —— 预览区据此换文案 */
+  isVector?: boolean
 }
 
 interface ResultImage {
@@ -269,22 +267,13 @@ export default function ImageConvertTool() {
   const [targetKb, setTargetKb] = useState('')
   const [result, setResult] = useState<ResultImage | null>(null)
   const [converting, setConverting] = useState(false)
+  /** 导出 ICO / 多倍图 / zip 期间为真，用来禁用按钮防重复点击 */
+  const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   /** 预览看的是原图还是转换结果 */
   const [view, setView] = useState<'before' | 'after'>('after')
   const [dragging, setDragging] = useState(false)
-  const [resizing, setResizing] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
-  /** 转换效果的预览容器，拖拽手柄按它的尺寸换算 */
-  const stageRef = useRef<HTMLDivElement>(null)
-  const dragRef = useRef<{
-    handle: ResizeHandle
-    startX: number
-    startY: number
-    startW: number
-    startH: number
-    scale: number
-  } | null>(null)
   const { showToast } = useToast()
 
   const activeFormat = useMemo(
@@ -333,29 +322,39 @@ export default function ImageConvertTool() {
 
   const applyFile = useCallback(
     async (file: File) => {
-      if (!file.type.startsWith('image/')) {
+      // SVG 常常没有 MIME（拖拽进来的尤其如此），按扩展名兜一层
+      const isSvg = file.type === 'image/svg+xml' || /\.svg$/i.test(file.name)
+      if (!file.type.startsWith('image/') && !isSvg) {
         showToast('只能处理图片文件', 'error')
         return
       }
       const url = URL.createObjectURL(file)
       try {
         const img = await loadImage(url)
+        // SVG 没有固有像素尺寸时 naturalWidth 会是 0，退回一个默认画布
+        const naturalWidth = img.naturalWidth || 1024
+        const naturalHeight = img.naturalHeight || 1024
         setSource({
           file,
           url,
-          width: img.naturalWidth,
-          height: img.naturalHeight,
+          width: naturalWidth,
+          height: naturalHeight,
           size: file.size,
+          isVector: isSvg,
         })
         setTargetKb('')
         // 换图时尺寸回到「原图」，否则会拿上一张的尺寸去套新图
-        setWidth(img.naturalWidth)
-        setHeight(img.naturalHeight)
+        setWidth(naturalWidth)
+        setHeight(naturalHeight)
         setView('after')
         setError('')
       } catch {
         URL.revokeObjectURL(url)
-        setError('这张图解码失败，换一个文件试试')
+        setError(
+          isSvg
+            ? '这个 SVG 解析失败：可能引用了外部图片/字体，或文件里没有合法的 SVG 根节点'
+            : '这张图解码失败，换一个文件试试',
+        )
       }
     },
     [showToast],
@@ -377,10 +376,10 @@ export default function ImageConvertTool() {
   }, [applyFile])
 
   /* ---------------- 尺寸状态 ----------------
-   * 输出尺寸以 width / height 两个像素数为准（不是百分比），上面三条入口
-   * 最终都落到这里：拖拽手柄给的是绝对像素、输入框给的是单边像素、
-   * 预设按钮算完也是像素。所以「原图」在这里没有专属状态，回到原图只是
-   * 把这两个数写回源图尺寸。下面从 width / height 反推一份百分比，只用于显示。 */
+   * 输出尺寸以 width / height 两个像素数为准（不是百分比）。两条入口最终都落到
+   * 这里：输入框给的是单边像素、预设按钮算完也是像素。所以「原图」在这里没有
+   * 专属状态，回到原图只是把这两个数写回源图尺寸。下面从 width / height 反推
+   * 一份百分比，只用于显示与那条等比滑杆。 */
   const targetWidth = source ? Math.max(1, Math.round(width || source.width)) : 0
   const targetHeight = source ? Math.max(1, Math.round(height || source.height)) : 0
   const scalePercent =
@@ -445,72 +444,9 @@ export default function ImageConvertTool() {
       })?.label ?? ''
     )
     // activePreset 只用来看谁该高亮，两个数变化本身不改变高亮结果，
-    // 所以刻意不放进依赖 —— 否则拖拽时每一帧都要重算一遍
+    // 所以刻意不放进依赖，免得拖滑杆时白白重算
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [source])
-
-  // 起手和收尾都记一下，中途参数变化不会污染拖拽基准
-  useEffect(() => {
-    if (resizing) dragRef.current = null
-  }, [resizing])
-
-  const onHandleDown = (handle: ResizeHandle) => (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (!source) return
-    const box = stageRef.current
-    const img = box?.querySelector('img') as HTMLImageElement | null
-    if (!img) return
-    event.preventDefault()
-    event.stopPropagation()
-    // 预览图被 max-width / max-height 缩过，手柄走的是显示像素，得换算回真实像素。
-    // 用 src 比对而不是取第一张图：切到「原图」时页面上第一张是源图，比例不一样
-    const rect = img.getBoundingClientRect()
-    const displayScale = rect.width / Math.max(1, targetWidth) || 1
-    dragRef.current = {
-      handle,
-      startX: event.clientX,
-      startY: event.clientY,
-      startW: targetWidth,
-      startH: targetHeight,
-      scale: displayScale,
-    }
-    event.currentTarget.setPointerCapture(event.pointerId)
-    setResizing(true)
-  }
-
-  const onHandleMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const drag = dragRef.current
-    if (!drag || !source) return
-    const dx = (event.clientX - drag.startX) / drag.scale
-    const dy = (event.clientY - drag.startY) / drag.scale
-    const origin: Size = { width: source.width, height: source.height }
-    // 东西向手柄不动高度，南北向不动宽度，再按锁比例决定另一边跟不跟
-    const wantsWidth = drag.handle !== 'n' && drag.handle !== 's'
-    const wantsHeight = drag.handle !== 'e' && drag.handle !== 'w'
-    const wSign = drag.handle.includes('w') ? -1 : 1
-    const hSign = drag.handle.includes('n') ? -1 : 1
-    const nextW = wantsWidth ? Math.max(1, drag.startW + dx * wSign) : drag.startW
-    const nextH = wantsHeight ? Math.max(1, drag.startH + dy * hSign) : drag.startH
-
-    if (lockRatio) {
-      // 保持比例时给一个偏斜：单边手柄按那一边定，角手柄取位移更明显的那个方向
-      let target: Size
-      if (!wantsWidth) target = fitAroundPoint(origin, 0, nextH)
-      else if (!wantsHeight) target = fitAroundPoint(origin, nextW, 0)
-      else if (Math.abs(dx) >= Math.abs(dy)) target = fitAroundPoint(origin, nextW, 0)
-      else target = fitAroundPoint(origin, 0, nextH)
-      setSize(target.width, target.height)
-      return
-    }
-    setSize(nextW, nextH)
-  }
-
-  const onHandleUp = (event: ReactPointerEvent<HTMLDivElement>) => {
-    dragRef.current = null
-    setResizing(false)
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId)
-    }
-  }
 
   /* ---------------- 转换：尺寸 / 画质 / 格式一变就重算 ---------------- */
   useEffect(() => {
@@ -519,8 +455,8 @@ export default function ImageConvertTool() {
       return
     }
     let cancelled = false
-    // 拖拽手柄时不防抖，交给 requestAnimationFrame 节流，手感才跟手
-    const delay = resizing ? 0 : 160
+    // 防抖：拖滑杆时会连发多次，等停稳再算，省得每帧都跑一遍编码
+    const delay = 160
     const timer = window.setTimeout(async () => {
       setConverting(true)
       try {
@@ -575,7 +511,7 @@ export default function ImageConvertTool() {
       cancelled = true
       window.clearTimeout(timer)
     }
-  }, [source, format, quality, targetWidth, targetHeight, bgColor, targetKb, resizing, activeFormat])
+  }, [source, format, quality, targetWidth, targetHeight, bgColor, targetKb, activeFormat])
 
   const clearSource = () => {
     setSource(null)
@@ -620,14 +556,123 @@ export default function ImageConvertTool() {
     }
   }
 
+  /** 源图的去扩展名文件名，导出时复用 */
+  const baseName = source ? source.file.name.replace(/\.[^.]+$/, '') || 'image' : 'image'
+
+  /* ---------------- 多倍图导出 ---------------- */
+
+  /** 把源图按倍率重绘成 PNG。矢量源放到多大都不糊，位图源放大会失真 */
+  const renderSizedPng = async (scale: number) => {
+    if (!source) throw new Error('没有源图')
+    const img = await loadImage(source.url)
+    const width = Math.max(1, Math.round(source.width * scale))
+    const height = Math.max(1, Math.round(source.height * scale))
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('当前环境拿不到画布')
+    ctx.imageSmoothingEnabled = true
+    ctx.imageSmoothingQuality = 'high'
+    // 多倍图一律出 PNG：透明要保住，且这类资源通常给 retina 用
+    if (!activeFormat.alpha) {
+      ctx.fillStyle = bgColor
+      ctx.fillRect(0, 0, width, height)
+    }
+    ctx.drawImage(img, 0, 0, width, height)
+    return { blob: await canvasToBlob(canvas, 'image/png'), width, height }
+  }
+
+  const exportMultiScale = async () => {
+    if (!source) return
+    setBusy(true)
+    try {
+      const entries: BundleEntry[] = []
+      for (const scale of MULTI_SCALES) {
+        const { blob } = await renderSizedPng(scale)
+        entries.push({ name: `${baseName}@${scale}x.png`, blob })
+      }
+      downloadBlob(await bundleZip(entries), `${baseName}@multi.zip`)
+      showToast(`已导出 ${MULTI_SCALES.length} 个倍率（zip）`)
+    } catch (e) {
+      setError('多倍图导出失败：' + (e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /* ---------------- 站点图标 ---------------- */
+
+  const exportIco = async () => {
+    if (!source) return
+    setBusy(true)
+    try {
+      const img = await loadImage(source.url)
+      const ico = await canvasToIco(img, ICO_SIZES, (canvas) => canvasToBlob(canvas, 'image/png'))
+      downloadBlob(ico, 'favicon.ico')
+      showToast(`favicon.ico 已导出（${ICO_SIZES.join('/')}）`)
+    } catch (e) {
+      setError('ICO 导出失败：' + (e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const exportTouchIcon = async () => {
+    if (!source) return
+    setBusy(true)
+    try {
+      const img = await loadImage(source.url)
+      const size = 180
+      const canvas = document.createElement('canvas')
+      canvas.width = canvas.height = size
+      const ctx = canvas.getContext('2d')
+      if (!ctx) throw new Error('当前环境拿不到画布')
+      ctx.imageSmoothingEnabled = true
+      ctx.imageSmoothingQuality = 'high'
+      // apple-touch-icon 不支持透明，透明区会变黑，所以先铺白底
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, size, size)
+      const box = Math.min(source.width, source.height)
+      ctx.drawImage(img, (source.width - box) / 2, (source.height - box) / 2, box, box, 0, 0, size, size)
+      downloadBlob(await canvasToBlob(canvas, 'image/png'), 'apple-touch-icon.png')
+      showToast('apple-touch-icon.png 已导出（180×180）')
+    } catch (e) {
+      setError('触屏图标导出失败：' + (e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /* ---------------- 内联用：DataURL ---------------- */
+
+  const copyDataUrl = async (kind: 'raw' | 'css') => {
+    if (!result) return
+    try {
+      const dataUrl = await blobToDataUrl(result.blob)
+      const text = kind === 'raw' ? dataUrl : `background-image: url("${dataUrl}");`
+      const ok = await copyText(text)
+      showToast(
+        ok ? (kind === 'raw' ? '已复制 DataURL' : '已复制 CSS 片段') : '复制失败',
+        ok ? 'default' : 'error',
+      )
+    } catch (e) {
+      setError('生成 DataURL 失败：' + (e as Error).message)
+    }
+  }
+
   // 正数是变小，负数是变大
   const savedRatio = source && result ? Math.round((1 - result.size / source.size) * 100) : null
 
   return (
+    // 外层 flex 承托：ToolShell 占满剩余高度，动作条作为兄弟节点在它下面独占一条，
+    // 两者不可能互相覆盖（放进 ToolShell 的 children 会被滚动容器吞掉高度）。
+    <div className="flex flex-col h-full min-h-0">
     <ToolShell
       icon={FileImage}
       title="图片转换"
-      subtitle="PNG / JPEG / WebP 互转，画质与尺寸随手调"
+      subtitle="PNG / JPEG / WebP / AVIF 互转，画质与尺寸随手调"
+      scroll={false}
       badge={<ToolBadge tone="brand">{activeFormat.label}</ToolBadge>}
       actions={
         <>
@@ -654,6 +699,8 @@ export default function ImageConvertTool() {
         </>
       }
     >
+      {/* scroll={false} 时 ToolShell 不会给内容加内边距，这里自己包一层 */}
+      <div className="flex-1 min-h-0 flex flex-col gap-3.5 p-4 md:p-6 md:pr-0">
       {error && (
         <ToolNotice tone="error" icon={FileWarning}>
           {error}
@@ -661,7 +708,7 @@ export default function ImageConvertTool() {
       )}
 
       <div
-        className="tool-cascade flex-1 grid grid-cols-1 lg:grid-cols-[1.15fr_1fr] gap-4 items-start"
+        className="tool-cascade grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-4 pr-4 items-start lg:flex-1 lg:min-h-0 lg:overflow-y-auto"
         onDragOver={(event) => {
           event.preventDefault()
           setDragging(true)
@@ -708,6 +755,11 @@ export default function ImageConvertTool() {
                     输出 {targetWidth} × {targetHeight} px · {activeFormat.label}
                     {scalePercent !== 100 && ` · ${scalePercent}%`}
                   </p>
+                  {source.isVector && (
+                    <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-1">
+                      矢量源：放大导出不会失真，可放心拉大尺寸
+                    </p>
+                  )}
                 </div>
               </div>
             ) : (
@@ -733,6 +785,134 @@ export default function ImageConvertTool() {
             )}
           </ToolCard>
 
+          {/* ---------------- 转换结果 ---------------- */}
+          <ToolCard fill={false}>
+          <ToolCardHeader
+            title="转换结果"
+            icon={Move}
+            meta={
+              result
+                ? `${result.width} × ${result.height}${
+                    activeFormat.lossy && result.quality !== quality ? ` · 画质 ${result.quality}%` : ''
+                  }`
+                : undefined
+            }
+            actions={
+              source ? (
+                <>
+                  {/* 切换看原图 / 转换结果，方便肉眼对比画质损失 */}
+                  <Segmented
+                    value={view}
+                    options={[
+                      { value: 'before', label: '原图' },
+                      { value: 'after', label: '转换后' },
+                    ]}
+                    onChange={(next) => {
+                      if (next !== 'after') return
+                      setView('after')
+                    }}
+                    className="mr-1"
+                  />
+                  <Tooltip content="复制图片（PNG）">
+                    <button
+                      onClick={() => void copyImage()}
+                      disabled={!result}
+                      className={iconButtonClass('brand')}
+                    >
+                      <Copy size={15} />
+                    </button>
+                  </Tooltip>
+                </>
+              ) : null
+            }
+          />
+
+          <div className="relative p-6 min-h-[240px] flex items-center justify-center bg-slate-50/50 dark:bg-dark-bg/30">
+            {converting && (
+              <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/60 dark:bg-dark-bg/50">
+                <Loader2 size={20} className="animate-spin text-brand-500" />
+              </div>
+            )}
+
+            {source ? (
+              view === 'before' ? (
+                <div className="relative inline-flex">
+                  {/* 「原图」是参照系，不放手柄，免得误以为拖它也能改尺寸 */}
+                  <img
+                    src={source.url}
+                    alt="原图"
+                    className="max-w-full max-h-[340px] object-contain rounded-lg shadow-[0_1px_3px_rgba(15,23,42,0.08)] ring-1 ring-slate-200/60"
+                  />
+                  <span className="absolute left-1.5 bottom-1.5 px-1.5 py-0.5 rounded-md bg-slate-900/70 text-white text-[10px] font-medium tabular-nums">
+                    {source.width} × {source.height} · 原图
+                  </span>
+                </div>
+              ) : result ? (
+                <div className="relative inline-flex">
+                  <img
+                    src={result.url}
+                    alt="转换结果"
+                    draggable={false}
+                    className="max-w-full max-h-[340px] object-contain rounded-lg shadow-[0_1px_3px_rgba(15,23,42,0.08)] ring-1 ring-slate-200/60 select-none"
+                  />
+                  <span className="absolute left-1.5 bottom-1.5 px-1.5 py-0.5 rounded-md bg-slate-900/70 text-white text-[10px] font-medium tabular-nums">
+                    {result.width} × {result.height}
+                  </span>
+                </div>
+              ) : (
+                <span className="text-xs text-slate-400 dark:text-slate-500">正在转换…</span>
+              )
+            ) : (
+              <ToolEmpty
+                icon={Palette}
+                title="还没有选择图片"
+                hint="左侧拖入或选择一张图片，这里会显示转换后的效果"
+              />
+            )}
+          </div>
+
+          {source && (
+            <ToolCardFooter>
+              <span className="font-mono">
+                {formatBytes(source.size)} → {result ? formatBytes(result.size) : '…'}
+              </span>
+              <span className="flex items-center gap-1.5">
+                {Number(targetKb) > 0 && result && result.size > Number(targetKb) * 1024 ? (
+                  <ToolTag tone="amber">已压到极限，未达目标</ToolTag>
+                ) : savedRatio !== null ? (
+                  <ToolTag tone={savedRatio >= 0 ? 'emerald' : 'amber'}>
+                    {savedRatio >= 0 ? `体积 -${savedRatio}%` : `体积 +${Math.abs(savedRatio)}%`}
+                  </ToolTag>
+                ) : null}
+                {/* 小图标惯用内联写法，省得再跑一趟 Base64 工具 */}
+                <Tooltip content="复制为 DataURL">
+                  <button
+                    type="button"
+                    onClick={() => void copyDataUrl('raw')}
+                    disabled={!result}
+                    className={iconButtonClass('neutral')}
+                  >
+                    <Link size={13} />
+                  </button>
+                </Tooltip>
+                <Tooltip content="复制为 CSS background">
+                  <button
+                    type="button"
+                    onClick={() => void copyDataUrl('css')}
+                    disabled={!result}
+                    className={iconButtonClass('neutral')}
+                  >
+                    <Code size={13} />
+                  </button>
+                </Tooltip>
+              </span>
+            </ToolCardFooter>
+          )}
+        </ToolCard>
+        </div>
+
+        {/* ---------------- 右列：输出设置 ---------------- */}
+        <div className="space-y-4 min-w-0">
           <ToolCard fill={false}>
             <ToolCardHeader
               title="输出设置"
@@ -916,136 +1096,20 @@ export default function ImageConvertTool() {
               )}
             </div>
           </ToolCard>
+
         </div>
-
-        {/* ---------------- 预览与体积对比 ---------------- */}
-        <ToolCard fill={false}>
-          <ToolCardHeader
-            title="转换结果"
-            icon={Move}
-            meta={
-              result
-                ? `${result.width} × ${result.height}${
-                    activeFormat.lossy && result.quality !== quality ? ` · 画质 ${result.quality}%` : ''
-                  }`
-                : undefined
-            }
-            actions={
-              source ? (
-                <>
-                  {/* 拖拽手柄挂在「转换后」这层，切到原图时顺手切回来，免得手柄消失让人以为坏了 */}
-                  <Segmented
-                    value={view}
-                    options={[
-                      { value: 'before', label: '原图' },
-                      { value: 'after', label: '拖拽改尺寸' },
-                    ]}
-                    onChange={(next) => {
-                      if (next !== 'after') return
-                      setView('after')
-                    }}
-                    className="mr-1"
-                  />
-                  <Tooltip content="复制图片（PNG）">
-                    <button
-                      onClick={() => void copyImage()}
-                      disabled={!result}
-                      className={iconButtonClass('brand')}
-                    >
-                      <Copy size={15} />
-                    </button>
-                  </Tooltip>
-                </>
-              ) : null
-            }
-          />
-
-          <div
-            ref={stageRef}
-            className="relative p-6 min-h-[280px] flex items-center justify-center bg-slate-50/50 dark:bg-dark-bg/30"
-          >
-            {converting && (
-              <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/60 dark:bg-dark-bg/50">
-                <Loader2 size={20} className="animate-spin text-brand-500" />
-              </div>
-            )}
-
-            {source ? (
-              view === 'before' ? (
-                <div className="relative inline-flex">
-                  {/* 「原图」是参照系，不放手柄，免得误以为拖它也能改尺寸 */}
-                  <img
-                    src={source.url}
-                    alt="原图"
-                    className="max-w-full max-h-[340px] object-contain rounded-lg shadow-[0_1px_3px_rgba(15,23,42,0.08)] ring-1 ring-slate-200/60"
-                  />
-                  <span className="absolute left-1.5 bottom-1.5 px-1.5 py-0.5 rounded-md bg-slate-900/70 text-white text-[10px] font-medium tabular-nums">
-                    {source.width} × {source.height} · 原图
-                  </span>
-                </div>
-              ) : result ? (
-                <div className="relative inline-flex">
-                  <img
-                    src={result.url}
-                    alt="转换结果"
-                    draggable={false}
-                    className="max-w-full max-h-[340px] object-contain rounded-lg shadow-[0_1px_3px_rgba(15,23,42,0.08)] ring-1 ring-slate-200/60 select-none"
-                  />
-                  {/* 拖四角四边改尺寸，改的是输出尺寸 */}
-                  <div className="absolute inset-0">
-                    <span className="absolute inset-0 rounded-lg ring-2 ring-brand-500/60 pointer-events-none" />
-                    {HANDLES.map((handle) => (
-                      <div
-                        key={handle.key}
-                        onPointerDown={onHandleDown(handle.key)}
-                        onPointerMove={onHandleMove}
-                        onPointerUp={onHandleUp}
-                        onPointerCancel={onHandleUp}
-                        style={{ cursor: handle.cursor, touchAction: 'none' }}
-                        className={`absolute w-2.5 h-2.5 rounded-full bg-white border-2 border-brand-500 shadow-sm ${handle.className}`}
-                      />
-                    ))}
-                    <span className="absolute left-1/2 -translate-x-1/2 -top-8 px-2 py-0.5 rounded-md bg-slate-900/85 text-white text-[11px] font-semibold tabular-nums whitespace-nowrap opacity-0 group-hover/stage:opacity-100">
-                      {targetWidth} × {targetHeight}
-                    </span>
-                  </div>
-                </div>
-              ) : (
-                <span className="text-xs text-slate-400 dark:text-slate-500">正在转换…</span>
-              )
-            ) : (
-              <ToolEmpty
-                icon={Palette}
-                title="还没有选择图片"
-                hint="左侧拖入或选择一张图片，这里会显示转换后的效果"
-              />
-            )}
-          </div>
-
-          {source && (
-            <ToolCardFooter>
-              <span className="font-mono">
-                {formatBytes(source.size)} → {result ? formatBytes(result.size) : '…'}
-              </span>
-              {Number(targetKb) > 0 && result && result.size > Number(targetKb) * 1024 ? (
-                <ToolTag tone="amber">已压到极限，未达目标</ToolTag>
-              ) : savedRatio !== null ? (
-                <ToolTag tone={savedRatio >= 0 ? 'emerald' : 'amber'}>
-                  {savedRatio >= 0 ? `体积 -${savedRatio}%` : `体积 +${Math.abs(savedRatio)}%`}
-                </ToolTag>
-              ) : null}
-            </ToolCardFooter>
-          )}
-        </ToolCard>
       </div>
+      </div>
+      </ToolShell>
 
-      {/* 底部动作条 */}
+      {/* 底部动作条：ToolShell 之外、外层 flex 的兄弟节点，独占一条高度 */}
+      <div className="shrink-0 px-4 md:px-6 py-3">
       <ToolActionBar
         info={
           <>
             <span className="inline-flex items-center gap-1.5">
-              <Maximize2 size={13} className="text-brand-500" />
-              预览图上拖四角或四边即可改尺寸
+              <Scaling size={13} className="text-brand-500" />
+              改尺寸用右侧「输出尺寸」的输入框或滑杆
             </span>
             <span className="hidden sm:inline-flex items-center gap-1.5">
               <Frame size={13} className="text-brand-500" />
@@ -1058,11 +1122,32 @@ export default function ImageConvertTool() {
           <RefreshCw size={14} />
           <span>重置参数</span>
         </button>
+
+        {/* 站点图标三件套：ICO 与触屏图标都从原图重绘，不受右侧尺寸设置影响 */}
+        <Tooltip content="导出 16/32/48/64/128/256 多尺寸 favicon.ico">
+          <button onClick={exportIco} disabled={!source || busy} className={BTN.secondary}>
+            <Globe size={14} />
+            <span>favicon.ico</span>
+          </button>
+        </Tooltip>
+        <Tooltip content="导出 180×180 的 apple-touch-icon.png（白底，iOS 不支持透明）">
+          <button onClick={exportTouchIcon} disabled={!source || busy} className={BTN.secondary}>
+            <Smartphone size={14} />
+            <span>触屏图标</span>
+          </button>
+        </Tooltip>
+        <Tooltip content="按 @1x/@2x/@3x 导出并打成 zip">
+          <button onClick={exportMultiScale} disabled={!source || busy} className={BTN.secondary}>
+            <Layers size={14} />
+            <span>多倍图</span>
+          </button>
+        </Tooltip>
         <button onClick={download} disabled={!result} className={BTN.primary}>
           <Download size={14} />
           <span>导出图片</span>
         </button>
       </ToolActionBar>
-    </ToolShell>
+      </div>
+    </div>
   )
 }
