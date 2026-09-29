@@ -12,7 +12,6 @@ import {
   ToolHistoryOverlay,
   ToolNotice,
   ToolShell,
-  ToolTag,
   iconButtonClass,
   pillClass,
 } from '../ui'
@@ -258,7 +257,8 @@ export default function RegexpTool() {
           <ToolCardHeader
             title="匹配提取结果"
             icon={ListTree}
-            meta={<ToolTag tone="brand">{matches.length} 项</ToolTag>}
+            // meta 自带一层灰底，只能传纯文本；套 ToolTag 会双层叠色
+            meta={`${matches.length} 项`}
             actions={
               <Tooltip content="复制全部匹配">
                 <button
