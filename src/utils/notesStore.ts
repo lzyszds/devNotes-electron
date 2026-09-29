@@ -7,10 +7,48 @@ export interface NoteItem {
   // 来源磁盘文件(通过文件关联/导入打开时记录,用于去重与磁盘更新检测)
   sourcePath?: string
   sourceMtime?: number
+  /** 书签/置顶：为 true 时固定排在文档列表最前 */
+  bookmarked?: boolean
+  /** 所属文件夹，null/undefined 表示未分类 */
+  folderId?: string | null
+  /**
+   * 归类最后一次变动的时刻，专供合并判定「哪边的归类更新」。
+   *
+   * 单独记一个而不复用 updatedAt —— 归类若推进 updatedAt 会把文档顶到列表最前，
+   * 那是刻意避免的；没有它则合并只能盲选，远端拖进新文件夹的动作会丢失。
+   */
+  folderMovedAt?: number
+  /**
+   * 回收站标记：有值即视为已删除，只在回收站视图中出现。
+   *
+   * 复用 notes 数组而不是另开一个 trash 数组，是为了 Cloudflare 同步：
+   * 上传时 toSyncPayload 会把回收站条目剥成「只留 id + deletedAt」的骨架，
+   * 靠这个标记告诉别的设备「这篇已被删」，否则对面那份活着的旧副本会把它复活。
+   * 若把回收站放到独立数组里，剔除动作就会连这个凭据一起丢掉。
+   *
+   * 正文本身不上传 —— 回收站按「本机保留即可」定位。
+   */
+  deletedAt?: number
+}
+
+/** 知识库文件夹。参与 Cloudflare 合并，以 id 对齐、同名不算同一个（见 mergeFolders） */
+export interface FolderItem {
+  id: string
+  name: string
+  createdAt: number
+  /** 重命名的时刻。合并时用它判「谁更新」，不参与侧栏排序 */
+  updatedAt?: number
+  /**
+   * 删除墓碑。删文件夹不再是从数组里抹掉，而是打上这个标记 ——
+   * 否则合并时无法区分「A 机删了它」和「B 机刚建的它」，
+   * 删除动作会被另一台的旧副本当成新增又带回来。
+   */
+  deletedAt?: number
 }
 
 export interface NotesState {
   notes: NoteItem[]
+  folders: FolderItem[]
   activeId: string | null
 }
 
@@ -238,7 +276,52 @@ export function createEmptyNote(partial?: Partial<NoteItem>): NoteItem {
     updatedAt: partial?.updatedAt ?? now,
     sourcePath: partial?.sourcePath,
     sourceMtime: partial?.sourceMtime,
+    bookmarked: partial?.bookmarked,
+    folderId: partial?.folderId ?? null,
+    deletedAt: partial?.deletedAt,
   }
+}
+
+/** 新建文件夹 */
+export function createFolder(name: string): FolderItem {
+  const now = Date.now()
+  return {
+    id: createId().replace('note_', 'folder_'),
+    name: name.trim().slice(0, 40) || '新建文件夹',
+    createdAt: now,
+    updatedAt: now,
+  }
+}
+
+/**
+ * 未删除的文件夹。侧栏、新建文档时的归属选择、以及「这个 folderId 还有效吗」
+ * 这类判断都应该走它，而不是裸 folders —— 墓碑条目仍留在数组里等待合并。
+ */
+export function visibleFolders(folders: FolderItem[]): FolderItem[] {
+  return folders.filter((folder) => !folder.deletedAt)
+}
+
+/** 未删除的文档（绝大多数读写路径都应该基于它，而不是裸 notes） */
+export function visibleNotes(notes: NoteItem[]): NoteItem[] {
+  return notes.filter((note) => !note.deletedAt)
+}
+
+/** 回收站里的文档，最近删除的在前 */
+export function trashedNotes(notes: NoteItem[]): NoteItem[] {
+  return notes
+    .filter((note) => Boolean(note.deletedAt))
+    .sort((a, b) => (b.deletedAt || 0) - (a.deletedAt || 0))
+}
+
+/**
+ * 文档列表的统一排序：书签组永远在最上，其余按更新时间倒序。
+ * 侧栏列表与「下一篇文章是谁」这类顺移逻辑共用同一口径，避免两处各写一份。
+ */
+export function sortNotes(notes: NoteItem[]): NoteItem[] {
+  return [...notes].sort((a, b) => {
+    if (Boolean(a.bookmarked) !== Boolean(b.bookmarked)) return a.bookmarked ? -1 : 1
+    return b.updatedAt - a.updatedAt
+  })
 }
 
 export function deriveTitleFromMarkdown(content: string, fallback = '未命名笔记') {
@@ -255,10 +338,10 @@ export function deriveTitleFromMarkdown(content: string, fallback = '未命名�
   return fallback
 }
 
-function normalizeState(raw: unknown): NotesState {
+export function normalizeState(raw: unknown): NotesState {
   if (!raw || typeof raw !== 'object') {
     const note = createEmptyNote()
-    return { notes: [note], activeId: note.id }
+    return { notes: [note], folders: [], activeId: note.id }
   }
 
   const data = raw as Partial<NotesState>
@@ -283,24 +366,60 @@ function normalizeState(raw: unknown): NotesState {
             content,
             createdAt: item.createdAt || Date.now(),
             updatedAt: item.updatedAt || Date.now(),
-            // 透传来源文件字段,否则保存重载后去重信息会丢失
+            // 下面这五个字段必须显式透传,否则保存重载后全部丢失
             ...(typeof item.sourcePath === 'string' ? { sourcePath: item.sourcePath } : {}),
             ...(typeof item.sourceMtime === 'number' ? { sourceMtime: item.sourceMtime } : {}),
+            ...(item.bookmarked ? { bookmarked: true } : {}),
+            ...(typeof item.folderId === 'string' ? { folderId: item.folderId } : {}),
+            ...(typeof item.folderMovedAt === 'number' ? { folderMovedAt: item.folderMovedAt } : {}),
+            ...(typeof item.deletedAt === 'number' ? { deletedAt: item.deletedAt } : {}),
           }
         })
     : []
 
-  if (notes.length === 0) {
+  /* 老数据里没有 folders 字段，兜成空数组即可；id 重复的脏数据一并清掉。
+     注意删墓碑（deletedAt）要原样留着 —— 它是合并时判断「这个文件夹是被删了
+     还是对面刚建」的唯一凭据，清掉就会让删除在下次同步时被复活。 */
+  const seenFolderIds = new Set<string>()
+  const folders: FolderItem[] = Array.isArray(data.folders)
+    ? data.folders.reduce<FolderItem[]>((acc, item) => {
+        // 去重必须在这里做：放在 map 里、靠 filter 读 Set 是无效的 ——
+        // filter 早于 map 执行，那个 Set 在过滤阶段永远是空的
+        if (!item || typeof item.id !== 'string' || seenFolderIds.has(item.id)) return acc
+        seenFolderIds.add(item.id)
+        const createdAt = typeof item.createdAt === 'number' ? item.createdAt : Date.now()
+        acc.push({
+          id: item.id,
+          // 墓碑的名字已无意义（侧栏不显示它），保留只为让合并能比对
+          name: (typeof item.name === 'string' && item.name.trim()) || '未命名文件夹',
+          createdAt,
+          updatedAt: typeof item.updatedAt === 'number' ? item.updatedAt : createdAt,
+          ...(typeof item.deletedAt === 'number' ? { deletedAt: item.deletedAt } : {}),
+        })
+        return acc
+      }, [])
+    : []
+
+  /* 指向已不存在文件夹的文档一律落回未分类，避免侧栏出现永远点不到的归属。
+     回收站里的文档一并清 —— 它带着的 folderId 指向的文件夹已经没了，
+     保留下来既还原不回原处、又会让侧栏多显示一条无意义的「原属」标注。
+     墓碑指向的文件夹等同于「不存在」，所以这里用 visibleFolders 而不是 folders */
+  const folderIds = new Set(visibleFolders(folders).map((folder) => folder.id))
+  const notesWithValidFolder = notes.map((note) =>
+    note.folderId && !folderIds.has(note.folderId) ? { ...note, folderId: null } : note
+  )
+
+  const alive = visibleNotes(notesWithValidFolder)
+  // 全部文档都被删进回收站时，activeId 允许为空 —— 此时编辑器显示空状态
+  if (alive.length === 0 && notesWithValidFolder.length === 0) {
     const note = createEmptyNote()
-    return { notes: [note], activeId: note.id }
+    return { notes: [note], folders, activeId: note.id }
   }
 
   const activeId =
-    data.activeId && notes.some((note) => note.id === data.activeId)
-      ? data.activeId
-      : notes[0].id
+    data.activeId && alive.some((note) => note.id === data.activeId) ? data.activeId : null
 
-  return { notes, activeId }
+  return { notes: notesWithValidFolder, folders, activeId }
 }
 
 async function readFromElectron(): Promise<NotesState | null> {
@@ -334,7 +453,7 @@ export async function loadNotesState(): Promise<NotesState> {
   }
 
   const note = createEmptyNote()
-  const initial = { notes: [note], activeId: note.id }
+  const initial = { notes: [note], folders: [], activeId: note.id }
   await saveNotesState(initial)
   return initial
 }
