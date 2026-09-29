@@ -166,6 +166,9 @@ export default function Select<T extends string | number = string>({
   const [open, setOpen] = useState(false);
   const [submenu, setSubmenu] = useState<{ anchor: DOMRect; option: SelectOption<T> } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  /** 主面板的 ref。它挂在 body 下（portal），不在 rootRef 里 —— 点外关闭得单独认它 */
+  const menuRef = useRef<HTMLUListElement>(null);
   // 二级菜单走 portal，不在 rootRef 里，点外关闭要单独认它
   const submenuRef = useRef<HTMLUListElement>(null);
   const submenuTimer = useRef<number | null>(null);
@@ -178,6 +181,37 @@ export default function Select<T extends string | number = string>({
     options.find((opt) => opt.value === value) ??
     options.flatMap((opt) => opt.children ?? []).find((opt) => opt.value === value);
   const displayLabel = selected?.label ?? placeholder;
+
+  /*
+   * 主面板的位置。
+   *
+   * 面板**不能**留在原地用 absolute：它是装在各种卡片、弹窗里的表单控件，
+   * 而外层容器普遍带 overflow（滚动列表、max-h 弹窗），面板往下展开就会被裁掉一截
+   * ——「选项显示不全」就是这么来的。placement="up" 只能躲开往下被裁，横向照样裁。
+   *
+   * 所以和二级菜单一样走 createPortal + fixed：挂到 body 下，任何祖先的 overflow
+   * 都裁不到它。代价是坐标要自己算（fixed 是视口坐标），且滚动/resize 时得重算，
+   * 否则面板会与触发器脱节。
+   */
+  /*
+   * 面板位置。null 表示「还没量」—— 那时**不渲染面板**。
+   *
+   * 不能给个 {width: 0} 的初值就渲染：面板宽度取自触发器，而触发器要等 DOM 提交后
+   * 才量得到，于是首帧会画出一个 0 宽的面板（只剩边框与内边距、中间是空的），
+   * 看起来像「面板是透明的、底下的字透出来了」。等量到了再渲染，只多一帧、肉眼无感。
+   */
+  const [menuRect, setMenuRect] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    height: number;
+  } | null>(null);
+
+  const syncMenuRect = () => {
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setMenuRect({ top: rect.top, left: rect.left, width: rect.width, height: rect.height });
+  };
 
   const cancelSubmenuClose = () => {
     if (submenuTimer.current !== null) {
@@ -195,16 +229,46 @@ export default function Select<T extends string | number = string>({
   const closeAll = () => {
     setOpen(false);
     setSubmenu(null);
+    // 位置作废：下次打开要按当时的触发器位置重新量（期间窗口可能被移动/缩放过）
+    setMenuRect(null);
   };
 
   useEffect(() => cancelSubmenuClose, []);
+
+  /*
+   * 打开时量一次触发器的位置，之后滚动或窗口尺寸变化都要重量 ——
+   * 面板挂在 body 下用 fixed，不会跟着触发器走，不重算就会脱节。
+   *
+   * 用捕获阶段监听 scroll：面板外层往往是某个滚动列表，而 scroll 不冒泡，
+   * 在 document 上只有捕获才收得到内层容器的滚动。
+   */
+  useLayoutEffect(() => {
+    if (!open) return;
+    syncMenuRect();
+
+    const onReflow = () => syncMenuRect();
+    window.addEventListener("resize", onReflow);
+    document.addEventListener("scroll", onReflow, true);
+    return () => {
+      window.removeEventListener("resize", onReflow);
+      document.removeEventListener("scroll", onReflow, true);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
 
     const onPointerDown = (e: MouseEvent) => {
       const target = e.target as Node;
-      if (rootRef.current?.contains(target) || submenuRef.current?.contains(target)) return;
+      // 三个地方都算「内部」：触发器、主面板、二级面板。后两者是 portal，
+      // 挂在 body 下，不认它们的话点选项会被当成点外部、菜单先关掉
+      if (
+        rootRef.current?.contains(target) ||
+        menuRef.current?.contains(target) ||
+        submenuRef.current?.contains(target)
+      ) {
+        return;
+      }
       closeAll();
     };
 
@@ -237,6 +301,7 @@ export default function Select<T extends string | number = string>({
       {/* title 交给自绘 Tooltip，且只包在触发按钮上：挂到根 div 会把下方展开的选项列表也算进悬停区 */}
       <Tooltip content={title}>
         <button
+          ref={triggerRef}
           type="button"
           disabled={disabled}
           aria-haspopup="listbox"
@@ -257,15 +322,34 @@ export default function Select<T extends string | number = string>({
         </button>
       </Tooltip>
 
-      {mounted && (
-        <ul
-          id={listboxId}
-          role="listbox"
-          data-state={state}
-          className={`fe-pop absolute left-0 z-50 w-full bg-white dark:bg-dark-panel rounded-lg shadow-lg border border-slate-200 dark:border-dark-border py-1 max-h-60 overflow-y-auto ${
-            placement === "up" ? "bottom-full mb-1" : "top-full mt-1"
-          }`}
-          style={menuMinWidth ? { minWidth: menuMinWidth } : undefined}
+      {/*
+        面板挂到 body 下 —— 留在原地会被外层 overflow 裁掉（见 menuRect 的注释）。
+        入口用 portal，所以这里显式判 mounted：收起动画结束后才真正卸载。
+      */}
+      {mounted &&
+        menuRect &&
+        createPortal(
+          <ul
+            ref={menuRef}
+            id={listboxId}
+            role="listbox"
+            data-state={state}
+            className="fe-pop fixed z-[70] max-h-60 overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:border-dark-border dark:bg-dark-panel"
+            style={{
+              /*
+               * fixed 用视口坐标。纵向按 placement 翻：默认贴在触发器下沿，
+               * 下方空间不够（面板顶到视口底）就翻到上方 —— 这比原来靠调用方
+               * 手动传 placement="up" 稳，不用每处调用自己知道自己在不在容器底部。
+               */
+              top: placement === "up" ? undefined : menuRect.top + menuRect.height + 4,
+              bottom:
+                placement === "up"
+                  ? window.innerHeight - menuRect.top + 4
+                  : undefined,
+              left: menuRect.left,
+              width: menuRect.width,
+              ...(menuMinWidth ? { minWidth: menuMinWidth } : {}),
+            }}
           // 列表一滚，子面板记的坐标就不作数了
           onScroll={() => setSubmenu(null)}
         >
@@ -326,8 +410,9 @@ export default function Select<T extends string | number = string>({
               );
             })
           )}
-        </ul>
-      )}
+          </ul>,
+          document.body
+        )}
 
       {submenu && (
         <SubmenuPanel
