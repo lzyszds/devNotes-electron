@@ -100,7 +100,7 @@ export default function RegexpTool() {
         <>
           <button
             onClick={() => setShowHistory(!showHistory)}
-            className={`tool-button-secondary h-9 ${
+            className={`tool-button-secondary h-8 ${
               showHistory
                 ? 'ring-2 ring-brand-500/20 border-brand-200 text-brand-600 dark:border-brand-500/40 dark:text-brand-400'
                 : ''
@@ -112,7 +112,7 @@ export default function RegexpTool() {
           <button
             onClick={testRegex}
             disabled={!pattern || !testText}
-            className="tool-button-primary h-9 px-5"
+            className="tool-button-primary h-8 px-5"
           >
             <Search size={15} />
             <span>运行测试</span>

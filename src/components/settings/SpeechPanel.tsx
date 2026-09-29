@@ -179,7 +179,7 @@ export default function SpeechPanel() {
             <button
               type="button"
               onClick={() => speak(sampleText, speakLang)}
-              className="tool-button-secondary h-8"
+              className="tool-button-secondary h-8 "
             >
               <Play size={13} />
               <span>试听</span>
@@ -191,7 +191,7 @@ export default function SpeechPanel() {
                   stopSpeaking()
                   setSettings(saveSpeechSettings(SPEECH_DEFAULTS))
                 }}
-                className="tool-button-secondary h-8"
+                className="tool-button-secondary h-8 "
               >
                 <RotateCcw size={13} />
                 <span>恢复默认</span>

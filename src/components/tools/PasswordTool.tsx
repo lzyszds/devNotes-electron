@@ -124,7 +124,7 @@ export default function PasswordTool() {
         <>
           <button
             onClick={() => setShowHistory(!showHistory)}
-            className={`tool-button-secondary h-9 ${
+            className={`tool-button-secondary h-8 ${
               showHistory
                 ? 'ring-2 ring-brand-500/20 border-brand-200 text-brand-600 dark:border-brand-500/40 dark:text-brand-400'
                 : ''
@@ -133,7 +133,7 @@ export default function PasswordTool() {
             <History size={15} />
             <span>密码库</span>
           </button>
-          <button onClick={generatePassword} className="tool-button-primary h-9 px-5">
+          <button onClick={generatePassword} className="tool-button-primary h-8 px-5">
             <RefreshCw size={15} />
             <span>重新生成</span>
           </button>

@@ -17,11 +17,11 @@ export const CARD =
 
 /** 卡片标题条：浅灰工作条，左侧粗体标题 + 彩色小标签，右侧胶囊操作 */
 const CARD_HEAD =
-  'flex items-center justify-between gap-2 px-3.5 h-[42px] shrink-0 border-b border-slate-200/60 dark:border-dark-border bg-slate-50/70 dark:bg-dark-hover/30'
+  'flex items-center justify-between gap-2 px-3.5 h-[42px] rounded-t-[14px] shrink-0 border-b border-slate-200/60 dark:border-dark-border bg-slate-50/70 dark:bg-dark-hover/30'
 
 /** 卡片底栏 */
 const CARD_FOOT =
-  'flex items-center justify-between gap-3 px-3.5 h-9 shrink-0 border-t border-slate-200/60 dark:border-dark-border bg-slate-50/70 dark:bg-dark-hover/30 text-[10px] font-medium text-slate-500 dark:text-slate-400 tabular-nums'
+  'flex items-center justify-between gap-3 px-3.5 h-8 rounded-b-[14px] shrink-0 border-t border-slate-200/60 dark:border-dark-border bg-slate-50/70 dark:bg-dark-hover/30 text-[10px] font-medium text-slate-500 dark:text-slate-400 tabular-nums'
 
 /** 卡片正文区的内边距 */
 export const CARD_BODY = 'flex-1 min-h-0 p-4 flex flex-col'
@@ -48,13 +48,13 @@ export const SECTION_LABEL =
 
 export const BTN = {
   primary:
-    'inline-flex items-center justify-center gap-2 h-9 px-4 rounded-lg bg-brand-600 text-[13px] font-semibold text-white shadow-sm shadow-brand-600/20 transition-all duration-150 hover:bg-brand-700 active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none whitespace-nowrap',
+    'inline-flex items-center justify-center gap-2 h-8 px-4 rounded-lg bg-brand-600 text-[13px] font-semibold text-white shadow-sm shadow-brand-600/20 transition-all duration-150 hover:bg-brand-700 active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none whitespace-nowrap',
   secondary:
-    'inline-flex items-center justify-center gap-1.5 h-9 px-3.5 rounded-[10px] border border-slate-200 dark:border-dark-border bg-white dark:bg-dark-panel text-xs font-semibold text-slate-600 dark:text-slate-300 transition-all duration-150 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none dark:hover:border-slate-600 dark:hover:bg-dark-hover dark:hover:text-white whitespace-nowrap',
+    'inline-flex items-center justify-center gap-1.5 h-8 px-3.5 rounded-[10px] border border-slate-200 dark:border-dark-border bg-white dark:bg-dark-panel text-xs font-semibold text-slate-600 dark:text-slate-300 transition-all duration-150 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none dark:hover:border-slate-600 dark:hover:bg-dark-hover dark:hover:text-white whitespace-nowrap',
   ghost:
-    'inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-[10px] text-xs font-semibold text-slate-500 dark:text-slate-400 transition-all duration-150 hover:bg-slate-100 hover:text-slate-800 active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none dark:hover:bg-dark-hover dark:hover:text-slate-200 whitespace-nowrap',
+    'inline-flex items-center justify-center gap-1.5 h-8 px-3 rounded-[10px] text-xs font-semibold text-slate-500 dark:text-slate-400 transition-all duration-150 hover:bg-slate-100 hover:text-slate-800 active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none dark:hover:bg-dark-hover dark:hover:text-slate-200 whitespace-nowrap',
   danger:
-    'inline-flex items-center justify-center gap-1.5 h-9 px-3.5 rounded-[10px] border border-rose-200 dark:border-rose-500/30 bg-white dark:bg-dark-panel text-xs font-semibold text-rose-600 dark:text-rose-400 transition-all duration-150 hover:bg-rose-50 active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none dark:hover:bg-rose-500/10 whitespace-nowrap',
+    'inline-flex items-center justify-center gap-1.5 h-8 px-3.5 rounded-[10px] border border-rose-200 dark:border-rose-500/30 bg-white dark:bg-dark-panel text-xs font-semibold text-rose-600 dark:text-rose-400 transition-all duration-150 hover:bg-rose-50 active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none dark:hover:bg-rose-500/10 whitespace-nowrap',
 } as const
 
 export type ButtonVariant = keyof typeof BTN

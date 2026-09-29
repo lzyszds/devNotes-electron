@@ -415,7 +415,7 @@ export default function TextTranslateTool() {
 
           <button
             onClick={() => setShowHistory(!showHistory)}
-            className={`tool-button-secondary h-9 ${
+            className={`tool-button-secondary h-8 ${
               showHistory
                 ? 'ring-2 ring-brand-500/20 border-brand-200 text-brand-600 dark:border-brand-500/40 dark:text-brand-400'
                 : ''

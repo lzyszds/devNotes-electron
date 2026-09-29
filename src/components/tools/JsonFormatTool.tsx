@@ -370,7 +370,7 @@ export default function JsonFormatTool({
           <>
             <button
               onClick={() => setShowHistory(!showHistory)}
-              className={`tool-button-secondary h-9 ${
+              className={`tool-button-secondary h-8 ${
                 showHistory
                   ? "ring-2 ring-brand-500/20 border-brand-200 text-brand-600 dark:border-brand-500/40 dark:text-brand-400"
                   : ""
@@ -384,7 +384,7 @@ export default function JsonFormatTool({
                 setLeftInput("");
                 setRightInput("");
               }}
-              className="tool-button-secondary h-9 text-rose-500 hover:text-rose-600 hover:bg-rose-50 border-rose-100 dark:text-rose-400 dark:border-rose-500/30 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
+              className="tool-button-secondary h-8 text-rose-500 hover:text-rose-600 hover:bg-rose-50 border-rose-100 dark:text-rose-400 dark:border-rose-500/30 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
             >
               <Trash2 size={15} />
               <span>清空</span>
@@ -397,7 +397,7 @@ export default function JsonFormatTool({
                   `比对: ${leftInput.slice(0, 10)}...`,
                 );
               }}
-              className="tool-button-primary h-9 px-5"
+              className="tool-button-primary h-8 px-5"
             >
               <Copy size={15} />
               <span>复制结果</span>
@@ -524,7 +524,7 @@ export default function JsonFormatTool({
         <>
           <button
             onClick={() => setShowHistory(!showHistory)}
-            className={`tool-button-secondary h-9 ${
+            className={`tool-button-secondary h-8 ${
               showHistory
                 ? "ring-2 ring-brand-500/20 border-brand-200 text-brand-600 dark:border-brand-500/40 dark:text-brand-400"
                 : ""
@@ -533,15 +533,15 @@ export default function JsonFormatTool({
             <History size={15} />
             <span>历史记录</span>
           </button>
-          <button onClick={formatJson} className="tool-button-primary h-9 px-5">
+          <button onClick={formatJson} className="tool-button-primary h-8 px-5">
             <Wand2 size={15} />
             <span>美化</span>
           </button>
-          <button onClick={compressJson} className="tool-button-secondary h-9">
+          <button onClick={compressJson} className="tool-button-secondary h-8">
             <Minimize2 size={15} />
             <span>压缩</span>
           </button>
-          <button onClick={sortKeys} className="tool-button-secondary h-9">
+          <button onClick={sortKeys} className="tool-button-secondary h-8">
             <ArrowUpDown size={15} />
             <span>排序</span>
           </button>
@@ -552,7 +552,7 @@ export default function JsonFormatTool({
                 setOutput("");
                 setError("");
               }}
-              className="tool-button-secondary h-9 w-9 p-0 text-rose-500 dark:text-rose-400"
+              className="tool-button-secondary h-8 w-9 p-0 text-rose-500 dark:text-rose-400"
             >
               <Trash2 size={15} />
             </button>

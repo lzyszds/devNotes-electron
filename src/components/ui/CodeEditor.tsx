@@ -93,7 +93,7 @@ export default function CodeEditor({
         <div className="flex w-max min-w-full min-h-full">
           {/* 行号槽：sticky 吸附左侧，横向滚动时保持可见 */}
           <div
-            className="sticky left-0 z-10 w-9 shrink-0 select-none overflow-hidden text-right font-mono text-[11px] pr-2 text-slate-300 dark:text-slate-600 border-r border-slate-100 dark:border-dark-border bg-slate-50 dark:bg-[#141821]"
+            className="sticky left-0 z-10 w-9 shrink-0 select-none rounded-l-[14px] overflow-hidden text-right font-mono text-[11px] pr-2 text-slate-300 dark:text-slate-600 border-r border-slate-100 dark:border-dark-border bg-slate-50 dark:bg-[#141821]"
             style={metrics}
           >
             <div style={{ ...metrics, paddingTop: 12 }}>

@@ -123,7 +123,7 @@ export default function QrCodeTool() {
         <>
           <button
             onClick={() => setShowHistory(!showHistory)}
-            className={`tool-button-secondary h-9 ${
+            className={`tool-button-secondary h-8 ${
               showHistory
                 ? 'ring-2 ring-brand-500/20 border-brand-200 text-brand-600 dark:border-brand-500/40 dark:text-brand-400'
                 : ''
@@ -132,7 +132,7 @@ export default function QrCodeTool() {
             <History size={15} />
             <span>生成历史</span>
           </button>
-          <button onClick={downloadQR} disabled={!qrDataUrl} className="tool-button-primary h-9 px-5">
+          <button onClick={downloadQR} disabled={!qrDataUrl} className="tool-button-primary h-8 px-5">
             <Download size={15} />
             <span>导出图片</span>
           </button>

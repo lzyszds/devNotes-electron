@@ -16,7 +16,6 @@ import { useToolHistory } from "../../hooks/useToolHistory";
 import { useHistoryContextMenu } from "../../hooks/useHistoryContextMenu";
 import {
   BODY_TEXTAREA,
-  BTN,
   ToolBadge,
   ToolCard,
   ToolCardFooter,
@@ -24,6 +23,7 @@ import {
   ToolEmpty,
   ToolHistoryOverlay,
   ToolShell,
+  buttonClass,
   iconButtonClass,
 } from "../ui";
 import Tooltip from "../ui/Tooltip";
@@ -172,7 +172,7 @@ export default function WebsocketTool() {
         <>
           <button
             onClick={() => setShowHistory(!showHistory)}
-            className={`tool-button-secondary h-9 ${
+            className={`tool-button-secondary h-8 ${
               showHistory
                 ? "ring-2 ring-brand-500/20 border-brand-200 text-brand-600 dark:border-brand-500/40 dark:text-brand-400"
                 : ""
@@ -182,14 +182,14 @@ export default function WebsocketTool() {
             <span>服务器历史</span>
           </button>
           {status === WebSocket.CLOSED ? (
-            <button onClick={connect} className="tool-button-primary h-9 px-5">
+            <button onClick={connect} className="tool-button-primary h-8 px-5">
               <Play size={15} />
               <span>建立连接</span>
             </button>
           ) : (
             <button
               onClick={disconnect}
-              className="tool-button-secondary h-9 px-5 border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:border-rose-500/30 dark:text-rose-400 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
+              className="tool-button-secondary h-8 px-5 border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:border-rose-500/30 dark:text-rose-400 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
             >
               <Square size={15} />
               <span>断开连接</span>
@@ -217,7 +217,7 @@ export default function WebsocketTool() {
         {/* ---------------- 左：连接与消息 ---------------- */}
         <div className="flex flex-col gap-4 min-h-0">
           <ToolCard fill={false}>
-            <ToolCardHeader title="服务器地址" icon={Terminal} meta="Endpoint" />
+            <ToolCardHeader title="服务器地址" meta="Endpoint" />
 
             <div className="p-4">
               <div className="relative group">
@@ -264,7 +264,7 @@ export default function WebsocketTool() {
               <button
                 onClick={sendMessage}
                 disabled={!connected || !message.trim()}
-                className={BTN.primary}
+                className={buttonClass("primary",'!h-6')}
               >
                 <span>发送数据</span>
                 <ArrowUpRight size={14} />

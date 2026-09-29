@@ -69,8 +69,8 @@ const DEFAULT_PROTECTED_TERMS = ["QQlink", "QQLink"];
 const UI = {
   row: "flex flex-wrap items-center gap-2 min-h-9",
   divider: "w-px h-5 bg-slate-200 dark:bg-dark-border shrink-0 mx-0.5",
-  btn: "inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-[10px] border border-slate-200 dark:border-dark-border bg-white dark:bg-dark-panel text-xs font-semibold text-slate-600 dark:text-slate-300 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 shrink-0 dark:hover:border-slate-600 dark:hover:bg-dark-hover dark:hover:text-white",
-  btnActive: "inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-[10px] border text-xs font-semibold shrink-0 transition-colors",
+  btn: "inline-flex items-center justify-center gap-1.5 h-8 px-3 rounded-[10px] border border-slate-200 dark:border-dark-border bg-white dark:bg-dark-panel text-xs font-semibold text-slate-600 dark:text-slate-300 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 shrink-0 dark:hover:border-slate-600 dark:hover:bg-dark-hover dark:hover:text-white",
+  btnActive: "inline-flex items-center justify-center gap-1.5 h-8 px-3 rounded-[10px] border text-xs font-semibold shrink-0 transition-colors",
   btnIcon: "inline-flex items-center justify-center h-7 w-7 rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 shrink-0 dark:text-slate-500 dark:hover:bg-dark-hover dark:hover:text-slate-200",
   select: "shrink-0",
   input:
@@ -624,7 +624,7 @@ export default function JsonI18nTool() {
         <>
           <button
             onClick={() => setShowHistory(!showHistory)}
-            className={`tool-button-secondary h-9 ${
+            className={`tool-button-secondary h-8 ${
               showHistory
                 ? "ring-2 ring-brand-500/20 border-brand-200 text-brand-600 dark:border-brand-500/40 dark:text-brand-400"
                 : ""
@@ -642,7 +642,7 @@ export default function JsonI18nTool() {
                 setView("edit");
                 setDetailLang(null);
               }}
-              className="tool-button-secondary h-9 w-9 p-0 text-rose-500 dark:text-rose-400"
+              className="tool-button-secondary h-8 w-9 p-0 text-rose-500 dark:text-rose-400"
             >
               <Trash2 size={15} />
             </button>
@@ -1071,7 +1071,7 @@ export default function JsonI18nTool() {
           <button
             onClick={translateJson}
             disabled={!input.trim() || isTranslating || targetLangs.length === 0}
-            className="tool-button-primary h-9 px-5"
+            className="tool-button-primary h-8 px-5"
           >
             {isTranslating ? (
               <>
