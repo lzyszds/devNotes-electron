@@ -1,5 +1,7 @@
+import { Bookmark } from 'lucide-react'
 import type { SaveStatus } from '../../../context/NotesContext'
 import type { DocStats } from '../../../utils/markdownStats'
+import type { ReadingBookmark } from '../../../utils/notesStore'
 
 export type MarkdownStatusBarProps = {
   stats: DocStats
@@ -9,6 +11,14 @@ export type MarkdownStatusBarProps = {
   viewLabel: string
   saveStatus: SaveStatus
   saveMessage: string
+  /**
+   * 要显示的那条书签：优先是「当前所在章节的那条」，不在任何书签章节里时
+   * 退回「最近记的那条」。没有书签就传 undefined，整块不出现。
+   */
+  bookmark?: ReadingBookmark
+  /** 书签是否还认得回正文；认不回时按钮变灰、只提示不跳 */
+  bookmarkStale?: boolean
+  onJumpBookmark?: () => void
 }
 
 const SAVE_TONE: Record<SaveStatus, { text: string; dot: string }> = {
@@ -31,6 +41,9 @@ export default function MarkdownStatusBar({
   viewLabel,
   saveStatus,
   saveMessage,
+  bookmark,
+  bookmarkStale = false,
+  onJumpBookmark,
 }: MarkdownStatusBarProps) {
   const tone = SAVE_TONE[saveStatus]
 
@@ -76,6 +89,37 @@ export default function MarkdownStatusBar({
       </div>
 
       <div className="flex flex-shrink-0 items-center gap-2 font-sans">
+        {/* 阅读位置书签。点一下跳回去 —— 比在目录里找那条更快，尤其是目录长的时候 */}
+        {bookmark && (
+          <>
+            <button
+              type="button"
+              disabled={bookmarkStale}
+              onClick={onJumpBookmark}
+              title={
+                bookmarkStale
+                  ? '原标题已被修改或删除，无法定位'
+                  : `回到「${bookmark.heading}」${bookmark.note ? `：${bookmark.note}` : ''}`
+              }
+              className={`flex max-w-[16rem] items-center gap-1 rounded px-1 py-0.5 transition-colors ${
+                bookmarkStale
+                  ? 'cursor-default text-slate-400 dark:text-slate-500'
+                  : 'text-brand-600 hover:bg-brand-500/10 dark:text-brand-400 dark:hover:bg-brand-500/15'
+              }`}
+            >
+              <Bookmark className={`h-3 w-3 flex-shrink-0 ${bookmarkStale ? '' : 'fill-current'}`} />
+              <span className="truncate">
+                {bookmarkStale ? '书签已失效' : bookmark.heading}
+              </span>
+              {!bookmarkStale && bookmark.percent > 0 && (
+                <span className="flex-shrink-0 font-mono text-slate-400 dark:text-slate-500">
+                  {bookmark.percent}%
+                </span>
+              )}
+            </button>
+            <span className="text-slate-300 dark:text-dark-border">·</span>
+          </>
+        )}
         <span className="text-slate-400 dark:text-slate-500">{engineLabel}</span>
         <span className="text-slate-300 dark:text-dark-border">·</span>
         <span className="text-slate-500 dark:text-slate-400">{viewLabel}</span>

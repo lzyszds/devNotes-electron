@@ -6,6 +6,7 @@ import {
   type FolderItem,
   type NoteItem,
   type NotesState,
+  type ReadingBookmark,
 } from './notesStore'
 
 export type CloudflareSyncMode = 'worker' | 'kv'
@@ -444,6 +445,37 @@ export async function pullFromCloudflare(config: CloudflareSyncConfig): Promise<
  * 删除靠墓碑（deletedAt）传播：删文件夹不是抹掉条目，而是打标记留在数组里。
  * 只有墓碑比对面「活着」的版本更新时才认定删除成立，否则对面后建的会赢。
  */
+/**
+ * 合并两端的阅读书签。
+ *
+ * 与文件夹的墓碑机制不同，书签没有「删除也需要传播」的问题 ——
+ * 删掉一条就少一条，下一次合并时对面那份若还在，会被当成「对面新加的书签」又回来。
+ *
+ * 这是刻意的取舍：给书签再加墓碑的话，每条都要常驻一个 deletedAt，
+ * 而书签本来就是「随手记的临时位置」，为了跨设备删除而永久保留墓碑得不偿失。
+ * 本机删掉后若又被别的设备带回来，再删一次即可 —— 代价远小于墓碑的复杂度。
+ * （跨设备同步的正常路径是「在这台记、在那台用」，删除极少跨设备发生。）
+ *
+ * 同 id 的两条按 at 取新，这样「在 A 机改了备注、在 B 机没动」能正确合并。
+ */
+function mergeReadingBookmarks(
+  localBookmarks: ReadingBookmark[] | undefined,
+  remoteBookmarks: ReadingBookmark[] | undefined
+): ReadingBookmark[] {
+  const result = new Map<string, ReadingBookmark>()
+  localBookmarks?.forEach((bookmark) => result.set(bookmark.id, bookmark))
+
+  remoteBookmarks?.forEach((remoteBookmark) => {
+    const localBookmark = result.get(remoteBookmark.id)
+    if (!localBookmark || remoteBookmark.at > localBookmark.at) {
+      result.set(remoteBookmark.id, remoteBookmark)
+    }
+  })
+
+  // 按创建时刻排，最近记的在前 —— 与「书签列表」在 UI 上的顺序一致
+  return Array.from(result.values()).sort((a, b) => b.at - a.at)
+}
+
 function mergeFolders(
   localFolders: FolderItem[],
   remoteFolders: FolderItem[]
@@ -550,6 +582,12 @@ export function smartMergeNotes(local: NotesState, remote: NotesState): {
       const remoteMoved = remoteNote.folderMovedAt ?? 0
       const folderWinner = remoteMoved > localMoved ? remoteNote : localNote
 
+      // 阅读书签同理，按各自的 at 逐条比，理由见 ReadingBookmark.at 的注释
+      const bookmarks = mergeReadingBookmarks(
+        localNote.readingBookmarks,
+        remoteNote.readingBookmarks
+      )
+
       if (contentWinner === remoteNote) updatedFromRemote++
       resultMap.set(contentWinner.id, {
         ...contentWinner,
@@ -557,6 +595,7 @@ export function smartMergeNotes(local: NotesState, remote: NotesState): {
         ...(folderWinner.folderMovedAt !== undefined
           ? { folderMovedAt: folderWinner.folderMovedAt }
           : {}),
+        ...(bookmarks.length ? { readingBookmarks: bookmarks } : {}),
       })
     }
   })

@@ -17,6 +17,16 @@ import {
   getCodeBlockPreset,
   subscribeCodeBlockTheme,
 } from '../../utils/codeBlockTheme'
+import {
+  publishReadingPosition,
+  subscribeOutlineJump,
+  subscribeReadingJump,
+} from '../../utils/editorBus'
+import {
+  jumpToCherryBookmark,
+  measureCherryReading,
+  revealCherryOutlineItem,
+} from '../../utils/cherryOutline'
 
 type CherryInstance = InstanceType<typeof Cherry>
 
@@ -44,6 +54,8 @@ export type CherryMarkdownEditorProps = {
   onTogglePreview?: () => void
   /** 「返回顶部」：状态与回调都在宿主（NotesTool），这里只透传给工具栏 */
   backToTop?: { visible: boolean; onClick: () => void }
+  /** 当前笔记 id。随阅读位置一起上报，供外壳认领「这份数据是哪一篇的」 */
+  noteId?: string
 }
 
 function fileToDataUrl(file: File): Promise<string> {
@@ -81,6 +93,7 @@ export default function CherryMarkdownEditor({
   preview = false,
   onTogglePreview,
   backToTop,
+  noteId = '',
 }: CherryMarkdownEditorProps) {
   const { registerInsertHandler } = useNotes()
   const reactId = useId().replace(/:/g, '')
@@ -336,6 +349,60 @@ export default function CherryMarkdownEditor({
       subscribeCodeBlockTheme((id) => {
         cherryRef.current?.setCodeBlockTheme(getCodeBlockPreset(id).cherry)
       }),
+    []
+  )
+
+  // ================= 大纲与阅读位置 =================
+  /*
+   * 扫描标题 + 上报滚动进度。
+   *
+   * 依赖里有 value / viewMode / preview：切视图会换掉渲染层（双栏 ↔ 单栏 ↔ 纯预览），
+   * 预览区跟着挂起/恢复，不重挂监听就会盯着一个已经不可见的容器算进度。
+   *
+   * 滚动用捕获监听挂在外层：scroll 不冒泡但走捕获，预览区在子树里，能收到。
+   * 首次测量用 setTimeout 推到下一轮 —— Cherry 的预览区是异步建出来的，
+   * 挂载这一帧它还不存在。
+   */
+  useEffect(() => {
+    const root = mountRef.current
+    if (!root || preview) return
+
+    let frame = 0
+    const measure = () => {
+      frame = 0
+      const state = measureCherryReading(root)
+      publishReadingPosition({
+        noteId,
+        activeIndex: state.activeIndex,
+        percent: state.percent,
+        heading: state.heading,
+        container: state.container,
+      })
+    }
+
+    const onScroll = () => {
+      if (frame) return
+      frame = requestAnimationFrame(measure)
+    }
+
+    measure()
+    const timer = window.setTimeout(measure, 0)
+    root.addEventListener('scroll', onScroll, true)
+    return () => {
+      window.clearTimeout(timer)
+      root.removeEventListener('scroll', onScroll, true)
+      if (frame) cancelAnimationFrame(frame)
+    }
+  }, [value, viewMode, preview, noteId])
+
+  /** 两个跳转入口从总线进来（触发方是外壳的目录与书签按钮） */
+  useEffect(
+    () => subscribeOutlineJump((index) => revealCherryOutlineItem(mountRef.current, index)),
+    []
+  )
+
+  useEffect(
+    () => subscribeReadingJump((target) => jumpToCherryBookmark(mountRef.current, target)),
     []
   )
 

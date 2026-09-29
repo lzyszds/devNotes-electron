@@ -21,6 +21,7 @@ import {
   type FolderItem,
   type NoteItem,
   type NotesState,
+  type ReadingBookmark,
 } from '../utils/notesStore'
 import {
   loadCloudflareConfig,
@@ -82,6 +83,10 @@ interface NotesContextType {
   handleDeleteFolder: (id: string) => void
   handleToggleBookmark: (id: string) => void
   handleMoveToFolder: (id: string, folderId: string | null) => void
+  /** 新增或更新一条阅读位置书签（同 id 覆盖） */
+  handleSaveReadingBookmark: (noteId: string, bookmark: ReadingBookmark) => void
+  /** 删除一条阅读位置书签 */
+  handleDeleteReadingBookmark: (noteId: string, bookmarkId: string) => void
   // 回收站
   handleRestoreFromTrash: (id: string) => void
   handlePurgeFromTrash: (id: string) => void
@@ -606,6 +611,49 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
   )
 
   /**
+   * 保存一条阅读位置书签。同 id 覆盖，否则追加。
+   *
+   * 与归类同理，**刻意不动 updatedAt** —— 记一次书签不是内容变更，不该把这篇
+   * 顶到列表最前，更不该白白触发一次云端内容合并。合并时按各自的 bookmark.at 单独比。
+   * 落盘走立即写：记完书签往往就直接关窗口了，防抖窗口内退出会把这次记录丢掉。
+   */
+  const handleSaveReadingBookmark = useCallback(
+    (noteId: string, bookmark: ReadingBookmark) => {
+      updateState(
+        (prev) => ({
+          ...prev,
+          notes: prev.notes.map((note) => {
+            if (note.id !== noteId) return note
+            const rest = (note.readingBookmarks ?? []).filter((item) => item.id !== bookmark.id)
+            // 最近记的排在最前，与合并函数给出的顺序一致
+            return { ...note, readingBookmarks: [bookmark, ...rest] }
+          }),
+        }),
+        true
+      )
+    },
+    [updateState]
+  )
+
+  const handleDeleteReadingBookmark = useCallback(
+    (noteId: string, bookmarkId: string) => {
+      updateState(
+        (prev) => ({
+          ...prev,
+          notes: prev.notes.map((note) => {
+            if (note.id !== noteId) return note
+            const rest = (note.readingBookmarks ?? []).filter((item) => item.id !== bookmarkId)
+            // 空数组不写出去，与 normalizeState 的口径一致
+            return { ...note, readingBookmarks: rest.length ? rest : undefined }
+          }),
+        }),
+        true
+      )
+    },
+    [updateState]
+  )
+
+  /**
    * 移动到文件夹；folderId 传 null 表示移出到未分类。
    *
    * 刻意不动 updatedAt —— 归类不是内容变更，不该把文档顶到列表最前。
@@ -1063,6 +1111,8 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
         handleDeleteFolder,
         handleToggleBookmark,
         handleMoveToFolder,
+        handleSaveReadingBookmark,
+        handleDeleteReadingBookmark,
         handleRestoreFromTrash: handleRestore,
         handlePurgeFromTrash: handlePurge,
         handleEmptyTrash,

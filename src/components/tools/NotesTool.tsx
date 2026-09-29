@@ -15,10 +15,15 @@ import {
   VIEW_MODE_LABEL,
   type EditorViewMode,
 } from "./markdown/ViewModeSwitch";
-import { Loader2, Minimize2, TriangleAlert, X } from "lucide-react";
+import { Bookmark, Loader2, Minimize2, TriangleAlert, X } from "lucide-react";
 import Tooltip from "../ui/Tooltip";
 import { computeDocStats } from "../../utils/markdownStats";
-import { publishDocStats } from "../../utils/editorBus";
+import {
+  publishDocStats,
+  requestReadingJump,
+  subscribeReadingPosition,
+  type ReadingPosition,
+} from "../../utils/editorBus";
 import { useIsMobile } from "../../hooks/useIsMobile";
 import EditorZoom from "./markdown/EditorZoom";
 import {
@@ -29,6 +34,15 @@ import {
   subscribeZoom,
   ZOOM_STEP,
 } from "../../utils/editorZoom";
+import {
+  captureBlockBookmark,
+  captureReadingBookmark,
+  createBookmarkId,
+  isBookmarkResolvable,
+} from "../../utils/readingBookmark";
+import BookmarkNoteDialog from "./markdown/BookmarkNoteDialog";
+import type { ReadingBookmark } from "../../utils/notesStore";
+import { useToast } from "../ui/Toast";
 
 /** 滚动超过这个距离才值得把「返回顶部」露出来 */
 const BACK_TO_TOP_THRESHOLD = 120;
@@ -47,9 +61,12 @@ export default function NotesTool() {
     ready,
     activeNote,
     handleContentChange,
+    handleSaveReadingBookmark,
+    handleDeleteReadingBookmark,
     saveStatus,
     message: saveMessage,
   } = useNotes();
+  const { showToast } = useToast();
   const [mode, setMode] = useState<EditorMode>(readEditorMode);
   // 视图三态只有 Cherry 认，但状态放在这里 —— 底部状态栏要显示它
   const [viewMode, setViewMode] = useState<EditorViewMode>(readViewMode);
@@ -67,6 +84,36 @@ export default function NotesTool() {
   const [previewing, setPreviewing] = useState(false);
   const [stageWidth, setStageWidth] = useState(0);
 
+  /*
+   * 阅读位置：由编辑器上报（滚动容器在它内部，两个内核各有一套），宿主只消费。
+   *
+   * 上报里带 noteId —— 编辑器是 `key={activeNote.id}` 重建的，切笔记后新编辑器
+   * 要过一帧才第一次上报；这中间若还攥着上一篇的容器，记书签会把上一篇的位置
+   * 存到这一篇头上，书签校验也会拿错正文去比对。
+   */
+  const [position, setPosition] = useState<ReadingPosition>({
+    noteId: "",
+    activeIndex: -1,
+    percent: 0,
+    heading: "",
+    container: null,
+  });
+  useEffect(() => subscribeReadingPosition(setPosition), []);
+  // 只认属于当前这篇的上报；切笔记后编辑器还没报之前按「没有」处理
+  const livePosition = position.noteId === activeNote?.id ? position : null;
+
+  /*
+   * 待确认的书签。位置在点按钮那一刻就算好了，这里存的是「等用户补备注」的那一条。
+   * 不用 window.prompt —— Electron 的渲染进程没实现它（alert/confirm 有），
+   * 调用会直接抛异常，按钮点了毫无反应。自己画一个弹窗可控得多。
+   */
+  const [bookmarkDraft, setBookmarkDraft] = useState<{
+    noteId: string;
+    captured: ReadingBookmark;
+    heading: string;
+    percent: number;
+  } | null>(null);
+
   // 编辑器外壳：两个内核各自把滚动容器放在内部，统一从这里往下找
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -77,6 +124,102 @@ export default function NotesTool() {
   const isMobile = useIsMobile();
 
   const content = activeNote?.content || "";
+
+  const bookmarks = activeNote?.readingBookmarks;
+
+  /*
+   * 某条书签是否还认得回正文。
+   *
+   * 依赖里带 content / livePosition：正文改了、或切了视图换了滚动容器，都要重算 ——
+   * 否则会出现「标题早就改回来了，按钮还是灰的」这种过期判断。
+   * 没有容器时一律当作不可用（切笔记的一瞬间就是这种状态）。
+   */
+  const isBookmarkStale = useCallback(
+    (bookmark: { heading: string; offset: number }) =>
+      !isBookmarkResolvable(livePosition?.container ?? null, bookmark),
+    [livePosition?.container, content]
+  );
+
+  /**
+   * 记下现在读到哪。
+   *
+   * 先把位置算出来存进 draft，再让用户补备注 —— 位置在这一刻是准的，
+   * 弹窗开着的时候用户若滚动了正文，也不该把备注记到滚动后的位置上。
+   */
+  const handleAddBookmark = () => {
+    const container = livePosition?.container;
+    if (!container || !activeNote) return;
+
+    const captured = captureReadingBookmark(container, createBookmarkId());
+    if (!captured) {
+      // 光标还在第一个标题之前（封面、引言区），没有可锚的章节
+      showToast("请先滚动到正文的某个标题下再记书签", "error");
+      return;
+    }
+
+    openBookmarkDraft(activeNote.id, captured);
+  };
+
+  /**
+   * 块手柄那颗按钮：在光标所在的那一段上记书签。
+   *
+   * 与上面那颗的区别只在**锚点取在哪** —— 这里以「这一块的顶边」为基准，
+   * 于是点哪一段就落在哪一段，而不是落在当前滚到的位置。
+   */
+  const handleBookmarkBlock = (block: HTMLElement) => {
+    const container = livePosition?.container;
+    if (!container || !activeNote) return;
+
+    const captured = captureBlockBookmark(container, block, createBookmarkId());
+    if (!captured) {
+      showToast("这一段在第一个标题之前，请先在正文里记", "error");
+      return;
+    }
+
+    openBookmarkDraft(activeNote.id, captured);
+  };
+
+  /** 把算好的位置交给备注弹窗。两个入口共用 */
+  const openBookmarkDraft = (noteId: string, captured: ReadingBookmark) => {
+    setBookmarkDraft({
+      noteId,
+      captured,
+      heading: captured.heading,
+      percent: captured.percent,
+    });
+  };
+
+  /** 弹窗确认：把备注并进那条已经算好的书签 */
+  const handleConfirmBookmark = (note: string) => {
+    const draft = bookmarkDraft;
+    setBookmarkDraft(null);
+    if (!draft) return;
+    handleSaveReadingBookmark(draft.noteId, {
+      ...draft.captured,
+      ...(note ? { note } : {}),
+    });
+    showToast(note ? `已记下书签：${note}` : `已记下书签：${draft.heading}`);
+  };
+
+  const handleJumpBookmark = (bookmark: { heading: string; offset: number }) => {
+    requestReadingJump(bookmark);
+  };
+
+  /**
+   * 状态栏显示哪条书签。
+   *
+   * 优先当前所在章节的那条（正在读的章节有书签，说明用户多半想回这里）；
+   * 不在任何书签所在章节时，退回最近记的那条（列表已按时间倒序）。
+   */
+  const activeBookmark = useMemo(() => {
+    if (!bookmarks?.length) return undefined;
+    const here = livePosition?.heading?.trim();
+    if (here) {
+      const matched = bookmarks.find((item) => item.heading.trim() === here);
+      if (matched) return matched;
+    }
+    return bookmarks[0];
+  }, [bookmarks, livePosition?.heading]);
 
   // 实时精细化统计（与右键菜单的「当前文档信息」共用同一套口径）
   const stats = useMemo(() => computeDocStats(content), [content]);
@@ -276,6 +419,35 @@ export default function NotesTool() {
             {activeNote.title || "未命名文档"}
           </span>
           <div className="flex flex-shrink-0 items-center gap-2">
+            {/*
+              当前读到哪。两个内核都有这条阅读位置（走同一条总线），
+              不依赖目录胶囊是否存在 —— Cherry 没有胶囊，但进度照样该看得见。
+            */}
+            {livePosition && livePosition.percent > 0 && (
+              <span className="hidden max-w-[14rem] truncate text-[11px] text-slate-400 lg:inline dark:text-slate-500">
+                {livePosition.heading || "开头"} · {livePosition.percent}%
+              </span>
+            )}
+            {/*
+              记位置：按**当前滚动位置**记一条（块手柄那颗是按光标所在的那一段）。
+              两个入口在长文里各有用处 —— 读到某处想先记一下时，滚轮比找光标快。
+            */}
+            <Tooltip content="记下当前阅读位置">
+              <button
+                type="button"
+                onClick={handleAddBookmark}
+                aria-label="记下当前阅读位置"
+                className="flex h-8 items-center gap-1 rounded-md border border-slate-200/80 px-2 text-[11px] font-medium text-slate-500 transition-colors hover:border-brand-500/40 hover:text-brand-600 dark:border-dark-border dark:text-slate-400 dark:hover:text-brand-400"
+              >
+                <Bookmark className="h-3.5 w-3.5" />
+                记位置
+                {bookmarks && bookmarks.length > 0 && (
+                  <span className="rounded-full bg-brand-500/15 px-1 text-[10px] font-semibold tabular-nums text-brand-600 dark:text-brand-400">
+                    {bookmarks.length}
+                  </span>
+                )}
+              </button>
+            </Tooltip>
             <EditorZoom />
             <EditorModeSwitch value={mode} onChange={handleModeChange} />
           </div>
@@ -324,6 +496,7 @@ export default function NotesTool() {
             onToggleFullscreen={toggleFullscreen}
             preview={previewing}
             onTogglePreview={togglePreview}
+            noteId={activeNote.id}
             backToTop={{ visible: showBackToTop, onClick: handleBackToTop }}
             className="h-full"
           />
@@ -338,6 +511,14 @@ export default function NotesTool() {
             fullscreen={fullscreen}
             preview={previewing}
             onTogglePreview={togglePreview}
+            noteId={activeNote.id}
+            bookmarks={bookmarks}
+            onJumpBookmark={handleJumpBookmark}
+            onDeleteBookmark={(bookmark) =>
+              handleDeleteReadingBookmark(activeNote.id, bookmark.id)
+            }
+            isBookmarkStale={isBookmarkStale}
+            onBookmarkBlock={handleBookmarkBlock}
             backToTop={{ visible: showBackToTop, onClick: handleBackToTop }}
             className="h-full"
           />
@@ -355,6 +536,9 @@ export default function NotesTool() {
           }
           saveStatus={saveStatus}
           saveMessage={saveMessage}
+          bookmark={activeBookmark}
+          bookmarkStale={activeBookmark ? isBookmarkStale(activeBookmark) : false}
+          onJumpBookmark={() => activeBookmark && handleJumpBookmark(activeBookmark)}
         />
       )}
 
@@ -379,6 +563,13 @@ export default function NotesTool() {
 
       {/* 「返回顶部」已经挪进工具栏（见 MarkdownToolbar 的 backToTop），
           原先右下角的浮动按钮在移动端会贴到格式工具条上 */}
+
+      {/* 记书签的备注弹窗。挂在最外层（含弹窗遮罩）—— 预览态下也要能弹出来 */}
+      <BookmarkNoteDialog
+        draft={bookmarkDraft}
+        onConfirm={handleConfirmBookmark}
+        onCancel={() => setBookmarkDraft(null)}
+      />
     </div>
   );
 }

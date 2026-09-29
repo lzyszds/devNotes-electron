@@ -1275,16 +1275,20 @@ html.dark .cherry-notes-editor .cherry {
    下面这些在第三方样式表里是写死的字面值，变量管不到，只能按选择器覆盖。
    -------------------------------------------------------------------------- */
 
-/* 预览区：原来右侧留 45px 是给 TOC 侧栏让位的，现在侧栏浮在内容之上，留着只是白边 */
+/* 预览区：右侧原留 45px 是给 TOC 侧栏让位的，现在侧栏浮在内容之上，留着只是白边。
+   内边距同样要除以倍率——这一层在缩放层内部（见第 21 节 zoom 施加于 .cherry），
+   而右侧胶囊浮在缩放层之外、物理宽度恒定，不抵消就会随倍率变形。 */
 .cherry-notes-editor .cherry-previewer {
-  padding: 28px 40px 96px !important;
+  padding: calc(28px / var(--editor-zoom, 1)) calc(40px / var(--editor-zoom, 1))
+    calc(96px / var(--editor-zoom, 1)) !important;
   border-left: 1px solid var(--base-border-color) !important;
 }
 
 /* 编辑区：.cm-lineWrapping 就是 CM6 的 .cm-content */
 .cherry-notes-editor .cherry .cm-editor .cm-content,
 .cherry-notes-editor .cherry .cm-editor .cm-lineWrapping {
-  padding: 24px 28px 96px !important;
+  padding: calc(24px / var(--editor-zoom, 1)) calc(28px / var(--editor-zoom, 1))
+    calc(96px / var(--editor-zoom, 1)) !important;
 }
 
 .cherry-notes-editor .cherry-markdown h1,
@@ -1567,10 +1571,19 @@ html.dark .milkdown-notes-editor .milkdown-scroll {
    左侧留白比右侧宽，是给块操作手柄预留的通道 —— 手柄固定挂在编辑区左边缘起
    20px 处（见 .fehelper-block-handle 那段），塞不进这条留白就会压到正文上。
    把左内边距改回与右侧相同之前，先确认手柄还放得下。 */
+/*
+ * 内边距一律用 `calc(Npx / var(--editor-zoom, 1))` 写成——因为这一层处在缩放层内部
+ * （见第 21 节，zoom 施加在 .milkdown-scroll 上），裸写的 px 会跟着倍率一起被放大。
+ * 而右侧大纲胶囊是**浮层**、在缩放层外面，物理宽度恒定不变，两边就对不上了：
+ *   倍率 < 100% → 留白被压窄，撑不住胶囊，正文末尾几个字被浮层盖住；
+ *   倍率 > 100% → 留白被放大，白空一大块，上下留白也会空出巨缝。
+ * 除以倍率之后，渲染出来的物理留白恒为设定的值，与胶囊、手柄永远对得上。
+ */
 .milkdown-notes-editor .milkdown-content {
   box-sizing: border-box;
   min-height: 100%;
-  padding: 28px 36px 96px 48px;
+  padding: calc(28px / var(--editor-zoom, 1)) calc(60px / var(--editor-zoom, 1))
+    calc(96px / var(--editor-zoom, 1)) calc(48px / var(--editor-zoom, 1));
   /* contenteditable 聚焦时浏览器会给一圈默认描边，在全站观感里很突兀 */
   outline: none;
   caret-color: rgb(var(--brand-600-rgb, 33 131 151));
@@ -2619,62 +2632,92 @@ html.dark .fe-toc-item--1 { color: #e2e8f0; }
    15. 右侧悬浮大纲（OutlineCapsule）
    ========================================================================== */
 
-/* 跳到某一节时给标题闪一下，方便确认落在了哪 */
+/*
+ * 跳到某一节 / 某条书签时闪一下，方便确认落在了哪。
+ *
+ * 用背景色 + 左侧竖条 + 圆角描边三重叠加，而不是只淡一个背景色 ——
+ * 只在段落上淡一层浅蓝很容易被当成「选中」或被忽略，尤其段落后方还有
+ * 代码块、表格等深底元素时根本看不出来。
+ *
+ * 中段（40%）保持满色而不是一路淡出：直接 from→to 的线性淡出，视觉上
+ * 有一半时间已经淡到快看不见了，等于「闪得不够久」。
+ */
 @keyframes fe-outline-flash {
-  from {
-    background-color: rgba(var(--brand-500-rgb, 80 189 207), 0.22);
+  0% {
+    background-color: rgba(var(--brand-500-rgb, 80 189 207), 0.28);
+    box-shadow: inset 3px 0 0 0 rgb(var(--brand-500-rgb, 80 189 207));
   }
-  to {
+  40% {
+    background-color: rgba(var(--brand-500-rgb, 80 189 207), 0.22);
+    box-shadow: inset 3px 0 0 0 rgb(var(--brand-500-rgb, 80 189 207));
+  }
+  100% {
     background-color: transparent;
+    box-shadow: inset 3px 0 0 0 transparent;
   }
 }
 
+/*
+ * 高亮落点。加在**被跳到的那个元素**上 —— 大纲跳转加在标题上，
+ * 书签跳转加在落点所在的块上，所以不能限定成标题选择器。
+ *
+ * 用 animation 而不是 transition：加 class 时自动播，摘 class 时自动停，
+ * 不需要元素两侧各写一份状态。
+ */
 .fe-outline-flash {
   animation: fe-outline-flash 900ms ease-out;
   border-radius: 6px;
 }
 
-/* 胶囊里的骨架条与目录项都不参与文本选中（它们是导航，不是内容） */
-.milkdown-notes-editor .fe-outline-flash {
-  scroll-margin-top: 24px;
+/*
+ * 跳转后目标不要贴着滚动容器顶边。
+ *
+ * 格式工具栏（h-10 = 40px）压在正文上方，只留 24px 的话目标会被它盖住一截。
+ * 用 scroll-margin-top 而不是在滚动计算里手动加偏移：ScrollIntoView /
+ * scrollTo 都会自动尊重这个值，一处配置两条路径都受益。
+ * 取 56px = 工具栏 40px + 16px 呼吸空间。
+ */
+.milkdown-notes-editor .fe-outline-flash,
+.cherry-notes-editor .fe-outline-flash {
+  scroll-margin-top: 56px;
 }
 
 /*
- * 右侧常驻大纲胶囊时，给正文让出它的宽度。
+ * 右侧给大纲胶囊留出的固定位置。
  *
- * 胶囊是浮层（absolute right-4，本身 30px 宽），正常会压在正文右边缘上：
- * 正文的右内边距只有 36px，而胶囊占据从右边缘数起 16~46px 这一段。
- * 这里把右内边距加到 60px，正文右边界退到 60px 之外，与胶囊之间始终留出空隙。
- * 只在有标题（胶囊真的会出现）时生效，没有标题的文档版心不变。
+ * 此前这里是按「有没有标题」条件生效的（`.has-outline`）：有标题 60px、没标题 36px。
+ * 胶囊本身也只在有标题时才渲染，两件事一起变，于是切笔记的那一瞬间版心先是窄的、
+ * 下一帧又变宽 —— 就是「进入时挤压一下再正常」的来源。
+ *
+ * 现在留白恒定（写在上面的 .milkdown-content 里），胶囊无论有没有标题都占着同一块
+ * 地方，从第一帧起版心就是最终宽度，不再回流。这条规则随之作废，留此注释备查。
  */
-.milkdown-notes-editor.has-outline .milkdown-content {
-  padding-right: 60px;
-}
 
 /*
  * 移动端正文留白收窄。
  *
- * 桌面端左右各留 36~60px 是两件事：版心好看，以及给两侧的浮层让位 ——
- * 左侧通道留给块操作手柄（挂在编辑区左边缘 +20px 处），右侧留给常驻大纲胶囊。
+ * 桌面端左右各留 60/48px 是两件事：版心好看，以及给两侧的浮层让位 ——
+ * 左侧通道留给块操作手柄（挂在编辑区左边缘 +20px 处），右侧留给大纲胶囊。
  * 手机上这两样都不存在：手柄靠 mousemove 驱动、触屏不会触发；大纲已经改成
  * 底部 sheet，右侧没有胶囊了。留白却照旧，390px 宽的屏幕上正文只剩 306px。
  *
- * 放在这一段的最后：上面的 `.has-outline` 是 3 个类选择器，特异性高于
- * 单条 `.milkdown-notes-editor .milkdown-content`，必须压在它后面才盖得住。
+ * 这里同样要除以倍率：手机上的阅读倍率照样会缩放到这一层。
  */
 @media (max-width: 767px) {
-  .milkdown-notes-editor .milkdown-content,
-  .milkdown-notes-editor.has-outline .milkdown-content {
-    padding: 16px 14px 72px;
+  .milkdown-notes-editor .milkdown-content {
+    padding: calc(16px / var(--editor-zoom, 1)) calc(14px / var(--editor-zoom, 1))
+      calc(72px / var(--editor-zoom, 1));
   }
 
   .cherry-notes-editor .cherry-previewer {
-    padding: 16px 14px 72px !important;
+    padding: calc(16px / var(--editor-zoom, 1)) calc(14px / var(--editor-zoom, 1))
+      calc(72px / var(--editor-zoom, 1)) !important;
   }
 
   .cherry-notes-editor .cherry .cm-editor .cm-content,
   .cherry-notes-editor .cherry .cm-editor .cm-lineWrapping {
-    padding: 16px 14px 72px !important;
+    padding: calc(16px / var(--editor-zoom, 1)) calc(14px / var(--editor-zoom, 1))
+      calc(72px / var(--editor-zoom, 1)) !important;
   }
 
   /* 触屏没有 mousemove，手柄本就不会出现；显式关掉，

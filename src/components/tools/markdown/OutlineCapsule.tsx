@@ -1,7 +1,8 @@
-import { useEffect, useLayoutEffect, useRef } from 'react'
-import { ArrowUpToLine, PanelRight, X } from 'lucide-react'
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { ArrowUpToLine, Bookmark, PanelRight, Trash2, X } from 'lucide-react'
 import Tooltip from '../../ui/Tooltip'
 import type { OutlineItem } from '../../../utils/milkdownOutline'
+import type { ReadingBookmark } from '../../../utils/notesStore'
 import { useIsMobile } from '../../../hooks/useIsMobile'
 
 export type OutlineCapsuleProps = {
@@ -14,6 +15,14 @@ export type OutlineCapsuleProps = {
   onExpandedChange: (expanded: boolean) => void
   onPick: (index: number) => void
   onScrollTop: () => void
+  /** 这篇笔记记下的书签，最近记的在前 */
+  bookmarks?: ReadingBookmark[]
+  /** 跳回某条书签 */
+  onJumpBookmark?: (bookmark: ReadingBookmark) => void
+  /** 删除某条书签 */
+  onDeleteBookmark?: (bookmark: ReadingBookmark) => void
+  /** 判断某条书签是否还认得回正文（认不回则置灰并标注失效） */
+  isBookmarkStale?: (bookmark: ReadingBookmark) => boolean
 }
 
 /** 折叠态每条骨架占的高度（含间距），用来把胶囊高度撑到刚好装下 */
@@ -39,6 +48,10 @@ export default function OutlineCapsule({
   onExpandedChange,
   onPick,
   onScrollTop,
+  bookmarks,
+  onJumpBookmark,
+  onDeleteBookmark,
+  isBookmarkStale,
 }: OutlineCapsuleProps) {
   const wrapperRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLElement>(null)
@@ -75,6 +88,23 @@ export default function OutlineCapsule({
     pill.style.top = `${target.offsetTop}px`
     pill.style.height = `${target.offsetHeight}px`
   }, [activeIndex, expanded, items])
+
+  /*
+   * 哪些大纲条目上挂着书签，用标题文本对齐。
+   *
+   * 不用下标对齐：书签存的是标题文本，而下标会随「前面插了/删了标题」整体错位。
+   * 文本撞名（同一篇里两个「注意事项」）时两条都会打上标记 —— 那也比不打标记好，
+   * 反正点的是书签列表里的那条，标记只是个提示。
+   *
+   * 必须放在下面那些提前 return **之前**：无标题的笔记会走 `return null`，
+   * 若 hook 在它后面，切换「有标题/没标题」的笔记时 hook 数量就对不上了
+   * （React 报 "Rendered more hooks than during the previous render"）。
+   */
+  const bookmarkedHeadings = useMemo(() => {
+    const set = new Set<string>()
+    bookmarks?.forEach((bookmark) => set.add(bookmark.heading.trim()))
+    return set
+  }, [bookmarks])
 
   // 没有标题就不占地方（空胶囊没有意义）
   if (items.length === 0) return null
@@ -162,10 +192,66 @@ export default function OutlineCapsule({
                     <span className="ml-2 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-slate-300 dark:bg-slate-600" />
                   )}
                   <span className="truncate text-[13px] font-medium">{item.text}</span>
+                  {bookmarkedHeadings.has(item.text.trim()) && (
+                    <Bookmark className="h-3 w-3 flex-shrink-0 fill-brand-500 text-brand-500" />
+                  )}
                 </button>
               )
             })}
           </nav>
+
+          {/* 移动端同样列出书签。sheet 高度是自适应的，可以放心铺满 */}
+          {bookmarks && bookmarks.length > 0 && (
+            <div className="flex flex-shrink-0 flex-col border-t border-slate-100 dark:border-dark-border">
+              <div className="flex items-center gap-1 px-5 pt-2 text-[10px] font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
+                <Bookmark className="h-2.5 w-2.5 fill-current" />
+                阅读书签
+              </div>
+              <div className="max-h-40 space-y-0.5 overflow-y-auto px-3 py-1.5">
+                {bookmarks.map((bookmark) => {
+                  const stale = isBookmarkStale?.(bookmark) ?? false
+                  return (
+                    <div key={bookmark.id} className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={stale}
+                        onClick={() => onJumpBookmark?.(bookmark)}
+                        className="flex min-w-0 flex-1 flex-col items-start gap-px rounded-lg p-2 text-left active:bg-slate-100 dark:active:bg-dark-hover"
+                      >
+                        <span
+                          className={`w-full truncate text-[13px] font-medium ${
+                            stale
+                              ? 'text-slate-400 line-through dark:text-slate-500'
+                              : 'text-slate-700 dark:text-slate-200'
+                          }`}
+                        >
+                          {bookmark.heading}
+                          {bookmark.percent > 0 && (
+                            <span className="ml-1 font-normal tabular-nums text-slate-400">
+                              {bookmark.percent}%
+                            </span>
+                          )}
+                        </span>
+                        {bookmark.note && (
+                          <span className="w-full truncate text-[11px] text-slate-400 dark:text-slate-500">
+                            {bookmark.note}
+                          </span>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="删除书签"
+                        onClick={() => onDeleteBookmark?.(bookmark)}
+                        className="flex-shrink-0 rounded p-1.5 text-slate-300 active:text-rose-500 dark:text-slate-600"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="flex flex-shrink-0 items-center justify-between border-t border-slate-100 px-5 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] text-[11px] text-slate-400 dark:border-dark-border dark:text-slate-500">
             <span>已读 {readPercent}%</span>
@@ -208,10 +294,12 @@ export default function OutlineCapsule({
             {items.map((item, index) => {
               const active = index === activeIndex
               const isTop = item.level <= 2
+              // 这一节挂着书签：骨架条端头点一颗小圆点，不展开也能看出「这儿记过」
+              const marked = bookmarkedHeadings.has(item.text.trim())
               return (
                 <Tooltip
                   key={`${item.pos}-${item.level}`}
-                  content={item.text}
+                  content={marked ? `${item.text}（有书签）` : item.text}
                   // 侧向弹出：胶囊只有 30px 宽，浮在上方会盖住相邻的骨架条
                   placement="right"
                 >
@@ -221,7 +309,7 @@ export default function OutlineCapsule({
                       onPick(index)
                     }}
                     style={{ height: perItem }}
-                    className="group flex w-full cursor-pointer items-center justify-center"
+                    className="group relative flex w-full cursor-pointer items-center justify-center"
                   >
                     <span
                       className={`rounded-full transition-all duration-200 ease-[cubic-bezier(0.34,1.25,0.64,1)] ${
@@ -232,6 +320,9 @@ export default function OutlineCapsule({
                             : 'h-[2px] w-2 bg-slate-300/70 group-hover:w-3 dark:bg-slate-600/70'
                       }`}
                     />
+                    {marked && (
+                      <span className="pointer-events-none absolute left-1 top-1/2 h-1 w-1 -translate-y-1/2 rounded-full bg-brand-500" />
+                    )}
                   </div>
                 </Tooltip>
               )
@@ -308,10 +399,88 @@ export default function OutlineCapsule({
                       <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-slate-300 dark:bg-slate-600" />
                     )}
                     <span className="truncate text-[12px] font-medium">{item.text}</span>
+                    {bookmarkedHeadings.has(item.text.trim()) && (
+                      <Bookmark className="h-2.5 w-2.5 shrink-0 fill-brand-500 text-brand-500" />
+                    )}
                   </div>
                 )
               })}
             </nav>
+
+            {/*
+              书签区。卡片高度是固定的，所以这里上限压得比较死（最多约 3 条的位置）——
+              条目再多就在这一小块里自己滚，不去挤上面的目录。
+              没有书签时整块不出现，目录独占卡片。
+            */}
+            {bookmarks && bookmarks.length > 0 && (
+              <div className="mt-1.5 flex max-h-[40%] flex-shrink-0 flex-col border-t border-slate-100 pt-1.5 dark:border-dark-border">
+                <div className="mb-1 flex items-center justify-between pr-[7px] text-[10px] font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
+                  <span className="flex items-center gap-1">
+                    <Bookmark className="h-2.5 w-2.5 fill-current" />
+                    阅读书签
+                  </span>
+                  <span className="font-normal text-slate-400 dark:text-slate-500">
+                    {bookmarks.length}
+                  </span>
+                </div>
+
+                <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto pr-0.5 [scrollbar-gutter:stable]">
+                  {bookmarks.map((bookmark) => {
+                    const stale = isBookmarkStale?.(bookmark) ?? false
+                    return (
+                      <div
+                        key={bookmark.id}
+                        className="group flex items-center gap-1 rounded-lg px-1.5 py-1 transition-colors hover:bg-brand-500/10"
+                      >
+                        <button
+                          type="button"
+                          disabled={stale}
+                          onClick={() => onJumpBookmark?.(bookmark)}
+                          title={
+                            stale
+                              ? '原标题已被修改或删除，无法定位'
+                              : `回到「${bookmark.heading}」${bookmark.note ? `：${bookmark.note}` : ''}`
+                          }
+                          className={`flex min-w-0 flex-1 flex-col items-start gap-px text-left ${
+                            stale ? 'cursor-default' : ''
+                          }`}
+                        >
+                          <span
+                            className={`w-full truncate text-[11.5px] font-medium ${
+                              stale
+                                ? 'text-slate-400 line-through dark:text-slate-500'
+                                : 'text-slate-700 group-hover:text-brand-600 dark:text-slate-200 dark:group-hover:text-brand-400'
+                            }`}
+                          >
+                            {bookmark.heading}
+                            {bookmark.percent > 0 && (
+                              <span className="ml-1 font-normal tabular-nums text-slate-400 dark:text-slate-500">
+                                {bookmark.percent}%
+                              </span>
+                            )}
+                          </span>
+                          {bookmark.note && (
+                            <span className="w-full truncate text-[10.5px] text-slate-400 dark:text-slate-500">
+                              {bookmark.note}
+                            </span>
+                          )}
+                        </button>
+                        <Tooltip content="删除这条书签" placement="left">
+                          <button
+                            type="button"
+                            aria-label="删除书签"
+                            onClick={() => onDeleteBookmark?.(bookmark)}
+                            className="flex-shrink-0 rounded p-0.5 text-slate-300 opacity-0 transition-all hover:bg-rose-500/10 hover:text-rose-500 group-hover:opacity-100 dark:text-slate-600"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </Tooltip>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* 右侧内边距与 nav 对齐：0.5 的自身留白 + 5px 的滚动条留槽 */}
             <div className="mt-1.5 flex items-center justify-between border-t border-slate-100 pt-1.5 pr-[7px] text-[10.5px] text-slate-400 dark:border-dark-border dark:text-slate-500">

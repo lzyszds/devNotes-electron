@@ -5,13 +5,21 @@ import { editorViewCtx } from '@milkdown/kit/core'
 import type { TooltipProvider } from '@milkdown/kit/plugin/tooltip'
 import { NodeSelection, TextSelection } from '@milkdown/kit/prose/state'
 import type { EditorView } from '@milkdown/kit/prose/view'
-import { GripVertical, Plus, Trash2 } from 'lucide-react'
+import { Bookmark, GripVertical, Plus, Trash2 } from 'lucide-react'
 import { FloatingBarShell, useFloatingBar } from './FloatingBar'
 
 export type BlockHandleProps = {
   editor: Editor | null
   /** 由编辑器组件持有，闭包进驱动插件；见 milkdownFloatingBar.ts */
   providerRef: MutableRefObject<TooltipProvider | null>
+  /**
+   * 在当前光标所在的块上记一条书签。
+   *
+   * 传出去的是那一块的 DOM 元素，由宿主换算成「章节 + 节内偏移」——
+   * 换算要用滚动容器与大纲，那些只有编辑器组件拿得到。
+   * 不传就不显示这颗按钮（没接书签的场景，比如纯阅读页）。
+   */
+  onBookmarkBlock?: (block: HTMLElement) => void
 }
 
 /**
@@ -120,7 +128,11 @@ function moveBlock(view: EditorView, source: BlockRange, pos: number) {
  * 失焦、选区消失，要搬的那一块就无从谈起；而 `preventDefault` 恰恰会让浏览器不启动
  * 原生拖拽。两者不可兼得，于是走手动的 mousedown → mousemove → mouseup。
  */
-export default function BlockHandle({ editor, providerRef }: BlockHandleProps) {
+export default function BlockHandle({
+  editor,
+  providerRef,
+  onBookmarkBlock,
+}: BlockHandleProps) {
   // 拖拽中的插入指示线。null = 没在拖，或落点不在编辑区内
   const [dropLine, setDropLine] = useState<Omit<DropTarget, 'pos'> | null>(null)
   const dropPosRef = useRef<number | null>(null)
@@ -151,6 +163,24 @@ export default function BlockHandle({ editor, providerRef }: BlockHandleProps) {
       view.focus()
     })
   }, [editor])
+
+  /**
+   * 在当前光标所在的块上记一条书签。
+   *
+   * 用 `view.nodeDOM(from)` 拿这一块的 DOM —— 正是宿主换算锚点需要的那个元素，
+   * 也就是 `.milkdown-content` 里对应这个顶层块的那一层。
+   * 拿不到 DOM（比如块还没渲染出来）就静默不做，总比记一条错位置的强。
+   */
+  const bookmarkBlock = useCallback(() => {
+    if (!editor || !onBookmarkBlock) return
+    editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx)
+      const source = blockAtCursor(view)
+      if (!source) return
+      const dom = view.nodeDOM(source.from)
+      if (dom instanceof HTMLElement) onBookmarkBlock(dom)
+    })
+  }, [editor, onBookmarkBlock])
 
   /** 删除整块 */
   const deleteBlock = useCallback(() => {
@@ -255,6 +285,17 @@ export default function BlockHandle({ editor, providerRef }: BlockHandleProps) {
           >
             <Plus className="h-3.5 w-3.5" />
           </button>
+          {/* 记书签：把「这一段」所在的位置记下来。没接书签时不显示 */}
+          {onBookmarkBlock && (
+            <button
+              type="button"
+              onClick={bookmarkBlock}
+              title="在这一段记书签"
+              className="rounded p-0.5 text-slate-400 transition-colors hover:bg-brand-500/10 hover:text-brand-600 dark:hover:bg-brand-500/15 dark:hover:text-brand-400"
+            >
+              <Bookmark className="h-3.5 w-3.5" />
+            </button>
+          )}
           <button
             type="button"
             onClick={deleteBlock}

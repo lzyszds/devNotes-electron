@@ -37,12 +37,27 @@ import {
 import { milkdownSearchPlugin } from '../../utils/milkdownSearch'
 import { floatingBar } from '../../utils/milkdownFloatingBar'
 import { collectOutline } from '../../utils/milkdownOutline'
+import { getZoom, subscribeZoom } from '../../utils/editorZoom'
+import type { ReadingBookmark } from '../../utils/notesStore'
 import type { OutlineItem } from '../../utils/milkdownOutline'
-import { subscribeOutline } from '../../utils/editorBus'
+import {
+  publishReadingPosition,
+  subscribeOutline,
+  subscribeOutlineJump,
+  subscribeReadingJump,
+} from '../../utils/editorBus'
+import {
+  collectHeadingElements,
+  findActiveHeadingIndex,
+  flashElement,
+  jumpToBookmarkLanding,
+  readPercentOf,
+} from '../../utils/readingBookmark'
 import { useEditorContextMenu } from '../../hooks/useEditorContextMenu'
 import { usePresence } from '../../hooks/usePresence'
 import MarkdownToolbar from './markdown/MarkdownToolbar'
 import OutlineCapsule from './markdown/OutlineCapsule'
+import BookmarkGutter from './markdown/BookmarkGutter'
 import FindReplaceBar from './markdown/FindReplaceBar'
 import SlashMenu, { slash } from './markdown/SlashMenu'
 import BlockHandle from './markdown/BlockHandle'
@@ -95,6 +110,21 @@ export type MilkdownMarkdownEditorProps = {
   onTogglePreview?: () => void
   /** 「返回顶部」：状态与回调都在宿主（NotesTool），这里只透传给工具栏 */
   backToTop?: { visible: boolean; onClick: () => void }
+  /** 当前笔记 id。随阅读位置一起上报，供外壳认领「这份数据是哪一篇的」 */
+  noteId?: string
+  /** 这篇笔记的阅读书签。数据归宿主（要参与同步），胶囊只负责显示与交互 */
+  bookmarks?: ReadingBookmark[]
+  onJumpBookmark?: (bookmark: ReadingBookmark) => void
+  onDeleteBookmark?: (bookmark: ReadingBookmark) => void
+  /** 判断某条书签是否还认得回正文 */
+  isBookmarkStale?: (bookmark: ReadingBookmark) => boolean
+  /**
+   * 在某个正文块上记书签（块手柄那颗按钮）。
+   *
+   * 宿主收到的是那一块的 DOM，换算成「章节 + 节内偏移」由宿主做 ——
+   * 换算要用滚动容器与大标题，而那些都在编辑器组件里，宿主拿不到。
+   */
+  onBookmarkBlock?: (block: HTMLElement) => void
 }
 
 /** 标题下拉的选项。0 表示退回正文,与 Cherry 侧的「正文」项对齐 */
@@ -113,12 +143,6 @@ type PopupKind = 'heading' | 'link' | 'image'
 
 /** 勾选框热区宽度(px)。方框本身 13px,留点余量;再往右就是正文了,点那儿应该是放光标 */
 const TASK_CHECKBOX_HIT_AREA = 20
-
-/**
- * 判定「读到哪一节」的参考线：标题顶边进入滚动容器顶部这么多像素内，就算读到了。
- * 取 140 是为了给顶部的工具条与标题自身留出视觉余量，和参考实现的取一致。
- */
-const OUTLINE_ACTIVE_OFFSET = 140
 
 /**
  * 点击任务项左侧的方框切换勾选。
@@ -176,6 +200,12 @@ export default function MilkdownMarkdownEditor({
   preview = false,
   onTogglePreview,
   backToTop,
+  noteId = '',
+  bookmarks,
+  onJumpBookmark,
+  onDeleteBookmark,
+  isBookmarkStale,
+  onBookmarkBlock,
 }: MilkdownMarkdownEditorProps) {
   const { registerInsertHandler, handleExport } = useNotes()
 
@@ -209,6 +239,11 @@ export default function MilkdownMarkdownEditor({
   const [outlineExpanded, setOutlineExpanded] = useState(false)
   const [outlineActive, setOutlineActive] = useState(-1)
   const [readPercent, setReadPercent] = useState(0)
+  // 滚动位置：左侧书签标记盖在滚动容器外，得靠它把标记挪到正确高度
+  const [scrollTop, setScrollTop] = useState(0)
+  // 缩放倍率：标记的横向位置与留白宽度都按倍率换算，变了要跟着重画
+  const [zoom, setZoom] = useState(getZoom)
+  useEffect(() => subscribeZoom(setZoom), [])
   // 查找替换条只由编辑器自己管：宿主那边没有别的入口会打开它
   const [searchOpen, setSearchOpen] = useState(false)
 
@@ -478,6 +513,9 @@ export default function MilkdownMarkdownEditor({
    * 滚动同步：已读百分比 + 当前读到第几节。
    *
    * 用 rAF 节流 —— scroll 的触发频率远高于渲染帧，逐个直接 setState 会白算很多次。
+   *
+   * 位置一并上报给外壳：书签的抓取与还原都要用编辑器的滚动容器算坐标，
+   * 而容器只存在于这里。大纲胶囊的数据也走这条，两个消费方共用同一份测量结果。
    */
   useEffect(() => {
     const scroll = mountRef.current
@@ -486,20 +524,20 @@ export default function MilkdownMarkdownEditor({
     let frame = 0
     const measure = () => {
       frame = 0
-      const max = scroll.scrollHeight - scroll.clientHeight
-      setReadPercent(max > 0 ? Math.min(100, Math.round((scroll.scrollTop / max) * 100)) : 100)
+      const headings = collectHeadingElements(scroll)
+      const percent = readPercentOf(scroll)
+      const active = findActiveHeadingIndex(scroll, headings)
 
-      const headings = scroll.querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5, h6')
-      if (!headings.length) {
-        setOutlineActive(-1)
-        return
-      }
-      const containerTop = scroll.getBoundingClientRect().top
-      let active = 0
-      headings.forEach((el, index) => {
-        if (el.getBoundingClientRect().top - containerTop <= OUTLINE_ACTIVE_OFFSET) active = index
-      })
+      setReadPercent(percent)
+      setScrollTop(scroll.scrollTop)
       setOutlineActive(active)
+      publishReadingPosition({
+        noteId,
+        activeIndex: active,
+        percent,
+        heading: active >= 0 ? headings[active]?.textContent?.trim() ?? '' : '',
+        container: scroll,
+      })
     }
 
     const onScroll = () => {
@@ -513,7 +551,7 @@ export default function MilkdownMarkdownEditor({
       scroll.removeEventListener('scroll', onScroll)
       if (frame) cancelAnimationFrame(frame)
     }
-  }, [value, ready])
+  }, [value, ready, noteId])
 
   /** 跳到某一节：滚进视野并闪一下，方便确认落在哪 */
   const pickOutlineItem = useCallback(
@@ -530,6 +568,33 @@ export default function MilkdownMarkdownEditor({
   const scrollToTop = useCallback(() => {
     mountRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
   }, [])
+
+  /*
+   * 两个跳转入口都从总线进来（触发方是外壳的书签按钮与目录）。
+   * 空依赖：订阅者随组件生命周期存在，跳转目标每次都从 ref 现取。
+   */
+  useEffect(
+    () =>
+      subscribeOutlineJump((index) => {
+        const target = headingElements()?.[index]
+        if (!target) return
+        // scroll-margin-top（index.css）会把标题推到工具栏下方，不会被盖住
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        flashElement(target)
+      }),
+    [headingElements]
+  )
+
+  useEffect(
+    () =>
+      subscribeReadingJump((target) => {
+        const scroll = mountRef.current
+        if (!scroll) return
+        // 滚动 + 到位后高亮落点所在的那一块，两个内核共用同一条实现
+        jumpToBookmarkLanding(scroll, target)
+      }),
+    []
+  )
 
   /** 工具栏按钮的 active 态。只标「开着/关着」这类开关，不做光标处的格式嗅探 */
   const toolbarState = useMemo<Record<string, ToolbarItemState>>(
@@ -799,11 +864,7 @@ export default function MilkdownMarkdownEditor({
   )
 
   return (
-    <div
-      className={`milkdown-notes-editor flex h-full min-h-0 flex-col ${
-        outlineItems.length ? 'has-outline' : ''
-      } ${className}`}
-    >
+    <div className={`milkdown-notes-editor flex h-full min-h-0 flex-col ${className}`}>
       {/* 预览态是只读的，工具栏上每一颗按钮都点不出效果。
           移动端把工具栏挪到底部，当作键盘上方的格式配件条。 */}
       {!preview && (
@@ -827,6 +888,21 @@ export default function MilkdownMarkdownEditor({
           className="milkdown-scroll h-full w-full overflow-y-auto"
         />
 
+        {/*
+          左侧书签标记。放在滚动容器**外面** —— ProseMirror 独占 mountRef 的
+          子节点，往里塞元素会被它当成文档内容。所以这一层盖在滚动容器上，
+          自己按 scrollTop 把标记挪到可视区里的正确高度。
+        */}
+        <BookmarkGutter
+          container={mountRef.current}
+          bookmarks={bookmarks}
+          content={value}
+          scrollTop={scrollTop}
+          zoom={zoom}
+          onJump={(bookmark) => onJumpBookmark?.(bookmark)}
+          onDelete={(bookmark) => onDeleteBookmark?.(bookmark)}
+        />
+
         {/* 右侧悬浮大纲：折叠态是一条骨架胶囊，展开后是目录卡片 */}
         <OutlineCapsule
           items={outlineItems}
@@ -836,11 +912,19 @@ export default function MilkdownMarkdownEditor({
           onExpandedChange={setOutlineExpanded}
           onPick={pickOutlineItem}
           onScrollTop={scrollToTop}
+          bookmarks={bookmarks}
+          onJumpBookmark={onJumpBookmark}
+          onDeleteBookmark={onDeleteBookmark}
+          isBookmarkStale={isBookmarkStale}
         />
 
         {/* 挂到编辑区内层容器上：Provider 用绝对定位放置，容器必须与编辑区同坐标系 */}
         <SlashMenu editor={ready} />
-        <BlockHandle editor={ready} providerRef={blockHandleRef} />
+        <BlockHandle
+          editor={ready}
+          providerRef={blockHandleRef}
+          onBookmarkBlock={onBookmarkBlock}
+        />
 
         {/* 这几条的宿主元素会被 Provider 搬到 document.body 下，与编辑区不同坐标系
             （用 fixed 定位），所以放在哪一层都行 */}

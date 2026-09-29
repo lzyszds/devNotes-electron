@@ -1,3 +1,45 @@
+/**
+ * 阅读位置书签：记下「这篇里我读到哪了」，一篇可以有好几个。
+ *
+ * 存的是**锚点**而不是滚动像素（scrollTop）。滚动像素只在当时的窗口宽度、
+ * 当时的缩放倍率下成立 —— 换个窗口、调一下倍率，甚至只是正文被编辑过几行，
+ * 同一个 scrollTop 就落到别的段落上了。锚点描述的是「哪个标题往下多远」，
+ * 这三件事都变不了它。
+ */
+export interface ReadingBookmark {
+  /** 单条书签的标识，用于删除与定位 */
+  id: string
+  /** 所在章节的标题文本。位置对不上时（标题被改了）靠它兜底认领 */
+  heading: string
+  level: number
+  /**
+   * 从该标题顶部往下读了多少，0~1 之间的比例。
+   * 用比例而不是绝对像素，正文在这一节里增删几行也不会整个偏掉。
+   */
+  offset: number
+  /** 整篇的阅读进度 0~100，仅用于展示 */
+  percent: number
+  /** 用户写的备注，可空。同一节里的多条书签靠它区分 */
+  note?: string
+  /**
+   * 这一块是正文里的第几个顶层块（0 起）。用来在正文左侧标出「这儿有书签」。
+   *
+   * 与 heading/offset 是一套双保险：序号定位快，但正文里插删段落会让它错位，
+   * 所以配一个 blockText 做校验 —— 与 readingBookmark 里「下标 + 标题文本」同思路。
+   * 老数据没有这两个字段，正文标记不显示，但跳转照旧可用（不依赖它们）。
+   */
+  blockIndex?: number
+  /** 该块开头的若干字符，用来校验 blockIndex 是否还指向原来那一块 */
+  blockText?: string
+  /**
+   * 创建/最后更新的时刻，云端合并时靠它判「哪台设备的这条更新」。
+   *
+   * 单独记一个而不复用 updatedAt —— 跟 folderMovedAt 同一个理由：
+   * 记一次书签若推进 updatedAt，这篇会被顶到列表最前，还会白白触发一次内容合并。
+   */
+  at: number
+}
+
 export interface NoteItem {
   id: string
   title: string
@@ -29,6 +71,11 @@ export interface NoteItem {
    * 正文本身不上传 —— 回收站按「本机保留即可」定位。
    */
   deletedAt?: number
+  /**
+   * 阅读位置书签，一篇可以有好几个。参与 Cloudflare 同步，按各自的 at 时间戳
+   * 逐条合并（见 mergeNotes）。空数组或 undefined 都表示「这篇没记过位置」。
+   */
+  readingBookmarks?: ReadingBookmark[]
 }
 
 /** 知识库文件夹。参与 Cloudflare 合并，以 id 对齐、同名不算同一个（见 mergeFolders） */
@@ -266,6 +313,53 @@ function createId() {
   return `note_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
 }
 
+/**
+ * 校验并夹取一条阅读书签。结构与范围都对不上时返回 null（当作没记过）。
+ *
+ * 从磁盘 / 云端读回来的都是不可信数据：别的版本可能写进过别的形状，
+ * 或者用户手改过 store 文件。位置类数据一旦越界，跳转就会落到莫名其妙的地方，
+ * 与其带着坏数据跑，不如认成「没有这条」。
+ */
+export function normalizeReadingBookmark(raw: unknown): ReadingBookmark | null {
+  if (!raw || typeof raw !== 'object') return null
+  const data = raw as Partial<ReadingBookmark>
+  if (typeof data.id !== 'string' || !data.id) return null
+  if (typeof data.heading !== 'string') return null
+  if (typeof data.offset !== 'number' || !Number.isFinite(data.offset)) return null
+  if (typeof data.at !== 'number' || !Number.isFinite(data.at)) return null
+  return {
+    id: data.id,
+    heading: data.heading,
+    level: typeof data.level === 'number' && data.level >= 1 ? Math.min(6, data.level) : 1,
+    // 夹到 0~1：越界值（比如手改出来的 3.7）会让跳转直接冲出这一节
+    offset: Math.min(1, Math.max(0, data.offset)),
+    percent:
+      typeof data.percent === 'number' && Number.isFinite(data.percent)
+        ? Math.min(100, Math.max(0, Math.round(data.percent)))
+        : 0,
+    ...(typeof data.note === 'string' && data.note.trim() ? { note: data.note.slice(0, 200) } : {}),
+    // 两个块标识要么都有、要么都没有 —— 缺一个就没法可靠定位，不如不标
+    ...(typeof data.blockIndex === 'number' &&
+    Number.isInteger(data.blockIndex) &&
+    data.blockIndex >= 0 &&
+    typeof data.blockText === 'string'
+      ? { blockIndex: data.blockIndex, blockText: data.blockText.slice(0, 80) }
+      : {}),
+    at: data.at,
+  }
+}
+
+/** 校验一组书签，丢掉坏的、按 id 去重（同 id 保留后出现的那个） */
+export function normalizeReadingBookmarks(raw: unknown): ReadingBookmark[] {
+  if (!Array.isArray(raw)) return []
+  const byId = new Map<string, ReadingBookmark>()
+  raw.forEach((item) => {
+    const bookmark = normalizeReadingBookmark(item)
+    if (bookmark) byId.set(bookmark.id, bookmark)
+  })
+  return Array.from(byId.values())
+}
+
 export function createEmptyNote(partial?: Partial<NoteItem>): NoteItem {
   const now = Date.now()
   return {
@@ -279,6 +373,7 @@ export function createEmptyNote(partial?: Partial<NoteItem>): NoteItem {
     bookmarked: partial?.bookmarked,
     folderId: partial?.folderId ?? null,
     deletedAt: partial?.deletedAt,
+    readingBookmarks: partial?.readingBookmarks,
   }
 }
 
@@ -360,19 +455,23 @@ export function normalizeState(raw: unknown): NotesState {
             content = DEFAULT_CONTENT
             title = '✨ Markdown 全特性与工具支持全景样板'
           }
+          // 校验并夹取一次，下面复用 —— 连写两遍会白算一次，且第二个还要靠断言压类型
+          const readingBookmarks = normalizeReadingBookmarks(item.readingBookmarks)
           return {
             id: item.id,
             title,
             content,
             createdAt: item.createdAt || Date.now(),
             updatedAt: item.updatedAt || Date.now(),
-            // 下面这五个字段必须显式透传,否则保存重载后全部丢失
+            // 下面这些字段必须显式透传,否则保存重载后全部丢失
             ...(typeof item.sourcePath === 'string' ? { sourcePath: item.sourcePath } : {}),
             ...(typeof item.sourceMtime === 'number' ? { sourceMtime: item.sourceMtime } : {}),
             ...(item.bookmarked ? { bookmarked: true } : {}),
             ...(typeof item.folderId === 'string' ? { folderId: item.folderId } : {}),
             ...(typeof item.folderMovedAt === 'number' ? { folderMovedAt: item.folderMovedAt } : {}),
             ...(typeof item.deletedAt === 'number' ? { deletedAt: item.deletedAt } : {}),
+            // 空数组不写出去，省得每篇笔记都挂一个空字段
+            ...(readingBookmarks.length ? { readingBookmarks } : {}),
           }
         })
     : []
