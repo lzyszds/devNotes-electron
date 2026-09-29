@@ -737,8 +737,16 @@ function createCodeHeader(
    * fe-code-block 类就是为这个才加的，见 index.css 里的说明）。
    */
   headerSources.set(bar, () => {
-    const node = view.nodeDOM(blockPos)
-    return node instanceof HTMLElement ? node : null
+    // view.nodeDOM 在位置已失效时返回 null，且它内部不判空，会直接抛
+    // 「Cannot read properties of null (reading 'descAt')」。装饰被重算、
+    // 文档已切换、块被删掉都会走到这里，所以先确认表头还在文档里、再取 DOM。
+    if (!view.dom.contains(bar)) return null
+    try {
+      return view.nodeDOM(blockPos) as HTMLElement | null
+    } catch {
+      // 位置越界等异常同样按「找不到」处理，后续同步会直接跳过
+      return null
+    }
   })
 
   // 挂上去之后再同步 —— widget 刚建好时 <pre> 上的 shiki 变量还没写上
