@@ -23,6 +23,11 @@ import type { EditorView } from '@milkdown/kit/prose/view'
 import { $prose } from '@milkdown/kit/utils'
 import mermaid from 'mermaid'
 import { copyText } from './clipboard'
+import {
+  CODE_BLOCK_THEMES,
+  getCachedCodeBlockTheme,
+  saveCodeBlockTheme,
+} from './codeBlockTheme'
 import { canonicalLanguageId, LANGUAGE_OPTIONS } from './milkdownShiki'
 
 /*
@@ -71,6 +76,9 @@ const ICON_PATHS: Record<string, string> = {
   wrap: '<path d="M3 6h18"/><path d="M3 12h13a3 3 0 1 1 0 6h-4"/><path d="m9 21-3-3 3-3"/>',
   copy: '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
   check: '<path d="M20 6 9 17l-5-5"/>',
+  // 调色盘：代码块主题的快捷入口
+  palette:
+    '<circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>',
   caret: '<path d="m6 9 6 6 6-6"/>',
   trash:
     '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/>',
@@ -512,6 +520,22 @@ function createCodeHeader(
   wrapBtn.title = wrapOn ? '关闭自动换行' : '开启自动换行'
   wrapBtn.innerHTML = `${svgIcon('wrap')}<span>换行</span>`
 
+  /*
+   * 代码块主题的快捷入口。
+   *
+   * 切的是**全局**档位（与设置面板里那个下拉同一份状态），不针对单个代码块 ——
+   * 每个块各用一套主题的话，shiki 得同时加载多套、还要把选择写进文档跟着云同步，
+   * 代价远大于收益，而这里要解决的只是「不想每次翻设置」。
+   *
+   * 只列深/浅两组的代表档，不做完整清单：表头这颗按钮是快捷方式，
+   * 完整的 65 套主题仍然去设置里挑。
+   */
+  const themeBtn = document.createElement('button')
+  themeBtn.type = 'button'
+  themeBtn.className = 'fe-code-action'
+  themeBtn.title = '切换代码块主题（全局）'
+  themeBtn.innerHTML = `${svgIcon('palette')}<span>主题</span>`
+
   const copyBtn = document.createElement('button')
   copyBtn.type = 'button'
   copyBtn.className = 'fe-code-action'
@@ -595,14 +619,86 @@ function createCodeHeader(
   // 焦点离开整条表头（且没落回菜单里）就收起
   bar.addEventListener('focusout', (event) => {
     const next = event.relatedTarget as Node | null
-    if (next && bar.contains(next)) return
+    // 焦点落在任何一个菜单里都保持展开（两个菜单各自可能持焦）
+    if (next && (bar.contains(next) || themeMenu.contains(next))) return
     closeMenu()
+    closeThemeMenu()
   })
   // 菜单里非输入的按下不该把焦点/光标带走
   menu.addEventListener('mousedown', (event) => {
     if ((event.target as HTMLElement).closest('input')) return
     event.preventDefault()
   })
+
+  // ---- 主题菜单 ----
+  const themeMenu = document.createElement('div')
+  themeMenu.className = 'fe-code-lang-menu fe-code-theme-menu'
+  themeMenu.hidden = true
+
+  /*
+   * 取精选清单的前几档，**不另抄一份**。
+   *
+   * 表头这颗按钮是快捷方式（目的是「不想为了换个主题翻设置面板」），
+   * 不必把 15 档全铺出来；但清单本身要来自同一处 —— 硬编码第二份的话，
+   * 改精选清单时这里就会漏改，两处显示的主题对不上。
+   */
+  const THEME_SHORTCUTS = CODE_BLOCK_THEMES.slice(0, 8)
+
+  const renderThemeMenu = () => {
+    const current = getCachedCodeBlockTheme()
+    themeMenu.replaceChildren(
+      ...THEME_SHORTCUTS.map((item) => {
+        const row = document.createElement('button')
+        row.type = 'button'
+        row.className = `fe-code-lang-option${item.id === current ? ' is-active' : ''}`
+        row.innerHTML = `<span>${item.label}</span>`
+        row.addEventListener('mousedown', (event) => event.preventDefault())
+        row.addEventListener('click', (event) => {
+          event.preventDefault()
+          event.stopPropagation()
+          // 全局切换：订阅者（编辑器）收到广播后自己重算装饰
+          saveCodeBlockTheme(item.id)
+          themeMenu.hidden = true
+        })
+        return row
+      }),
+      // 完整清单仍在设置里，这里给一句指路，免得用户以为只有这六档
+      Object.assign(document.createElement('div'), {
+        className: 'fe-code-theme-hint',
+        textContent: '更多主题见设置',
+      })
+    )
+  }
+
+  const closeThemeMenu = () => {
+    themeMenu.hidden = true
+  }
+
+  themeBtn.addEventListener('mousedown', (event) => event.preventDefault())
+  themeBtn.addEventListener('click', (event) => {
+    event.preventDefault()
+    event.stopPropagation()
+    if (!themeMenu.hidden) {
+      closeThemeMenu()
+      return
+    }
+    const rect = themeBtn.getBoundingClientRect()
+    /*
+     * 右对齐到按钮的右边缘，而不是左对齐 —— 这颗按钮在表头最右端，
+     * 左对齐会让面板往右溢出视口。
+     *
+     * 用 `right` 而**不是** `transform: translateX(-100%)`：菜单自带入场动画
+     * （.fe-code-lang-menu 的 fe-menu-in），那个动画里也有 transform，
+     * 会把这里写的 translateX 顶掉 —— 表现就是「打开瞬间在右边、动画一结束跳到左边」。
+     * 改用 right 定位，两者互不干扰。
+     */
+    themeMenu.style.top = `${Math.round(rect.bottom + 6)}px`
+    themeMenu.style.right = `${Math.round(window.innerWidth - rect.right)}px`
+    themeMenu.style.left = 'auto'
+    themeMenu.hidden = false
+    renderThemeMenu()
+  })
+  themeMenu.addEventListener('mousedown', (event) => event.preventDefault())
 
   // ---- 自动换行 ----
   wrapBtn.addEventListener('mousedown', (event) => event.preventDefault())
@@ -628,9 +724,68 @@ function createCodeHeader(
     })
   })
 
-  actions.append(wrapBtn, copyBtn)
-  bar.append(langBtn, actions, menu)
+  // 主题按钮排在操作组**最前**：它改的是全局观感，与「换行/复制」这类
+  // 只作用于本块的动作性质不同，靠左一点、与它们拉开语义距离
+  actions.append(themeBtn, wrapBtn, copyBtn)
+  bar.append(langBtn, actions, menu, themeMenu)
+
+  /*
+   * 记下「这个表头对应哪个代码块」的取值方式，供底色同步与主题切换时重算。
+   *
+   * 用 view.nodeDOM(blockPos) 定位，**不靠 DOM 相邻关系**：表头是块级 widget，
+   * ProseMirror 把节点插进 DOM 后的相邻顺序不是稳定契约（代码块自身挂
+   * fe-code-block 类就是为这个才加的，见 index.css 里的说明）。
+   */
+  headerSources.set(bar, () => {
+    const node = view.nodeDOM(blockPos)
+    return node instanceof HTMLElement ? node : null
+  })
+
+  // 挂上去之后再同步 —— widget 刚建好时 <pre> 上的 shiki 变量还没写上
+  requestAnimationFrame(() => syncCodeHeaderTone(bar))
+
   return bar
+}
+
+/**
+ * 表头 → 「它下方那个代码块」的取值函数。
+ *
+ * WeakMap 而不是往 DOM 节点上挂属性：widget 会被 ProseMirror 在重算装饰时整个丢弃，
+ * WeakMap 让这些闭包随节点一起被回收，不会攒下一堆指向旧 view 的引用。
+ */
+const headerSources = new WeakMap<HTMLElement, () => HTMLElement | null>()
+
+/**
+ * 让表头的底色跟随下方的代码块。
+ *
+ * 代码块的底色是 shiki 在**运行时**以 CSS 变量（--prosemirror-highlight-bg）写在
+ * `<pre>` 上的，而表头是它的**前一个兄弟节点** —— CSS 取不到兄弟身上的自定义属性，
+ * 主题档位（codeBlockTheme.ts）里也只存了 id 与明暗、没存底色值，
+ * 所以只能把值读出来、自己算一份写上去。
+ *
+ * 推一帧再读：widget 与 node 装饰是同一次事务算出来的，表头刚建好时
+ * `<pre>` 上的变量未必已经挂上。
+ */
+function syncCodeHeaderTone(bar: HTMLElement): void {
+  const pre = headerSources.get(bar)?.()
+  if (!pre) return
+
+  const style = getComputedStyle(pre)
+  const bg = style.getPropertyValue('--prosemirror-highlight-bg').trim()
+  if (!bg) return
+  const fg = style.getPropertyValue('--prosemirror-highlight').trim() || '#888888'
+
+  /*
+   * 表头要比代码块**深一档**，否则两块连成一片、看不出分界。
+   *
+   * 在底色里掺一点前景色：深色主题下前景是浅色，掺进去是提亮；
+   * 浅色主题下前景是深色，掺进去是压暗 —— 一个公式同时覆盖明暗两种主题，
+   * 不用去分辨当前用的是哪一档。
+   */
+  bar.style.background = `color-mix(in srgb, ${bg} 88%, ${fg} 12%)`
+  bar.style.borderColor = `color-mix(in srgb, ${bg} 70%, ${fg} 30%)`
+  // 语言与按钮的文字色也跟随，否则浅色主题下还是一身浅灰、糊在底色上
+  bar.style.color = fg
 }
 
 /* ============================ 5. <details> 折叠块 ============================ */
@@ -1164,6 +1319,21 @@ let themeStamp = 0
 
 export function bumpEnhanceTheme() {
   themeStamp += 1
+}
+
+/**
+ * 把页面上所有代码块表头的底色重新同步一遍。
+ *
+ * 换代码块主题档位时，shiki 装饰会被重算（`<pre>` 上的底色变量换了新值），
+ * 但表头 widget 的 key 没变、**不会重建**，于是它会停在旧配色上 ——
+ * 表现为「换了主题，代码块变了，上面那条表头还是老颜色」。
+ *
+ * 与深浅色切换不同：那条路走 bumpEnhanceTheme 强制重建，这里只需要重新读一次值。
+ */
+export function syncAllCodeHeaderTones(): void {
+  document
+    .querySelectorAll<HTMLElement>('.fe-code-header')
+    .forEach((bar) => syncCodeHeaderTone(bar))
 }
 
 export const milkdownEnhance = $prose(

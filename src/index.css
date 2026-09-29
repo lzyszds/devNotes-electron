@@ -2,6 +2,35 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * ==========================================================================
+ * 等宽字体（代码块、行内代码、行号、状态栏等共用一套）
+ *
+ * 字体文件内置在 public/fonts/，不依赖用户本机装没装 —— 靠系统字体名的话，
+ * 没装的机器会一路回退到 monospace（即系统默认等宽），Windows 上是 Consolas、
+ * macOS 上是 SF Mono，字形与控制字符宽度都不一样，同一个文档在三台机器上
+ * 排版全不同（代码块尤其明显：缩进对不齐、连字有时有一无）。
+ *
+ * 只装 Regular 与 Bold 两个字重，再配上 500/600 的浏览器合成 —— 等宽字体
+ * 全家桶（Light 到 ExtraBold）能有 2MB+，为代码块的高亮字重多花这些体积不值。
+ * ==========================================================================
+ */
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/JetBrainsMono-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/JetBrainsMono-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   color-scheme: light;
   font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Inter', 'Segoe UI', sans-serif;
@@ -11,6 +40,18 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /*
+   * 等宽字体栈。收口成一个变量，避免十几处各写一份、改一处漏一处
+   * （此前就有五处只写了 'JetBrains Mono', monospace，没带回退，
+   * 本机没装就直掉系统默认，代码块的字形与别处对不上）。
+   *
+   * 回退链里的 Fira Code / Menlo / Consolas 是给字体文件还没加载完、
+   * 或用户环境异常时兜底的 —— font-display: swap 期间先用它们显示，
+   * 不会出现一段空白。
+   */
+  --fe-mono-font: 'JetBrains Mono', 'Fira Code', 'SF Mono', Menlo, Consolas, 'Liberation Mono',
+    monospace;
 
   /* ================= 默认浅色品牌色 (Logo 青蓝) ================= */
   --brand-50-rgb: 239 250 251;
@@ -630,7 +671,7 @@ html.dark ::-webkit-scrollbar-thumb:hover {
   padding: 0.15rem 0.4rem;
   border-radius: 0.375rem;
   font-size: 0.82rem;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--fe-mono-font);
 }
 .dark .markdown-body code:not(pre code) {
   background-color: rgb(var(--brand-500-rgb, 80 189 207) / 0.18);
@@ -1792,7 +1833,7 @@ html.dark
   border-radius: 10px;
   padding: 16px 18px;
   overflow-x: auto;
-  font-family: 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace;
+  font-family: var(--fe-mono-font);
   font-size: 13px;
   line-height: 1.68;
   /* 变量由 shiki 的节点装饰写在 pre 上，这里继承下来。
@@ -1856,7 +1897,7 @@ html.dark mark {
 
 /* 认不出的 HTML 片段：不装成正文，明确标出「这里是原始代码」 */
 .milkdown-notes-editor .milkdown-content .md-html-raw {
-  font-family: 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace;
+  font-family: var(--fe-mono-font);
   font-size: 0.85em;
   color: var(--md-toc-indicator-color);
   border-bottom: 1px dashed currentColor;
@@ -1916,6 +1957,24 @@ html.dark mark {
   display: block;
 }
 
+/*
+ * 表格的加行/加列按钮。与浮出工具条同一套显隐机制（Provider 只负责挪位置与
+ * 切 data-show，样式得自己给）。
+ *
+ * 层级取 85：压过两条浮条（80），低于自绘 Tooltip（90）—— 按钮上的提示要能盖住它。
+ */
+.fehelper-table-tools {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 85;
+  display: none;
+}
+
+.fehelper-table-tools[data-show='true'] {
+  display: block;
+}
+
 /* ==========================================================================
    7. 编辑区等宽字体（两个内核统一）
    ========================================================================== */
@@ -1923,12 +1982,12 @@ html.dark mark {
 html .cherry-notes-editor .cherry .cm-editor,
 html .cherry-notes-editor .cherry .cm-editor .cm-scroller,
 html .cherry-notes-editor .cherry .cm-editor .cm-content {
-  font-family: 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
 }
 
 html .milkdown-notes-editor .milkdown-content pre,
 html .milkdown-notes-editor .milkdown-content pre > code {
-  font-family: 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
 }
 
 /* ==========================================================================
@@ -2087,7 +2146,7 @@ html.dark
   padding: 0.16em 0.45em;
   margin: 0 0.2em;
   font-size: 0.88em;
-  font-family: 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace;
+  font-family: var(--fe-mono-font);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
@@ -2229,7 +2288,7 @@ html.dark
   border-right: 1px solid rgba(148, 163, 184, 0.18);
   user-select: none;
   pointer-events: none;
-  font-family: 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace;
+  font-family: var(--fe-mono-font);
   font-size: 12px;
   line-height: 1.68;
   color: #94a3b8;
@@ -2266,7 +2325,7 @@ html.dark .fe-mermaid-card {
 
 .fe-mermaid-badge {
   font-size: 10.5px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--fe-mono-font);
   font-weight: 600;
   color: #64748b;
   margin-bottom: 10px;
@@ -2342,7 +2401,7 @@ html.dark .fe-mermaid-badge {
   background: var(--fe-bg);
   font-size: 10px !important;
   line-height: 1.4 !important;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--fe-mono-font);
   color: var(--fe-tone) !important;
   opacity: 0.35;
 }
@@ -2576,7 +2635,7 @@ html.dark .fe-toc-head {
 
 .fe-toc-count {
   font-size: 10px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--fe-mono-font);
   font-weight: 500;
   color: #94a3b8;
 }
@@ -2801,7 +2860,7 @@ html.dark .fe-toc-item--1 { color: #e2e8f0; }
 }
 
 .milkdown-notes-editor .milkdown-content .fe-timeline-time {
-  font-family: 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace;
+  font-family: var(--fe-mono-font);
   font-size: 11.5px;
   font-weight: 600;
   color: var(--fe-tone);
@@ -2959,7 +3018,7 @@ html.dark .fe-mermaid-tab-delete:hover {
 
 .milkdown-notes-editor .milkdown-content h2,
 .cherry-notes-editor .cherry-markdown h2 {
-  margin-top: 3.75rem; /* 60px */
+  margin-top: 1.75rem; /* 60px */
   margin-bottom: 1rem;
 }
 
@@ -2988,30 +3047,76 @@ html.dark .fe-mermaid-tab-delete:hover {
 /*
  * 竖网格线是「Excel 感」的主要来源。只留横向分割线，表头用极浅灰打底、字号收小，
  * 整张表立刻轻下来。
+ *
+ * 行距靠 line-height 撑（1.5），padding 只留一点呼吸位 —— 0.7em 那版一行要占
+ * 40px 出头，十几行的表就把整屏占满了；而表里多是词条、拆解这类短内容，
+ * 用 padding 撑高度只会把每格撑成方块，既笨重又浪费纵向空间。
  */
 .milkdown-notes-editor .milkdown-content table,
 .cherry-notes-editor .cherry-markdown table {
-  border-collapse: collapse;
-  margin: 0 0 1.4em;
+  /*
+   * 用 separate 而不是 collapse：collapse 下圆角与边框会被相邻单元格吃掉，
+   * 表格四角磨不出圆来（各浏览器的合并模型都不认单个格子的圆角）。
+   * separate + border-spacing: 0 视觉上与 collapse 等价，但保住了圆角能力。
+   */
+  border-collapse: separate;
+  border-spacing: 0;
+  /* 圆角外框要裁掉内部溢出的背景，否则表头色块会从圆角里方方地冒出来 */
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 10px;
+  margin: 0 0 1.2em;
+  /* 表格自身的字号略小于正文：表里多是短词条，与正文同号会显得吵 */
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 .milkdown-notes-editor .milkdown-content th,
 .milkdown-notes-editor .milkdown-content td,
 .cherry-notes-editor .cherry-markdown th,
 .cherry-notes-editor .cherry-markdown td {
+  /* 只剩内部横线：外框由 table 统一画，格子自己不要再描边 */
   border: 0 !important;
   border-bottom: 1px solid rgba(148, 163, 184, 0.22) !important;
-  padding: 0.7em 0.9em;
+  padding: 0.42em 0.8em;
   text-align: left;
+  vertical-align: top;
+}
+
+/*
+ * 斑马纹：偶数行给一层极浅的底。
+ *
+ * 用 ::nth-child(even) 而不是 odd —— 表头占掉第一行后，从第二条数据开始
+ * 才是「偶数行」，视觉上才是间隔着来的。宽表里横向扫读时不至于串行。
+ * 透明度压得很低：这是辅助对齐的纹理，不该抢过内容本身。
+ */
+.milkdown-notes-editor .milkdown-content tbody tr:nth-child(even) td,
+.cherry-notes-editor .cherry-markdown tbody tr:nth-child(even) td {
+  background: rgba(148, 163, 184, 0.055);
 }
 
 .milkdown-notes-editor .milkdown-content th,
 .cherry-notes-editor .cherry-markdown th {
-  background: #f8fafc !important;
+  /* 表头用品牌色：极浅的品牌底色 + 品牌色文字，与正文的视觉体系连起来 */
+  background: rgba(var(--brand-50-rgb, 239 250 251), 0.9) !important;
+  color: rgb(var(--brand-700-rgb, 21 103 120));
   font-size: 12.5px;
   font-weight: 600;
   letter-spacing: 0.02em;
-  color: #64748b;
+  /* 表头是标签不是内容，行高压得比表体更紧一些 */
+  padding-top: 0.36em;
+  padding-bottom: 0.36em;
+  white-space: nowrap;
+  /* 表头下沿的分隔线加重一档，与数据行区分开 */
+  border-bottom: 1px solid rgba(var(--brand-500-rgb, 80 189 207), 0.25) !important;
+}
+
+/* 单元格里的 <p> 由编辑器生成，会把正文的段间距带进来 —— 清掉 */
+.milkdown-notes-editor .milkdown-content th > p,
+.milkdown-notes-editor .milkdown-content td > p,
+.cherry-notes-editor .cherry-markdown th > p,
+.cherry-notes-editor .cherry-markdown td > p {
+  margin: 0 !important;
 }
 
 .milkdown-notes-editor .milkdown-content tbody tr:last-child td,
@@ -3019,15 +3124,26 @@ html.dark .fe-mermaid-tab-delete:hover {
   border-bottom: 0 !important;
 }
 
+/* 深色：表头改成低透明度的品牌色，太亮会在一片深底上刺眼 */
 html.dark .milkdown-notes-editor .milkdown-content th,
 html.dark .cherry-notes-editor .cherry-markdown th {
-  background: rgba(255, 255, 255, 0.035) !important;
-  color: #94a3b8;
+  background: rgba(var(--brand-500-rgb, 80 189 207), 0.12) !important;
+  color: rgb(var(--brand-300-rgb, 150 220 232));
+  border-bottom-color: rgba(var(--brand-500-rgb, 80 189 207), 0.22) !important;
 }
 
-html.dark .milkdown-notes-editor .milkdown-content th,
+/* 深色斑马纹：白色的低透明度比灰色的更自然，灰色在深底上会发脏 */
+html.dark .milkdown-notes-editor .milkdown-content tbody tr:nth-child(even) td,
+html.dark .cherry-notes-editor .cherry-markdown tbody tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.028);
+}
+
+html.dark .milkdown-notes-editor .milkdown-content table,
+html.dark .cherry-notes-editor .cherry-markdown table {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
 html.dark .milkdown-notes-editor .milkdown-content td,
-html.dark .cherry-notes-editor .cherry-markdown th,
 html.dark .cherry-notes-editor .cherry-markdown td {
   border-bottom-color: rgba(255, 255, 255, 0.08) !important;
 }
@@ -3046,7 +3162,7 @@ html.dark .cherry-notes-editor .cherry-markdown td {
   border-radius: 5px;
   background: #f3f4f6;
   box-shadow: 0 1px 0 #cbd5e1;
-  font-family: 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace;
+  font-family: var(--fe-mono-font);
   font-size: 0.82em;
   font-weight: 600;
   line-height: 1.35;
@@ -3251,13 +3367,17 @@ html.dark .fe-toc-collapse:hover {
 /*
  * 每块一个，挂在代码块正上方：左侧语言（可点开切换），右侧自动换行与复制。
  * 与下方代码块拼成一张卡，所以接缝处不收圆角。
+ *
+ * 底色**不写在这里**：由 JS 按下方 <pre> 上的 shiki 主题变量现算，写成内联样式
+ * （见 milkdownEnhance 的 syncCodeHeaderTone）。代码块底色跟随主题档位变化，
+ * 这里写死一个灰调在浅色主题下会和代码块对不上。下面的 background 只是兜底 ——
+ * 首帧（内联样式还没写上）或读不到变量时才会露出来。
  */
 .fe-code-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-top: 1.4em;
   padding: 5px 8px 5px 12px;
   border: 1px solid rgba(148, 163, 184, 0.2);
   border-bottom: 0;
@@ -3285,17 +3405,18 @@ html.dark .fe-code-header {
   border: 0;
   border-radius: 7px;
   background: transparent;
-  font-family: 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace;
+  font-family: var(--fe-mono-font);
   font-size: 11.5px;
   font-weight: 600;
-  color: #475569;
+  /* 颜色继承表头 —— 表头按主题底色算出了一份合适的文字色（见 syncCodeHeaderTone） */
+  color: inherit;
+  /* 压在深色代码块上时，纯透明底不明显，给一层半透明白让悬停有反馈 */
   cursor: pointer;
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .fe-code-lang:hover {
-  background: rgba(148, 163, 184, 0.18);
-  color: rgb(var(--brand-700-rgb, 22 99 116));
+  background: rgba(255, 255, 255, 0.14);
 }
 
 .fe-code-lang .fe-ico:last-child {
@@ -3304,14 +3425,7 @@ html.dark .fe-code-header {
   opacity: 0.6;
 }
 
-html.dark .fe-code-lang {
-  color: #cbd5e1;
-}
-
-html.dark .fe-code-lang:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: rgb(var(--brand-300-rgb, 143 215 224));
-}
+/* 深色主题下不再单独覆盖：底色与文字色都跟随代码块主题（可能仍是浅色主题） */
 
 .fe-code-header-actions {
   display: flex;
@@ -3329,36 +3443,33 @@ html.dark .fe-code-lang:hover {
   background: transparent;
   font-size: 11.5px;
   font-weight: 500;
-  color: #64748b;
+  color: inherit;
+  /* 与语言按钮同一档：未悬停时略淡，让右侧的操作区退到信息层级之后 */
+  opacity: 0.75;
   cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition: background-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
 }
 
 .fe-code-action:hover {
-  background: rgba(148, 163, 184, 0.18);
-  color: #334155;
+  background: rgba(255, 255, 255, 0.14);
+  opacity: 1;
 }
 
 .fe-code-action.is-on {
-  background: rgba(var(--brand-500-rgb, 80 189 207), 0.14);
-  color: rgb(var(--brand-700-rgb, 22 99 116));
+  background: rgba(255, 255, 255, 0.16);
+  opacity: 1;
 }
 
+/*
+ * 「已复制」的确认态。
+ *
+ * 不用绿色：这段文字压在代码块的**深色底色**上（底色随主题变），
+ * 绿色在深底上对比不足、在小字号下几乎看不清。改成提亮 + 加粗，
+ * 配合图标换成对勾，在任何底色上都成立。
+ */
 .fe-code-action.is-done {
-  color: #059669;
-}
-
-html.dark .fe-code-action {
-  color: #94a3b8;
-}
-
-html.dark .fe-code-action:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #e2e8f0;
-}
-
-html.dark .fe-code-action.is-on {
-  color: rgb(var(--brand-300-rgb, 143 215 224));
+  opacity: 1;
+  font-weight: 600;
 }
 
 /* 语言下拉。fixed 才不会被 .milkdown-scroll 的 overflow 裁掉 */
@@ -3367,7 +3478,7 @@ html.dark .fe-code-action.is-on {
   z-index: 96;
   display: flex;
   flex-direction: column;
-  width: 232px;
+  width: 152px;
   max-height: 288px;
   overflow: hidden;
   border: 1px solid rgba(148, 163, 184, 0.24);
@@ -3378,6 +3489,39 @@ html.dark .fe-code-action.is-on {
 
 .fe-code-lang-menu[hidden] {
   display: none;
+}
+
+/*
+ * 主题快捷菜单。
+ *
+ * 复用语言菜单的外壳与选项样式（同一套观感），只是里面没有搜索框、
+ * 也没有语言名那一列 code，所以补一点上下留白 —— 语言菜单的 padding
+ * 是留给列表滚动的，这里直接铺满会显得贴边。
+ */
+.fe-code-theme-menu {
+  padding: 5px;
+  max-height: none;
+  /*
+   * 这颗菜单贴按钮**右**边缘对齐（见 milkdownEnhance 里的定位），
+   * 而语言菜单的 transform-origin 是 top left —— 不改的话，
+   * 入场时那下缩放会从左上角展开、视觉上往右甩一下。
+   */
+  transform-origin: top right;
+}
+
+/* 指路行：这颗按钮只给常用档，完整清单还在设置里 */
+.fe-code-theme-hint {
+  margin-top: 4px;
+  padding: 6px 8px 2px;
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
+  font-size: 11px;
+  line-height: 1.5;
+  color: #94a3b8;
+}
+
+html.dark .fe-code-theme-hint {
+  border-top-color: rgba(255, 255, 255, 0.08);
+  color: #64748b;
 }
 
 html.dark .fe-code-lang-menu {
@@ -3438,7 +3582,7 @@ html.dark .fe-code-lang-search {
 }
 
 .fe-code-lang-option code {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--fe-mono-font);
   font-size: 10px;
   color: #94a3b8;
 }

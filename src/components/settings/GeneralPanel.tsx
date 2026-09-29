@@ -23,6 +23,7 @@ import {
   getCachedCodeBlockTheme,
   getCodeBlockPreset,
   saveCodeBlockTheme,
+  subscribeCodeBlockTheme,
   type CodeBlockThemeId,
 } from '../../utils/codeBlockTheme'
 import {
@@ -251,6 +252,14 @@ export default function GeneralPanel({
 
   // 代码块主题
   const [codeTheme, setCodeTheme] = useState<CodeBlockThemeId>(() => getCachedCodeBlockTheme())
+
+  /*
+   * 跟着全局档位走。
+   *
+   * 代码块表头上有颗主题快捷按钮，也改这同一份状态 —— 不订阅的话，
+   * 从那儿换完主题再打开设置，这个下拉还显示着旧值（它的 useState 只在挂载时读过一次）。
+   */
+  useEffect(() => subscribeCodeBlockTheme(setCodeTheme), [])
   const activePreset = getCodeBlockPreset(codeTheme)
 
   const handleCodeThemeChange = (next: CodeBlockThemeId) => {

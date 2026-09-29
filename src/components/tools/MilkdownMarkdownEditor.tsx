@@ -61,9 +61,15 @@ import BookmarkGutter from './markdown/BookmarkGutter'
 import FindReplaceBar from './markdown/FindReplaceBar'
 import SlashMenu, { slash } from './markdown/SlashMenu'
 import BlockHandle from './markdown/BlockHandle'
+import TableTools from './markdown/TableTools'
 import SelectionToolbar from './markdown/SelectionToolbar'
 import InsertToolbar from './markdown/InsertToolbar'
-import { bumpEnhanceTheme, enhancePluginKey, milkdownEnhance } from '../../utils/milkdownEnhance'
+import {
+  bumpEnhanceTheme,
+  enhancePluginKey,
+  milkdownEnhance,
+  syncAllCodeHeaderTones,
+} from '../../utils/milkdownEnhance'
 import {
   getCurrentHeadingLevel,
   getMilkdownLinkAtCursor,
@@ -267,6 +273,7 @@ export default function MilkdownMarkdownEditor({
   const selectionBarRef = useRef<TooltipProvider | null>(null)
   const insertBarRef = useRef<TooltipProvider | null>(null)
   const blockHandleRef = useRef<TooltipProvider | null>(null)
+  const tableToolsRef = useRef<TooltipProvider | null>(null)
 
   useEffect(() => {
     onChangeRef.current = onChange
@@ -425,6 +432,7 @@ export default function MilkdownMarkdownEditor({
       .use(floatingBar('selection', () => selectionBarRef.current))
       .use(floatingBar('insert', () => insertBarRef.current))
       .use(floatingBar('block-handle', () => blockHandleRef.current))
+      .use(floatingBar('table-tools', () => tableToolsRef.current))
       // 容器面板 / 目录 / Mermaid 图表 / 代码行号：全部走 ProseMirror 装饰器，
       // 不碰编辑区 DOM —— 直接改 contenteditable 会让标记外溢、文字并进链接，见该文件注释
       .use(milkdownEnhance)
@@ -492,6 +500,12 @@ export default function MilkdownMarkdownEditor({
       subscribeCodeBlockTheme((id) => {
         void setShikiTheme(id).then(() => {
           editorRef.current?.action((ctx) => refreshMilkdownHighlight(ctx.get(editorViewCtx)))
+          /*
+           * 表头 widget 不会被这次刷新重建（key 没变），得手动让它重新读一次底色 ——
+           * 否则换了主题，代码块变了、上面那条表头还是旧配色。
+           * 推一帧：shiki 的装饰是异步重算的，这一帧 <pre> 上的变量还是旧值。
+           */
+          requestAnimationFrame(syncAllCodeHeaderTones)
         })
       }),
     []
@@ -925,6 +939,8 @@ export default function MilkdownMarkdownEditor({
           providerRef={blockHandleRef}
           onBookmarkBlock={onBookmarkBlock}
         />
+        {/* 表格的加行/加列按钮。光标落在单元格里时贴那一格浮出来 */}
+        <TableTools editor={ready} providerRef={tableToolsRef} />
 
         {/* 这几条的宿主元素会被 Provider 搬到 document.body 下，与编辑区不同坐标系
             （用 fixed 定位），所以放在哪一层都行 */}

@@ -46,21 +46,65 @@ const CHERRY_THEME_BY_ID: Partial<Record<BundledTheme, string>> = {
 /** Cherry 侧没有对应主题时退到的通用档：它自己的 dark / default 两套 */
 const CHERRY_FALLBACK: Record<'dark' | 'light', string> = { dark: 'dark', light: 'default' }
 
-/** 全部 shiki 主题，按 shiki 自己的顺序 */
-export const CODE_BLOCK_THEMES: CodeBlockThemePreset[] = bundledThemesInfo.map(
-  ({ id, displayName, type }) => {
-    // shiki 的清单里 id 只声明成 string，这里按 BundledTheme 收窄（它本来就取自这套主题）
-    const themeId = id as BundledTheme
-    return {
-      id: themeId,
-      label: displayName,
-      cherry: CHERRY_THEME_BY_ID[themeId] ?? CHERRY_FALLBACK[type],
-      tone: type,
-    }
-  }
-)
+/**
+ * 精选档位。shiki 自带 65 套，但清单太长反而挑不动 —— 里面大量是
+ * Solarized 变体、Material 变体这类只在细节上不同的近亲，混在一起看花了眼。
+ * 这里只留覆盖主流审美的那几套，深浅各半。
+ *
+ * **顺序即展示顺序**，第一个是列表最前的那个。
+ */
+const CURATED_THEME_IDS: BundledTheme[] = [
+  // 深色
+  'one-dark-pro',
+  'tokyo-night',
+  'github-dark',
+  'catppuccin-mocha',
+  'dracula',
+  'night-owl',
+  'material-theme-palenight',
+  'vitesse-dark',
+  // 浅色
+  'one-light',
+  'github-light',
+  'catppuccin-latte',
+  'solarized-light',
+  'min-light',
+  'vitesse-light',
+  'light-plus',
+]
 
-export const DEFAULT_CODE_BLOCK_THEME: CodeBlockThemeId = 'one-dark-pro'
+/**
+ * 可选的 shiki 主题，按精选顺序。
+ *
+ * 保留 `bundledThemesInfo` 的元数据（显示名、明暗）而不是自己再抄一份 ——
+ * 手抄的名字会与 shiki 升级后对不上，且多一处要维护的重复数据。
+ *
+ * 精选清单里若出现 shiki 已经不提供的 id（升级时被改名/移除），
+ * 这里直接过滤掉，不让一个失效项把整张列表带崩。
+ */
+export const CODE_BLOCK_THEMES: CodeBlockThemePreset[] = CURATED_THEME_IDS.flatMap((themeId) => {
+  const info = bundledThemesInfo.find((item) => item.id === themeId)
+  if (!info) return []
+  return [
+    {
+      id: themeId,
+      label: info.displayName,
+      cherry: CHERRY_THEME_BY_ID[themeId] ?? CHERRY_FALLBACK[info.type],
+      tone: info.type,
+    },
+  ]
+})
+
+/**
+ * 默认档位。**不取列表第一个**（那现在是 One Dark Pro）。
+ *
+ * One Dark Pro 的珊瑚红会把 TSX 里的 import 名、组件名统统染成一片红 ——
+ * Web 端只有静态词法分析，没有 VS Code 那层语义高亮来把函数与组件区分开，
+ * 于是满屏看着像报错。Tokyo Night 的变量色是柔和的青灰，不依赖语义高亮也有层次。
+ *
+ * 它排在列表第一位是因为选的人多、好找，不代表推荐新用户用它当默认。
+ */
+export const DEFAULT_CODE_BLOCK_THEME: CodeBlockThemeId = 'tokyo-night'
 
 /** 与同层的编辑器偏好（fehelper-editor-mode / -view / -split）保持一致，直接落 localStorage */
 export const CODE_BLOCK_THEME_STORAGE_KEY = 'fehelper-code-theme'
