@@ -58,7 +58,7 @@ import ToolIcon from '../ui/ToolIcon'
 // 二级侧边栏（文档目录）宽度的持久化配置
 const SIDEBAR_WIDTH_KEY = 'fehelper-sidebar-width'
 const SIDEBAR_DEFAULT_WIDTH = 240
-const SIDEBAR_MIN_WIDTH = 180
+const SIDEBAR_MIN_WIDTH = 320
 const SIDEBAR_MAX_WIDTH = 480
 
 /** 读取上次保存的侧边栏宽度，非法值时回退到默认宽度 */
