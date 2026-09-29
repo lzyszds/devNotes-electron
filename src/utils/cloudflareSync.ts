@@ -1,4 +1,12 @@
-import type { NoteItem, NotesState } from './notesStore'
+import {
+  normalizeState,
+  sortNotes,
+  visibleFolders,
+  visibleNotes,
+  type FolderItem,
+  type NoteItem,
+  type NotesState,
+} from './notesStore'
 
 export type CloudflareSyncMode = 'worker' | 'kv'
 
@@ -261,13 +269,40 @@ export async function testCloudflareConnection(config: CloudflareSyncConfig): Pr
   }
 }
 
+/**
+ * 生成要上传的状态：**回收站里的文档只留墓碑，不留内容**。
+ *
+ * 回收站按「本机保留即可」处理 —— 它的内容没必要占用云端空间、也没必要
+ * 跟着同步到别的设备。但**不能整条剔除**：别的设备若还持有这篇活着的老副本，
+ * 剔除掉就等于本地没有「它已被删」的记忆，下次同步它会从对面复活。
+ * 所以留下 id + deletedAt 的骨架，正文与标题一并清空。
+ */
+function toSyncPayload(state: NotesState): NotesState {
+  return {
+    ...state,
+    notes: state.notes.map((note) => {
+      if (!note.deletedAt) return note
+      // 只留传「这篇已删」所需的最小字段，正文与标题一律不带出去
+      const skeleton: NoteItem = {
+        id: note.id,
+        title: '',
+        content: '',
+        createdAt: note.createdAt,
+        updatedAt: note.updatedAt,
+        deletedAt: note.deletedAt,
+      }
+      return skeleton
+    }),
+  }
+}
+
 // 推送备份到云端
 export async function pushToCloudflare(
   state: NotesState,
   config: CloudflareSyncConfig
 ): Promise<SyncResult> {
   try {
-    const rawJson = JSON.stringify(state)
+    const rawJson = JSON.stringify(toSyncPayload(state))
     const isEncrypted = Boolean(config.enableE2EE && config.encryptionPassword)
     const payloadData = isEncrypted
       ? await encryptData(rawJson, config.encryptionPassword)
@@ -382,7 +417,9 @@ export async function pullFromCloudflare(config: CloudflareSyncConfig): Promise<
       jsonString = await decryptData(payload.data, config.encryptionPassword)
     }
 
-    const remoteState: NotesState = JSON.parse(jsonString)
+    // 远端可能是老版本客户端推的（没有 folders / deletedAt 这些字段），
+    // 统一过一遍归一化再交给上层，否则缺字段会在侧栏渲染时炸掉
+    const remoteState = normalizeState(JSON.parse(jsonString))
     return {
       success: true,
       message: '拉取成功',
@@ -397,11 +434,79 @@ export async function pullFromCloudflare(config: CloudflareSyncConfig): Promise<
   }
 }
 
+/**
+ * 文件夹合并：**以 id 对齐**，同名不算同一个。
+ *
+ * 两机各自建的「工作」是两个不同 id 的文件夹，合并后都保留（可能出现同名并列）。
+ * 这是刻意的 —— 按名字合并会把两边同名文件夹里的文档混在一起，而文件夹重名
+ * 恰恰是「两件不同的事恰好取了同一个名字」，混起来比并列更难收拾。
+ *
+ * 删除靠墓碑（deletedAt）传播：删文件夹不是抹掉条目，而是打标记留在数组里。
+ * 只有墓碑比对面「活着」的版本更新时才认定删除成立，否则对面后建的会赢。
+ */
+function mergeFolders(
+  localFolders: FolderItem[],
+  remoteFolders: FolderItem[]
+): { folders: FolderItem[]; addedFromRemote: number; removedByRemote: number } {
+  const result = new Map<string, FolderItem>()
+  localFolders.forEach((folder) => result.set(folder.id, folder))
+
+  let addedFromRemote = 0
+  let removedByRemote = 0
+
+  const stampOf = (folder: FolderItem) => folder.updatedAt ?? folder.createdAt ?? 0
+
+  remoteFolders.forEach((remoteFolder) => {
+    const localFolder = result.get(remoteFolder.id)
+    if (!localFolder) {
+      // 本地没见过这个 id：墓碑也是有效信息（对端删过、本机从没见过它）
+      result.set(remoteFolder.id, remoteFolder)
+      if (!remoteFolder.deletedAt) addedFromRemote++
+      return
+    }
+
+    /*
+     * 墓碑优先于存活版本，**不看时间戳**。
+     *
+     * 删除是终态：另一台设备在不知情的情况下重命名了它（updatedAt 反而更新），
+     * 若按时间戳让存活版赢，A 机上刚被清空的归属要跟着一起被搅乱 ——
+     * 「删了又被别人的改名复活」比「改名在删除面前失效」难解释得多。
+     *
+     * 两端都是墓碑时按时间戳取新的（保留最近一次删除的时间，够用即可）。
+     */
+    const localDead = Boolean(localFolder.deletedAt)
+    const remoteDead = Boolean(remoteFolder.deletedAt)
+
+    if (localDead && !remoteDead) return // 本地墓碑胜出，忽略对方的改名
+    if (remoteDead && !localDead) {
+      removedByRemote++
+      result.set(remoteFolder.id, remoteFolder)
+      return
+    }
+    // 都是墓碑 或 都活着：谁的时间戳新听谁的
+    if (stampOf(remoteFolder) > stampOf(localFolder)) {
+      result.set(remoteFolder.id, remoteFolder)
+    }
+  })
+
+  /*
+   * 墓碑**永不丢弃**。曾试过给个 30 天 TTL 清理，但那是错的：
+   * 丢掉之后本地就没有「这个 id 已删」的记忆了，任何一台离线超过 TTL 的设备
+   * 一旦上线，它那份还活着的旧数据会在 !localFolder 分支被当成新文件夹收回来 ——
+   * 删除等于没做。单条墓碑只有几十字节，留着比复活便宜得多。
+   */
+  const folders = Array.from(result.values())
+
+  return { folders, addedFromRemote, removedByRemote }
+}
+
 // ================= 4. 智能文档合并算法 (Smart Merge) =================
 export function smartMergeNotes(local: NotesState, remote: NotesState): {
   mergedState: NotesState
   addedFromRemote: number
   updatedFromRemote: number
+  /** 因对端删除而消失的文件夹数，用于在同步结果里提示用户 */
+  removedFolders: number
 } {
   const localMap = new Map<string, NoteItem>()
   local.notes.forEach((note) => localMap.set(note.id, note))
@@ -417,12 +522,42 @@ export function smartMergeNotes(local: NotesState, remote: NotesState): {
       // 本地没有这篇，吸收云端新笔记
       resultMap.set(remoteNote.id, remoteNote)
       addedFromRemote++
+    } else if (localNote.deletedAt) {
+      /*
+       * 本地这篇在回收站里：一律以本地为准，整条保留。
+       *
+       * 云端的回收站条目是剥掉正文的骨架（见 toSyncPayload），
+       * 若按 updatedAt 让远端赢，本机回收站的正文就被清空了 ——
+       * 回收站内容按定位只存本机，没有「从云端取回」这回事。
+       */
+    } else if (remoteNote.deletedAt) {
+      /*
+       * 对端把它删了、本地还活着：采用墓碑（删除优先于内容更新）。
+       * 同样保留本地的正文 —— 本机并没有删它，只是要跟上「它已经不在活跃列表」。
+       * 内容留着，万一之后又从回收站还原，正文还在。
+       */
+      resultMap.set(localNote.id, { ...localNote, deletedAt: remoteNote.deletedAt })
     } else {
-      // 双方都有，保留修改时间最新的一份
-      if (remoteNote.updatedAt > localNote.updatedAt) {
-        resultMap.set(remoteNote.id, remoteNote)
-        updatedFromRemote++
-      }
+      /*
+       * 双方都活着，逐字段各取其新：
+       *   正文/标题等按 updatedAt 整体取最新的一份；
+       *   归类按 folderMovedAt 单独比 —— 归类不动 updatedAt，
+       *   没有这个字段就只能盲选，远端「拖进新文件夹」的动作会整个丢掉。
+       * 老数据没有 folderMovedAt，兜成 0，于是一律以本地归类为准（旧行为）。
+       */
+      const contentWinner = remoteNote.updatedAt > localNote.updatedAt ? remoteNote : localNote
+      const localMoved = localNote.folderMovedAt ?? 0
+      const remoteMoved = remoteNote.folderMovedAt ?? 0
+      const folderWinner = remoteMoved > localMoved ? remoteNote : localNote
+
+      if (contentWinner === remoteNote) updatedFromRemote++
+      resultMap.set(contentWinner.id, {
+        ...contentWinner,
+        folderId: folderWinner.folderId,
+        ...(folderWinner.folderMovedAt !== undefined
+          ? { folderMovedAt: folderWinner.folderMovedAt }
+          : {}),
+      })
     }
   })
 
@@ -430,15 +565,30 @@ export function smartMergeNotes(local: NotesState, remote: NotesState): {
     (a, b) => b.updatedAt - a.updatedAt
   )
 
+  // 书签组优先 + 更新时间倒序，与侧栏列表同一口径；回收站文档不能被选为活动文档
+  const alive = sortNotes(visibleNotes(mergedNotes))
   const activeId =
-    (local.activeId && mergedNotes.some((n) => n.id === local.activeId)
+    (local.activeId && alive.some((n) => n.id === local.activeId)
       ? local.activeId
-      : mergedNotes[0]?.id) || null
+      : alive[0]?.id) || null
+
+  const { folders, removedByRemote } = mergeFolders(
+    local.folders || [],
+    remote.folders || []
+  )
+
+  /* 归属校验必须对着**未删除**的文件夹做：远端可能把某文件夹删了（墓碑还在），
+     那些文档就得落回未分类，否则侧栏会出现一个点不到的归属 */
+  const folderIds = new Set(visibleFolders(folders).map((folder) => folder.id))
+  const mergedNotesWithFolder = mergedNotes.map((note) =>
+    note.folderId && !folderIds.has(note.folderId) ? { ...note, folderId: null } : note
+  )
 
   return {
-    mergedState: { notes: mergedNotes, activeId },
+    mergedState: { notes: mergedNotesWithFolder, folders, activeId },
     addedFromRemote,
     updatedFromRemote,
+    removedFolders: removedByRemote,
   }
 }
 
@@ -520,13 +670,15 @@ export function createSnapshotFromState(
   trigger: 'auto' | 'manual' | 'startup' | 'rollback_guard'
 ): BackupSnapshot {
   const jsonStr = JSON.stringify(state)
+  // 计数与标题都只看未删除文档 —— 回收站里的不该出现在「N 篇」和快照摘要里
+  const alive = state.notes.filter((note) => !note.deletedAt)
   return {
     id: `snap_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
     timestamp: Date.now(),
     trigger,
-    docCount: state.notes.length,
+    docCount: alive.length,
     sizeBytes: new Blob([jsonStr]).size,
-    noteTitles: state.notes.map((n) => n.title || '未命名笔记').slice(0, 5),
+    noteTitles: alive.map((n) => n.title || '未命名笔记').slice(0, 5),
     state: JSON.parse(jsonStr),
   }
 }
