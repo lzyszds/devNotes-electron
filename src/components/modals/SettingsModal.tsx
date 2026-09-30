@@ -1,16 +1,22 @@
 import { useEffect } from 'react'
-import { Cloud, Languages, Loader2, Settings2, Volume2, X } from 'lucide-react'
+import { Cloud, Keyboard, Languages, Loader2, Settings2, Volume2, X } from 'lucide-react'
 import type { ComponentType } from 'react'
 import { useNotes } from '../../context/NotesContext'
 import { usePresence } from '../../hooks/usePresence'
 import GeneralPanel from '../settings/GeneralPanel'
+import ShortcutSettingsPanel from '../settings/ShortcutSettingsPanel'
 import CloudflareSyncPanel from '../settings/CloudflareSyncPanel'
 import TranslateApiPanel from '../settings/TranslateApiPanel'
 import SpeechPanel from '../settings/SpeechPanel'
 import Tooltip from '../ui/Tooltip'
 import type { ThemeId } from '../../utils/theme'
 
-export type SettingsSection = 'general' | 'cloud-sync' | 'translate-api' | 'speech'
+export type SettingsSection =
+  | 'general'
+  | 'shortcuts'
+  | 'cloud-sync'
+  | 'translate-api'
+  | 'speech'
 
 export interface SettingsModalProps {
   open: boolean
@@ -32,6 +38,12 @@ interface SectionMeta {
 
 const SECTIONS: SectionMeta[] = [
   { id: 'general', label: '通用', hint: '外观主题与界面偏好', icon: Settings2 },
+  {
+    id: 'shortcuts',
+    label: '快捷键',
+    hint: '全局与应用内键位自定义',
+    icon: Keyboard,
+  },
   {
     id: 'cloud-sync',
     label: '云同步',
@@ -176,6 +188,7 @@ export default function SettingsModal({
                 onResetSidebarWidth={onResetSidebarWidth}
               />
             )}
+            {section === 'shortcuts' && <ShortcutSettingsPanel />}
             {section === 'cloud-sync' && <CloudflareSyncPanel />}
             {section === 'translate-api' && <TranslateApiPanel />}
             {section === 'speech' && <SpeechPanel />}

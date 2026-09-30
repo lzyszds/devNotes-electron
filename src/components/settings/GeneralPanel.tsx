@@ -6,6 +6,7 @@ import {
   Command,
   Download,
   FilePlus,
+  Languages,
   Moon,
   Palette,
   PanelLeft,
@@ -17,6 +18,8 @@ import {
   Sun,
 } from 'lucide-react'
 import Select from '../ui/Select'
+import { useShortcutSettings } from '../../hooks/useShortcutSettings'
+import { formatAccelerator } from '../../utils/shortcutSettings'
 import ShortcutGuideModal, { type ShortcutItem } from '../ui/ShortcutGuideModal'
 import {
   CODE_BLOCK_THEMES,
@@ -54,6 +57,26 @@ export interface GeneralPanelProps {
   onResetSidebarWidth: () => void
 }
 
+/**
+ * 速查表条目 id -> 可自定义绑定的 id。
+ *
+ * 两边的 id 来历不同（这里是 cmd-k 之类的展示用 id，shortcutSettings 那边是
+ * 稳定标识），所以显式列一张对照表，而不是靠字符串拼。改键位后速查表要跟着
+ * 显示新键位，就靠这张表去查。
+ */
+const SHORTCUT_BINDING_OF: Record<string, string> = {
+  'cmd-k': 'command-palette',
+  'cmd-t': 'open-translate',
+  'cmd-b': 'toggle-sidebar',
+  'cmd-n': 'new-note',
+  'cmd-shift-b': 'toggle-bookmark',
+  'cmd-e': 'export-note',
+  'cmd-d': 'toggle-theme',
+  'cmd-u': 'cloud-sync-settings',
+  'cmd-comma': 'open-settings',
+  'alt-shift-f': 'toggle-window',
+}
+
 /** 顶栏与全局快捷键速查及引导动画数据 */
 const SHORTCUT_ITEMS: ShortcutItem[] = [
   {
@@ -64,6 +87,15 @@ const SHORTCUT_ITEMS: ShortcutItem[] = [
     description: '随时在任何地方快速呼出全局搜索与功能指令，输入关键字直接跳往指定工具或笔记。',
     category: '系统导航',
     icon: Search,
+  },
+  {
+    id: 'cmd-t',
+    keys: '⌘ T',
+    keyParts: ['⌘', 'T'],
+    label: '打开文本翻译',
+    description: '直接切到文本翻译模块，省去先回工具中心再点进来的两步。',
+    category: '系统导航',
+    icon: Languages,
   },
   {
     id: 'cmd-b',
@@ -247,6 +279,19 @@ export default function GeneralPanel({
   const [version, setVersion] = useState('')
   const [filter, setFilter] = useState<ThemeFilter>('all')
   const [activeShortcut, setActiveShortcut] = useState<ShortcutItem | null>(null)
+  const shortcutMap = useShortcutSettings()
+
+  /**
+   * 速查表里显示的键位：能对上绑定的读实时配置，对不上的（比如只作演示用的
+   * 斜杠命令）退回写死的 keys。
+   */
+  const liveKeys = (item: ShortcutItem): string => {
+    const bindingId = SHORTCUT_BINDING_OF[item.id]
+    const accelerator = bindingId ? shortcutMap[bindingId] : ''
+    if (!accelerator) return item.keys
+    const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
+    return formatAccelerator(accelerator, isMac)
+  }
 
   const currentThemePreset = useMemo(() => getThemePreset(theme), [theme])
 
@@ -535,7 +580,8 @@ export default function GeneralPanel({
                     演示动画
                   </span>
                   <kbd className="px-2 py-1 text-[11px] font-mono font-semibold bg-slate-50 dark:bg-dark-sidebar border border-slate-200 dark:border-dark-border group-hover:border-brand-300 dark:group-hover:border-brand-700 rounded-md text-slate-600 dark:text-slate-300 shadow-2xs transition-colors">
-                    {item.keys}
+                    {/* 键位取实时配置，用户改过键位后这里要跟着变 */}
+                    {liveKeys(item)}
                   </kbd>
                 </div>
               </button>

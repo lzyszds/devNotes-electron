@@ -73,5 +73,39 @@ interface Window {
       }) => void
     ) => () => void
     notifyRendererReady?: () => Promise<void>
+
+    /** 全局快捷键配置：读 / 写。写会立刻在主进程重注册，返回注册失败的 id */
+    getShortcuts?: () => Promise<Record<string, string>>
+    setShortcuts?: (map: Record<string, string>) => Promise<{ failed: string[] }>
+    /** 录制期间暂停全局快捷键 */
+    setShortcutRecording?: (recording: boolean) => Promise<void>
+
+    /** 主进程要求切到某个工具页（全局快捷键唤起时） */
+    onToolOpenRequest?: (callback: (toolId: string) => void) => () => void
+
+    /* 截图框选 */
+    startCapture?: () => Promise<void>
+    finishCapture?: (dataUrl: string) => Promise<void>
+    cancelCapture?: () => Promise<void>
+    onCaptureReady?: (callback: (payload: unknown) => void) => () => void
+    requestCaptureShot?: () => Promise<unknown>
+
+    /* 流式翻译 */
+    startTranslateStream?: (options: {
+      requestId: string
+      url: string
+      method?: string
+      headers?: Record<string, string>
+      body?: string
+      timeout?: number
+    }) => Promise<void>
+    abortTranslateStream?: (requestId: string) => Promise<void>
+    onTranslateStreamChunk?: (
+      callback: (payload: { requestId: string; chunk: string }) => void
+    ) => () => void
+    onTranslateStreamEnd?: (
+      callback: (payload: { requestId: string; error?: string }) => void
+    ) => () => void
+    onCaptureOcrRequest?: (callback: (dataUrl: string) => void) => () => void
   }
 }

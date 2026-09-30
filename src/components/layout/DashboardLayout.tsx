@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import type { MouseEvent as ReactMouseEvent } from 'react'
 import {
   PanelLeft,
@@ -48,6 +48,12 @@ import { useToast } from '../ui/Toast'
 import { copyText } from '../../utils/clipboard'
 import { usePresence } from '../../hooks/usePresence'
 import { useIsMobile } from '../../hooks/useIsMobile'
+import { useShortcutSettings } from '../../hooks/useShortcutSettings'
+import {
+  SHORTCUT_BINDINGS,
+  eventToAccelerator,
+  isRecordingShortcut,
+} from '../../utils/shortcutSettings'
 import { subscribeAppSettings } from '../../utils/settingsBus'
 import { requestOutline, subscribeDocStats } from '../../utils/editorBus'
 import { isDarkTheme, THEMES, type ThemeId } from '../../utils/theme'
@@ -100,6 +106,8 @@ export default function DashboardLayout({
   const [sidebarWidth, setSidebarWidth] = useState(readSidebarWidth)
   const [isResizingSidebar, setIsResizingSidebar] = useState(false)
   const [isCmdOpen, setIsCmdOpen] = useState(false)
+  /** 当前生效的快捷键映射（设置面板可改，用 useShortcutSettings 订阅） */
+  const shortcutMap = useShortcutSettings()
   // 面板退出动画 160ms，遮罩 150ms，取长者
   const { mounted: cmdMounted, state: cmdState } = usePresence(isCmdOpen, 160)
   // 全局设置弹窗：打开时停在哪个分类
@@ -196,70 +204,104 @@ export default function DashboardLayout({
   }
 
   // 打开全局设置弹窗，并直接定位到指定分类
-  const openSettings = (section: SettingsSection = 'general') => {
-    setSettingsSection(section)
-    setIsSettingsOpen(true)
-  }
-
-  // 快捷键监听：⌘K (命令面板), ⌘B (折叠侧边栏)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const isCmd = e.metaKey || e.ctrlKey
-
-      if (isCmd && (e.key === 'k' || e.key === 'K')) {
-        e.preventDefault()
-        setIsCmdOpen((prev) => !prev)
-      } else if (isCmd && e.key === ',') {
-        e.preventDefault()
-        setSettingsSection('general')
-        setIsSettingsOpen(true)
-      } else if (isCmd && (e.key === 'u' || e.key === 'U')) {
-        e.preventDefault()
-        setSettingsSection('cloud-sync')
-        setIsSettingsOpen(true)
-      } else if (isCmd && (e.key === 'd' || e.key === 'D')) {
-        e.preventDefault()
-        onToggleTheme()
-      } else if (isCmd && (e.key === 'e' || e.key === 'E')) {
-        e.preventDefault()
-        if (isMarkdownActive) void handleExportNote()
-      } else if (isCmd && e.shiftKey && (e.key === 'b' || e.key === 'B')) {
-        // ⌘⇧B 切换当前文档书签。必须排在 ⌘B 之前判断，否则会被折叠侧栏那条吃掉
-        e.preventDefault()
-        if (isMarkdownActive && activeNote) {
-          handleToggleBookmark(activeNote.id)
-          showToast(activeNote.bookmarked ? '已移除书签' : '已加入书签')
-        }
-      } else if (isCmd && (e.key === 'b' || e.key === 'B')) {
-        e.preventDefault()
-        setIsSidebarOpen((prev) => !prev)
-      } else if (isCmd && (e.key === 'n' || e.key === 'N')) {
-        e.preventDefault()
+  /**
+   * 应用内快捷键 id -> 动作。
+   *
+   * 用 useMemo 而不是每次渲染重建：它进不了 effect 依赖（对象每次都是新的），
+   * 而 effect 里要按 id 查表，所以表达成「依赖都齐了才重算」。
+   */
+  const appShortcutActions = useMemo<Record<string, () => void>>(
+    () => ({
+      'command-palette': () => setIsCmdOpen((prev) => !prev),
+      'toggle-sidebar': () => setIsSidebarOpen((prev) => !prev),
+      'new-note': () => {
         if (isMarkdownActive) {
           // 在某个文件夹视图下新建，直接归到该文件夹，省一次「移动到」
           handleCreateNote(scope.type === 'folder' ? scope.folderId : null)
         } else {
           onOpenTool('markdown-notes')
         }
-      } else if (e.key === 'Escape' && isCmdOpen) {
+      },
+      'toggle-bookmark': () => {
+        if (isMarkdownActive && activeNote) {
+          handleToggleBookmark(activeNote.id)
+          showToast(activeNote.bookmarked ? '已移除书签' : '已加入书签')
+        }
+      },
+      'export-note': () => {
+        if (isMarkdownActive) void handleExportNote()
+      },
+      'toggle-theme': () => onToggleTheme(),
+      'open-settings': () => {
+        setSettingsSection('general')
+        setIsSettingsOpen(true)
+      },
+      'cloud-sync-settings': () => {
+        setSettingsSection('cloud-sync')
+        setIsSettingsOpen(true)
+      },
+    }),
+    [
+      activeNote,
+      handleCreateNote,
+      handleExportNote,
+      handleToggleBookmark,
+      isMarkdownActive,
+      onOpenTool,
+      onToggleTheme,
+      scope,
+      showToast,
+    ],
+  )
+
+  const openSettings = (section: SettingsSection = 'general') => {
+    setSettingsSection(section)
+    setIsSettingsOpen(true)
+  }
+
+  /**
+   * 快捷键监听。
+   *
+   * 键位从配置读（设置面板可改），所以不能像原来那样写一串
+   * `e.key === 'k'` 的 if-else —— 改成「按下的事件转成 accelerator，
+   * 再查表找对应动作」。匹配用的是归一化后的字符串，用户把 ⌘K 改成
+   * ⌘J 之后这里不用动。
+   */
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 录制快捷键时全部让路：用户要按 ⌘K 来录它，这条要是还生效，
+      // 命令面板会当场弹出来盖住设置面板，根本录不下去。
+      // 放在最前面判断，连 Esc 也不处理，让录制框独占这次的按键。
+      if (isRecordingShortcut()) return
+
+      // 命令面板开着时 Esc 先关它，这条不参与自定义
+      if (e.key === 'Escape' && isCmdOpen) {
         setIsCmdOpen(false)
+        return
+      }
+
+      const pressed = eventToAccelerator(e)
+      if (!pressed) return
+
+      // 只匹配应用内快捷键；全局键由主进程的 globalShortcut 处理，
+      // 那里在窗口没聚焦时也生效，这里再拦一次会重复触发
+      for (const binding of SHORTCUT_BINDINGS) {
+        if (binding.scope !== 'app') continue
+        if (shortcutMap[binding.id] !== pressed) continue
+
+        // 归一化后仍要按顺序比：配置里是 CommandOrControl+B，事件转出来
+        // 也是这个写法，直接相等即命中
+        const handler = appShortcutActions[binding.id]
+        if (!handler) continue
+        e.preventDefault()
+        handler()
+        return
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [
-    activeNote,
-    handleCreateNote,
-    handleExportNote,
-    handleToggleBookmark,
-    isCmdOpen,
-    isMarkdownActive,
-    onOpenTool,
-    onToggleTheme,
-    scope,
-    showToast,
-  ])
+  }, [appShortcutActions, isCmdOpen, shortcutMap])
 
   // 打开指令面板时自动聚焦
   useEffect(() => {
@@ -326,6 +368,15 @@ export default function DashboardLayout({
         onOpenTool('markdown-notes')
         const demo = `\n::: timeline 时间线\n:: [done] 2024-01-15 项目立项\n  完成需求评审\n:: [doing] 2024-03-20 Alpha 版本\n  正在联调\n:: [todo] 2024-06-01 正式上线\n:: [error] 2024-07-01 严重回滚事件\n:: [milestone] 2024-08-01 用户破万\n:::\n`
         insertText(demo, '')
+      },
+    },
+    {
+      id: 'cmd-text-translate',
+      title: '打开文本翻译',
+      shortcut: '⌘T',
+      icon: Languages,
+      action: () => {
+        onOpenTool('text-translate')
       },
     },
     {

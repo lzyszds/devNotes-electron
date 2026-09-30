@@ -1,10 +1,11 @@
-import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, Tray, globalShortcut, Notification, nativeImage, shell } from 'electron'
+import { app, BrowserWindow, clipboard, desktopCapturer, dialog, ipcMain, Menu, screen, Tray, globalShortcut, Notification, nativeImage, shell } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import Store from 'electron-store'
 import {
   applyProxyConfig,
   fetchViaNet,
+  fetchViaNetStream,
   getProxyConfig,
   setProxyConfig,
   testGoogleTranslate,
@@ -15,6 +16,12 @@ import type { IpcMainInvokeEvent } from 'electron'
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
+/** 截图框选用的一次性全屏遮罩窗口 */
+let captureWindow: BrowserWindow | null = null
+/** 本次框选的截图结果，缓存起来供推 / 拉两条路径共用（见 createCaptureWindow） */
+let captureShotPromise: Promise<unknown> | null = null
+/** 进行中的流式翻译请求，按 requestId 索引，供中途中断 */
+const streamHandles = new Map<string, { abort: () => void }>()
 
 // 必须在 new Store() 之前执行:迁移会决定本次启动读哪个 userData 目录
 migrateUserDataIfNeeded()
@@ -25,6 +32,234 @@ const store = new Store()
 const pendingOpenFiles = new Set<string>()
 let rendererReady = false
 const OPEN_FILE_EXTS = new Set(['.md', '.markdown'])
+
+/**
+ * 全局快捷键：配置存 electron-store，键位由设置界面写入。
+ *
+ * 注册动作全在主进程 —— 渲染进程的 window 键盘事件只在应用聚焦时才有，
+ * 要做到「在其他应用里也能唤起」必须走 globalShortcut。
+ */
+
+/** 存储键名。与 src/utils/shortcutSettings.ts 的 SHORTCUT_STORAGE_KEY 一致 */
+const SHORTCUT_STORAGE_KEY = 'shortcut-bindings'
+
+/** 主进程认得的全局快捷键：id -> 按下时的行为 */
+const GLOBAL_SHORTCUT_ACTIONS: Record<string, () => void> = {
+  'toggle-window': () => {
+    if (!mainWindow) return
+    mainWindow.isVisible() ? mainWindow.hide() : mainWindow.show()
+  },
+  'open-translate': () => {
+    void focusWindowAndOpenTool('text-translate')
+  },
+  'screenshot-translate': () => {
+    createCaptureWindow()
+  },
+}
+
+/** 主进程侧的默认键位。渲染端的默认值在 shortcutSettings.ts，两边要保持一致 */
+const GLOBAL_SHORTCUT_DEFAULTS: Record<string, string> = {
+  'toggle-window': 'Alt+Shift+F',
+  'open-translate': 'Alt+Shift+T',
+  'screenshot-translate': 'Alt+Shift+S',
+}
+
+/** 读用户配置的快捷键表；读不到就用默认值 */
+function readShortcutMap(): Record<string, string> {
+  const saved = store.get(SHORTCUT_STORAGE_KEY)
+  const map = { ...GLOBAL_SHORTCUT_DEFAULTS }
+  if (saved && typeof saved === 'object') {
+    for (const id of Object.keys(GLOBAL_SHORTCUT_ACTIONS)) {
+      const value = (saved as Record<string, unknown>)[id]
+      // 空串是用户主动清空，要尊重 —— 只有非字符串才回退默认值
+      if (typeof value === 'string') map[id] = value
+    }
+  }
+  return map
+}
+
+/**
+ * 按当前配置注册全部全局快捷键。
+ *
+ * 先全注销再全注册：globalShortcut 是全局单例表，逐个管理容易漏掉旧键位，
+ * 整体重来最省心（键位数量是个位数，开销可以忽略）。
+ *
+ * 返回注册失败的 id 列表。register 返回 false 表示该组合被系统或其他应用
+ * 占用，必须把结果回给设置界面，让用户知道这个键没生效 —— 不能假装成功。
+ */
+function applyGlobalShortcuts(): { failed: string[] } {
+  globalShortcut.unregisterAll()
+  const map = readShortcutMap()
+  const failed: string[] = []
+
+  for (const [id, action] of Object.entries(GLOBAL_SHORTCUT_ACTIONS)) {
+    const accelerator = map[id]
+    if (!accelerator) continue
+    try {
+      if (!globalShortcut.register(accelerator, action)) failed.push(id)
+    } catch {
+      // 非法 accelerator 写法会抛异常，同样按失败处理
+      failed.push(id)
+    }
+  }
+  return { failed }
+}
+
+/**
+ * 开一个铺满主屏的透明无边框窗口，用来做截图框选。
+ *
+ * 截图数据在窗口 did-finish-load 之后才推送：渲染层要先挂上监听，
+ * 早发就丢了。窗口用 alwaysOnTop + fullscreenable 的组合保证盖住其他应用。
+ */
+function createCaptureWindow(): void {
+  if (captureWindow) {
+    captureWindow.focus()
+    return
+  }
+
+  const primary = screen.getPrimaryDisplay()
+  const { x, y, width, height } = primary.bounds
+
+  /*
+   * 立刻开始抓屏，且必须在窗口显示之前完成 —— 拍到遮罩自己就没底图了。
+   * 结果缓存成 Promise，窗口加载好后无论是主进程推还是渲染层拉，都读这一份，
+   * 避免重复抓屏（第二次抓就会把已经显示出来的遮罩拍进去）。
+   */
+  captureShotPromise = grabPrimaryScreen()
+
+  captureWindow = new BrowserWindow({
+    x,
+    y,
+    width,
+    height,
+    frame: false,
+    transparent: true,
+    // 截图期间要让用户看到底下的原始画面，所以窗口本身不画背景
+    backgroundColor: '#00000000',
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: false,
+    movable: false,
+    hasShadow: false,
+    enableLargerThanScreen: true,
+    /*
+     * 先不显示。窗口默认创建即显示，而抓屏必须发生在它显示**之前** ——
+     * 否则拍到的是自己那层半透明遮罩，底图就是灰的。等图抓完再 show。
+     */
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      // 必须跟主窗口一致用 true。contextIsolation 为 false 时 preload 跑在
+      // 渲染进程主世界里，contextBridge.exposeInMainWorld 会失效 —— 表现为
+      // window.electronAPI 是 undefined，遮罩层既截不到图也关不掉
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  })
+
+  captureWindow.setAlwaysOnTop(true, 'screen-saver')
+
+  /*
+   * 兜底：注册一个自毁快捷键。
+   *
+   * 遮罩层铺满屏幕，一旦渲染层出问题（白屏、脚本报错、接口不可用），
+   * 用户就没有任何办法退出，只能强杀进程。这里在主进程侧留一个不依赖
+   * 渲染层的退出方式 —— 渲染层的 Esc 已经有一层，但它在同一侧，共命运。
+   */
+  globalShortcut.register('Escape', () => {
+    if (captureWindow) closeCaptureWindow()
+  })
+
+  // 窗口被系统或用户关掉时，别把 Escape 留在全局注册表里 ——
+  // 否则正常使用时按 Esc 会被这个残留的注册吃掉
+  captureWindow.on('closed', () => {
+    globalShortcut.unregister('Escape')
+    captureWindow = null
+  })
+
+  const devServerUrl = process.env.VITE_DEV_SERVER_URL
+  if (devServerUrl) {
+    void captureWindow.loadURL(`${devServerUrl}?capture=1`)
+  } else {
+    void captureWindow.loadFile(path.join(__dirname, '../dist/index.html'), {
+      search: 'capture=1',
+    })
+  }
+
+  /*
+   * 图抓到、页面也加载完了，才把遮罩显示出来。
+   *
+   * 用 Promise.all 等两件事：图没抓到就显示会露出桌面一片空白；
+   * 页面没加载完就显示会先闪一下透明白窗。
+   */
+  captureWindow.webContents.once('did-finish-load', async () => {
+    let payload: unknown
+    try {
+      payload = await captureShotPromise
+    } catch (e) {
+      payload = { error: e instanceof Error ? e.message : '截图失败' }
+    }
+    captureWindow?.show()
+    captureWindow?.focus()
+    captureWindow?.webContents.send('capture:ready', payload)
+  })
+}
+
+/** 抓主屏全屏图，转 dataURL */
+async function grabPrimaryScreen() {
+  const primary = screen.getPrimaryDisplay()
+  const scale = primary.scaleFactor || 1
+  const { width, height } = primary.size
+
+  const sources = await desktopCapturer.getSources({
+    types: ['screen'],
+    // 按物理分辨率抓：截图要拿去 OCR，缩过会掉识别率
+    thumbnailSize: { width: Math.round(width * scale), height: Math.round(height * scale) },
+  })
+  const target = sources.find((s) => s.display_id === String(primary.id)) ?? sources[0]
+  if (!target) throw new Error('没有可截取的屏幕')
+
+  return {
+    dataUrl: target.thumbnail.toDataURL(),
+    // 逻辑尺寸，框选坐标按它算
+    width,
+    height,
+    scaleFactor: scale,
+  }
+}
+
+/** 关掉遮罩窗口。框选完成或取消都走这里 */
+function closeCaptureWindow(): void {
+  captureWindow?.close()
+  captureWindow = null
+  // 缓存要清掉：那是一张全屏图，留着白占几 MB 内存
+  captureShotPromise = null
+}
+
+/**
+ * 唤起窗口并切到指定工具页。
+ *
+ * 三步都要做：最小化的窗口只 show() 还会缩在坞里，必须 restore()；
+ * 再 focus() 拿到焦点，否则窗口只在后面闪一下。窗口还没建出来时
+ * 要等 did-finish-load 再发跳转指令，否则消息发出去没人接。
+ */
+async function focusWindowAndOpenTool(toolId: string): Promise<void> {
+  if (!mainWindow) {
+    // createMainWindow 是通过副作用给 mainWindow 赋值的，TS 的控制流分析
+    // 不认这一点，会把这里的 mainWindow 一直当成 null（进而提示 never），
+    // 所以走断言把类型放开
+    createMainWindow()
+    const created = mainWindow as BrowserWindow | null
+    created?.webContents.once('did-finish-load', () => {
+      created.webContents.send('tool:open-request', toolId)
+    })
+    return
+  }
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.show()
+  mainWindow.focus()
+  mainWindow.webContents.send('tool:open-request', toolId)
+}
 
 // 从命令行参数中提取可打开的 Markdown 文件路径
 // (绝对路径 + md/markdown 扩展名 + 真实存在的文件,可自然排除 dev 下的 --no-sandbox 等参数)
@@ -291,6 +526,73 @@ function setupIpc() {
     return app.getVersion()
   })
 
+  /**
+   * 保存快捷键配置并立刻生效。
+   *
+   * 返回 failed：注册失败的 id 列表。调用方要把这个回显到界面上 ——
+   * 用户设的键可能被别的应用占着，静默失败会让人以为设成了。
+   */
+  ipcMain.handle('set-shortcuts', (_, map: Record<string, string>) => {
+    store.set(SHORTCUT_STORAGE_KEY, map)
+    return applyGlobalShortcuts()
+  })
+
+  /** 读当前生效的全局快捷键映射，供设置界面回显 */
+  ipcMain.handle('get-shortcuts', () => {
+    return readShortcutMap()
+  })
+
+  /**
+   * 录制快捷键期间暂停 / 恢复全局快捷键。
+   *
+   * 必须暂停：录制 ⌥A 时如果它已经注册着，按下去会当场把窗口唤起、抢走焦点，
+   * 录制框就收不到这次按键了。这里只是临时注销，不动存储里的配置。
+   */
+  ipcMain.handle('set-shortcut-recording', (_, recording: boolean) => {
+    if (recording) globalShortcut.unregisterAll()
+    else applyGlobalShortcuts()
+  })
+
+  /** 渲染层主动请求开截图（比如翻译页上的按钮） */
+  ipcMain.handle('start-capture', () => {
+    createCaptureWindow()
+  })
+
+  /**
+   * 遮罩层的渲染进程就绪后主动来拉一次截图。
+   *
+   * 主进程推图是在 did-finish-load，那是「HTML 加载完」，React 的 effect
+   * 可能还没跑、监听还没挂上，推过去的消息就丢了 —— 表现为只有遮罩没有底图。
+   * 两条路径都留着，谁先到谁用，读的都是同一份缓存。
+   */
+  ipcMain.handle('request-capture-shot', async () => {
+    if (!captureShotPromise) return { error: '没有可用的截图' }
+    try {
+      return await captureShotPromise
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : '截图失败' }
+    }
+  })
+
+  /**
+   * 框选完成：拿到裁剪好的图片，转交主窗口去做 OCR + 翻译。
+   *
+   * 先关遮罩再发消息：遮罩是 alwaysOnTop 的，不关掉会把主窗口盖住，
+   * 用户看不到识别结果。
+   */
+  ipcMain.handle('finish-capture', (_, dataUrl: string) => {
+    closeCaptureWindow()
+    if (!mainWindow) return
+    if (mainWindow.isMinimized()) mainWindow.restore()
+    mainWindow.show()
+    mainWindow.focus()
+    mainWindow.webContents.send('capture:ocr-request', dataUrl)
+  })
+
+  ipcMain.handle('cancel-capture', () => {
+    closeCaptureWindow()
+  })
+
   // Store operations
   ipcMain.handle('store-get', (_, key: string) => {
     return store.get(key)
@@ -329,6 +631,50 @@ function setupIpc() {
       return fetchViaNet(options)
     }
   )
+
+  /**
+   * 流式翻译代理。
+   *
+   * 不用 invoke 的一问一答，因为流式是「一发多收」：请求一次，结果分很多
+   * 次推回来。改成 webContents.send 主动推，渲染层按 requestId 归拢
+   * —— 用户连打几个字会并发好几个请求，得能对上号。
+   */
+  ipcMain.handle(
+    'translate-stream-start',
+    (
+      event,
+      options: {
+        requestId: string
+        url: string
+        method?: string
+        headers?: Record<string, string>
+        body?: string
+        timeout?: number
+      }
+    ) => {
+      const { requestId, ...rest } = options
+      const send = (channel: string, payload: unknown) => {
+        // 窗口可能已经关了，发之前确认一下，否则会抛 "Object has been destroyed"
+        if (!event.sender.isDestroyed()) {
+          event.sender.send(channel, { requestId, ...(payload as object) })
+        }
+      }
+
+      const handle = fetchViaNetStream({
+        ...rest,
+        onChunk: (chunk) => send('translate-stream-chunk', { chunk }),
+        onEnd: (error) => send('translate-stream-end', { error }),
+      })
+
+      streamHandles.set(requestId, handle)
+    }
+  )
+
+  /** 中断流式请求（用户改了输入、或关掉页面） */
+  ipcMain.handle('translate-stream-abort', (_, requestId: string) => {
+    streamHandles.get(requestId)?.abort()
+    streamHandles.delete(requestId)
+  })
 
   ipcMain.handle('get-proxy-config', () => {
     return getProxyConfig(store)
@@ -453,11 +799,8 @@ app.whenReady().then(async () => {
   // 处理启动参数中的文件(Windows 关联启动 / 命令行直接传路径)
   extractFilePaths(process.argv).forEach(queueOpenFile)
 
-  globalShortcut.register('Alt+Shift+F', () => {
-    if (mainWindow) {
-      mainWindow.isVisible() ? mainWindow.hide() : mainWindow.show()
-    }
-  })
+  // 按用户配置注册全局快捷键（没配置就用内置默认值）
+  applyGlobalShortcuts()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

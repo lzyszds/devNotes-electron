@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Home from './pages/Home'
 import DashboardLayout from './components/layout/DashboardLayout'
 import Stats from './pages/Stats'
@@ -6,6 +6,7 @@ import { NotesProvider } from './context/NotesContext'
 import { TranslateProvider } from './context/TranslateContext'
 import { ContextMenuProvider } from './components/ui/ContextMenu'
 import { ToastProvider } from './components/ui/Toast'
+import { requestOcr } from './utils/ocrBus'
 import {
   getCachedTheme,
   getOppositeTheme,
@@ -58,6 +59,34 @@ function App() {
     localStorage.setItem('fehelper-usage-stats', JSON.stringify(usageStats))
   }, [usageStats])
 
+  /**
+   * 主进程要求切工具页 —— 全局快捷键唤起窗口后会发这个请求。
+   *
+   * 依赖里带 openTool 会让每次渲染都重建订阅，所以这里用 ref 转一道：
+   * 订阅只建一次，回调里读最新的 openTool。移动端没有这个接口，跳过即可。
+   */
+  const openToolRef = useRef<(toolId: string) => void>(() => {})
+  useEffect(() => {
+    const api = window.electronAPI
+    if (!api?.onToolOpenRequest) return
+    return api.onToolOpenRequest((toolId) => openToolRef.current(toolId))
+  }, [])
+
+  /**
+   * 截图框选完成 → 切到翻译页并把图片广播出去。
+   *
+   * 先切页再广播：翻译页得先挂载、订阅上总线，才收得到这个请求。
+   * 用 setTimeout 让出一帧给挂载，比在翻译页里缓冲未读消息简单。
+   */
+  useEffect(() => {
+    const api = window.electronAPI
+    if (!api?.onCaptureOcrRequest) return
+    return api.onCaptureOcrRequest((dataUrl) => {
+      openToolRef.current('text-translate')
+      window.setTimeout(() => requestOcr(dataUrl), 0)
+    })
+  }, [])
+
   const openTool = (toolId: string) => {
     // 增加使用计数
     setUsageStats((prev) => ({
@@ -68,6 +97,9 @@ function App() {
     setActiveTabId(toolId)
     setViewMode('dashboard')
   }
+
+  // 让订阅回调始终拿到最新的 openTool（它每次渲染都是新函数）
+  openToolRef.current = openTool
 
   const navigateToHub = () => setViewMode('hub')
   const navigateToStats = () => setViewMode('stats')
