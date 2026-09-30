@@ -46,6 +46,12 @@ import { AUTO_LANG, LANGUAGES, langName } from '../../../utils/languages'
 import { subscribeOcrRequest } from '../../../utils/ocrBus'
 import { translateStream } from '../../../utils/translateStream'
 import {
+  DEFAULT_TRANSLATE_PREFS,
+  loadTranslatePrefs,
+  saveTranslatePrefs,
+  type TranslatePrefs,
+} from '../../../utils/translatePrefs'
+import {
   OCR_LANGUAGES,
   describeStatus,
   recognizeText,
@@ -241,17 +247,35 @@ export default function TextTranslateTool() {
     setElapsed,
   } = useTranslate()
 
-  // 默认走 LibreTranslate：这是设置里已配置好的自定义接口，GTX 在部分网络下不可达
-  const [api, setApi] = useState<TranslationAPI>('libretranslate')
+  /*
+   * 引擎、实时翻译、合并断行、识别语言 —— 四项都存盘。
+   *
+   * 原来都是写死初值的 useState，切走再回来就重置：用户选了 OpenAI，
+   * 下次进来又变回 LibreTranslate。初始化先用默认值渲染，挂载后异步
+   * 读盘补齐（读盘是 IPC，不能阻塞首帧）。
+   */
+  const [prefs, setPrefs] = useState<TranslatePrefs>(DEFAULT_TRANSLATE_PREFS)
+  const { api, autoTranslate, unwrapLines, ocrLang } = prefs
+  /** 改一项就写盘，调用方不用各自处理持久化 */
+  const patchPrefs = (patch: Partial<TranslatePrefs>) =>
+    setPrefs((prev) => {
+      const next = { ...prev, ...patch }
+      void saveTranslatePrefs(next)
+      return next
+    })
+  const setApi = (value: TranslationAPI) => patchPrefs({ api: value })
+  const setAutoTranslate = (value: boolean) => patchPrefs({ autoTranslate: value })
+  const setUnwrapLines = (value: boolean) => patchPrefs({ unwrapLines: value })
+  const setOcrLang = (value: OcrLanguage) => patchPrefs({ ocrLang: value })
+
+  useEffect(() => {
+    void loadTranslatePrefs().then(setPrefs)
+  }, [])
+
   const [translateConfig, setTranslateConfig] = useState<TranslateApiConfig | null>(null)
   const [progress, setProgress] = useState({ current: 0, total: 0 })
   const [error, setError] = useState('')
   const [showHistory, setShowHistory] = useState(false)
-  // 输入停顿即翻；默认开，与设计稿一致
-  const [autoTranslate, setAutoTranslate] = useState(true)
-  const [unwrapLines, setUnwrapLines] = useState(false)
-  /** 截图取字：识别语言与当前进度 */
-  const [ocrLang, setOcrLang] = useState<OcrLanguage>('chi_sim+eng')
   const [ocrState, setOcrState] = useState<{
     status: 'recognizing' | 'done'
     progress: number

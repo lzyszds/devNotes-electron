@@ -75,6 +75,7 @@ export const SYNCED_SETTING_KEYS = [
   // 翻译与模型
   'translate-api-config',
   'text-translate-primary-lang',
+  'text-translate-prefs',
   // 快捷键
   'shortcut-bindings',
   // 外观与界面偏好
@@ -96,19 +97,38 @@ export const SYNCED_SETTING_KEYS = [
 export type SettingsSnapshot = Record<string, unknown>
 
 /**
+ * 这些键存在 localStorage（历史原因：主题、编辑器偏好等都是渲染端自查自存，
+ * 不需要主进程参与）。同步时要按存放位置分流 —— 全走 storeGet 会读不到，
+ * 而且是静默失败：白名单里列着，实际一个字节都没上云。
+ */
+const LOCAL_STORAGE_SETTING_KEYS = new Set([
+  'fehelper-theme',
+  'fehelper-code-theme',
+  'fehelper-editor-mode',
+  'fehelper-editor-split',
+  'fehelper-editor-view',
+  'fehelper-sidebar-width',
+  'text-translate-primary-lang',
+])
+
+/**
  * 从本地存储收集要同步的设置。
  *
- * 走 electron-store（读盘，且与主进程共享同一份数据），
- * 只取白名单里存在且有值的项 —— 没设过的项不上云，免得用空值覆盖别的机器。
+ * 按键的存放位置分流读：localStorage 的走同步 getItem，其余走 electron-store。
+ * 只取存在且有值的项 —— 没设过的项不上云，免得用空值覆盖别的机器。
  */
 export async function collectSettings(): Promise<SettingsSnapshot> {
   const snapshot: SettingsSnapshot = {}
   const api = window.electronAPI
-  if (!api?.storeGet) return snapshot
 
   for (const key of SYNCED_SETTING_KEYS) {
     try {
-      const value = await api.storeGet(key)
+      if (LOCAL_STORAGE_SETTING_KEYS.has(key)) {
+        const raw = localStorage.getItem(key)
+        if (raw !== null) snapshot[key] = raw
+        continue
+      }
+      const value = await api?.storeGet?.(key)
       if (value !== undefined && value !== null) snapshot[key] = value
     } catch {
       // 单项读失败不该拖垮整次同步，跳过即可
@@ -125,13 +145,17 @@ export async function collectSettings(): Promise<SettingsSnapshot> {
  */
 export async function applySettings(snapshot: SettingsSnapshot): Promise<number> {
   const api = window.electronAPI
-  if (!api?.storeSet) return 0
 
   let applied = 0
   for (const key of SYNCED_SETTING_KEYS) {
     if (!(key in snapshot)) continue
     try {
-      await api.storeSet(key, snapshot[key])
+      if (LOCAL_STORAGE_SETTING_KEYS.has(key)) {
+        // localStorage 要求字符串；云端存的是当初读出来的原样，直接写回
+        localStorage.setItem(key, String(snapshot[key]))
+      } else {
+        await api?.storeSet?.(key, snapshot[key])
+      }
       applied++
     } catch {
       // 同上，单项失败不中断
