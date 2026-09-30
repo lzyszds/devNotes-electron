@@ -1,7 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { AlertCircle, Check, Globe, MonitorSmartphone, RotateCcw, X } from 'lucide-react'
+import {
+  AlertCircle,
+  Check,
+  Globe,
+  MonitorSmartphone,
+  Play,
+  RotateCcw,
+  X,
+} from 'lucide-react'
 import { useShortcutSettings } from '../../hooks/useShortcutSettings'
 import { useToast } from '../ui/Toast'
+import ShortcutGuideModal, { type ShortcutItem } from '../ui/ShortcutGuideModal'
 import {
   SHORTCUT_BINDINGS,
   defaultShortcutMap,
@@ -15,7 +24,68 @@ import {
   type ShortcutMap,
 } from '../../utils/shortcutSettings'
 
+/**
+ * 快捷键行内的图标按钮样式。
+ *
+ * 固定 32×32 且禁用时只降透明度、不隐藏 —— 按钮一消失，同行其余按钮
+ * 就会横向挪位，鼠标下的目标会跑掉。
+ */
+/**
+ * 键位框 / 录制框共用的宽度。
+ *
+ * 两态必须严格同宽：录制框若宽出一截，行内靠右的几个按钮会被顶开，
+ * 退出录制又弹回来 —— 用户正在操作的按钮会在指针底下跑掉。
+ */
+const ROW_FIELD_WIDTH = 'w-[132px]'
+
+const ROW_ICON_BTN =
+  'inline-flex items-center justify-center w-8 h-8 shrink-0 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-dark-hover dark:hover:text-slate-200 transition-colors disabled:opacity-30 disabled:pointer-events-none'
+
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
+
+
+/**
+ * accelerator -> 演示用的按键数据。
+ *
+ * 引导动画支持的是 ⌘ / ⌥ / ⇧ / Ctrl 这几个修饰键的图示，而用户录进去的
+ * 键位可能是 Alt+Shift+F 这种写法。这里做一次映射，认不出的（比如功能键
+ * 组合里的 F5）就原样带上，动画里会当成普通字符展示。
+ */
+function demoItemFor(binding: ShortcutBinding): ShortcutItem {
+  const accelerator = binding.defaultAccelerator
+  const parts = accelerator.split('+')
+  const display = parts
+    .map((part) => {
+      switch (part) {
+        case 'Command':
+        case 'CommandOrControl':
+          return '⌘'
+        case 'Control':
+          return '⌃'
+        case 'Alt':
+          return '⌥'
+        case 'Shift':
+          return '⇧'
+        case 'Return':
+          return '↵'
+        case 'Space':
+          return '空格'
+        default:
+          return part
+      }
+    })
+    .filter(Boolean)
+
+  return {
+    id: binding.id,
+    keys: display.join(' '),
+    keyParts: display,
+    label: binding.label,
+    description: binding.description,
+    category: binding.scope === 'global' ? '全局快捷键' : '应用内快捷键',
+    icon: binding.scope === 'global' ? Globe : MonitorSmartphone,
+  }
+}
 
 /**
  * 快捷键设置。
@@ -31,6 +101,9 @@ export default function ShortcutSettingsPanel() {
   /** 注册失败的 id（键位被系统或其他应用占用） */
   const [failed, setFailed] = useState<string[]>([])
   const { showToast } = useToast()
+  /** 速查表里点开的条目，非空时弹出按键引导动画 */
+  const [activeShortcut, setActiveShortcut] = useState<ShortcutItem | null>(null)
+
 
   // 外部改了配置（比如另一处重置）时同步草稿
   useEffect(() => {
@@ -116,48 +189,70 @@ export default function ShortcutSettingsPanel() {
           </p>
         </div>
 
+        {/*
+          动作区。
+          三个按钮一律常驻、宽高写死：清空键位时按钮若跟着消失，整行的
+          内容宽度会变，右侧几个图标会横向挪位；录制框与键位框高度也不一样，
+          切换时行高会跳。都占住位置，只改 disabled / 透明度，布局就不动。
+        */}
         <div className="flex items-center gap-1.5 shrink-0">
-          {isRecording ? (
-            <RecordingField
-              currentAccelerator={accelerator}
-              onCapture={(next) => {
-                setDraft((prev) => ({ ...prev, [binding.id]: next }))
-                setRecording(null)
-                setFailed((prev) => prev.filter((f) => f !== binding.id))
-              }}
-              onCancel={cancelRecording}
-            />
-          ) : (
-            <button
-              type="button"
-              onClick={() => startRecording(binding.id)}
-              className={`min-w-[104px] h-8 px-3 rounded-lg border text-xs font-semibold transition-colors tabular-nums ${
-                accelerator
-                  ? 'border-slate-200 dark:border-dark-border bg-white dark:bg-dark-panel text-slate-700 dark:text-slate-200 hover:border-brand-300 hover:text-brand-600 dark:hover:text-brand-400'
-                  : 'border-dashed border-slate-300 dark:border-dark-border text-slate-400 dark:text-slate-500 hover:border-brand-300 hover:text-brand-500'
-              }`}
-            >
-              {accelerator ? formatAccelerator(accelerator, isMac) : '未设置'}
-            </button>
-          )}
+          {/* 键位框固定宽度，内容长短不一（⌘K / ⌥⇧N）时右侧按钮不会跟着挪。
+              宽度与 RecordingField 共用同一个常量，两态必须严格同宽 */}
+          <span className={`inline-flex ${ROW_FIELD_WIDTH} shrink-0`}>
+            {isRecording ? (
+              <RecordingField
+                currentAccelerator={accelerator}
+                onCapture={(next) => {
+                  setDraft((prev) => ({ ...prev, [binding.id]: next }))
+                  setRecording(null)
+                  setFailed((prev) => prev.filter((f) => f !== binding.id))
+                }}
+                onCancel={cancelRecording}
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => startRecording(binding.id)}
+                className={`w-full h-8 px-3 rounded-lg border text-xs font-semibold transition-colors tabular-nums truncate ${
+                  accelerator
+                    ? 'border-slate-200 dark:border-dark-border bg-white dark:bg-dark-panel text-slate-700 dark:text-slate-200 hover:border-brand-300 hover:text-brand-600 dark:hover:text-brand-400'
+                    : 'border-dashed border-slate-300 dark:border-dark-border text-slate-400 dark:text-slate-500 hover:border-brand-300 hover:text-brand-500'
+                }`}
+              >
+                {accelerator ? formatAccelerator(accelerator, isMac) : '未设置'}
+              </button>
+            )}
+          </span>
 
-          {accelerator && !isRecording && (
-            <button
-              type="button"
-              onClick={() => clearBinding(binding.id)}
-              title="清空这个快捷键"
-              className="inline-flex items-center justify-center h-8 w-8 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-dark-hover dark:hover:text-slate-200 transition-colors"
-            >
-              <X size={14} />
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => clearBinding(binding.id)}
+            // 没设置键位时按钮仍在，只是不可点 —— 见上方关于「不要跳动」的说明
+            disabled={!accelerator || isRecording}
+            title="清空这个快捷键"
+            className={ROW_ICON_BTN}
+          >
+            <X size={14} />
+          </button>
           <button
             type="button"
             onClick={() => resetOne(binding)}
+            disabled={isRecording}
             title="恢复这一条的默认键位"
-            className="inline-flex items-center justify-center h-8 w-8 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-dark-hover dark:hover:text-slate-200 transition-colors"
+            className={ROW_ICON_BTN}
           >
             <RotateCcw size={14} />
+          </button>
+
+          {/* 演示放最右：它只是「看一眼」的次要动作，不该挤在键位框前面
+              抢走主操作（录制 / 清空 / 恢复）的位置 */}
+          <button
+            type="button"
+            onClick={() => setActiveShortcut(demoItemFor(binding))}
+            title="播放按键演示动画"
+            className={ROW_ICON_BTN}
+          >
+            <Play size={14} />
           </button>
         </div>
       </div>
@@ -218,6 +313,21 @@ export default function ShortcutSettingsPanel() {
         </div>
         <div>{appBindings.map(renderRow)}</div>
       </section>
+
+      {/* 按键引导动画：点某行右侧的「演示」时弹出来，把这套键位敲一遍 */}
+      <ShortcutGuideModal
+        shortcut={activeShortcut}
+        onClose={() => setActiveShortcut(null)}
+        onTriggerAction={() => {
+          /*
+           * 只演示、不执行。
+           *
+           * 原先挂在「通用」面板下时能顺手改主题、恢复侧栏宽度；搬到快捷键页后
+           * 这些回调不在手边。何况用户点「演示」只是想看看这组键长什么样，
+           * 顺手把主题改了会很意外。
+           */
+        }}
+      />
     </div>
   )
 }
@@ -308,31 +418,33 @@ function RecordingField({
   }, [])
 
   /*
-   * 框的尺寸写死，且诊断信息一律放到框**外**。
+   * 尺寸写死，且宽度与行内键位框完全一致（见 ROW_FIELD_WIDTH）。
    *
-   * 早先把 key=xxx 那行放进框里，内容随按键变化、框宽跟着伸缩，右侧的
-   * 清空/重置按钮被推得左右横跳 —— 录制时布局一直在动，很难对准。
-   * 固定宽度后，整个条目在录制期间不会有任何位移。
+   * 早先这里用 w-[132px]，而键位框那格只有 104px —— 录制时这一格突然变宽，
+   * 把右侧的清空/重置按钮顶出去，两个按钮叠在一起糊成一团。
+   * 现在两者同宽，进入与退出录制都不会让任何元素横向移动。
+   *
+   * 「原 ⌥⇧N」的提示也不再挂在框外：那会额外占宽。改成把原键位塞进 title，
+   * 鼠标悬停就能看到，不再影响布局。
    */
   return (
-    <span className="inline-flex items-center gap-2">
-      <span
-        ref={ref}
-        tabIndex={-1}
-        title={hint || diagnostic || '按下想用的组合键，Esc 取消'}
-        className={`inline-flex items-center justify-center w-[132px] h-8 rounded-lg border text-xs font-semibold outline-none ${
-          hint
-            ? 'border-amber-400 bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400'
-            : 'border-brand-400 bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400'
-        }`}
-      >
-        <span className="truncate px-2">{hint || live || '按下组合键…'}</span>
-      </span>
-      {currentAccelerator && (
-        <span className="text-[10px] text-slate-400 dark:text-slate-500 tabular-nums">
-          原 {formatAccelerator(currentAccelerator, isMac)}
-        </span>
-      )}
+    <span
+      ref={ref}
+      tabIndex={-1}
+      title={
+        hint ||
+        diagnostic ||
+        (currentAccelerator
+          ? `按下想用的组合键，Esc 取消；当前为 ${formatAccelerator(currentAccelerator, isMac)}`
+          : '按下想用的组合键，Esc 取消')
+      }
+      className={`inline-flex items-center justify-center w-full h-8 rounded-lg border text-xs font-semibold outline-none ${
+        hint
+          ? 'border-amber-400 bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400'
+          : 'border-brand-400 bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400'
+      }`}
+    >
+      <span className="truncate px-2">{hint || live || '按下组合键…'}</span>
     </span>
   )
 }

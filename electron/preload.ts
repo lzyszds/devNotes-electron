@@ -9,10 +9,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // Tool operations
   openTool: (toolName: string) => ipcRenderer.invoke('open-tool', toolName),
+
+  /* 草稿纸置顶小窗 */
+  scratchOpen: () => ipcRenderer.invoke('scratch-open'),
+  scratchClose: () => ipcRenderer.invoke('scratch-close'),
+  scratchPin: (pinned: boolean) => ipcRenderer.invoke('scratch-pin', pinned),
+
+  /* 端口占用排查 */
+  portsCommon: (): Promise<number[]> => ipcRenderer.invoke('ports-common'),
+  portsInspect: (ports: number[]) => ipcRenderer.invoke('ports-inspect', ports),
+  portsKill: (pid: number) => ipcRenderer.invoke('ports-kill', pid),
   
   // Notifications
-  showNotification: (title: string, body: string) => 
-    ipcRenderer.invoke('show-notification', title, body),
+  showNotification: (title: string, body: string, options?: { focusMainWindow?: boolean }) =>
+    ipcRenderer.invoke('show-notification', title, body, options),
   
   // App info
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
@@ -145,6 +155,26 @@ export interface OpenFilePayload {
   error?: string
 }
 
+/** 一条端口占用记录（与 electron/ports.ts 的 PortListener 对应） */
+export interface PortListenerInfo {
+  pid: number
+  processName: string
+  command: string
+  port: number
+  address: string
+  protocol: 'TCP'
+  /** 是 devNotes 自己占用时为 true，界面上禁止强杀 */
+  self: boolean
+}
+
+/** 单个端口的排查结果 */
+export interface PortInspectResult {
+  port: number
+  listeners: PortListenerInfo[]
+  /** 查询本身失败（如系统缺 lsof）时的原因 */
+  error?: string
+}
+
 // Type definitions for the exposed API
 declare global {
   interface Window {
@@ -153,7 +183,11 @@ declare global {
       maximizeWindow: () => Promise<void>
       closeWindow: () => Promise<void>
       openTool: (toolName: string) => Promise<void>
-      showNotification: (title: string, body: string) => Promise<void>
+      showNotification: (
+        title: string,
+        body: string,
+        options?: { focusMainWindow?: boolean }
+      ) => Promise<void>
       getAppVersion: () => Promise<string>
       storeGet: (key: string) => Promise<any>
       storeSet: (key: string, value: any) => Promise<void>
@@ -197,6 +231,16 @@ declare global {
         callback: (payload: OpenFilePayload) => void
       ) => () => void
       notifyRendererReady: () => Promise<void>
+
+      /** 草稿纸置顶小窗 */
+      scratchOpen: () => Promise<void>
+      scratchClose: () => Promise<void>
+      scratchPin: (pinned: boolean) => Promise<void>
+
+      /** 端口占用排查 */
+      portsCommon: () => Promise<number[]>
+      portsInspect: (ports: number[]) => Promise<PortInspectResult[]>
+      portsKill: (pid: number) => Promise<{ ok: boolean; pid: number; error?: string }>
     }
   }
 }

@@ -1,26 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   Check,
-  Cloud,
   Code2,
-  Command,
-  Download,
-  FilePlus,
-  Languages,
   Moon,
   Palette,
   PanelLeft,
-  Search,
-  Settings,
   ShieldCheck,
   Sparkles,
-  Star,
   Sun,
 } from 'lucide-react'
 import Select from '../ui/Select'
-import { useShortcutSettings } from '../../hooks/useShortcutSettings'
-import { formatAccelerator } from '../../utils/shortcutSettings'
-import ShortcutGuideModal, { type ShortcutItem } from '../ui/ShortcutGuideModal'
 import {
   CODE_BLOCK_THEMES,
   getCachedCodeBlockTheme,
@@ -51,116 +40,11 @@ const CODE_THEME_OPTIONS = (['dark', 'light'] as const).flatMap((tone) =>
 
 export interface GeneralPanelProps {
   theme: ThemeId
-  onToggleTheme: () => void
   onSelectTheme: (id: ThemeId) => void
   /** 把二级侧边栏宽度恢复为默认值 */
   onResetSidebarWidth: () => void
 }
 
-/**
- * 速查表条目 id -> 可自定义绑定的 id。
- *
- * 两边的 id 来历不同（这里是 cmd-k 之类的展示用 id，shortcutSettings 那边是
- * 稳定标识），所以显式列一张对照表，而不是靠字符串拼。改键位后速查表要跟着
- * 显示新键位，就靠这张表去查。
- */
-const SHORTCUT_BINDING_OF: Record<string, string> = {
-  'cmd-k': 'command-palette',
-  'cmd-t': 'open-translate',
-  'cmd-b': 'toggle-sidebar',
-  'cmd-n': 'new-note',
-  'cmd-shift-b': 'toggle-bookmark',
-  'cmd-e': 'export-note',
-  'cmd-d': 'toggle-theme',
-  'cmd-u': 'cloud-sync-settings',
-  'cmd-comma': 'open-settings',
-  'alt-shift-f': 'toggle-window',
-}
-
-/** 顶栏与全局快捷键速查及引导动画数据 */
-const SHORTCUT_ITEMS: ShortcutItem[] = [
-  {
-    id: 'cmd-k',
-    keys: '⌘ K',
-    keyParts: ['⌘', 'K'],
-    label: '打开全局指令面板',
-    description: '随时在任何地方快速呼出全局搜索与功能指令，输入关键字直接跳往指定工具或笔记。',
-    category: '系统导航',
-    icon: Search,
-  },
-  {
-    id: 'cmd-t',
-    keys: '⌘ T',
-    keyParts: ['⌘', 'T'],
-    label: '打开文本翻译',
-    description: '直接切到文本翻译模块，省去先回工具中心再点进来的两步。',
-    category: '系统导航',
-    icon: Languages,
-  },
-  {
-    id: 'cmd-b',
-    keys: '⌘ B',
-    keyParts: ['⌘', 'B'],
-    label: '折叠 / 展开文档目录',
-    description: '一键收起或展开 Markdown 二级侧边栏，为笔记阅读与沉浸写作腾出更大版心。',
-    category: '界面布局',
-    icon: PanelLeft,
-  },
-  {
-    id: 'cmd-n',
-    keys: '⌘ N',
-    keyParts: ['⌘', 'N'],
-    label: '新建 Markdown 笔记',
-    description: '立即在当前知识库中创建一篇崭新的空白文档，光标自动聚焦标题开始创作。',
-    category: '写作编辑',
-    icon: FilePlus,
-  },
-  {
-    id: 'cmd-shift-b',
-    keys: '⌘ ⇧ B',
-    keyParts: ['⌘', '⇧', 'B'],
-    label: '切换当前文档书签',
-    description: '为正在编辑的文档加上或移除书签。带书签的文档会固定在知识库列表最上方，方便随时回到常看的那几篇。',
-    category: '写作编辑',
-    icon: Star,
-  },
-  {
-    id: 'cmd-e',
-    keys: '⌘ E',
-    keyParts: ['⌘', 'E'],
-    label: '导出当前文档为 .md',
-    description: '将当前正编辑的笔记快速导出为标准本地 .md 文件，方便归档与外部协同。',
-    category: '数据管理',
-    icon: Download,
-  },
-  {
-    id: 'cmd-d',
-    keys: '⌘ D',
-    keyParts: ['⌘', 'D'],
-    label: '切换浅色 / 深色主题',
-    description: '在当前主题与对偶风格之间来回秒切，强光白天与夜间暗光环境自如适应。',
-    category: '外观偏好',
-    icon: Moon,
-  },
-  {
-    id: 'cmd-u',
-    keys: '⌘ U',
-    keyParts: ['⌘', 'U'],
-    label: '打开云同步设置',
-    description: '快速跳转到 Cloudflare 备份与多端同步配置面板，守护每一份笔记资产。',
-    category: '云端同步',
-    icon: Cloud,
-  },
-  {
-    id: 'cmd-comma',
-    keys: '⌘ ,',
-    keyParts: ['⌘', ','],
-    label: '打开全局设置',
-    description: '随时呼出主设置弹窗，调整 20 款主题配色、AI 接口、代码块高亮与界面偏好。',
-    category: '全局偏好',
-    icon: Settings,
-  },
-]
 
 type ThemeFilter = 'all' | 'light' | 'dark'
 
@@ -272,26 +156,11 @@ function MiniThemePreview({ preset }: { preset: ThemePreset }) {
 /** 全局设置 · 通用：外观、界面与关于信息 */
 export default function GeneralPanel({
   theme,
-  onToggleTheme,
   onSelectTheme,
   onResetSidebarWidth,
 }: GeneralPanelProps) {
   const [version, setVersion] = useState('')
   const [filter, setFilter] = useState<ThemeFilter>('all')
-  const [activeShortcut, setActiveShortcut] = useState<ShortcutItem | null>(null)
-  const shortcutMap = useShortcutSettings()
-
-  /**
-   * 速查表里显示的键位：能对上绑定的读实时配置，对不上的（比如只作演示用的
-   * 斜杠命令）退回写死的 keys。
-   */
-  const liveKeys = (item: ShortcutItem): string => {
-    const bindingId = SHORTCUT_BINDING_OF[item.id]
-    const accelerator = bindingId ? shortcutMap[bindingId] : ''
-    if (!accelerator) return item.keys
-    const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
-    return formatAccelerator(accelerator, isMac)
-  }
 
   const currentThemePreset = useMemo(() => getThemePreset(theme), [theme])
 
@@ -541,64 +410,6 @@ export default function GeneralPanel({
           </button>
         </div>
       </section>
-
-      {/* ================= 快捷键速查与动画演示 ================= */}
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-            <Command className="w-3.5 h-3.5" />
-            <span>快捷键速查</span>
-          </h4>
-          <span className="text-[11px] text-slate-400">
-            点击任意条目体验按键引导动画
-          </span>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 dark:border-dark-border divide-y divide-slate-100 dark:divide-dark-border overflow-hidden shadow-2xs">
-          {SHORTCUT_ITEMS.map((item) => {
-            const Icon = item.icon
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setActiveShortcut(item)}
-                className="w-full flex items-center justify-between px-3.5 py-2.5 hover:bg-brand-50/50 dark:hover:bg-brand-950/20 text-left transition-all group outline-none"
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <span className="w-6 h-6 rounded-lg bg-slate-100 dark:bg-dark-hover text-slate-500 group-hover:text-brand-600 dark:group-hover:text-brand-400 group-hover:bg-brand-50 dark:group-hover:bg-brand-950/40 flex items-center justify-center flex-shrink-0 transition-colors">
-                    <Icon className="w-3.5 h-3.5" />
-                  </span>
-                  <div className="min-w-0">
-                    <div className="text-xs font-medium text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white">
-                      {item.label}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className="text-[10px] text-brand-600 dark:text-brand-400 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-                    演示动画
-                  </span>
-                  <kbd className="px-2 py-1 text-[11px] font-mono font-semibold bg-slate-50 dark:bg-dark-sidebar border border-slate-200 dark:border-dark-border group-hover:border-brand-300 dark:group-hover:border-brand-700 rounded-md text-slate-600 dark:text-slate-300 shadow-2xs transition-colors">
-                    {/* 键位取实时配置，用户改过键位后这里要跟着变 */}
-                    {liveKeys(item)}
-                  </kbd>
-                </div>
-              </button>
-            )
-          })}
-        </div>
-      </section>
-
-      {/* ================= 快捷键拟物引导动效弹窗 ================= */}
-      <ShortcutGuideModal
-        shortcut={activeShortcut}
-        onClose={() => setActiveShortcut(null)}
-        onTriggerAction={(id) => {
-          if (id === 'cmd-d') onToggleTheme()
-          if (id === 'cmd-b') onResetSidebarWidth()
-        }}
-      />
 
       {/* ================= 关于 ================= */}
       <section className="space-y-3">

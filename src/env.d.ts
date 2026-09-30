@@ -14,13 +14,37 @@ interface ImportMeta {
   readonly env: ImportMetaEnv
 }
 
+/** 一条端口占用记录 */
+interface PortListenerInfo {
+  pid: number
+  processName: string
+  command: string
+  port: number
+  address: string
+  protocol: 'TCP'
+  /** 是 devNotes 自己占用时为 true，界面上禁止强杀 */
+  self: boolean
+}
+
+/** 单个端口的排查结果 */
+interface PortInspectResult {
+  port: number
+  listeners: PortListenerInfo[]
+  /** 查询本身失败（如系统缺 lsof）时的原因 */
+  error?: string
+}
+
 interface Window {
   electronAPI?: {
     minimizeWindow: () => Promise<void>
     maximizeWindow: () => Promise<void>
     closeWindow: () => Promise<void>
     openTool: (toolName: string) => Promise<void>
-    showNotification: (title: string, body: string) => Promise<void>
+    showNotification: (
+      title: string,
+      body: string,
+      options?: { focusMainWindow?: boolean }
+    ) => Promise<void>
     getAppVersion: () => Promise<string>
     storeGet: (key: string) => Promise<any>
     storeSet: (key: string, value: any) => Promise<void>
@@ -107,5 +131,15 @@ interface Window {
       callback: (payload: { requestId: string; error?: string }) => void
     ) => () => void
     onCaptureOcrRequest?: (callback: (dataUrl: string) => void) => () => void
+
+    /* 草稿纸置顶小窗 */
+    scratchOpen?: () => Promise<void>
+    scratchClose?: () => Promise<void>
+    scratchPin?: (pinned: boolean) => Promise<void>
+
+    /* 端口占用排查 */
+    portsCommon?: () => Promise<number[]>
+    portsInspect?: (ports: number[]) => Promise<PortInspectResult[]>
+    portsKill?: (pid: number) => Promise<{ ok: boolean; pid: number; error?: string }>
   }
 }

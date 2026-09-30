@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from 'react'
+import { Fragment, useState, useRef, useEffect, useMemo } from 'react'
 import type { MouseEvent as ReactMouseEvent } from 'react'
 import {
   PanelLeft,
@@ -11,11 +11,6 @@ import {
   Moon,
   Sun,
   Download,
-  FileText,
-  Braces,
-  Radio,
-  QrCode,
-  FileImage,
   LayoutGrid,
   BarChart3,
   Trash2,
@@ -23,7 +18,6 @@ import {
   BookmarkPlus,
   BookmarkMinus,
   FileCode,
-  ArrowLeftRight,
   Languages,
   PlusCircle,
   GitBranch,
@@ -35,9 +29,12 @@ import {
   Copy,
   Settings,
   Sparkles,
+  Network,
+  StickyNote,
 } from 'lucide-react'
-import { allModules, tools, toolCategories } from '../../types'
+import { allModules, standaloneModules, tools, toolCategories } from '../../types'
 import NotesSidebar from '../modules/markdown-notes/NotesSidebar'
+import SnippetsSidebar from '../modules/snippets/SnippetsSidebar'
 import ToolPage from '../../pages/ToolPage'
 import { useNotes } from '../../context/NotesContext'
 import SettingsModal, { type SettingsSection } from '../modals/SettingsModal'
@@ -55,12 +52,18 @@ import {
   isRecordingShortcut,
 } from '../../utils/shortcutSettings'
 import { subscribeAppSettings } from '../../utils/settingsBus'
+import { getCachedRailToolIds, subscribeRailToolIds } from '../../utils/sidebarLayout'
 import { requestOutline, subscribeDocStats } from '../../utils/editorBus'
 import { isDarkTheme, THEMES, type ThemeId } from '../../utils/theme'
 import logo from '../../assets/logo.png'
 import WindowControls from './WindowControls'
 import ThemeQuickMenu from './ThemeQuickMenu'
 import ToolIcon from '../ui/ToolIcon'
+
+/** 是否是独立模块。Rail 上独立模块与普通小工具之间要画一条分隔线 */
+function isStandalone(id: string | undefined): boolean {
+  return Boolean(id && standaloneModules.some((item) => item.id === id))
+}
 
 // 二级侧边栏（文档目录）宽度的持久化配置
 const SIDEBAR_WIDTH_KEY = 'fehelper-sidebar-width'
@@ -151,6 +154,14 @@ export default function DashboardLayout({
   const isMarkdownActive = activeTabId === 'markdown-notes'
   // 文本翻译是独立模块，二级侧边栏换成它自己的「翻译方向 + 历史」面板
   const isTranslateActive = activeTabId === 'text-translate'
+  // 代码片段库同样是独立模块，有自己的二级导航
+  const isSnippetsActive = activeTabId === 'snippets'
+  /*
+   * 左侧菜单栏的默认项。存一份在内存里并订阅变化 —— 设置面板里勾一下，
+   * Rail 要当场跟着变，不能等重新进页面。
+   */
+  const [railToolIds, setRailToolIds] = useState<string[]>(() => getCachedRailToolIds())
+  useEffect(() => subscribeRailToolIds(setRailToolIds), [])
   const [isMobileMoreOpen, setIsMobileMoreOpen] = useState(false)
   // 移动端顶栏的「已保存 · N 字」胶囊。字数走编辑器总线，
   // 免得顶栏和底部状态栏各算一套、口径对不上。
@@ -394,12 +405,43 @@ export default function DashboardLayout({
       },
     },
     {
+      id: 'cmd-scratchpad-window',
+      title: '打开草稿纸置顶小窗',
+      shortcut: '⌥⇧N',
+      icon: StickyNote,
+      action: () => {
+        if (!window.electronAPI?.scratchOpen) {
+          onOpenTool('scratchpad')
+          return
+        }
+        void window.electronAPI.scratchOpen()
+      },
+    },
+    {
+      id: 'cmd-scratchpad-page',
+      title: '打开草稿纸（页内编辑）',
+      shortcut: '',
+      icon: StickyNote,
+      action: () => {
+        onOpenTool('scratchpad')
+      },
+    },
+    {
       id: 'cmd-open-settings',
       title: '打开全局设置',
       shortcut: '⌘,',
       icon: Settings,
       action: () => {
         openSettings('general')
+      },
+    },
+    {
+      id: 'cmd-interface-settings',
+      title: '界面设置（左侧菜单栏自定义）',
+      shortcut: '',
+      icon: PanelLeft,
+      action: () => {
+        openSettings('interface')
       },
     },
     {
@@ -475,15 +517,23 @@ export default function DashboardLayout({
         onSelectTheme(t.id)
       },
     })),
-    ...tools.map((tool) => ({
+    /*
+     * 工具库 + 独立模块都要列。
+     *
+     * 原来只遍历 tools，片段库升成独立模块后就从指令面板里消失了 ——
+     * 用户搜不到自己收藏的片段入口，只能从侧栏绕。两头都得覆盖。
+     */
+    ...allModules.map((tool) => ({
       id: `cmd-tool-${tool.id}`,
       title: `打开 ${tool.name}`,
       shortcut: '',
       icon: (props: any) => <ToolIcon toolId={tool.id} {...props} />,
       action: () => {
+        // 草稿纸在指令面板里有单独的两条（小窗 / 页内），这里不再重复
+        if (tool.id === 'scratchpad') return
         onOpenTool(tool.id)
       },
-    })),
+    })).filter((item) => !item.id.endsWith('scratchpad')),
   ].filter((item) => item.title.toLowerCase().includes(cmdSearch.toLowerCase()))
 
   // 独立模块不在工具库里，得一起查，否则面包屑上的名字会掉成「工具」
@@ -601,7 +651,13 @@ export default function DashboardLayout({
               <button
                 onClick={() => setIsSidebarOpen(true)}
                 className="no-drag -ml-1.5 p-1.5 rounded-lg text-slate-600 dark:text-slate-300 active:bg-slate-100 dark:active:bg-dark-hover"
-                title={isMarkdownActive ? '打开文档列表' : '打开翻译面板'}
+                title={
+                  isMarkdownActive
+                    ? '打开文档列表'
+                    : isSnippetsActive
+                      ? '打开片段列表'
+                      : '打开翻译面板'
+                }
               >
                 <Menu className="w-5 h-5" />
               </button>
@@ -788,6 +844,33 @@ export default function DashboardLayout({
             <div className="h-4 w-[1px] bg-slate-200 dark:bg-dark-border" />
           </div>
 
+          {/* 常用工具快捷入口：端口被占用、临时记一笔都属于「不想先切页」的操作，
+              放顶栏一键直达，比从工具中心绕一圈快 */}
+          <Tooltip content="打开草稿纸置顶小窗 (⌥⇧N)">
+            <button
+              onClick={() => {
+                if (!window.electronAPI?.scratchOpen) {
+                  onOpenTool('scratchpad')
+                  return
+                }
+                void window.electronAPI.scratchOpen()
+              }}
+              className="no-drag p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-dark-hover rounded-lg transition-colors"
+            >
+              <StickyNote className="w-4 h-4" />
+            </button>
+          </Tooltip>
+
+          <Tooltip content="排查端口占用">
+            <button
+              onClick={() => onOpenTool('port-killer')}
+              className="no-drag p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-dark-hover rounded-lg transition-colors"
+            >
+              <Network className="w-4 h-4" />
+            </button>
+          </Tooltip>
+
+
           {/* 右侧主操作动作 */}
           {isMarkdownActive ? (
             <Tooltip content="导出当前 Markdown 文件">
@@ -826,121 +909,44 @@ export default function DashboardLayout({
             />
           </Tooltip>
 
-          {/* 常用小工具 Rail 导航 */}
+          {/* 常用小工具 Rail 导航。
+              默认项可在「设置 → 通用 → 左侧菜单栏」里改，配置见 sidebarLayout.ts */}
           <nav className="flex-1 flex flex-col gap-2 w-full px-2">
-            {/* Markdown 笔记 */}
-            <Tooltip content="Markdown 笔记">
-              <button
-                onClick={() => onOpenTool('markdown-notes')}
-                className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${activeTabId === 'markdown-notes'
-                  ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-brand-400'
-                  : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
-                  }`}
-              >
-                <FileText className="w-4 h-4" />
-                {activeTabId === 'markdown-notes' && (
-                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-brand-600 rounded-r-md" />
-                )}
-              </button>
-            </Tooltip>
-            {/* 文本翻译 */}
-            <Tooltip content="文本翻译">
-              <button
-                onClick={() => onOpenTool('text-translate')}
-                className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${activeTabId === 'text-translate'
-                  ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-brand-400'
-                  : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
-                  }`}
-              >
-                <Languages className="w-4 h-4" />
-                {activeTabId === 'text-translate' && (
-                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-brand-600 rounded-r-md" />
-                )}
-              </button>
-            </Tooltip>
-            {/* 分隔线：上面两个是独立模块（Markdown 笔记 / 文本翻译），下面是工具库小工具 */}
-            <div className="h-[1px] w-6 mx-auto bg-slate-200 dark:bg-dark-border" />
-
-            {/* JSON 格式化 */}
-            <Tooltip content="JSON 格式化">
-              <button
-                onClick={() => onOpenTool('json-format')}
-                className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${activeTabId === 'json-format'
-                  ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-brand-400'
-                  : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
-                  }`}
-              >
-                <Braces className="w-4 h-4" />
-                {activeTabId === 'json-format' && (
-                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-brand-600 rounded-r-md" />
-                )}
-              </button>
-            </Tooltip>
-
-            {/* WebSocket 测试 */}
-            <Tooltip content="WebSocket 测试">
-              <button
-                onClick={() => onOpenTool('websocket')}
-                className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${activeTabId === 'websocket'
-                  ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-brand-400'
-                  : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
-                  }`}
-              >
-                <Radio className="w-4 h-4" />
-                {activeTabId === 'websocket' && (
-                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-brand-600 rounded-r-md" />
-                )}
-              </button>
-            </Tooltip>
-
-            {/* 二维码工具 */}
-            <Tooltip content="二维码工具">
-              <button
-                onClick={() => onOpenTool('qr-code')}
-                className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${activeTabId === 'qr-code'
-                  ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-brand-400'
-                  : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
-                  }`}
-              >
-                <QrCode className="w-4 h-4" />
-                {activeTabId === 'qr-code' && (
-                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-brand-600 rounded-r-md" />
-                )}
-              </button>
-            </Tooltip>
-
-            {/* 图片转换 */}
-            <Tooltip content="图片转换">
-              <button
-                onClick={() => onOpenTool('image-convert')}
-                className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${activeTabId === 'image-convert'
-                  ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-brand-400'
-                  : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
-                  }`}
-              >
-                <FileImage className="w-4 h-4" />
-                {activeTabId === 'image-convert' && (
-                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-brand-600 rounded-r-md" />
-                )}
-              </button>
-            </Tooltip>
-
-            {/* 编码转换 */}
-            <Tooltip content="编码转换">
-              <button
-                onClick={() => onOpenTool('en-decode')}
-                className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${activeTabId === 'en-decode'
-                  ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-brand-400'
-                  : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
-                  }`}
-              >
-                <ArrowLeftRight className="w-4 h-4" />
-                {activeTabId === 'en-decode' && (
-                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-brand-600 rounded-r-md" />
-                )}
-              </button>
-            </Tooltip>
-
+            {railToolIds.map((toolId, index) => {
+              const meta = allModules.find((item) => item.id === toolId)
+              if (!meta) return null
+              const isActive = activeTabId === toolId
+              return (
+                <Fragment key={toolId}>
+                  {/* 独立模块（笔记 / 翻译 / 片段库）与普通小工具之间留一条分隔线 */}
+                  {index > 0 && isStandalone(railToolIds[index - 1]) !== isStandalone(toolId) && (
+                    <div className="h-[1px] w-6 mx-auto bg-slate-200 dark:bg-dark-border" />
+                  )}
+                  <Tooltip content={meta.name}>
+                    <button
+                      onClick={() => {
+                        // 草稿纸的形态是置顶小窗，Rail 上点它就直接把小窗调出来；
+                        // 页内编辑版仍可从工具中心进入
+                        if (toolId === 'scratchpad' && window.electronAPI?.scratchOpen) {
+                          void window.electronAPI.scratchOpen()
+                          return
+                        }
+                        onOpenTool(toolId)
+                      }}
+                      className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${isActive
+                        ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-brand-400'
+                        : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover'
+                        }`}
+                    >
+                      <ToolIcon toolId={toolId} className="w-4 h-4" />
+                      {isActive && (
+                        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-brand-600 rounded-r-md" />
+                      )}
+                    </button>
+                  </Tooltip>
+                </Fragment>
+              )
+            })}
 
           </nav>
 
@@ -1007,7 +1013,8 @@ export default function DashboardLayout({
 
         {/* 2.2 二级侧边栏（文档目录，宽度可拖拽调整 / 可折叠） */}
         {/* 翻译页不挂侧边栏：它原来那两个区块（翻译方向、翻译历史）在右侧
-            输入区与顶栏都有等价入口，留着只占地方 */}
+            输入区与顶栏都有等价入口，留着只占地方。
+            笔记与片段库则相反 —— 它们的列表就住在这条侧栏里，必须留着 */}
         {!isTranslateActive && (
         <section
           ref={sidebarRef}
@@ -1019,6 +1026,8 @@ export default function DashboardLayout({
         >
           {isMarkdownActive ? (
             <NotesSidebar onAfterSelect={() => isMobile && setIsSidebarOpen(false)} />
+          ) : isSnippetsActive ? (
+            <SnippetsSidebar onAfterSelect={() => isMobile && setIsSidebarOpen(false)} />
           ) : (
             /* 其它工具时的侧边栏：分类与工具列表导航 */
             <>
@@ -1345,7 +1354,6 @@ export default function DashboardLayout({
         onSectionChange={setSettingsSection}
         onClose={() => setIsSettingsOpen(false)}
         theme={theme}
-        onToggleTheme={onToggleTheme}
         onSelectTheme={onSelectTheme}
         onResetSidebarWidth={resetSidebarWidth}
       />

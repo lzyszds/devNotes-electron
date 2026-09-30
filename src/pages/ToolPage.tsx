@@ -9,9 +9,14 @@ import RegexpTool from '../components/tools/RegexpTool'
 import PasswordTool from '../components/tools/PasswordTool'
 import WebsocketTool from '../components/tools/WebsocketTool'
 import TextTranslateTool from '../components/modules/text-translate/TextTranslateTool'
+import SnippetsTool from '../components/modules/snippets/SnippetsTool'
+import TextScratchpadTool from '../components/tools/TextScratchpadTool'
 import { allModules } from '../types'
 
 const NotesTool = lazy(() => import('../components/tools/NotesTool'))
+// 这两个各自拖着一大坨（位运算沙箱的位图、端口表的解析），按需加载
+const BitwiseTool = lazy(() => import('../components/tools/BitwiseTool'))
+const PortKillerTool = lazy(() => import('../components/tools/PortKillerTool'))
 
 const toolComponents: Record<string, React.ComponentType<any>> = {
   'markdown-notes': NotesTool,
@@ -28,6 +33,10 @@ const toolComponents: Record<string, React.ComponentType<any>> = {
   'base64': () => <EncodeTool initialType="base64" />,
   'url': () => <EncodeTool initialType="url" />,
   'websocket': WebsocketTool,
+  'bitwise': BitwiseTool,
+  'snippets': SnippetsTool,
+  'port-killer': PortKillerTool,
+  'scratchpad': TextScratchpadTool,
 }
 
 function ToolLoading() {

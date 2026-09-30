@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Cloud, Keyboard, Languages, Loader2, Settings2, Volume2, X } from 'lucide-react'
+import { Cloud, Keyboard, Languages, Loader2, PanelLeft, Settings2, Volume2, X } from 'lucide-react'
 import type { ComponentType } from 'react'
 import { useNotes } from '../../context/NotesContext'
 import { usePresence } from '../../hooks/usePresence'
@@ -8,11 +8,13 @@ import ShortcutSettingsPanel from '../settings/ShortcutSettingsPanel'
 import CloudflareSyncPanel from '../settings/CloudflareSyncPanel'
 import TranslateApiPanel from '../settings/TranslateApiPanel'
 import SpeechPanel from '../settings/SpeechPanel'
+import InterfacePanel from '../settings/InterfacePanel'
 import Tooltip from '../ui/Tooltip'
 import type { ThemeId } from '../../utils/theme'
 
 export type SettingsSection =
   | 'general'
+  | 'interface'
   | 'shortcuts'
   | 'cloud-sync'
   | 'translate-api'
@@ -24,7 +26,6 @@ export interface SettingsModalProps {
   onSectionChange: (section: SettingsSection) => void
   onClose: () => void
   theme: ThemeId
-  onToggleTheme: () => void
   onSelectTheme: (id: ThemeId) => void
   onResetSidebarWidth: () => void
 }
@@ -37,7 +38,13 @@ interface SectionMeta {
 }
 
 const SECTIONS: SectionMeta[] = [
-  { id: 'general', label: '通用', hint: '外观主题与界面偏好', icon: Settings2 },
+  { id: 'general', label: '通用', hint: '外观主题与关于信息', icon: Settings2 },
+  {
+    id: 'interface',
+    label: '界面',
+    hint: '左侧菜单栏与布局',
+    icon: PanelLeft,
+  },
   {
     id: 'shortcuts',
     label: '快捷键',
@@ -74,7 +81,6 @@ export default function SettingsModal({
   onSectionChange,
   onClose,
   theme,
-  onToggleTheme,
   onSelectTheme,
   onResetSidebarWidth,
 }: SettingsModalProps) {
@@ -183,11 +189,11 @@ export default function SettingsModal({
             {section === 'general' && (
               <GeneralPanel
                 theme={theme}
-                onToggleTheme={onToggleTheme}
                 onSelectTheme={onSelectTheme}
                 onResetSidebarWidth={onResetSidebarWidth}
               />
             )}
+            {section === 'interface' && <InterfacePanel />}
             {section === 'shortcuts' && <ShortcutSettingsPanel />}
             {section === 'cloud-sync' && <CloudflareSyncPanel />}
             {section === 'translate-api' && <TranslateApiPanel />}

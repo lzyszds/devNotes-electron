@@ -78,6 +78,8 @@ export const SYNCED_SETTING_KEYS = [
   'text-translate-prefs',
   // 快捷键
   'shortcut-bindings',
+  // 左侧菜单栏的默认项
+  'rail-tool-ids',
   // 外观与界面偏好
   'fehelper-theme',
   'fehelper-code-theme',
@@ -172,6 +174,12 @@ export async function applySettings(snapshot: SettingsSnapshot): Promise<number>
   if ('shortcut-bindings' in snapshot) {
     const { refreshShortcutMap } = await import('./shortcutSettings')
     await refreshShortcutMap()
+  }
+
+  // 左侧菜单栏同理：Rail 读的是内存里那份缓存，写盘不会让它变
+  if ('rail-tool-ids' in snapshot) {
+    const { refreshRailToolIds } = await import('./sidebarLayout')
+    await refreshRailToolIds()
   }
 
   return applied

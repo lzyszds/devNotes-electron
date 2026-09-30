@@ -704,6 +704,104 @@ html.dark ::-webkit-scrollbar-thumb:hover {
   scrollbar-width: none;
 }
 
+/*
+ * 草稿纸小窗的 Markdown 预览样式。
+ *
+ * 不套 .markdown-body：那一套是给正文编辑器用的，字号、段距都按长文档调，
+ * 塞进 420px 宽的小窗里显得又大又松。这里按小窗重新标一遍尺寸，
+ * 只保留「能一眼看出结构」所需的最小样式。
+ */
+.scratch-preview > *:first-child { margin-top: 0; }
+.scratch-preview > *:last-child { margin-bottom: 0; }
+.scratch-preview p { margin: 0 0 0.6rem; }
+.scratch-preview h1,
+.scratch-preview h2,
+.scratch-preview h3,
+.scratch-preview h4,
+.scratch-preview h5,
+.scratch-preview h6 {
+  margin: 0.9rem 0 0.5rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: #0f172a;
+}
+.scratch-preview h1 { font-size: 1.25rem; }
+.scratch-preview h2 { font-size: 1.1rem; }
+.scratch-preview h3 { font-size: 1rem; }
+.scratch-preview h4,
+.scratch-preview h5,
+.scratch-preview h6 { font-size: 0.9rem; }
+.dark .scratch-preview h1,
+.dark .scratch-preview h2,
+.dark .scratch-preview h3,
+.dark .scratch-preview h4,
+.dark .scratch-preview h5,
+.dark .scratch-preview h6 { color: #f8fafc; }
+
+.scratch-preview ul,
+.scratch-preview ol { margin: 0 0 0.6rem; padding-left: 1.2rem; }
+.scratch-preview ul { list-style: disc; }
+.scratch-preview ol { list-style: decimal; }
+.scratch-preview li { margin: 0.15rem 0; }
+
+/* 任务清单：去掉项目符号，自己画一个方框 */
+.scratch-preview ul.scratch-task { list-style: none; padding-left: 0.1rem; }
+.scratch-preview li.scratch-task-item { display: flex; gap: 0.4rem; align-items: flex-start; }
+.scratch-preview .scratch-check {
+  width: 0.95rem;
+  height: 0.95rem;
+  margin-top: 0.25rem;
+  border-radius: 4px;
+  border: 1.5px solid #cbd5e1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  line-height: 1;
+  color: #fff;
+  flex-shrink: 0;
+}
+.scratch-preview li.is-done .scratch-check {
+  border-color: rgb(var(--brand-600-rgb, 33 131 151));
+  background: rgb(var(--brand-600-rgb, 33 131 151));
+}
+.scratch-preview li.is-done > span:last-child { color: #94a3b8; text-decoration: line-through; }
+.dark .scratch-preview .scratch-check { border-color: #475569; }
+
+.scratch-preview blockquote {
+  margin: 0 0 0.6rem;
+  padding: 0.35rem 0.7rem;
+  border-left: 3px solid rgb(var(--brand-600-rgb, 33 131 151));
+  border-radius: 0 6px 6px 0;
+  background: #f1f5f9;
+  color: #475569;
+}
+.dark .scratch-preview blockquote { background: rgba(148, 163, 184, 0.08); color: #94a3b8; }
+
+.scratch-preview code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.86em;
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+  background: rgba(100, 116, 139, 0.14);
+}
+.scratch-preview pre {
+  margin: 0 0 0.6rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  overflow-x: auto;
+  background: #f1f5f9;
+}
+.dark .scratch-preview pre { background: rgba(148, 163, 184, 0.1); }
+.scratch-preview pre code { padding: 0; background: none; font-size: 0.8rem; }
+.scratch-preview hr { border: 0; border-top: 1px solid rgba(148, 163, 184, 0.3); margin: 0.9rem 0; }
+.scratch-preview a {
+  color: rgb(var(--brand-600-rgb, 33 131 151));
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.dark .scratch-preview a { color: rgb(var(--brand-400-rgb, 56 178 196)); }
+
 @keyframes scene-enter {
   from {
     opacity: 0;

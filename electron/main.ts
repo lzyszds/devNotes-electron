@@ -12,12 +12,15 @@ import {
   type ProxyConfig,
 } from './proxy'
 import { migrateUserDataIfNeeded } from './migrateUserData'
+import { COMMON_PORTS, inspectPort, killProcess } from './ports'
 import type { IpcMainInvokeEvent } from 'electron'
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 /** 截图框选用的一次性全屏遮罩窗口 */
 let captureWindow: BrowserWindow | null = null
+/** 草稿纸小窗。单例 —— 反复唤起只把它调出来，不开第二个 */
+let scratchWindow: BrowserWindow | null = null
 /** 本次框选的截图结果，缓存起来供推 / 拉两条路径共用（见 createCaptureWindow） */
 let captureShotPromise: Promise<unknown> | null = null
 /** 进行中的流式翻译请求，按 requestId 索引，供中途中断 */
@@ -55,6 +58,10 @@ const GLOBAL_SHORTCUT_ACTIONS: Record<string, () => void> = {
   'screenshot-translate': () => {
     createCaptureWindow()
   },
+  // 草稿纸是独立小窗，跟主窗口的显隐无关 —— 主窗口收进托盘时它照样能唤出来
+  'open-scratchpad': () => {
+    openScratchWindow()
+  },
 }
 
 /** 主进程侧的默认键位。渲染端的默认值在 shortcutSettings.ts，两边要保持一致 */
@@ -62,6 +69,7 @@ const GLOBAL_SHORTCUT_DEFAULTS: Record<string, string> = {
   'toggle-window': 'Alt+Shift+F',
   'open-translate': 'Alt+Shift+T',
   'screenshot-translate': 'Alt+Shift+S',
+  'open-scratchpad': 'Alt+Shift+N',
 }
 
 /** 读用户配置的快捷键表；读不到就用默认值 */
@@ -236,6 +244,119 @@ function closeCaptureWindow(): void {
   captureShotPromise = null
 }
 
+/* ==================== 草稿纸：置顶小窗 ==================== */
+
+/** 小窗尺寸与位置在 electron-store 里的键。关窗时记，下次开还原 */
+const SCRATCH_BOUNDS_KEY = 'scratch-window-bounds'
+const SCRATCH_DEFAULT_SIZE = { width: 420, height: 480 }
+/** 缩到多小就不让再缩了，再小写不下几行字 */
+const SCRATCH_MIN_SIZE = { width: 280, height: 220 }
+
+/** 校验从 store 读回来的窗口位置：显示器可能已经拔了，越界的坐标会把窗口丢到看不见的地方 */
+function readScratchBounds(): Electron.Rectangle | null {
+  const saved = store.get(SCRATCH_BOUNDS_KEY) as Partial<Electron.Rectangle> | undefined
+  if (!saved || typeof saved !== 'object') return null
+  const { x, y, width, height } = saved
+  if (![x, y, width, height].every((value) => typeof value === 'number' && Number.isFinite(value))) {
+    return null
+  }
+
+  const rect = {
+    x: x as number,
+    y: y as number,
+    width: Math.max(SCRATCH_MIN_SIZE.width, width as number),
+    height: Math.max(SCRATCH_MIN_SIZE.height, height as number),
+  }
+
+  // 至少要有 80px 落在某块屏幕里，否则还原出来是个「在屏幕外」的窗口
+  const visible = screen.getAllDisplays().some((display) => {
+    const area = display.workArea
+    return (
+      rect.x + rect.width > area.x + 80 &&
+      rect.x < area.x + area.width - 80 &&
+      rect.y + rect.height > area.y + 40 &&
+      rect.y < area.y + area.height - 40
+    )
+  })
+  return visible ? rect : null
+}
+
+/**
+ * 打开（或唤起）草稿纸小窗。
+ *
+ * 单例：已经开着就只调出来，不开第二个 —— 同一份草稿被两个窗口同时编辑，
+ * 后写的会把先写的覆盖掉。
+ */
+function openScratchWindow(): void {
+  if (scratchWindow && !scratchWindow.isDestroyed()) {
+    if (scratchWindow.isMinimized()) scratchWindow.restore()
+    scratchWindow.show()
+    scratchWindow.focus()
+    return
+  }
+
+  const saved = readScratchBounds()
+  const bounds = saved ?? {
+    ...SCRATCH_DEFAULT_SIZE,
+    // 首次打开摆在主窗口右侧，像从主窗口「撕」下来的一张纸
+    x: mainWindow ? mainWindow.getBounds().x + mainWindow.getBounds().width + 16 : undefined,
+    y: mainWindow ? mainWindow.getBounds().y : undefined,
+  }
+
+  const window = new BrowserWindow({
+    ...bounds,
+    minWidth: SCRATCH_MIN_SIZE.width,
+    minHeight: SCRATCH_MIN_SIZE.height,
+    frame: false,
+    // 置顶：做前后端开发时它要能浮在编辑器、终端、浏览器上面
+    alwaysOnTop: true,
+    fullscreenable: false,
+    // 小窗自己画不出阴影，让系统给一层，脱离主窗口时才有「浮着」的层次
+    hasShadow: true,
+    title: '草稿纸',
+    backgroundColor: '#ffffff',
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  })
+  scratchWindow = window
+
+  // 置顶层级用 floating：既压得住普通窗口，又不会盖住系统弹窗与输入法候选框
+  window.setAlwaysOnTop(true, 'floating')
+  registerWindowShortcuts(window)
+
+  const devServerUrl = process.env.VITE_DEV_SERVER_URL
+  if (devServerUrl) {
+    void window.loadURL(`${devServerUrl}?scratch=1`)
+  } else {
+    void window.loadFile(path.join(__dirname, '../dist/index.html'), { search: 'scratch=1' })
+  }
+
+  window.once('ready-to-show', () => window.show())
+
+  // 拖动 / 缩放结束后落盘。用 'resized' + 'moved' 而不是监听 'resize' 过程中的每一帧，
+  // 避免拖拽时几十次写盘
+  const persistBounds = () => {
+    if (window.isDestroyed() || window.isMinimized() || window.isMaximized()) return
+    store.set(SCRATCH_BOUNDS_KEY, window.getBounds())
+  }
+  window.on('resized', persistBounds)
+  window.on('moved', persistBounds)
+
+  window.on('closed', () => {
+    scratchWindow = null
+  })
+}
+
+/** 关掉草稿纸小窗（渲染层的 ✕ 走这里） */
+function closeScratchWindow(): void {
+  if (scratchWindow && !scratchWindow.isDestroyed()) scratchWindow.close()
+  scratchWindow = null
+}
+
 /**
  * 唤起窗口并切到指定工具页。
  *
@@ -286,7 +407,7 @@ function flushOpenFiles() {
   }
   if (!rendererReady) return
 
-  for (const filePath of [...pendingOpenFiles]) {
+  for (const filePath of Array.from(pendingOpenFiles)) {
     const name = path.basename(filePath)
     let payload: {
       path: string
@@ -437,9 +558,9 @@ function createTray() {
   const iconDir = path.join(__dirname, '../assets')
   // 只认带透明通道的格式:jpg 无 alpha,会把透明背景渲成不透明
   const iconFiles = ['icon.png', 'icon.ico']
-  let icon: nativeImage | null = null
+  let icon: Electron.NativeImage | null = null
   
-  for (const file of iconFiles) {
+  for (const file of [...iconFiles]) {
     const iconPath = path.join(iconDir, file)
     if (fs.existsSync(iconPath)) {
       icon = nativeImage.createFromPath(iconPath)
@@ -464,6 +585,8 @@ function createTray() {
   
   const contextMenu = Menu.buildFromTemplate([
     { label: '显示 devNotes', click: () => mainWindow?.show() },
+    // 主窗口关掉是收进托盘，草稿纸是独立小窗，托盘里得单独给个入口
+    { label: '打开草稿纸', click: () => openScratchWindow() },
     { type: 'separator' },
     { label: '退出', click: () => app.quit() }
   ])
@@ -512,15 +635,96 @@ function setupIpc() {
     }
   })
 
-  ipcMain.handle('show-notification', (_, title: string, body: string) => {
-    if (Notification.isSupported()) {
-      new Notification({ title, body }).show()
+  /**
+   * 系统通知。
+   *
+   * 带关闭回调：截图取字的结果是异步回来的，用户很可能已经把窗口切走了，
+   * 那时候得主动把窗口拉回前台，否则识别完了也没人看见。
+   */
+  ipcMain.handle(
+    'show-notification',
+    (_, title: string, body: string, options?: { focusMainWindow?: boolean }) => {
+      if (!Notification.isSupported()) return
+      const notification = new Notification({ title, body })
+      if (options?.focusMainWindow) {
+        notification.on('click', () => {
+          if (!mainWindow) {
+            createMainWindow()
+            return
+          }
+          if (mainWindow.isMinimized()) mainWindow.restore()
+          mainWindow.show()
+          mainWindow.focus()
+        })
+      }
+      notification.show()
     }
-  })
+  )
 
   ipcMain.handle('open-tool', (_, toolName: string) => {
     createToolWindow(toolName)
   })
+
+  /* ---------------- 草稿纸置顶小窗 ---------------- */
+
+  ipcMain.handle('scratch-open', () => {
+    openScratchWindow()
+  })
+
+  ipcMain.handle('scratch-close', () => {
+    closeScratchWindow()
+  })
+
+  /**
+   * 重新钉在最上层。
+   *
+   * 置顶标志有时会被系统或其他置顶窗口顶掉（切全屏、显示器热插拔），
+   * 界面上留一个「图钉」按钮，让用户能手动把它按回最前。
+   */
+  ipcMain.handle('scratch-pin', (event, pinned: boolean) => {
+    const window = windowOf(event)
+    if (!window) return
+    if (pinned) window.setAlwaysOnTop(true, 'floating')
+    else window.setAlwaysOnTop(false)
+  })
+
+  /* ---------------- 端口占用排查 ---------------- */
+
+  ipcMain.handle('ports-common', () => COMMON_PORTS)
+
+  /**
+   * 查端口占用。
+   *
+   * 单项失败（比如系统没装 lsof）不能把整个列表拖垮 —— 每个端口各自兜住异常，
+   * 失败的那个返回 error 字段，界面按「查不到」呈现即可。
+   */
+  ipcMain.handle('ports-inspect', async (_, ports: number[]) => {
+    const list = Array.isArray(ports) ? ports.filter((p) => Number.isInteger(p)) : []
+
+    return await Promise.all(
+      list.map(async (port) => {
+        try {
+          const listeners = await inspectPort(port)
+          return { port, listeners }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error)
+          // lsof 查无结果时以退出码 1 收场，execFile 会把它抛成异常 ——
+          // 这不是错误，是「这个端口没人监听」
+          const nothingFound = /command failed/i.test(message) && !/permission/i.test(message)
+          return {
+            port,
+            listeners: [],
+            ...(nothingFound ? {} : { error: message }),
+          }
+        }
+      }),
+    )
+  })
+
+  ipcMain.handle('ports-kill', async (_, pid: number) => {
+    return await killProcess(pid)
+  })
+
 
   ipcMain.handle('get-app-version', () => {
     return app.getVersion()
@@ -817,4 +1021,6 @@ app.on('window-all-closed', () => {
 
 app.on('will-quit', () => {
   globalShortcut.unregisterAll()
+  // 草稿纸是常驻置顶的小窗，退出时得一并收掉，否则会留下一个唤不回的窗口
+  closeScratchWindow()
 })

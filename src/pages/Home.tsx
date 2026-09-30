@@ -40,6 +40,22 @@ export default function Home({
     showToast(ok ? label : "复制失败", ok ? "default" : "error");
   };
 
+  /**
+   * 打开工具。
+   *
+   * 草稿纸是个例外：它的主要形态是常驻置顶的小窗，从工具中心点它时
+   * 直接把小窗调出来更符合预期；页内编辑版仍可通过指令面板进入。
+   * 移动端与 Web 端没有小窗能力，退回到页面。
+   */
+  const openEntry = (id: string) => {
+    if (id === 'scratchpad' && window.electronAPI?.scratchOpen) {
+      void window.electronAPI.scratchOpen();
+      showToast("草稿纸小窗已打开");
+      return;
+    }
+    onOpenTool(id);
+  };
+
   const filteredTools = tools.filter((tool) => {
     const matchesSearch =
       tool.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -91,7 +107,7 @@ export default function Home({
       const target = filteredTools[cursor >= 0 ? cursor : 0];
       if (target) {
         event.preventDefault();
-        onOpenTool(target.id);
+        openEntry(target.id);
       }
       return;
     }
@@ -237,14 +253,14 @@ export default function Home({
             {filteredTools.map((tool, index) => (
               <button
                 key={tool.id}
-                onClick={() => onOpenTool(tool.id)}
+                onClick={() => openEntry(tool.id)}
                 onContextMenu={(e) =>
                   openContextMenu(e, [
                     {
                       id: "card-open",
                       label: "打开",
                       icon: <FolderOpen className="w-3.5 h-3.5" />,
-                      onSelect: () => onOpenTool(tool.id),
+                      onSelect: () => openEntry(tool.id),
                     },
                     { id: "card-sep", separator: true },
                     {

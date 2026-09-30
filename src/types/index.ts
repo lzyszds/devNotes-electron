@@ -38,6 +38,9 @@ export const tools: Tool[] = [
   { id: 'timestamp', name: '时间戳', icon: 'Clock', description: '时间戳与日期互转', category: 'encode' },
   { id: 'regexp', name: '正则公式', icon: 'Regex', description: '常用正则表达式', category: 'dev' },
   { id: 'password', name: '密码生成', icon: 'Lock', description: '随机密码生成器', category: 'calculator' },
+  { id: 'bitwise', name: '进制与位运算', icon: 'Binary', description: '2/8/10/16 进制换算、位掩码、位移、大小端与 IEEE 754 解析', category: 'calculator' },
+  { id: 'port-killer', name: '端口占用排查', icon: 'Network', description: '查出谁占了端口，一键强杀腾出来', category: 'dev' },
+  { id: 'scratchpad', name: '草稿纸', icon: 'StickyNote', description: '常驻置顶小窗，随手记临时地址、Token 与待办', category: 'productivity' },
 ]
 
 /**
@@ -47,6 +50,7 @@ export const tools: Tool[] = [
 export const standaloneModules: Tool[] = [
   { id: 'markdown-notes', name: 'Markdown 笔记', icon: 'FileText', description: '本地笔记编辑器，支持双栏与所见即所得两种模式', category: 'productivity' },
   { id: 'text-translate', name: '文本翻译', icon: 'Languages', description: '中英日韩等 20 种语言互译，支持自动检测源语言', category: 'productivity' },
+  { id: 'snippets', name: '代码片段库', icon: 'FileCode2', description: '收藏常用命令与配置模板，左侧列表随时搜索复制', category: 'productivity' },
 ]
 
 /** 工具库 + 独立模块。按 id 查名字/图标的地方用它，别用 tools，否则独立模块会漏掉 */

@@ -57,6 +57,13 @@ export const SHORTCUT_BINDINGS: ShortcutBinding[] = [
     scope: 'global',
   },
   {
+    id: 'open-scratchpad',
+    label: '打开草稿纸',
+    description: '呼出常驻置顶的草稿纸小窗，在别的应用里也能随手记一笔',
+    defaultAccelerator: 'Alt+Shift+N',
+    scope: 'global',
+  },
+  {
     id: 'command-palette',
     label: '全局指令面板',
     description: '呼出搜索与功能指令，输入关键字直接跳转',

@@ -11,6 +11,10 @@ import {
   Regex,
   Lock,
   FileCode,
+  FileCode2,
+  Binary,
+  Network,
+  StickyNote,
   FileImage,
   Link2,
   Wrench,
@@ -36,6 +40,10 @@ const ICON_MAP: Record<string, React.ComponentType<LucideProps>> = {
   'password': Lock,
   'base64': FileCode,
   'url': Link2,
+  'bitwise': Binary,
+  'snippets': FileCode2,
+  'port-killer': Network,
+  'scratchpad': StickyNote,
 }
 
 /**
