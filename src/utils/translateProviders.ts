@@ -1,7 +1,12 @@
 /** 用户自定义翻译接口的请求构造与响应解析：OpenAI 兼容 / LibreTranslate */
 
 import { translateFetch } from "./translateFetch";
-import type { LibreTranslateConfig, OpenAICompatibleConfig } from "./translateConfig";
+import { translateStream } from "./translateStream";
+import {
+  buildThinkingOffParams,
+  type LibreTranslateConfig,
+  type OpenAICompatibleConfig,
+} from "./translateConfig";
 
 export interface AdapterOutcome {
   ok: boolean;
@@ -246,6 +251,8 @@ export async function translateWithOpenAI(
       { role: "system", content: buildTranslateSystemPrompt(sourceLang, targetLang) },
       { role: "user", content: text },
     ],
+    // 关掉推理模型的思考过程，否则首个可见字符要等好几秒
+    ...buildThinkingOffParams(config),
   });
 
   const result = await translateFetch(url, {
@@ -310,14 +317,61 @@ export async function translateWithLibreTranslate(
   return parseLibreTranslateResponse(result.text);
 }
 
-/** 设置弹窗的「测试连接」：真实翻译一句话，把 URL、密钥、模型名一次验完 */
+export interface ProbeOutcome extends AdapterOutcome {
+  /** 本次测试的总耗时（毫秒）。失败时也有值，方便判断是超时还是立刻报错 */
+  elapsedMs: number;
+  /**
+   * 首字延迟（毫秒）。只有 OpenAI 兼容接口能测出来 —— 它走流式，
+   * 能精确知道第一个字什么时候到。LibreTranslate 没有流式，为 undefined。
+   *
+   * 挑模型时这个值比总耗时更贴近体感：总耗时受译文长度影响，而首字延迟
+   * 决定"按下翻译到看见字开始动"这段等待。
+   */
+  firstTokenMs?: number;
+}
+
+/**
+ * 设置弹窗的「测试连接」：真实翻译一句话，把 URL、密钥、模型名一次验完。
+ *
+ * 顺带把耗时带回去 —— 用户挑模型时，这个数字比"成功"两个字有用得多：
+ * 同在能用的前提下，选快的那条链路才是重点。
+ *
+ * OpenAI 兼容接口走流式测：既验证 stream 是否可用（翻译页现在依赖它），
+ * 又能拿到首字延迟。LibreTranslate 没有流式能力，只能测总耗时。
+ */
 export async function probeProvider(
   provider: "openai" | "libretranslate",
   config: OpenAICompatibleConfig | LibreTranslateConfig
-): Promise<AdapterOutcome> {
+): Promise<ProbeOutcome> {
   const sample = "Hello, world!";
+  const startedAt = Date.now();
+
   if (provider === "openai") {
-    return translateWithOpenAI(sample, "en", "zh", config as OpenAICompatibleConfig);
+    let firstTokenMs: number | undefined;
+    const result = await translateStream({
+      text: sample,
+      sourceLang: "en",
+      targetLang: "zh",
+      config: config as OpenAICompatibleConfig,
+      onFirstToken: (ms) => {
+        firstTokenMs = ms;
+      },
+      onDelta: () => {},
+    });
+    return {
+      ok: result.ok,
+      text: result.text,
+      error: result.error,
+      elapsedMs: Date.now() - startedAt,
+      firstTokenMs,
+    };
   }
-  return translateWithLibreTranslate(sample, "en", "zh", config as LibreTranslateConfig);
+
+  const outcome = await translateWithLibreTranslate(
+    sample,
+    "en",
+    "zh",
+    config as LibreTranslateConfig
+  );
+  return { ...outcome, elapsedMs: Date.now() - startedAt };
 }

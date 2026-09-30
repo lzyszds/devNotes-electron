@@ -6,6 +6,7 @@ import {
   History,
   Languages,
   Loader2,
+  ScanText,
   Trash2,
   TriangleAlert,
   Volume2,
@@ -42,6 +43,14 @@ import { translateTextBatch, type TranslationAPI } from '../../../utils/jsonI18n
 import { openAppSettings } from '../../../utils/settingsBus'
 import { speak } from '../../../utils/speechSettings'
 import { AUTO_LANG, LANGUAGES, langName } from '../../../utils/languages'
+import { subscribeOcrRequest } from '../../../utils/ocrBus'
+import { translateStream } from '../../../utils/translateStream'
+import {
+  OCR_LANGUAGES,
+  describeStatus,
+  recognizeText,
+  type OcrLanguage,
+} from '../../../utils/ocr'
 
 const API_OPTIONS: SelectOption<TranslationAPI>[] = [
   { value: 'gtx', label: 'GTX' },
@@ -241,10 +250,49 @@ export default function TextTranslateTool() {
   // 输入停顿即翻；默认开，与设计稿一致
   const [autoTranslate, setAutoTranslate] = useState(true)
   const [unwrapLines, setUnwrapLines] = useState(false)
+  /** 截图取字：识别语言与当前进度 */
+  const [ocrLang, setOcrLang] = useState<OcrLanguage>('chi_sim+eng')
+  const [ocrState, setOcrState] = useState<{
+    status: 'recognizing' | 'done'
+    progress: number
+    label: string
+  } | null>(null)
   const { showToast } = useToast()
 
   // 代际 id：翻译请求没有 AbortSignal，用它在响应回来时丢弃过期的结果
   const runIdRef = useRef(0)
+  /**
+   * 正在跑的流式请求。
+   *
+   * 自动翻译每次输入都会触发新请求，旧的若不断开，两股译文会交错着往
+   * 结果区写。代际 id 只挡「写入」，断流还得靠它。
+   */
+  const streamAbortRef = useRef<AbortController | null>(null)
+
+  /** 输入框。挂载后自动聚焦，用户按快捷键唤起就能直接敲字 */
+  const inputRef = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    const focus = () => inputRef.current?.focus()
+
+    // 挂载即聚焦，覆盖「从别的工具切过来」这条路径。
+    // 延迟一帧：快捷键唤起时窗口刚从后台切到前台，立刻 focus 会被系统的
+    // 窗口激活流程覆盖掉，等布局落定再聚焦更稳。
+    const timer = window.setTimeout(focus, 0)
+
+    /*
+     * 还要覆盖「本来就在翻译页，只是窗口被隐藏」这条路径 —— 此时组件不会
+     * 重新挂载，只靠上面的 effect 拿不到焦点。窗口重新激活时补一次聚焦。
+     *
+     * 但用户主动点别处（比如点译文区）时不该抢回来，所以只在窗口级的
+     * focus 事件里做，不在 document 上做。
+     */
+    window.addEventListener('focus', focus)
+    return () => {
+      window.clearTimeout(timer)
+      window.removeEventListener('focus', focus)
+    }
+  }, [])
 
   const openHistoryMenu = useHistoryContextMenu<string>({
     onUse: (item) => {
@@ -282,6 +330,57 @@ export default function TextTranslateTool() {
 
   const handleSwap = swapLanguages
 
+  /**
+   * 流式翻译：边收边把累积的译文写进结果区。
+   *
+   * 不做分段 —— 流式本身就解决了「长文本等太久」，再切段反而会得到一堆
+   * 各自不连贯的片段（模型看不到上下文）。整段丢给它，逐字吐出来。
+   */
+  const runStreaming = async (
+    text: string,
+    myId: number,
+    startedAt: number,
+    target: string,
+  ) => {
+    if (!translateConfig?.openai) return
+    // 上一轮还没结束就开新的，会让两股译文交错着写进结果区
+    streamAbortRef.current?.abort()
+    const controller = new AbortController()
+    streamAbortRef.current = controller
+
+    try {
+      const result = await translateStream({
+        text,
+        sourceLang,
+        targetLang: target,
+        config: translateConfig.openai,
+        signal: controller.signal,
+        onDelta: (_delta, full) => {
+          // 已经有更新的请求在跑，这次的结果丢掉
+          if (myId !== runIdRef.current) return
+          setOutput(full)
+        },
+      })
+
+      if (myId !== runIdRef.current) return
+      if (!result.ok && result.error && result.error !== '已取消') {
+        setError(result.error)
+        // 部分译文也留着，比清空更有用
+        if (result.text) setOutput(result.text)
+      }
+      setElapsed(Math.round(performance.now() - startedAt))
+      if (result.ok) {
+        const from = sourceLang === AUTO_LANG ? '自动检测' : langName(sourceLang)
+        saveHistory(text, `翻译: ${from} → ${langName(target)}`)
+      }
+    } catch (e) {
+      if (myId === runIdRef.current) setError('翻译过程中出错: ' + (e as Error).message)
+    } finally {
+      if (streamAbortRef.current === controller) streamAbortRef.current = null
+      if (myId === runIdRef.current) setIsTranslating(false)
+    }
+  }
+
   const handleTranslate = async () => {
     if (!input.trim() || isTranslating || mymemoryAutoBlocked) return
 
@@ -300,6 +399,15 @@ export default function TextTranslateTool() {
     const myId = ++runIdRef.current
     const text = input
     const startedAt = performance.now()
+
+    /*
+     * OpenAI 兼容接口走流式：文字边生成边显示，不用干等整段翻译完。
+     * LibreTranslate 之类的接口没有流式能力，保持原来的整段返回。
+     */
+    if (api === 'openai' && translateConfig?.openai) {
+      await runStreaming(text, myId, startedAt, effectiveTarget)
+      return
+    }
 
     try {
       const segments = toSegments(unwrapLines ? unwrapHardBreaks(text) : text, CHUNK_BYTE_LIMIT[api])
@@ -350,13 +458,64 @@ export default function TextTranslateTool() {
   const translateRef = useRef(handleTranslate)
   translateRef.current = handleTranslate
 
+  /**
+   * 截图取字：收到图片 → OCR → 填进输入框并翻译。
+   *
+   * 关掉自动翻译会走上面那条 debounce，所以填完 input 什么都不用做，
+   * 翻译会自己跟上；这里只需要在关掉自动翻译时手动触发一次。
+   */
+  const ocrSeqRef = useRef(0)
+  useEffect(() => {
+    const off = subscribeOcrRequest(async (dataUrl) => {
+      // 连续截好几张时，后发的先回来会被旧结果覆盖，用序号挡掉
+      const seq = ++ocrSeqRef.current
+      setOcrState({ status: 'recognizing', progress: 0, label: '准备识别' })
+      setError('')
+
+      try {
+        const text = await recognizeText(dataUrl, {
+          lang: ocrLang,
+          onProgress: (p) => {
+            if (ocrSeqRef.current !== seq) return
+            setOcrState({
+              status: 'recognizing',
+              progress: p.progress,
+              label: describeStatus(p.status),
+            })
+          },
+        })
+        if (ocrSeqRef.current !== seq) return
+
+        if (!text) {
+          setOcrState(null)
+          setError('没有从这张图里识别出文字，换个区域或换个语言试试')
+          return
+        }
+        setInput(text)
+        setOcrState({ status: 'done', progress: 1, label: '识别完成' })
+        // 关掉自动翻译时不会有 debounce 兜底，这里补一次
+        if (!autoTranslate) window.setTimeout(() => void translateRef.current(), 0)
+      } catch (e) {
+        if (ocrSeqRef.current !== seq) return
+        setOcrState(null)
+        setError('识别失败：' + (e instanceof Error ? e.message : String(e)))
+      }
+    })
+    return off
+  }, [autoTranslate, ocrLang, setError, setInput])
+
   useEffect(() => {
     if (!autoTranslate) return
     if (!input.trim() || mymemoryAutoBlocked) return
     // 接口没配就别自动跑：否则每敲一个字都弹一次红色错误条，等着用户去点「立即翻译」时提示一次就够了
     if (needsConfig) return
     const timer = setTimeout(() => void translateRef.current(), AUTO_DEBOUNCE_MS)
-    return () => clearTimeout(timer)
+    return () => {
+      clearTimeout(timer)
+      // 输入又变了：正在跑的流式请求作废，断掉它免得两股译文交错写入
+      streamAbortRef.current?.abort()
+      streamAbortRef.current = null
+    }
   }, [input, autoTranslate, mymemoryAutoBlocked, needsConfig])
 
   // 音色与语速取自「设置 → 语音朗读」，和设置面板里的试听共用同一套参数
@@ -405,6 +564,26 @@ export default function TextTranslateTool() {
       }
       actions={
         <>
+          {/* 识别语言只影响 OCR，跟上面的翻译语言是两回事 */}
+          <Select<OcrLanguage>
+            value={ocrLang}
+            onChange={setOcrLang}
+            options={OCR_LANGUAGES}
+            className="w-28"
+            title="识别语言"
+          />
+
+          <Tooltip content="框选屏幕区域，识别其中的文字">
+            <button
+              onClick={() => void window.electronAPI?.startCapture?.()}
+              disabled={!window.electronAPI?.startCapture}
+              className="tool-button-secondary h-8"
+            >
+              <ScanText size={15} />
+              <span>截图取字</span>
+            </button>
+          </Tooltip>
+
           <Select<TranslationAPI>
             value={api}
             onChange={setApi}
@@ -507,8 +686,28 @@ export default function TextTranslateTool() {
               )}
             </div>
 
-            <div className="flex-1 min-h-0 p-4 flex flex-col">
+            {/* 识别进度：只有截了图、还在识别时才出现，识别完自动收掉 */}
+          {ocrState?.status === 'recognizing' && (
+            <div className="mx-4 mt-3 flex items-center gap-2.5 rounded-lg bg-brand-50 dark:bg-brand-500/10 px-3 py-2 shrink-0">
+              <Loader2 size={13} className="animate-spin text-brand-500 shrink-0" />
+              <span className="text-[11px] font-medium text-brand-700 dark:text-brand-300 shrink-0">
+                {ocrState.label}
+              </span>
+              <div className="flex-1 h-1 rounded-full bg-brand-200/50 dark:bg-brand-500/20 overflow-hidden">
+                <div
+                  className="h-full bg-brand-500 transition-[width] duration-200"
+                  style={{ width: `${Math.round(ocrState.progress * 100)}%` }}
+                />
+              </div>
+              <span className="text-[10px] font-mono text-brand-500 tabular-nums shrink-0">
+                {Math.round(ocrState.progress * 100)}%
+              </span>
+            </div>
+          )}
+
+          <div className="flex-1 min-h-0 p-4 flex flex-col">
               <textarea
+                ref={inputRef}
                 value={input}
                 onChange={(e) => {
                   setInput(e.target.value)

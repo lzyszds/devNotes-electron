@@ -213,3 +213,79 @@ function parseGtxResponse(raw: string): string | null {
   }
   return null
 }
+
+/* ---------------- 流式请求 ---------------- */
+
+export interface StreamFetchOptions extends NetFetchOptions {
+  /** 每收到一块数据就回调一次（原始 chunk，可能是半行） */
+  onChunk: (chunk: string) => void
+  /** 请求结束（成功或失败都会调，error 有值即失败） */
+  onEnd: (error?: string) => void
+}
+
+/**
+ * 流式请求：边收边回调，不累积成完整文本。
+ *
+ * 与 fetchViaNet 走同一套 net/session（代理、UA 都一致），区别只在
+ * response 的 data 事件里立刻把 chunk 交出去 —— SSE 的逐字输出就靠这个。
+ *
+ * 不返回 Promise：调用方在 onEnd 里收尾。用 Promise 会让「中途流式推送」
+ * 和「最终结果」两件事挤在一个返回值里，反而绕。
+ */
+export function fetchViaNetStream(options: StreamFetchOptions): { abort: () => void } {
+  const request = net.request({
+    method: options.method || 'POST',
+    url: options.url,
+    session: session.defaultSession,
+  })
+
+  const headers = {
+    'User-Agent':
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    Accept: 'text/event-stream',
+    ...options.headers,
+  }
+  for (const [key, value] of Object.entries(headers)) {
+    if (value) request.setHeader(key, value)
+  }
+
+  // 流式响应可能持续很久，超时给得比普通请求宽
+  const timeoutMs = options.timeout ?? 120000
+  let finished = false
+  const finish = (error?: string) => {
+    if (finished) return
+    finished = true
+    clearTimeout(timer)
+    options.onEnd(error)
+  }
+  const timer = setTimeout(() => {
+    request.abort()
+    finish('请求超时')
+  }, timeoutMs)
+
+  request.on('response', (response) => {
+    const status = response.statusCode || 0
+    if (status < 200 || status >= 300) {
+      // 非 2xx 时把错误体收全再报，方便看清服务端说了什么
+      let body = ''
+      response.on('data', (chunk) => {
+        body += chunk.toString()
+      })
+      response.on('end', () => finish(`HTTP ${status}: ${body.slice(0, 300)}`))
+      return
+    }
+
+    response.on('data', (chunk) => {
+      options.onChunk(chunk.toString())
+    })
+    response.on('end', () => finish())
+    response.on('error', (err) => finish(err.message))
+  })
+
+  request.on('error', (err) => finish(err.message))
+
+  if (options.body) request.write(options.body)
+  request.end()
+
+  return { abort: () => request.abort() }
+}
