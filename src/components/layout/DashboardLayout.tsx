@@ -37,7 +37,6 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { allModules, tools, toolCategories } from '../../types'
-import TranslateSidebar from '../modules/text-translate/TranslateSidebar'
 import NotesSidebar from '../modules/markdown-notes/NotesSidebar'
 import ToolPage from '../../pages/ToolPage'
 import { useNotes } from '../../context/NotesContext'
@@ -213,7 +212,11 @@ export default function DashboardLayout({
   const appShortcutActions = useMemo<Record<string, () => void>>(
     () => ({
       'command-palette': () => setIsCmdOpen((prev) => !prev),
-      'toggle-sidebar': () => setIsSidebarOpen((prev) => !prev),
+      'toggle-sidebar': () => {
+        // 翻译页没有侧边栏，别让它切换一个看不见的状态
+        if (isTranslateActive) return
+        setIsSidebarOpen((prev) => !prev)
+      },
       'new-note': () => {
         if (isMarkdownActive) {
           // 在某个文件夹视图下新建，直接归到该文件夹，省一次「移动到」
@@ -247,6 +250,7 @@ export default function DashboardLayout({
       handleExportNote,
       handleToggleBookmark,
       isMarkdownActive,
+      isTranslateActive,
       onOpenTool,
       onToggleTheme,
       scope,
@@ -669,8 +673,9 @@ export default function DashboardLayout({
             <ChevronLeft className="w-5 h-5" />
           </button>
 
-          {/* 移动端只有笔记页与翻译模块有二级面板，其余工具没有可折叠的目录 */}
-          {(!isMobile || isMarkdownActive || isTranslateActive) && (
+          {/* 只有笔记页有可折叠的二级面板。翻译页原先也有（方向 + 历史），
+              现已移除 —— 那里两个区块在右侧输入区与顶栏都有等价入口 */}
+          {!isTranslateActive && (!isMobile || isMarkdownActive) && (
             <Tooltip content={isSidebarOpen ? '折叠侧边栏 (⌘B)' : '展开侧边栏 (⌘B)'}>
               <button
                 onClick={() => setIsSidebarOpen((prev) => !prev)}
@@ -972,6 +977,9 @@ export default function DashboardLayout({
         )}
 
         {/* 2.2 二级侧边栏（文档目录，宽度可拖拽调整 / 可折叠） */}
+        {/* 翻译页不挂侧边栏：它原来那两个区块（翻译方向、翻译历史）在右侧
+            输入区与顶栏都有等价入口，留着只占地方 */}
+        {!isTranslateActive && (
         <section
           ref={sidebarRef}
           style={isMobile ? undefined : { width: isSidebarOpen ? sidebarWidth : 0 }}
@@ -982,9 +990,6 @@ export default function DashboardLayout({
         >
           {isMarkdownActive ? (
             <NotesSidebar onAfterSelect={() => isMobile && setIsSidebarOpen(false)} />
-          ) : isTranslateActive ? (
-            /* 文本翻译模块的专属侧边栏：翻译方向 + 历史记录，不再是「组件工具库」那套列表 */
-            <TranslateSidebar />
           ) : (
             /* 其它工具时的侧边栏：分类与工具列表导航 */
             <>
@@ -1138,9 +1143,10 @@ export default function DashboardLayout({
             </div>
           )}
         </section>
+        )}
 
         {/* 2.2.1 文档目录宽度分割线：负边距覆盖在侧边栏右边框上，不挤占主工作台 */}
-        {!isMobile && isSidebarOpen && (
+        {!isTranslateActive && !isMobile && isSidebarOpen && (
           <Tooltip content="拖动调整文档目录宽度，双击恢复默认">
             <div
               onMouseDown={handleSidebarResizeStart}
