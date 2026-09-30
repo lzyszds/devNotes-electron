@@ -76,6 +76,12 @@ const ICON_TONES = {
     'text-slate-400 hover:bg-brand-50 hover:text-brand-600 dark:text-slate-500 dark:hover:bg-brand-500/10 dark:hover:text-brand-400',
   danger:
     'text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:text-slate-500 dark:hover:bg-rose-500/10 dark:hover:text-rose-400',
+  /*
+   * 成功态是「有底色」的，和上面三个不同 —— 它只在动作完成的那一瞬挂上
+   * （如复制按钮变对勾），需要一眼看出「这按钮刚被按过」，光换图标颜色不够。
+   */
+  emerald:
+    'text-emerald-600 bg-emerald-50 hover:bg-emerald-100 dark:text-emerald-400 dark:bg-emerald-500/15 dark:hover:bg-emerald-500/20',
 } as const
 
 export type IconTone = keyof typeof ICON_TONES
@@ -161,14 +167,17 @@ export type TagTone = keyof typeof TAG_TONES
 /** 卡片标题旁的小彩色标签（UTF-8 / 3 项 / 就绪 这类） */
 export function ToolTag({
   tone = 'slate',
+  className = '',
   children,
 }: {
   tone?: TagTone
+  /** 追加类名。用于挂 fe-pop 这类一次性反馈动画 */
+  className?: string
   children: ReactNode
 }) {
   return (
     <span
-      className={`inline-flex items-center gap-1 h-5 px-1.5 rounded-md text-[10px] font-semibold shrink-0 ${TAG_TONES[tone]}`}
+      className={`inline-flex items-center gap-1 h-5 px-1.5 rounded-md text-[10px] font-semibold shrink-0 ${TAG_TONES[tone]} ${className}`}
     >
       {children}
     </span>

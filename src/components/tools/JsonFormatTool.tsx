@@ -4,7 +4,6 @@ import {
   Minimize2,
   ArrowUpDown,
   Trash2,
-  Copy,
   Download,
   GitCompareArrows,
   CheckCircle2,
@@ -28,6 +27,8 @@ import {
   ToolEmpty,
   ToolHistoryOverlay,
   ToolShell,
+  CopyButton,
+  CopyButtonPrimary,
   iconButtonClass,
 } from "../ui";
 import Tooltip from "../ui/Tooltip";
@@ -307,12 +308,6 @@ export default function JsonFormatTool({
     }
   };
 
-  const copyOutput = () => {
-    if (output) {
-      navigator.clipboard.writeText(output);
-    }
-  };
-
   const downloadOutput = () => {
     const blob = new Blob([output], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -399,8 +394,8 @@ export default function JsonFormatTool({
               }}
               className="tool-button-primary h-8 px-5"
             >
-              <Copy size={15} />
-              <span>复制结果</span>
+              <CopyButtonPrimary value={() => output} disabled={!output} />
+
             </button>
           </>
         }
@@ -616,11 +611,7 @@ export default function JsonFormatTool({
                       { value: "tree", label: "树形", icon: ListTree },
                     ]}
                   />
-                  <Tooltip content="复制结果">
-                    <button onClick={copyOutput} disabled={!output} className={iconButtonClass("brand")}>
-                      <Copy size={15} />
-                    </button>
-                  </Tooltip>
+                  <CopyButton value={() => output} disabled={!output} />
                   <Tooltip content="下载结果">
                     <button
                       onClick={downloadOutput}
@@ -644,7 +635,16 @@ export default function JsonFormatTool({
                 />
               ) : output ? (
                 viewMode === "text" ? (
-                  <CodeEditor value={output} readOnly placeholder="格式化结果将在此显示..." />
+                  /* key 绑输出内容：重新美化一次就重挂载一层外壳（不是重挂编辑器本身），
+                     让 fe-rise 重播一遍 —— 用户能看出「这次的结果是新算的」。
+                     把 key 放在包一层 div 上而不是 CodeEditor 上：编辑器一旦重挂载，
+                     里面滚动容器的滚动位置会归零，改个缩进就把视图弹回顶部太烦人。 */
+                  <div
+                    key={`${output.length}-${output.slice(0, 24)}`}
+                    className="fe-rise flex-1 min-h-0 flex flex-col"
+                  >
+                    <CodeEditor value={output} readOnly placeholder="格式化结果将在此显示..." />
+                  </div>
                 ) : (
                   <div className="flex-1 min-h-0 overflow-y-auto p-4">
                     {parsedOutput ? (

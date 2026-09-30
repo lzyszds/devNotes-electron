@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowDown, Copy, History, KeyRound, Shuffle, TriangleAlert } from 'lucide-react'
+import { ArrowDown, History, KeyRound, Shuffle, TriangleAlert } from 'lucide-react'
 import { useToolHistory } from '../../hooks/useToolHistory'
 import { useHistoryContextMenu } from '../../hooks/useHistoryContextMenu'
 import {
@@ -18,11 +18,8 @@ import {
   ToolHistoryOverlay,
   ToolNotice,
   ToolShell,
-  iconButtonClass,
+  CopyButton,
 } from '../ui'
-import Tooltip from '../ui/Tooltip'
-import { useToast } from '../ui/Toast'
-import { copyText } from '../../utils/clipboard'
 import {
   AES_KEY_SIZES,
   AES_MODES,
@@ -121,7 +118,6 @@ export default function EncodeTool({ initialType = 'base64' }: { initialType?: s
   const [running, setRunning] = useState(false)
   const [error, setError] = useState('')
   const [showHistory, setShowHistory] = useState(false)
-  const { showToast } = useToast()
 
   const { history, saveHistory, clearHistory, removeHistoryItem } = useToolHistory<string>('encode')
   const openHistoryMenu = useHistoryContextMenu<string>({
@@ -178,12 +174,6 @@ export default function EncodeTool({ initialType = 'base64' }: { initialType?: s
     setInput('')
     setOutput('')
     setError('')
-  }
-
-  const copyOutput = async () => {
-    if (!output) return
-    const ok = await copyText(output)
-    showToast(ok ? '已复制结果' : '复制失败', ok ? 'default' : 'error')
   }
 
   /** 密钥没填就别让 AES 按钮亮着，省得点了才报错 */
@@ -257,7 +247,7 @@ export default function EncodeTool({ initialType = 'base64' }: { initialType?: s
             meta={`${encoderTypes.length + 1} 种`}
           />
 
-          <div className="flex-1 min-h-0 overflow-y-auto p-3 flex flex-col gap-4">
+          <div className="tool-cascade flex-1 min-h-0 overflow-y-auto p-3 flex flex-col gap-4">
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between px-1">
                 <span className={SECTION_LABEL}>编码</span>
@@ -442,16 +432,7 @@ export default function EncodeTool({ initialType = 'base64' }: { initialType?: s
               // meta 自带一层灰底，这里只能传纯文本；再套 ToolTag 会双层叠色
               meta={isAes ? `AES-${aes.mode}` : currentType?.name}
               actions={
-                <Tooltip content="复制结果">
-                  <button
-                    type="button"
-                    onClick={() => void copyOutput()}
-                    disabled={!output}
-                    className={iconButtonClass('brand')}
-                  >
-                    <Copy size={15} />
-                  </button>
-                </Tooltip>
+                <CopyButton value={() => output} disabled={!output} />
               }
             />
             <div className="flex-1 min-h-0 p-4 flex flex-col">

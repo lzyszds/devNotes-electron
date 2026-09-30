@@ -15,7 +15,7 @@ import {
   VIEW_MODE_LABEL,
   type EditorViewMode,
 } from "./markdown/ViewModeSwitch";
-import { Bookmark, Loader2, Minimize2, TriangleAlert, X } from "lucide-react";
+import { Loader2, Minimize2, TriangleAlert, X } from "lucide-react";
 import Tooltip from "../ui/Tooltip";
 import { computeDocStats } from "../../utils/markdownStats";
 import {
@@ -36,7 +36,6 @@ import {
 } from "../../utils/editorZoom";
 import {
   captureBlockBookmark,
-  captureReadingBookmark,
   createBookmarkId,
   isBookmarkResolvable,
 } from "../../utils/readingBookmark";
@@ -61,6 +60,7 @@ export default function NotesTool() {
     ready,
     activeNote,
     handleContentChange,
+    handleRename,
     handleSaveReadingBookmark,
     handleDeleteReadingBookmark,
     saveStatus,
@@ -72,6 +72,83 @@ export default function NotesTool() {
   const [viewMode, setViewMode] = useState<EditorViewMode>(readViewMode);
   const [warning, setWarning] = useState("");
   const [showBackToTop, setShowBackToTop] = useState(false);
+  /*
+   * 文档条上的标题就地编辑。
+   *
+   * 放在编辑区顶部这条工具栏里，而不是顶栏的面包屑 —— 顶栏是 app-region: drag
+   * 的无边框拖拽区，那片区域的指针事件被 Chromium 的非客户区命中测试接管，
+   * 在它内部放可点控件要跟拖拽区反复周旋。编辑区没有这些限制，点得动、选得中、
+   * 光标也正常。
+   */
+  const [editingTitle, setEditingTitle] = useState(false);
+  const titleRef = useRef<HTMLDivElement>(null);
+
+  /**
+   * contentEditable 的元素内容不受 React 管：它自己在 DOM 里被改，React 并不知道。
+   * 所以内容得手动同步 —— 这里在非编辑态把它写成当前标题（切文档、改名后都会走到），
+   * 编辑态则完全放手，让用户直接编辑 DOM，中途不插一脚，否则光标会被重置。
+   */
+  useEffect(() => {
+    const el = titleRef.current;
+    if (!el || editingTitle) return;
+    const text = activeNote?.title || "未命名文档";
+    if (el.textContent !== text) el.textContent = text;
+    /*
+      依赖里只需要 activeNote?.title，不能带 editingTitle。
+      带上它的话，提交那一刻会这样：setEditingTitle(false) → effect 重跑 →
+      此时 handleRename 的状态还没回流，activeNote.title 仍是旧值 →
+      刚改好的标题被 effect 打回旧名字。等状态真正更新时才该同步，
+      而那时这个 effect 会因为 title 变了自然再跑一次。
+    */
+  }, [activeNote?.title]);
+
+  /**
+   * 进入编辑态。
+   *
+   * 关键：在这里**同步**写好 contentEditable 并立刻聚焦，不等 React 渲染。
+   * 原因是浏览器的行为 —— 点击时浏览器先按元素当时的 contenteditable 值判断
+   * 「这里能不能放光标」，那会儿还是 false，光标根本进不去；等 React 把属性
+   * 更新成 true 已经晚了，用户看到的就是「点了没反应」。
+   * 直接操作 DOM 就没有这个时间差。
+   *
+   * 同理，React 的 diff 对 contenteditable 这类属性并不可靠（它比较的是
+   * 虚拟 DOM 上的值，而真实 DOM 已被我们改过），所以这件事整个交给 DOM 做。
+   */
+  const startTitleEdit = () => {
+    if (!activeNote) return;
+    const el = titleRef.current;
+    if (!el) return;
+    el.setAttribute("contenteditable", "true");
+    setEditingTitle(true);
+    el.focus();
+    // 全选：进来就能直接打字覆盖旧名
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+  };
+
+  // 换到别的文档时收掉编辑态，免得草稿落到新文档头上
+  useEffect(() => {
+    setEditingTitle(false);
+  }, [activeNote?.id]);
+
+  const commitTitleEdit = () => {
+    const note = activeNote;
+    const el = titleRef.current;
+    // 从 DOM 读回内容：contentEditable 的真值在元素里，不在 React state
+    const next = (el?.textContent || "").trim();
+    // 退出编辑态：和进入时对称，属性也是直接写 DOM
+    el?.removeAttribute("contenteditable");
+    setEditingTitle(false);
+    if (!note || !next || next === note.title) {
+      // 没改动或改空了：把 DOM 恢复成当前标题，别让界面停在一个没被采纳的值上
+      if (titleRef.current) titleRef.current.textContent = note?.title || "未命名文档";
+      return;
+    }
+    handleRename(note.id, next);
+  };
   // 全屏由宿主统一实现，两个内核共用 —— Cherry 那边本质上只是加一个 fullscreen 类
   const [fullscreen, setFullscreen] = useState(false);
   /*
@@ -146,25 +223,10 @@ export default function NotesTool() {
    * 先把位置算出来存进 draft，再让用户补备注 —— 位置在这一刻是准的，
    * 弹窗开着的时候用户若滚动了正文，也不该把备注记到滚动后的位置上。
    */
-  const handleAddBookmark = () => {
-    const container = livePosition?.container;
-    if (!container || !activeNote) return;
-
-    const captured = captureReadingBookmark(container, createBookmarkId());
-    if (!captured) {
-      // 光标还在第一个标题之前（封面、引言区），没有可锚的章节
-      showToast("请先滚动到正文的某个标题下再记书签", "error");
-      return;
-    }
-
-    openBookmarkDraft(activeNote.id, captured);
-  };
-
   /**
    * 块手柄那颗按钮：在光标所在的那一段上记书签。
    *
-   * 与上面那颗的区别只在**锚点取在哪** —— 这里以「这一块的顶边」为基准，
-   * 于是点哪一段就落在哪一段，而不是落在当前滚到的位置。
+   * 锚点取在这一块的顶边，于是点哪一段就落在哪一段，而不是落在当前滚到的位置。
    */
   const handleBookmarkBlock = (block: HTMLElement) => {
     const container = livePosition?.container;
@@ -415,9 +477,49 @@ export default function NotesTool() {
           预览态下它是「工具」，整条收掉；移动端标题已在顶栏、缩放靠手势，这条一并收掉 */}
       {!previewing && !isMobile && (
         <div className="relative z-40 flex-shrink-0 h-9 px-3 flex bg-white items-center justify-between gap-3 border-b border-slate-200/80 dark:border-dark-border dark:bg-dark-panel">
-          <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-slate-400 dark:text-slate-500">
-            {activeNote.title || "未命名文档"}
-          </span>
+          {/*
+            文档名。用 contentEditable 而不是 input —— 点进去是「这段文字本身变得可编辑」，
+            字号、字重、行高、占位都在原地不变，没有输入框边框与背景的跳变；
+            换成 input 的话，进出编辑态那一下整条工具栏的文字基线都会动一下。
+            它是编辑区顶部这条的工具，不参与正文排版，所以不会跑到 Markdown 内容里去。
+          */}
+          <div
+            ref={titleRef}
+            // contenteditable 由 startTitleEdit / commitTitleEdit 直接写 DOM，
+            // 不走 React（原因见 startTitleEdit 的说明）
+            suppressContentEditableWarning
+            spellCheck={false}
+            onClick={() => {
+              if (!editingTitle) startTitleEdit();
+            }}
+            onKeyDown={(e) => {
+              if (!editingTitle) return;
+              /*
+                中文/日文输入法选字时回车是「确认候选词」，不能当成提交 ——
+                否则打「笔记」两个字，刚敲完拼音按回车就被提交出去了。
+                isComposing 在组合期间为 true，只有组合结束后的回车才是真回车。
+              */
+              if (e.nativeEvent.isComposing) return;
+              if (e.key === "Enter") {
+                // 单行标题：回车即提交，不换行
+                e.preventDefault();
+                commitTitleEdit();
+              } else if (e.key === "Escape") {
+                e.preventDefault();
+                titleRef.current?.removeAttribute("contenteditable");
+                setEditingTitle(false);
+              }
+            }}
+            onBlur={() => {
+              if (editingTitle) commitTitleEdit();
+            }}
+            title={editingTitle ? undefined : `${activeNote?.title || "未命名文档"}（点击重命名）`}
+            className={`min-w-0 flex-1 truncate text-left text-[12px] font-semibold rounded px-1 -mx-1 outline-none transition-colors ${
+              editingTitle
+                ? "bg-slate-100 text-slate-900 dark:bg-dark-hover dark:text-white"
+                : "cursor-text text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-dark-hover dark:hover:text-slate-100"
+            }`}
+          ></div>
           <div className="flex flex-shrink-0 items-center gap-2">
             {/*
               当前读到哪。两个内核都有这条阅读位置（走同一条总线），
@@ -428,26 +530,6 @@ export default function NotesTool() {
                 {livePosition.heading || "开头"} · {livePosition.percent}%
               </span>
             )}
-            {/*
-              记位置：按**当前滚动位置**记一条（块手柄那颗是按光标所在的那一段）。
-              两个入口在长文里各有用处 —— 读到某处想先记一下时，滚轮比找光标快。
-            */}
-            <Tooltip content="记下当前阅读位置">
-              <button
-                type="button"
-                onClick={handleAddBookmark}
-                aria-label="记下当前阅读位置"
-                className="flex h-8 items-center gap-1 rounded-md border border-slate-200/80 px-2 text-[11px] font-medium text-slate-500 transition-colors hover:border-brand-500/40 hover:text-brand-600 dark:border-dark-border dark:text-slate-400 dark:hover:text-brand-400"
-              >
-                <Bookmark className="h-3.5 w-3.5" />
-                记位置
-                {bookmarks && bookmarks.length > 0 && (
-                  <span className="rounded-full bg-brand-500/15 px-1 text-[10px] font-semibold tabular-nums text-brand-600 dark:text-brand-400">
-                    {bookmarks.length}
-                  </span>
-                )}
-              </button>
-            </Tooltip>
             <EditorZoom />
             <EditorModeSwitch value={mode} onChange={handleModeChange} />
           </div>

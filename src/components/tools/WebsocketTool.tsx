@@ -3,7 +3,6 @@ import {
   AlertCircle,
   ArrowUpRight,
   CheckCircle2,
-  Copy,
   History,
   Play,
   Square,
@@ -24,11 +23,10 @@ import {
   ToolHistoryOverlay,
   ToolShell,
   buttonClass,
+  CopyButton,
   iconButtonClass,
 } from "../ui";
 import Tooltip from "../ui/Tooltip";
-import { useToast } from "../ui/Toast";
-import { copyText } from "../../utils/clipboard";
 
 type MessageLog = {
   id: number;
@@ -53,7 +51,6 @@ export default function WebsocketTool() {
   const [logs, setLogs] = useState<MessageLog[]>([]);
   const [status, setStatus] = useState<number>(WebSocket.CLOSED);
   const [showHistory, setShowHistory] = useState(false);
-  const { showToast } = useToast();
 
   const socketRef = useRef<WebSocket | null>(null);
   const logIdRef = useRef(0);
@@ -135,16 +132,6 @@ export default function WebsocketTool() {
     socket.send(message);
     appendLog("sent", message);
     setMessage("");
-  };
-
-  const copyLogs = async () => {
-    const content = logs
-      .slice()
-      .reverse()
-      .map((log) => `[${log.time}] ${log.type.toUpperCase()}: ${log.text}`)
-      .join("\n");
-    const ok = await copyText(content);
-    showToast(ok ? "已复制日志" : "复制失败", ok ? "default" : "error");
   };
 
   useEffect(() => {
@@ -288,15 +275,12 @@ export default function WebsocketTool() {
             }
             actions={
               <>
-                <Tooltip content="复制日志">
-                  <button
-                    onClick={() => void copyLogs()}
-                    disabled={logs.length === 0}
-                    className={iconButtonClass("brand")}
-                  >
-                    <Copy size={14} />
-                  </button>
-                </Tooltip>
+                <CopyButton
+                  value={() => logs.join("\n")}
+                  disabled={logs.length === 0}
+                  size={14}
+                  label="复制日志"
+                />
                 <Tooltip content="清空日志">
                   <button
                     onClick={() => setLogs([])}

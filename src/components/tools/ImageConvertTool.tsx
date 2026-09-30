@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Code,
-  Copy,
   Download,
   FileImage,
   FileWarning,
@@ -9,7 +7,6 @@ import {
   Globe,
   Image as ImageIcon,
   Layers,
-  Link,
   Link2,
   Link2Off,
   Loader2,
@@ -36,11 +33,13 @@ import {
   ToolNotice,
   ToolShell,
   ToolTag,
+  CopyButton,
+  CopyImageButton,
+  CountUp,
   iconButtonClass,
 } from '../ui'
 import Tooltip from '../ui/Tooltip'
 import { useToast } from '../ui/Toast'
-import { copyText } from '../../utils/clipboard'
 import { ICO_SIZES, canvasToIco } from '../../utils/icoEncoder'
 import { blobToDataUrl, bundleZip, downloadBlob, type BundleEntry } from '../../utils/zipBundle'
 
@@ -273,6 +272,8 @@ export default function ImageConvertTool() {
   /** 预览看的是原图还是转换结果 */
   const [view, setView] = useState<'before' | 'after'>('after')
   const [dragging, setDragging] = useState(false)
+  /** 松手那一瞬的「落入」反馈，只亮一帧，动画跑完就撤 */
+  const [landing, setLanding] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const { showToast } = useToast()
 
@@ -320,6 +321,28 @@ export default function ImageConvertTool() {
     }
   }, [result?.url])
 
+  /*
+   * 「落入」震颤：放下文件后让拖放区快速内缩再弹回，像东西落进盒底。
+   * 连续两次导入时要先清掉上一次的定时器，否则第二次的收起会把第一次的
+   * 动画打断在半路（data-landing 在中途被摘掉，看起来像抽搐一下）。
+   */
+  const landingTimerRef = useRef<number | null>(null)
+  const playLanding = useCallback(() => {
+    if (landingTimerRef.current !== null) window.clearTimeout(landingTimerRef.current)
+    setLanding(true)
+    landingTimerRef.current = window.setTimeout(() => {
+      setLanding(false)
+      landingTimerRef.current = null
+    }, 360)
+  }, [])
+
+  useEffect(
+    () => () => {
+      if (landingTimerRef.current !== null) window.clearTimeout(landingTimerRef.current)
+    },
+    [],
+  )
+
   const applyFile = useCallback(
     async (file: File) => {
       // SVG 常常没有 MIME（拖拽进来的尤其如此），按扩展名兜一层
@@ -328,6 +351,7 @@ export default function ImageConvertTool() {
         showToast('只能处理图片文件', 'error')
         return
       }
+      playLanding()
       const url = URL.createObjectURL(file)
       try {
         const img = await loadImage(url)
@@ -646,20 +670,32 @@ export default function ImageConvertTool() {
 
   /* ---------------- 内联用：DataURL ---------------- */
 
-  const copyDataUrl = async (kind: 'raw' | 'css') => {
+  /*
+   * DataURL 是同步取值（CopyButton 点下去就要拿到字符串），而 base64 生成是异步的。
+   * 所以这里改成「结果一变就先算好、存进 ref」，点击时只做一次性读取 ——
+   * 既是同步的，也避免了每次点击都把几十 KB 的字符串重算一遍。
+   */
+  const dataUrlCache = useRef<{ raw: string; css: string } | null>(null)
+  useEffect(() => {
+    dataUrlCache.current = null
     if (!result) return
-    try {
-      const dataUrl = await blobToDataUrl(result.blob)
-      const text = kind === 'raw' ? dataUrl : `background-image: url("${dataUrl}");`
-      const ok = await copyText(text)
-      showToast(
-        ok ? (kind === 'raw' ? '已复制 DataURL' : '已复制 CSS 片段') : '复制失败',
-        ok ? 'default' : 'error',
-      )
-    } catch (e) {
-      setError('生成 DataURL 失败：' + (e as Error).message)
+    let cancelled = false
+    void (async () => {
+      try {
+        const dataUrl = await blobToDataUrl(result.blob)
+        if (cancelled) return
+        dataUrlCache.current = {
+          raw: dataUrl,
+          css: `background-image: url("${dataUrl}");`,
+        }
+      } catch (e) {
+        if (!cancelled) setError('生成 DataURL 失败：' + (e as Error).message)
+      }
+    })()
+    return () => {
+      cancelled = true
     }
-  }
+  }, [result])
 
   // 正数是变小，负数是变大
   const savedRatio = source && result ? Math.round((1 - result.size / source.size) * 100) : null
@@ -713,7 +749,12 @@ export default function ImageConvertTool() {
           event.preventDefault()
           setDragging(true)
         }}
-        onDragLeave={() => setDragging(false)}
+        onDragLeave={(event) => {
+          // 拖过子元素时也会连着触发 dragleave，只有真正离开容器才收起高亮，
+          // 否则鼠标划过卡片边缘会看到高亮一闪一闪
+          if (event.currentTarget.contains(event.relatedTarget as Node)) return
+          setDragging(false)
+        }}
         onDrop={(event) => {
           event.preventDefault()
           setDragging(false)
@@ -766,13 +807,15 @@ export default function ImageConvertTool() {
               <button
                 type="button"
                 onClick={() => inputRef.current?.click()}
-                className={`m-4 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-2 py-10 px-6 transition-colors ${
+                data-drag={dragging || undefined}
+                data-landing={landing || undefined}
+                className={`drop-zone m-4 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-2 py-10 px-6 ${
                   dragging
                     ? 'border-brand-400 bg-brand-50/60 dark:border-brand-500/50 dark:bg-brand-500/10'
                     : 'border-slate-200 dark:border-dark-border hover:border-brand-300 hover:bg-slate-50/60 dark:hover:bg-dark-hover/40'
                 }`}
               >
-                <span className="w-12 h-12 rounded-full bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400 flex items-center justify-center">
+                <span className="drop-zone-icon w-12 h-12 rounded-full bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400 flex items-center justify-center">
                   <Upload size={20} />
                 </span>
                 <span className="text-[13px] font-semibold text-slate-700 dark:text-slate-200">
@@ -813,15 +856,7 @@ export default function ImageConvertTool() {
                     }}
                     className="mr-1"
                   />
-                  <Tooltip content="复制图片（PNG）">
-                    <button
-                      onClick={() => void copyImage()}
-                      disabled={!result}
-                      className={iconButtonClass('brand')}
-                    >
-                      <Copy size={15} />
-                    </button>
-                  </Tooltip>
+                  <CopyImageButton onClick={() => void copyImage()} disabled={!result} />
                 </>
               ) : null
             }
@@ -848,7 +883,9 @@ export default function ImageConvertTool() {
                   </span>
                 </div>
               ) : result ? (
-                <div className="relative inline-flex">
+                /* key 绑结果地址：换一张图/换一次参数就重挂载，fe-rise 重播 —— 
+                   结果「融化」出来而不是原地换像素 */
+                <div key={result.url} className="fe-rise relative inline-flex">
                   <img
                     src={result.url}
                     alt="转换结果"
@@ -874,37 +911,39 @@ export default function ImageConvertTool() {
           {source && (
             <ToolCardFooter>
               <span className="font-mono">
-                {formatBytes(source.size)} → {result ? formatBytes(result.size) : '…'}
+                {formatBytes(source.size)} →{' '}
+                {result ? (
+                  /* 结果体积从上一张图的数值滚过来，让「省了多少」有体感 */
+                  <CountUp value={result.size} format={formatBytes} />
+                ) : (
+                  '…'
+                )}
               </span>
               <span className="flex items-center gap-1.5">
                 {Number(targetKb) > 0 && result && result.size > Number(targetKb) * 1024 ? (
                   <ToolTag tone="amber">已压到极限，未达目标</ToolTag>
                 ) : savedRatio !== null ? (
-                  <ToolTag tone={savedRatio >= 0 ? 'emerald' : 'amber'}>
+                  <ToolTag tone={savedRatio >= 0 ? 'emerald' : 'amber'} className="fe-pop">
                     {savedRatio >= 0 ? `体积 -${savedRatio}%` : `体积 +${Math.abs(savedRatio)}%`}
                   </ToolTag>
                 ) : null}
                 {/* 小图标惯用内联写法，省得再跑一趟 Base64 工具 */}
-                <Tooltip content="复制为 DataURL">
-                  <button
-                    type="button"
-                    onClick={() => void copyDataUrl('raw')}
-                    disabled={!result}
-                    className={iconButtonClass('neutral')}
-                  >
-                    <Link size={13} />
-                  </button>
-                </Tooltip>
-                <Tooltip content="复制为 CSS background">
-                  <button
-                    type="button"
-                    onClick={() => void copyDataUrl('css')}
-                    disabled={!result}
-                    className={iconButtonClass('neutral')}
-                  >
-                    <Code size={13} />
-                  </button>
-                </Tooltip>
+                <CopyButton
+                  value={() => dataUrlCache.current?.raw ?? ''}
+                  disabled={!result}
+                  tone="neutral"
+                  size={13}
+                  label="复制为 DataURL"
+                  className="opacity-100"
+                />
+                <CopyButton
+                  value={() => dataUrlCache.current?.css ?? ''}
+                  disabled={!result}
+                  tone="neutral"
+                  size={13}
+                  label="复制为 CSS background"
+                  className="opacity-100"
+                />
               </span>
             </ToolCardFooter>
           )}

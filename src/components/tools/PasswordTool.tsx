@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Check, Copy, Eye, EyeOff, History, RefreshCw, Settings2, ShieldCheck, Zap } from 'lucide-react'
+import { Check, Eye, EyeOff, History, RefreshCw, Settings2, ShieldCheck, Zap } from 'lucide-react'
 import { useToolHistory } from '../../hooks/useToolHistory'
 import { useHistoryContextMenu } from '../../hooks/useHistoryContextMenu'
 import {
@@ -10,11 +10,11 @@ import {
   ToolCardHeader,
   ToolHistoryOverlay,
   ToolShell,
+  CopyButton,
   iconButtonClass,
 } from '../ui'
 import Tooltip from '../ui/Tooltip'
 import { useToast } from '../ui/Toast'
-import { copyText } from '../../utils/clipboard'
 
 const CHAR_SETS = {
   uppercase: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
@@ -100,12 +100,6 @@ export default function PasswordTool() {
     showToast('已存入保险箱历史')
   }
 
-  const copyPassword = async () => {
-    if (!password) return
-    const ok = await copyText(password)
-    showToast(ok ? '已复制密码' : '复制失败', ok ? 'default' : 'error')
-  }
-
   useEffect(() => {
     generatePassword()
   }, [])
@@ -171,16 +165,7 @@ export default function PasswordTool() {
                   {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
               </Tooltip>
-              <Tooltip content="复制密码">
-                <button
-                  type="button"
-                  onClick={() => void copyPassword()}
-                  disabled={!password}
-                  className={iconButtonClass('brand')}
-                >
-                  <Copy size={15} />
-                </button>
-              </Tooltip>
+              <CopyButton value={() => password} disabled={!password} label="复制密码" />
             </>
           }
         />

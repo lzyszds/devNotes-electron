@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { ArrowRight, Calendar, Clock, Copy, Hash, History } from 'lucide-react'
+import { ArrowRight, Calendar, Clock, Hash, History } from 'lucide-react'
 import { useToolHistory } from '../../hooks/useToolHistory'
 import { useHistoryContextMenu } from '../../hooks/useHistoryContextMenu'
 import {
@@ -9,11 +9,8 @@ import {
   ToolCardHeader,
   ToolHistoryOverlay,
   ToolShell,
-  iconButtonClass,
+  CopyButton,
 } from '../ui'
-import Tooltip from '../ui/Tooltip'
-import { useToast } from '../ui/Toast'
-import { copyText } from '../../utils/clipboard'
 
 export default function TimestampTool() {
   const [currentTime, setCurrentTime] = useState(new Date())
@@ -22,7 +19,6 @@ export default function TimestampTool() {
   const [timestampResult, setTimestampResult] = useState('')
   const [dateResult, setDateResult] = useState('')
   const [showHistory, setShowHistory] = useState(false)
-  const { showToast } = useToast()
 
   const { history, saveHistory, clearHistory, removeHistoryItem } = useToolHistory<string>('timestamp')
   const openHistoryMenu = useHistoryContextMenu<string>({
@@ -56,11 +52,6 @@ export default function TimestampTool() {
     const result = Math.floor(new Date(inputDate).getTime() / 1000).toString()
     setDateResult(result)
     saveHistory(inputDate, `日期 → ${result}`)
-  }
-
-  const copy = async (text: string, label: string) => {
-    const ok = await copyText(text)
-    showToast(ok ? `已复制${label}` : '复制失败', ok ? 'default' : 'error')
   }
 
   return (
@@ -176,14 +167,7 @@ export default function TimestampTool() {
                       {timestampResult}
                     </span>
                   </div>
-                  <Tooltip content="复制本地时间">
-                    <button
-                      onClick={() => void copy(timestampResult, '本地时间')}
-                      className={iconButtonClass('brand')}
-                    >
-                      <Copy size={14} />
-                    </button>
-                  </Tooltip>
+                  <CopyButton value={() => timestampResult} size={14} label="复制本地时间" />
                 </div>
               ) : (
                 <div className="h-[58px] border border-dashed border-slate-200 dark:border-dark-border rounded-xl flex items-center justify-center text-[11px] text-slate-300 dark:text-slate-600">
@@ -225,14 +209,7 @@ export default function TimestampTool() {
                       {dateResult}
                     </span>
                   </div>
-                  <Tooltip content="复制 UNIX 时间戳">
-                    <button
-                      onClick={() => void copy(dateResult, 'UNIX 时间戳')}
-                      className={iconButtonClass('brand')}
-                    >
-                      <Copy size={14} />
-                    </button>
-                  </Tooltip>
+                  <CopyButton value={() => dateResult} size={14} label="复制 UNIX 时间戳" />
                 </div>
               ) : (
                 <div className="h-[58px] border border-dashed border-slate-200 dark:border-dark-border rounded-xl flex items-center justify-center text-[11px] text-slate-300 dark:text-slate-600">

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Search, BarChart3, X, Minus, FolderOpen, Copy, ChevronLeft } from "lucide-react";
 import { tools, toolCategories } from "../types";
 import { useContextMenu } from "../components/ui/ContextMenu";
@@ -23,6 +23,9 @@ export default function Home({
 }: HomeProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
+  /** 键盘选中的第几项（-1 = 没在键盘导航）。鼠标一动就清掉，免得两套高亮打架 */
+  const [cursor, setCursor] = useState(-1);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   const { openContextMenu } = useContextMenu();
   const { showToast } = useToast();
@@ -45,6 +48,59 @@ export default function Home({
       activeCategory === "all" || tool.category === activeCategory;
     return matchesSearch && matchesCategory;
   });
+
+  // 筛选结果一变，之前选中的第几项就不作数了
+  useEffect(() => {
+    setCursor(-1);
+  }, [searchQuery, activeCategory]);
+
+  /**
+   * 工具中心的键盘流。
+   *
+   * ⌘K 从页面任意位置把焦点抓回搜索框（这是 macOS 上「找东西」的本能按键，
+   * 也是打开这个页面的第一动作）；上下键在结果之间移动，回车打开选中的那个，
+   * Esc 先清空搜索、已经是空的就交给浏览器/上层处理。
+   */
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        searchRef.current?.focus();
+        searchRef.current?.select();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
+  const onSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      if (filteredTools.length === 0) return;
+      const step = event.key === 'ArrowDown' ? 1 : -1;
+      // 从「没选中」往下按落到第一项，往上按落到最后一项（环形）
+      setCursor((prev) => {
+        const next = prev < 0 ? (step > 0 ? 0 : filteredTools.length - 1) : prev + step;
+        return (next + filteredTools.length) % filteredTools.length;
+      });
+      return;
+    }
+
+    if (event.key === 'Enter') {
+      // 有键盘选中项就开它，否则开当前筛选出的第一个 —— 「搜完直接回车」是最顺手的路径
+      const target = filteredTools[cursor >= 0 ? cursor : 0];
+      if (target) {
+        event.preventDefault();
+        onOpenTool(target.id);
+      }
+      return;
+    }
+
+    if (event.key === 'Escape' && searchQuery) {
+      event.preventDefault();
+      setSearchQuery('');
+    }
+  };
 
   return (
     <div className="app-scene h-screen flex flex-col bg-white dark:bg-dark-bg overflow-hidden text-slate-900 dark:text-slate-100 transition-colors">
@@ -136,12 +192,18 @@ export default function Home({
               size={18}
             />
             <input
+              ref={searchRef}
               type="text"
               placeholder="搜索小工具 (支持拼音或描述)..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-12 pl-12 pr-4 bg-slate-50 dark:bg-dark-panel rounded-xl border border-slate-200/80 dark:border-dark-border text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-brand-500 transition-all text-sm outline-none shadow-2xs placeholder-slate-400"
+              onKeyDown={onSearchKeyDown}
+              className="w-full h-12 pl-12 pr-20 bg-slate-50 dark:bg-dark-panel rounded-xl border border-slate-200/80 dark:border-dark-border text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-brand-500 transition-all text-sm outline-none shadow-2xs placeholder-slate-400"
             />
+            {/* 快捷键提示：一开始就把「这里能用键盘」告诉用户，而不是等他自己发现 */}
+            <kbd className="absolute right-3 top-1/2 -translate-y-1/2 hidden md:inline-flex items-center gap-0.5 rounded-md border border-slate-200 dark:border-dark-border bg-white dark:bg-dark-panel px-1.5 py-0.5 text-[10px] font-semibold text-slate-400 dark:text-slate-500">
+              ⌘K
+            </kbd>
           </div>
 
           {/* Categories Bar */}
@@ -172,7 +234,7 @@ export default function Home({
 
           {/* Compact Grid of Small Cards */}
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4">
-            {filteredTools.map((tool) => (
+            {filteredTools.map((tool, index) => (
               <button
                 key={tool.id}
                 onClick={() => onOpenTool(tool.id)}
@@ -206,12 +268,16 @@ export default function Home({
                     },
                   ])
                 }
-                className="motion-lift group flex flex-col items-center justify-center p-3 md:p-5 rounded-2xl bg-white dark:bg-dark-panel border border-slate-200/80 dark:border-dark-border hover:border-brand-500 dark:hover:border-brand-500 hover:shadow-lg transition-all"
+                onMouseEnter={() => setCursor(-1)}
+                data-cursor={index === cursor || undefined}
+                className="motion-lift group flex flex-col items-center justify-center p-3 md:p-5 rounded-2xl bg-white dark:bg-dark-panel border border-slate-200/80 dark:border-dark-border hover:border-brand-500 dark:hover:border-brand-500 hover:shadow-lg transition-all data-[cursor]:border-brand-500 data-[cursor]:-translate-y-0.5 data-[cursor]:shadow-lg"
               >
-                <div className="h-9 w-9 md:h-10 md:w-10 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-dark-sidebar mb-2 md:mb-3 group-hover:bg-brand-600 transition-colors">
-                  <ToolIcon toolId={tool.id} className="w-5 h-5 text-slate-700 dark:text-slate-200 group-hover:text-white transition-colors" />
+                {/* 悬停/键盘选中时图标块抬起并染色，标题同步加深 —— 整张卡片是一个整体在响应，
+                    而不是只有边框变个色 */}
+                <div className="h-9 w-9 md:h-10 md:w-10 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-dark-sidebar mb-2 md:mb-3 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:bg-brand-600 group-hover:-translate-y-0.5 group-data-[cursor]:bg-brand-600 group-data-[cursor]:-translate-y-0.5">
+                  <ToolIcon toolId={tool.id} className="w-5 h-5 text-slate-700 dark:text-slate-200 group-hover:text-white group-data-[cursor]:text-white transition-colors" />
                 </div>
-                <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 text-center truncate w-full">
+                <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 text-center truncate w-full transition-colors">
                   {tool.name}
                 </span>
                 {usageStats[tool.id] > 0 && (
@@ -230,12 +296,6 @@ export default function Home({
           )}
         </div>
       </main>
-
-      <footer className="py-6 border-t border-slate-50 text-center">
-        <p className="text-[9px] font-bold text-slate-300 uppercase tracking-[0.4em]">
-          devNotes • v2026.4.2920 • 稳定版
-        </p>
-      </footer>
     </div>
   );
 }

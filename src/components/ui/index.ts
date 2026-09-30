@@ -30,6 +30,10 @@ export {
   iconButtonClass,
   pillClass,
 } from './ToolKit'
-export type { ButtonVariant, IconTone, NoticeTone, SegmentOption } from './ToolKit'
+export type { ButtonVariant, IconTone, NoticeTone, SegmentOption, TagTone } from './ToolKit'
 export { default as ToolHistoryOverlay } from './ToolHistoryOverlay'
 export type { ToolHistoryOverlayProps } from './ToolHistoryOverlay'
+export { default as CopyButton, CopyButtonPrimary, CopyImageButton } from './CopyButton'
+export type { CopyButtonProps, CopyButtonPrimaryProps, CopyImageButtonProps } from './CopyButton'
+export { default as CountUp } from './CountUp'
+export type { CountUpProps } from './CountUp'

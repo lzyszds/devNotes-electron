@@ -47,6 +47,7 @@ import { useToast } from '../ui/Toast'
 import { copyText } from '../../utils/clipboard'
 import { usePresence } from '../../hooks/usePresence'
 import { useIsMobile } from '../../hooks/useIsMobile'
+import { useSlideTransition } from '../../hooks/useSlideTransition'
 import { useShortcutSettings } from '../../hooks/useShortcutSettings'
 import {
   SHORTCUT_BINDINGS,
@@ -98,6 +99,15 @@ export default function DashboardLayout({
   const isDark = isDarkTheme(theme)
   // < 768px 走移动端外壳：目录改抽屉、顶栏精简
   const isMobile = useIsMobile()
+  /*
+   * 切工具的竖滑转场。顺序取工具在 allModules 里的下标 —— 用它判断这次是
+   * 「往后跳」还是「往回跳」，据此决定新页从下方上来还是从上方压下来。
+   */
+  const slide = useSlideTransition(
+    activeTabId,
+    (id) => allModules.findIndex((t) => t.id === id),
+  )
+
   // 移动端初值就得是收起：若先以展开态挂载、再由 effect 改成收起，
   // 每次切回笔记都会看到目录滑出一下（300ms 过渡）。
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => !isMobile)
@@ -479,6 +489,7 @@ export default function DashboardLayout({
   // 独立模块不在工具库里，得一起查，否则面包屑上的名字会掉成「工具」
   const currentTool = allModules.find((t) => t.id === activeTabId)
 
+
   // 顶栏标题右键菜单:笔记视图给出文档动作,工具视图给出工具动作
   const handleBreadcrumbContextMenu = (e: ReactMouseEvent) => {
     if (isMarkdownActive) {
@@ -489,7 +500,6 @@ export default function DashboardLayout({
           label: '重命名文档',
           icon: <Pencil className="w-3.5 h-3.5" />,
           disabled: !note,
-          // 顶栏没有就地编辑的输入框，改走浏览器 prompt，比跳回侧栏更直接
           onSelect: () => {
             if (!note) return
             const next = window.prompt('重命名文档', note.title)
@@ -689,26 +699,45 @@ export default function DashboardLayout({
           <div className="hidden md:block h-4 w-[1px] bg-slate-200 dark:bg-dark-border" />
 
           {/* 面包屑：移动端只留当前文档名，把宽度让给标题 */}
-          <div className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400 min-w-0 flex-1 md:flex-none">
+          <div className="flex items-center gap-2 text-[13px] font-medium text-slate-500 dark:text-slate-400 min-w-0 flex-1 md:flex-none">
             <span
               onClick={onBackToHub}
               className="no-drag hidden md:inline hover:text-slate-900 dark:hover:text-white cursor-pointer transition-colors"
             >
               devNotes
             </span>
-            <ChevronRight className="hidden md:block w-3 h-3 text-slate-400" />
-            <span onContextMenu={handleBreadcrumbContextMenu} className="no-drag text-slate-900 dark:text-white font-semibold flex items-center gap-1.5 min-w-0 flex-1 md:flex-none md:w-[200px]">
-              {isMarkdownActive ? (
-                <>
-                  <FileCode className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400 flex-shrink-0" />
-                  <span className="min-w-0 truncate">{activeNote?.title || '欢迎使用 Markdown 笔记'}</span>
-                </>
-              ) : (
-                <>
-                  <ToolIcon toolId={currentTool?.id || ''} className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400 flex-shrink-0" />
-                  <span className="min-w-0 truncate">{currentTool?.name || '工具'}</span>
-                </>
-              )}
+            <ChevronRight className="hidden md:block w-3.5 h-3.5 text-slate-300 dark:text-slate-600" />
+            {/*
+              这一层本来就能弹右键菜单（handleBreadcrumbContextMenu），说明它的指针事件
+              一定是通的 —— 把「点击进编辑」挂在这里，是挂在一块已证实可交互的区域上，
+              而不是赌某个子孙元素的 no-drag 生效。
+            */}
+            <span
+              onContextMenu={handleBreadcrumbContextMenu}
+              className="no-drag text-slate-900 dark:text-white font-semibold flex items-center gap-1.5 min-w-0 flex-1 md:flex-none md:w-[200px]"
+            >
+              {/*
+                key 绑当前工具：名字换了就重挂载一次，让 fe-rise 重播一段淡入。
+                包在外层 span 里而不是给 span 加 key —— 外层带 onContextMenu 与
+                宽度约束，跟着重挂会把这几个布局属性一起重建，顶栏会闪一下。
+              */}
+              <span
+                key={currentTool?.id || 'none'}
+                className="fe-rise flex items-center gap-1.5 min-w-0"
+              >
+                {isMarkdownActive ? (
+                  <>
+                    <FileCode className="w-4 h-4 text-brand-600 dark:text-brand-400 flex-shrink-0" />
+                    <FileCode className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400 flex-shrink-0" />
+                    <span className="min-w-0 truncate">{activeNote?.title || '未命名笔记'}</span>
+                  </>
+                ) : (
+                  <>
+                    <ToolIcon toolId={currentTool?.id || ''} className="w-4 h-4 text-brand-600 dark:text-brand-400 flex-shrink-0" />
+                    <span className="min-w-0 truncate">{currentTool?.name || '工具'}</span>
+                  </>
+                )}
+              </span>
             </span>
           </div>
         </div>
@@ -1162,8 +1191,27 @@ export default function DashboardLayout({
         {/* 2.3 编辑器 / 工具主工作台 (Editor Workspace) */}
         <main className="flex-1 flex flex-col bg-white dark:bg-dark-panel overflow-hidden min-w-0">
           {/* 渲染当前工具内容 */}
-          <div className="flex-1 overflow-hidden relative">
-            <ToolPage toolId={activeTabId} />
+          {/*
+            主工作台：切工具时上下滑动切换。
+            旧页往上走（并压远一点点）、新页从下方推上来，方向跟着「在工具列表里
+            往前还是往后跳」变 —— 用 Tab 循环切标签时的空间感就来自这里。
+
+            两页都是 absolute 铺满：动画期间它们必须重叠才能各播各的，
+            留在文档流里的话会一上一下把容器撑成两倍高，滚一下整页就抖。
+          */}
+          <div className="flex-1 overflow-hidden relative" data-dir={slide.direction}>
+            {slide.leaving && (
+              <div
+                key={`out-${slide.leaving.key}`}
+                className="fe-slide-out absolute inset-0 pointer-events-none"
+                aria-hidden
+              >
+                <ToolPage toolId={slide.leaving.value} />
+              </div>
+            )}
+            <div key={`in-${activeTabId}`} className="fe-slide-in absolute inset-0">
+              <ToolPage toolId={activeTabId} />
+            </div>
           </div>
         </main>
       </div>

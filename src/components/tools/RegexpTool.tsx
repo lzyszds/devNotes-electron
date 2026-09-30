@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Binary, Code2, Copy, Filter, History, ListTree, Search, Trash2, TriangleAlert } from 'lucide-react'
+import { Binary, Code2, Filter, History, ListTree, Search, Trash2, TriangleAlert } from 'lucide-react'
 import { useToolHistory } from '../../hooks/useToolHistory'
 import { useHistoryContextMenu } from '../../hooks/useHistoryContextMenu'
 import {
@@ -12,12 +12,11 @@ import {
   ToolHistoryOverlay,
   ToolNotice,
   ToolShell,
+  CopyButton,
   iconButtonClass,
   pillClass,
 } from '../ui'
 import Tooltip from '../ui/Tooltip'
-import { useToast } from '../ui/Toast'
-import { copyText } from '../../utils/clipboard'
 
 const templates = [
   { name: '手机号', pattern: '1[3-9]\\d{9}', desc: '中国大陆手机号' },
@@ -39,7 +38,6 @@ export default function RegexpTool() {
   const [matches, setMatches] = useState<string[]>([])
   const [error, setError] = useState('')
   const [showHistory, setShowHistory] = useState(false)
-  const { showToast } = useToast()
 
   const { history, saveHistory, clearHistory, removeHistoryItem } = useToolHistory<{ pattern: string, flags: string, text: string }>('regexp')
   const openHistoryMenu = useHistoryContextMenu<{
@@ -74,11 +72,6 @@ export default function RegexpTool() {
   const useTemplate = (p: string) => {
     setPattern(p)
     setError('')
-  }
-
-  const copyAll = async () => {
-    const ok = await copyText(matches.join('\n'))
-    showToast(ok ? '已复制全部匹配' : '复制失败', ok ? 'default' : 'error')
   }
 
   const toggleFlag = (f: string) => {
@@ -260,16 +253,7 @@ export default function RegexpTool() {
             // meta 自带一层灰底，只能传纯文本；套 ToolTag 会双层叠色
             meta={`${matches.length} 项`}
             actions={
-              <Tooltip content="复制全部匹配">
-                <button
-                  type="button"
-                  onClick={() => void copyAll()}
-                  disabled={matches.length === 0}
-                  className={iconButtonClass('brand')}
-                >
-                  <Copy size={15} />
-                </button>
-              </Tooltip>
+              <CopyButton value={() => matches.join('\n')} disabled={matches.length === 0} />
             }
           />
 
@@ -277,7 +261,12 @@ export default function RegexpTool() {
             {error ? (
               <ToolEmpty icon={TriangleAlert} title="正则语法错误" hint={error} className="flex-1" />
             ) : matches.length > 0 ? (
-              <div className="flex-1 divide-y divide-slate-50 dark:divide-dark-border overflow-y-auto">
+              /* key 随匹配结果变化：每次都重新挂载，fe-rise 才会重播一遍 ——
+                 否则从「无匹配」切到「有匹配」只是内容被换掉，没有过渡 */
+              <div
+                key={matches.length === 0 ? 'empty' : `${matches.length}-${matches[0]}`}
+                className="fe-rise flex-1 divide-y divide-slate-50 dark:divide-dark-border overflow-y-auto"
+              >
                 {matches.map((match, i) => (
                   <div
                     key={i}

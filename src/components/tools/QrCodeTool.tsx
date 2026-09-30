@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import QRCode from 'qrcode'
-import { Copy, Download, FileWarning, History, Move, Palette, QrCode, RefreshCw, Type } from 'lucide-react'
+import { Download, FileWarning, History, Move, Palette, QrCode, RefreshCw, Type } from 'lucide-react'
 import { useToolHistory } from '../../hooks/useToolHistory'
 import { useHistoryContextMenu } from '../../hooks/useHistoryContextMenu'
 import {
@@ -13,7 +13,7 @@ import {
   ToolHistoryOverlay,
   ToolNotice,
   ToolShell,
-  iconButtonClass,
+  CopyImageButton,
 } from '../ui'
 import Tooltip from '../ui/Tooltip'
 import { useToast } from '../ui/Toast'
@@ -241,16 +241,7 @@ export default function QrCodeTool() {
             // meta 自带一层灰底，只能传纯文本；套 ToolTag 会双层叠色
             meta={`${size} × ${size} px`}
             actions={
-              <Tooltip content="复制图片">
-                <button
-                  type="button"
-                  onClick={() => void copyQR()}
-                  disabled={!qrDataUrl}
-                  className={iconButtonClass('brand')}
-                >
-                  <Copy size={15} />
-                </button>
-              </Tooltip>
+              <CopyImageButton onClick={() => void copyQR()} disabled={!qrDataUrl} />
             }
           />
 

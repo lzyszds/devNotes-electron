@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import {
   ArrowRight,
   ArrowRightLeft,
-  Copy,
   History,
   Languages,
   Loader2,
@@ -24,12 +23,12 @@ import {
   ToolHistoryOverlay,
   ToolNotice,
   ToolShell,
+  CopyButton,
   iconButtonClass,
   pillClass,
   type SelectOption,
 } from '../../ui'
 import { useToast } from '../../ui/Toast'
-import { copyText } from '../../../utils/clipboard'
 import {
   describeProvider,
   isProvider,
@@ -554,12 +553,6 @@ export default function TextTranslateTool() {
   // 只能分中/英，但自动检测本身就只在这儿定调，够用
   const sourceSpeakLang = sourceLang === AUTO_LANG ? (looksChinese(input) ? 'zh' : 'en') : sourceLang
 
-  const handleCopyOutput = async () => {
-    if (!output) return
-    const ok = await copyText(output)
-    showToast(ok ? '已复制译文' : '复制失败', ok ? 'default' : 'error')
-  }
-
   const clearAll = () => {
     setInput('')
     setOutput('')
@@ -901,16 +894,7 @@ export default function TextTranslateTool() {
                     <Volume2 size={14} />
                   </button>
                 </Tooltip>
-                <Tooltip content="复制译文">
-                  <button
-                    type="button"
-                    onClick={() => void handleCopyOutput()}
-                    disabled={!output}
-                    className={iconButtonClass('brand')}
-                  >
-                    <Copy size={15} />
-                  </button>
-                </Tooltip>
+                <CopyButton value={() => output} disabled={!output} label="复制译文" />
               </div>
             </ToolCardFooter>
           </ToolCard>
