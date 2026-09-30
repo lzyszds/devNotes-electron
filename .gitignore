@@ -5,6 +5,8 @@ node_modules/
 dist/
 dist-electron/
 release/
+# tsc --build 的增量缓存，不该进版本库
+*.tsbuildinfo
 
 # IDE
 .idea/
