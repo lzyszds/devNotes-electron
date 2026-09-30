@@ -52,6 +52,105 @@ export interface SyncPayload {
   deviceInfo: string
   encrypted: boolean
   data: string // 若加密则为 base64 ciphertext；若未加密则为 JSON.stringify(NotesState)
+  /**
+   * 应用设置快照（翻译接口、快捷键、外观偏好等）。
+   *
+   * 跟笔记数据分开存：两者生命周期与合并策略完全不同 —— 笔记要按 id
+   * 双向合并，设置则是「整份覆盖、以最后写入的为准」，混在一起没法各自处理。
+   * 同样受 encrypted 保护：开启端到端加密时这里也是密文。
+   */
+  settings?: string
+}
+
+/**
+ * 要上云的设置项。
+ *
+ * 白名单而不是黑名单：新增的存储键默认不同步，得在这里显式登记。
+ * 反过来做的话，某个临时状态或设备相关的键会不知不觉被带到别的机器上。
+ *
+ * 键名必须与各模块里 `*_KEY` 常量一致 —— 写错既不报错也不会同步到，
+ * 改动这里时对着那些常量核一遍。
+ */
+export const SYNCED_SETTING_KEYS = [
+  // 翻译与模型
+  'translate-api-config',
+  'text-translate-primary-lang',
+  // 快捷键
+  'shortcut-bindings',
+  // 外观与界面偏好
+  'fehelper-theme',
+  'fehelper-code-theme',
+  'fehelper-editor-mode',
+  'fehelper-editor-split',
+  'fehelper-editor-view',
+  'fehelper-editor-zoom',
+  'fehelper-sidebar-width',
+  // 朗读设置
+  'fehelper-speech-settings',
+  // 各工具的局部设置
+  'json-i18n-settings',
+  'json-i18n-protected-terms',
+] as const
+
+/** 设置快照：键 -> 值。值为 null 表示该项被显式清空 */
+export type SettingsSnapshot = Record<string, unknown>
+
+/**
+ * 从本地存储收集要同步的设置。
+ *
+ * 走 electron-store（读盘，且与主进程共享同一份数据），
+ * 只取白名单里存在且有值的项 —— 没设过的项不上云，免得用空值覆盖别的机器。
+ */
+export async function collectSettings(): Promise<SettingsSnapshot> {
+  const snapshot: SettingsSnapshot = {}
+  const api = window.electronAPI
+  if (!api?.storeGet) return snapshot
+
+  for (const key of SYNCED_SETTING_KEYS) {
+    try {
+      const value = await api.storeGet(key)
+      if (value !== undefined && value !== null) snapshot[key] = value
+    } catch {
+      // 单项读失败不该拖垮整次同步，跳过即可
+    }
+  }
+  return snapshot
+}
+
+/**
+ * 把云端设置写回本地。
+ *
+ * 逐项写入而不是整体替换：远端快照可能来自旧版本、缺某些键，
+ * 整体替换会把本地已有但远端没有的设置抹掉。
+ */
+export async function applySettings(snapshot: SettingsSnapshot): Promise<number> {
+  const api = window.electronAPI
+  if (!api?.storeSet) return 0
+
+  let applied = 0
+  for (const key of SYNCED_SETTING_KEYS) {
+    if (!(key in snapshot)) continue
+    try {
+      await api.storeSet(key, snapshot[key])
+      applied++
+    } catch {
+      // 同上，单项失败不中断
+    }
+  }
+
+  /*
+   * 把云端值落到本地后，还得让「已经加载进内存」的模块知道。
+   *
+   * 有些设置在模块里缓存了一份（快捷键的 Map、主题的当前值），写盘只改了
+   * 存储，内存里还是旧值 —— 不刷新的话，用户会发现键盘按下去还是老键位，
+   * 得重启才生效。
+   */
+  if ('shortcut-bindings' in snapshot) {
+    const { refreshShortcutMap } = await import('./shortcutSettings')
+    await refreshShortcutMap()
+  }
+
+  return applied
 }
 
 export interface SyncResult {
@@ -309,12 +408,22 @@ export async function pushToCloudflare(
       ? await encryptData(rawJson, config.encryptionPassword)
       : rawJson
 
+    /*
+     * 设置与笔记用同一个 payload 同一份加密设置：分两次写会让「加密的笔记
+     * 配明文的密钥」这种组合出现 —— 而设置里恰好就存着 API Key。
+     */
+    const settingsJson = JSON.stringify(await collectSettings())
+    const settingsData = isEncrypted
+      ? await encryptData(settingsJson, config.encryptionPassword)
+      : settingsJson
+
     const payload: SyncPayload = {
-      version: 1,
+      version: 2,
       updatedAt: Date.now(),
       deviceInfo: 'devNotes Desktop',
       encrypted: isEncrypted,
       data: payloadData,
+      settings: settingsData,
     }
 
     const payloadStr = JSON.stringify(payload)
@@ -368,6 +477,8 @@ export async function pullFromCloudflare(config: CloudflareSyncConfig): Promise<
   success: boolean
   message: string
   remoteState?: NotesState
+  /** 云端保存的设置快照。旧版本备份没有这一项 */
+  remoteSettings?: SettingsSnapshot
   remoteTime?: number
 }> {
   try {
@@ -421,10 +532,25 @@ export async function pullFromCloudflare(config: CloudflareSyncConfig): Promise<
     // 远端可能是老版本客户端推的（没有 folders / deletedAt 这些字段），
     // 统一过一遍归一化再交给上层，否则缺字段会在侧栏渲染时炸掉
     const remoteState = normalizeState(JSON.parse(jsonString))
+
+    // 设置同理：老版本（version 1）没有这个字段，缺了就当没有，不影响笔记同步
+    let remoteSettings: SettingsSnapshot | undefined
+    if (payload.settings) {
+      try {
+        const settingsJson = payload.encrypted
+          ? await decryptData(payload.settings, config.encryptionPassword)
+          : payload.settings
+        remoteSettings = JSON.parse(settingsJson) as SettingsSnapshot
+      } catch {
+        // 设置解不开不该让整次拉取失败 —— 笔记才是主体，设置是附带的
+      }
+    }
+
     return {
       success: true,
       message: '拉取成功',
       remoteState,
+      remoteSettings,
       remoteTime: payload.updatedAt,
     }
   } catch (err: any) {

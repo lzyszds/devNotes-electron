@@ -28,6 +28,7 @@ import {
   saveCloudflareConfig,
   pushToCloudflare,
   pullFromCloudflare,
+  applySettings,
   smartMergeNotes,
   testCloudflareConnection,
   loadBackupSnapshots,
@@ -228,6 +229,11 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
         const res = await pullFromCloudflare(cfg)
         if (cancelled) return
         if (res.success && res.remoteState) {
+          // 开机同步正是「换台机器接着用」的场景，设置要一并落回本地
+          let appliedSettings = 0
+          if (res.remoteSettings) {
+            appliedSettings = await applySettings(res.remoteSettings)
+          }
           const { mergedState, addedFromRemote, updatedFromRemote, removedFolders } =
             smartMergeNotes(stateRef.current, res.remoteState)
           setNotes(mergedState.notes)
@@ -243,7 +249,8 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
           setCfSyncMessage(
             `启动同步完成：新增 ${addedFromRemote} 篇，更新 ${updatedFromRemote} 篇` +
               // 文件夹在别处被删会让一批文档落回未分类，值得单独说一句
-              (removedFolders > 0 ? `，${removedFolders} 个文件夹已被其他设备删除` : '')
+              (removedFolders > 0 ? `，${removedFolders} 个文件夹已被其他设备删除` : '') +
+              (appliedSettings > 0 ? `，已恢复 ${appliedSettings} 项设置` : '')
           )
         } else {
           setCfSyncStatus('idle')
@@ -995,6 +1002,20 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
         return { success: false, message: res.message }
       }
 
+      /*
+       * 设置从云端写回本地。
+       *
+       * 放在笔记处理之前：设置里包含主题、快捷键这些「下次进入就该生效」的
+       * 项，笔记合并失败也不该把它们漏掉。
+       *
+       * 只有拉到设置时才写 —— 旧版本推的备份没有这个字段，不能因为「远端
+       * 没有」就把本地设置清空。
+       */
+      let appliedSettings = 0
+      if (res.remoteSettings) {
+        appliedSettings = await applySettings(res.remoteSettings)
+      }
+
       if (mode === 'merge') {
         const { mergedState, addedFromRemote, updatedFromRemote, removedFolders } =
           smartMergeNotes(stateRef.current, res.remoteState)
@@ -1010,7 +1031,8 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
         setCfSyncStatus('success')
         const msg =
           `合并成功：新增 ${addedFromRemote} 篇，更新 ${updatedFromRemote} 篇` +
-          (removedFolders > 0 ? `，${removedFolders} 个文件夹已被其他设备删除` : '')
+          (removedFolders > 0 ? `，${removedFolders} 个文件夹已被其他设备删除` : '') +
+          (appliedSettings > 0 ? `，已恢复 ${appliedSettings} 项设置` : '')
         setCfSyncMessage(msg)
         return { success: true, message: msg, remoteTime: res.remoteTime }
       } else {
@@ -1033,7 +1055,9 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
         setCfConfig(nextCfg)
         await saveCloudflareConfig(nextCfg)
         setCfSyncStatus('success')
-        const msg = `覆盖成功：已恢复 ${overwritten.notes.length} 篇文档`
+        const msg =
+          `覆盖成功：已恢复 ${overwritten.notes.length} 篇文档` +
+          (appliedSettings > 0 ? `，已恢复 ${appliedSettings} 项设置` : '')
         setCfSyncMessage(msg)
         return { success: true, message: msg, remoteTime: res.remoteTime }
       }
