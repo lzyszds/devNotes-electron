@@ -64,6 +64,13 @@ export const SHORTCUT_BINDINGS: ShortcutBinding[] = [
     scope: 'global',
   },
   {
+    id: 'open-clipboard',
+    label: '打开剪贴板历史',
+    description: '呼出剪贴板历史面板，选中一条直接填入刚才的输入框',
+    defaultAccelerator: 'Alt+Shift+V',
+    scope: 'global',
+  },
+  {
     id: 'command-palette',
     label: '全局指令面板',
     description: '呼出搜索与功能指令，输入关键字直接跳转',

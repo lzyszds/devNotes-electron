@@ -15,6 +15,43 @@ contextBridge.exposeInMainWorld('electronAPI', {
   scratchClose: () => ipcRenderer.invoke('scratch-close'),
   scratchPin: (pinned: boolean) => ipcRenderer.invoke('scratch-pin', pinned),
 
+  /* 剪贴板历史面板 */
+  clipboardOpen: () => ipcRenderer.invoke('clipboard-open'),
+  clipboardClose: () => ipcRenderer.invoke('clipboard-close'),
+  clipboardList: (): Promise<
+    { id: string; text: string; at: number; truncated?: boolean }[]
+  > => ipcRenderer.invoke('clipboard-list'),
+  clipboardRemove: (id: string) => ipcRenderer.invoke('clipboard-remove', id),
+  clipboardClear: () => ipcRenderer.invoke('clipboard-clear'),
+  clipboardRestore: (text: string) => ipcRenderer.invoke('clipboard-restore', text),
+  clipboardCopyImage: (imageDataUrl: string): Promise<boolean> =>
+    ipcRenderer.invoke('clipboard-copy-image', imageDataUrl),
+
+  /* 选中即粘贴到当前聚焦的外部应用（需要辅助功能授权） */
+  clipboardPasteAvailable: (): Promise<boolean> =>
+    ipcRenderer.invoke('clipboard-paste-available'),
+  clipboardPastePermission: (): Promise<boolean> =>
+    ipcRenderer.invoke('clipboard-paste-permission'),
+  clipboardRequestPermission: (): Promise<boolean> =>
+    ipcRenderer.invoke('clipboard-request-permission'),
+  clipboardOpenAccessibility: (): Promise<void> =>
+    ipcRenderer.invoke('clipboard-open-accessibility'),
+  clipboardPaste: (
+    payload: { type: 'text' | 'image'; text?: string; imageDataUrl?: string }
+  ): Promise<{ ok: boolean; reason?: 'no-module' | 'no-permission' | 'failed' }> =>
+    ipcRenderer.invoke('clipboard-paste', payload),
+
+  /** 采集到新内容时推送，面板不用轮询 */
+  onClipboardChanged: (
+    callback: (entries: { id: string; text: string; at: number; truncated?: boolean }[]) => void
+  ) => {
+    const listener = (_: unknown, entries: Parameters<typeof callback>[0]) => callback(entries)
+    ipcRenderer.on('clipboard:changed', listener)
+    return () => {
+      ipcRenderer.removeListener('clipboard:changed', listener)
+    }
+  },
+
   /* 端口占用排查 */
   portsCommon: (): Promise<number[]> => ipcRenderer.invoke('ports-common'),
   portsInspect: (ports: number[]) => ipcRenderer.invoke('ports-inspect', ports),

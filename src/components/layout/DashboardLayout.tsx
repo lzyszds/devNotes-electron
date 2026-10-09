@@ -870,6 +870,9 @@ export default function DashboardLayout({
             </button>
           </Tooltip>
 
+          {/* 剪贴板面板只留 ⌥⇧V 快捷键唤起，这里不再放按钮：
+              按钮在主窗口里，点它必然把主窗口带到最前 —— 而面板的整个意义
+              是「不打扰当前在用的那个应用」，从主窗口里点开就自相矛盾了。 */}
 
           {/* 右侧主操作动作 */}
           {isMarkdownActive ? (

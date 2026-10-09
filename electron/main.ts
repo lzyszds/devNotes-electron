@@ -13,6 +13,23 @@ import {
 } from './proxy'
 import { migrateUserDataIfNeeded } from './migrateUserData'
 import { COMMON_PORTS, inspectPort, killProcess } from './ports'
+import {
+  MAX_ENTRIES,
+  buildEntry,
+  shouldCapture,
+  startClipboardWatch,
+  type ClipboardEntry,
+} from './clipboardHistory'
+import {
+  isPasteAvailable,
+  isPasteTrusted,
+  openAccessibilitySettings,
+  pasteToFocusedApp,
+  pasteImageToFocusedApp,
+  copyImageToClipboard,
+  requestPastePermission,
+  setAppWasForegroundOnOpen,
+} from './pasteToApp'
 import type { IpcMainInvokeEvent } from 'electron'
 
 let mainWindow: BrowserWindow | null = null
@@ -21,6 +38,10 @@ let tray: Tray | null = null
 let captureWindow: BrowserWindow | null = null
 /** 草稿纸小窗。单例 —— 反复唤起只把它调出来，不开第二个 */
 let scratchWindow: BrowserWindow | null = null
+/** 剪贴板取词面板。同样是单例 */
+let clipboardWindow: BrowserWindow | null = null
+/** 剪贴板轮询计时器 */
+let clipboardTimer: NodeJS.Timeout | null = null
 /** 本次框选的截图结果，缓存起来供推 / 拉两条路径共用（见 createCaptureWindow） */
 let captureShotPromise: Promise<unknown> | null = null
 /** 进行中的流式翻译请求，按 requestId 索引，供中途中断 */
@@ -62,6 +83,9 @@ const GLOBAL_SHORTCUT_ACTIONS: Record<string, () => void> = {
   'open-scratchpad': () => {
     openScratchWindow()
   },
+  'open-clipboard': () => {
+    openClipboardWindow()
+  },
 }
 
 /** 主进程侧的默认键位。渲染端的默认值在 shortcutSettings.ts，两边要保持一致 */
@@ -70,6 +94,7 @@ const GLOBAL_SHORTCUT_DEFAULTS: Record<string, string> = {
   'open-translate': 'Alt+Shift+T',
   'screenshot-translate': 'Alt+Shift+S',
   'open-scratchpad': 'Alt+Shift+N',
+  'open-clipboard': 'Alt+Shift+V',
 }
 
 /** 读用户配置的快捷键表；读不到就用默认值 */
@@ -355,6 +380,192 @@ function openScratchWindow(): void {
 function closeScratchWindow(): void {
   if (scratchWindow && !scratchWindow.isDestroyed()) scratchWindow.close()
   scratchWindow = null
+}
+
+/* ---------------- 剪贴板历史 ---------------- */
+
+const CLIPBOARD_HISTORY_KEY = 'clipboard-history'
+const CLIPBOARD_BOUNDS_KEY = 'clipboard-window-bounds'
+const CLIPBOARD_DEFAULT_SIZE = { width: 460, height: 520 }
+const CLIPBOARD_MIN_SIZE = { width: 360, height: 320 }
+/** 内存里留一份，轮询每 700ms 一次，不能每次都读盘比对 */
+let clipboardEntries: ClipboardEntry[] = []
+
+/**
+ * 校验从 store 读回的窗口位置。
+ *
+ * 与草稿纸同理：显示器可能已经拔了，越界坐标会把窗口丢到看不见的地方，
+ * 下次唤起时用户以为快捷键坏了。
+ */
+function readClipboardBounds(): Partial<Electron.Rectangle> | undefined {
+  const saved = store.get(CLIPBOARD_BOUNDS_KEY) as Partial<Electron.Rectangle> | undefined
+  if (!saved || typeof saved.width !== 'number' || typeof saved.height !== 'number') return undefined
+  const displays = screen.getAllDisplays()
+  const onScreen = displays.some((display) => {
+    const { x, y, width, height } = display.workArea
+    return (
+      typeof saved.x === 'number' &&
+      typeof saved.y === 'number' &&
+      saved.x < x + width &&
+      saved.y < y + height &&
+      saved.x + saved.width! > x &&
+      saved.y + saved.height! > y
+    )
+  })
+  return onScreen ? saved : undefined
+}
+
+function loadClipboardHistory(): void {
+  const saved = store.get(CLIPBOARD_HISTORY_KEY)
+  const list = Array.isArray(saved) ? (saved as ClipboardEntry[]) : []
+
+  /*
+   * 清掉 Promise 化时期留下的脏数据。
+   *
+   * readText() 改成异步后，有一版代码把未 await 的 Promise 字符串化存了进来
+   * （内容就是 "[object Promise]"）。这些条目本身没意义，留着只会占位置，
+   * 加载时顺手剔除 —— 代码改了但历史不清，用户会以为 bug 还在。
+   */
+  const cleaned = list.filter((entry) => entry && entry.text !== '[object Promise]')
+  clipboardEntries = cleaned
+  if (cleaned.length !== list.length) persistClipboardHistory()
+}
+
+function persistClipboardHistory(): void {
+  store.set(CLIPBOARD_HISTORY_KEY, clipboardEntries)
+}
+
+/**
+ * 开始采集。
+ *
+ * 用户明确要求「全存本地、不进云」—— 所以 CLIPBOARD_HISTORY_KEY 绝不能出现在
+ * cloudflareSync 的设置白名单里。那里是白名单制，不加就不会上云。
+ */
+function startClipboardCapture(): void {
+  loadClipboardHistory()
+  clipboardStop?.()
+
+  clipboardStop = startClipboardWatch((entry) => {
+    /*
+     * 只对文本走 shouldCapture（敏感词过滤 + 与最新一条去重）。
+     * 图片在采集层已经用 lastImageDataUrl 去重过了，且没有「敏感」问题，
+     * 这里直接放行 —— 之前拿 entry.text（图片条目是 undefined）喂
+     * shouldCapture，非字符串一律返回 false，图片全被丢掉了。
+     */
+    if (entry.type === 'text' && !shouldCapture(entry.text, clipboardEntries[0])) return
+    clipboardEntries = [entry, ...clipboardEntries].slice(0, MAX_ENTRIES)
+    persistClipboardHistory()
+    // 面板开着的话实时刷新，用户不用关掉再开
+    if (clipboardWindow && !clipboardWindow.isDestroyed()) {
+      clipboardWindow.webContents.send('clipboard:changed', clipboardEntries)
+    }
+  })
+}
+
+let clipboardStop: (() => void) | null = null
+
+function openClipboardWindow(): void {
+  // 记录唤出面板时 devNotes 是否在前台。
+  // 决定粘贴时要不要先 app.hide() 把前台还给外部应用（见 pasteToApp.ts）。
+  const wasForeground = Boolean(
+    mainWindow && !mainWindow.isDestroyed() && mainWindow.isFocused()
+  )
+  setAppWasForegroundOnOpen(wasForeground)
+
+  /*
+   * 外部场景（用户在别的应用里唤面板）：先把主窗口藏起来。
+   *
+   * Electron 不支持 nonactivating panel，点面板的那一刻 macOS 必然激活
+   * devNotes —— 若主窗口还可见，就会跟着浮上来闪一下。提前把它藏好，
+   * 点面板时浮上来的就只有面板自己（它本来就在显示），主窗口不会出现。
+   */
+  if (!wasForeground && mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible()) {
+    mainWindow.hide()
+  }
+
+  if (clipboardWindow && !clipboardWindow.isDestroyed()) {
+    if (clipboardWindow.isMinimized()) clipboardWindow.restore()
+    clipboardWindow.show()
+    clipboardWindow.focus()
+    return
+  }
+
+  const saved = readClipboardBounds()
+  const window = new BrowserWindow({
+    ...(saved ?? CLIPBOARD_DEFAULT_SIZE),
+    minWidth: CLIPBOARD_MIN_SIZE.width,
+    minHeight: CLIPBOARD_MIN_SIZE.height,
+    frame: false,
+    /*
+     * 可聚焦 —— 这样面板内部才有正常的鼠标 hover 和键盘输入。
+     *
+     * 之前设 focusable: false 想「不抢焦点、让模拟粘贴粘回外部应用」，
+     * 但那是条错路：focusable: false 的面板在 macOS 上是 inactive 窗口，
+     * 系统不向它派发 mouse move，导致列表 hover 高亮、搜索框打字、键盘
+     * 上下键全都失效。
+     *
+     * 「把值粘回外部应用」这件事现在由 pasteToApp 里的 app.hide() 负责：
+     * 点历史后先把 devNotes 整个退到后台、让 macOS 把前台还给微信，再模拟
+     * ⌘V。所以面板本身可聚焦并不会让粘贴粘错地方。
+     */
+    focusable: true,
+    alwaysOnTop: false,
+    fullscreenable: false,
+    hasShadow: true,
+    resizable: true,
+    skipTaskbar: true,
+    title: '剪贴板历史',
+    backgroundColor: '#ffffff',
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  })
+  clipboardWindow = window
+  registerWindowShortcuts(window)
+
+  const devServerUrl = process.env.VITE_DEV_SERVER_URL
+  if (devServerUrl) {
+    void window.loadURL(`${devServerUrl}?clipboard=1`)
+  } else {
+    void window.loadFile(path.join(__dirname, '../dist/index.html'), { search: 'clipboard=1' })
+  }
+
+  window.once('ready-to-show', () => {
+    // 打开即聚焦：面板一出现就能用键盘、有 hover 高亮
+    window.show()
+    window.focus()
+  })
+
+  /*
+   * 失焦即关闭。
+   *
+   * 面板 focusable: true，点击面板外（切到微信 / 别的应用）会触发 blur ——
+   * 那一刻就该收起来，而不是赖在屏幕上或缩进 Dock。用 close 而不是 hide：
+   * 它是临时取词面板，关掉即结束，不留状态。
+   *
+   * 点面板内部的按钮（删除、复制）不会 blur，所以不会误关。
+   */
+  window.on('blur', () => {
+    if (!window.isDestroyed()) window.close()
+  })
+
+  const persistBounds = () => {
+    if (window.isDestroyed() || window.isMinimized() || window.isMaximized()) return
+    store.set(CLIPBOARD_BOUNDS_KEY, window.getBounds())
+  }
+  window.on('resized', persistBounds)
+  window.on('moved', persistBounds)
+  window.on('closed', () => {
+    clipboardWindow = null
+  })
+}
+
+function closeClipboardWindow(): void {
+  if (clipboardWindow && !clipboardWindow.isDestroyed()) clipboardWindow.close()
+  clipboardWindow = null
 }
 
 /**
@@ -688,6 +899,79 @@ function setupIpc() {
     else window.setAlwaysOnTop(false)
   })
 
+  /* ---------------- 剪贴板历史 ---------------- */
+
+  ipcMain.handle('clipboard-open', () => {
+    openClipboardWindow()
+  })
+
+  ipcMain.handle('clipboard-close', () => {
+    closeClipboardWindow()
+  })
+
+  /** 面板读全量列表。渲染端挂载时拉一次，之后的增量走 clipboard:changed 推送 */
+  ipcMain.handle('clipboard-list', () => clipboardEntries)
+
+  /** 删单条 */
+  ipcMain.handle('clipboard-remove', (_event, id: string) => {
+    clipboardEntries = clipboardEntries.filter((entry) => entry.id !== id)
+    persistClipboardHistory()
+    return clipboardEntries
+  })
+
+  ipcMain.handle('clipboard-clear', () => {
+    clipboardEntries = []
+    persistClipboardHistory()
+    return clipboardEntries
+  })
+
+  /**
+   * 把某条写回系统剪贴板。
+   *
+   * 面板的「选中即注入」是靠渲染端自己往输入框里塞，不走这里 ——
+   * 这个通道是给「只想复制走」的场景兜底的。
+   */
+  ipcMain.handle('clipboard-restore', (_event, text: string) => {
+    clipboard.writeText(text)
+    return true
+  })
+
+  /** 图片只写回剪贴板，不模拟粘贴 —— 面板图片条目的「复制」按钮 */
+  ipcMain.handle('clipboard-copy-image', (_event, imageDataUrl: string) => {
+    return copyImageToClipboard(imageDataUrl)
+  })
+
+  /** 是否已获辅助功能授权（模拟按键的前提）。不弹窗，只查询 */
+  ipcMain.handle('clipboard-paste-permission', () => isPasteTrusted())
+
+  /** 主动申请授权：会弹出系统引导，把用户送到「辅助功能」设置页 */
+  ipcMain.handle('clipboard-request-permission', () => requestPastePermission())
+
+  /** 直接打开系统设置的辅助功能面板（用户拒绝过授权后，系统不再弹窗，只能这样引导） */
+  ipcMain.handle('clipboard-open-accessibility', () => openAccessibilitySettings())
+
+  /** 自动粘贴能力是否可用（原生模块装上没）。界面据此决定要不要显示权限引导 */
+  ipcMain.handle('clipboard-paste-available', () => isPasteAvailable())
+
+  /**
+   * 选中即粘贴：写剪贴板 + 模拟 ⌘V，落进当前聚焦的那个输入框。
+   *
+   * 按条目类型分发：文本走 insertText，图片走写剪贴板 + paste()。
+   * 返回结果给界面，让它区分「贴好了」与「已复制，请手动按 ⌘V」。
+   */
+  ipcMain.handle(
+    'clipboard-paste',
+    (
+      _event,
+      payload: { type: 'text' | 'image'; text?: string; imageDataUrl?: string }
+    ) => {
+      if (payload.type === 'image') {
+        return pasteImageToFocusedApp(payload.imageDataUrl ?? '')
+      }
+      return pasteToFocusedApp(payload.text ?? '')
+    }
+  )
+
   /* ---------------- 端口占用排查 ---------------- */
 
   ipcMain.handle('ports-common', () => COMMON_PORTS)
@@ -811,8 +1095,10 @@ function setupIpc() {
   })
 
   // 剪贴板读写:打包后 file:// 环境下渲染进程 navigator.clipboard 不可靠,由主进程兜底
-  ipcMain.handle('clipboard-read', () => {
-    return clipboard.readText()
+  // Electron 44 起 readText() 是异步的，这里显式 await 拿到字符串再回给渲染层
+  ipcMain.handle('clipboard-read', async () => {
+    const text = await clipboard.readText()
+    return typeof text === 'string' ? text : ''
   })
 
   ipcMain.handle('clipboard-write', (_, text: string) => {
@@ -1006,6 +1292,8 @@ app.whenReady().then(async () => {
   // 按用户配置注册全局快捷键（没配置就用内置默认值）
   applyGlobalShortcuts()
 
+  startClipboardCapture()
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createMainWindow()
@@ -1023,4 +1311,7 @@ app.on('will-quit', () => {
   globalShortcut.unregisterAll()
   // 草稿纸是常驻置顶的小窗，退出时得一并收掉，否则会留下一个唤不回的窗口
   closeScratchWindow()
+  closeClipboardWindow()
+  clipboardStop?.()
+  clipboardStop = null
 })

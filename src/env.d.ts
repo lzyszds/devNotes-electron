@@ -137,9 +137,43 @@ interface Window {
     scratchClose?: () => Promise<void>
     scratchPin?: (pinned: boolean) => Promise<void>
 
+    /* 剪贴板历史面板 */
+    clipboardOpen?: () => Promise<void>
+    clipboardClose?: () => Promise<void>
+    clipboardList?: () => Promise<ClipboardEntry[]>
+    clipboardRemove?: (id: string) => Promise<ClipboardEntry[]>
+    clipboardClear?: () => Promise<ClipboardEntry[]>
+    clipboardRestore?: (text: string) => Promise<boolean>
+    clipboardCopyImage?: (imageDataUrl: string) => Promise<boolean>
+    onClipboardChanged?: (callback: (entries: ClipboardEntry[]) => void) => () => void
+
+    /* 选中即粘贴到外部应用（需辅助功能授权） */
+    clipboardPasteAvailable?: () => Promise<boolean>
+    clipboardPastePermission?: () => Promise<boolean>
+    clipboardRequestPermission?: () => Promise<boolean>
+    clipboardOpenAccessibility?: () => Promise<void>
+    clipboardPaste?: (
+      payload: { type: 'text' | 'image'; text?: string; imageDataUrl?: string }
+    ) => Promise<{ ok: boolean; reason?: 'no-module' | 'no-permission' | 'failed' }>
+
     /* 端口占用排查 */
     portsCommon?: () => Promise<number[]>
     portsInspect?: (ports: number[]) => Promise<PortInspectResult[]>
     portsKill?: (pid: number) => Promise<{ ok: boolean; pid: number; error?: string }>
   }
+}
+
+/** 一条剪贴板历史记录 */
+interface ClipboardEntry {
+  id: string
+  /** 'text' 文本，'image' 图片 */
+  type: 'text' | 'image'
+  /** type='text' 时的正文 */
+  text?: string
+  /** type='image' 时的 PNG dataURL */
+  imageDataUrl?: string
+  /** 采集时刻（毫秒时间戳） */
+  at: number
+  /** 原文超长被截断 */
+  truncated?: boolean
 }
