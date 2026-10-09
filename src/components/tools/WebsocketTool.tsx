@@ -276,7 +276,11 @@ export default function WebsocketTool() {
             actions={
               <>
                 <CopyButton
-                  value={() => logs.join("\n")}
+                  value={() =>
+                    logs
+                      .map((log) => `[${log.time}] ${log.type.toUpperCase()} ${log.text}`)
+                      .join("\n")
+                  }
                   disabled={logs.length === 0}
                   size={14}
                   label="复制日志"

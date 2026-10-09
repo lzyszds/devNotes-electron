@@ -62,9 +62,12 @@ export default function PasswordTool() {
     if (options.symbols) chars += CHAR_SETS.symbols
     if (!chars) return
 
+    // 必须用密码学随机源：Math.random 的序列可预测、状态能从输出反推，
+    // 拿它生成密码等于把「高熵」写在招牌上却发了把万能钥匙。
+    const random = crypto.getRandomValues(new Uint32Array(length))
     let result = ''
     for (let i = 0; i < length; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length))
+      result += chars.charAt(random[i] % chars.length)
     }
     setPassword(result)
     calculateStrength(result)
