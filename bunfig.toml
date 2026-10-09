@@ -1,0 +1,15 @@
+# bun 的配置。与 .npmrc 并存不是因为重复 —— bun 只读 .npmrc 里的标准字段
+# （registry 等），自定义变量如 ELECTRON_MIRROR 一律忽略，那份配置对 bun 是死的。
+#
+# 用国内镜像，官方源在本地网络下拉包会明显偏慢。
+[install]
+registry = "https://registry.npmmirror.com"
+
+# 注意：Electron / electron-builder 的**二进制**不走这里，它们由包的
+# postinstall 脚本（install-electron）另行下载，只认环境变量：
+#
+#   ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/
+#   ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/
+#
+# 这两条已写进 ~/.zshrc。bunfig.toml 无法代传环境变量给 postinstall，
+# 所以别把镜像配到这里就以为二进制也快了 —— 那是两回事。
