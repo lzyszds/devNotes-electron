@@ -17,6 +17,7 @@ import {
   StickyNote,
   FileImage,
   Link2,
+  ShieldCheck,
   Wrench,
   type LucideProps,
 } from 'lucide-react'
@@ -37,6 +38,7 @@ const ICON_MAP: Record<string, React.ComponentType<LucideProps>> = {
   'en-decode': ArrowLeftRight,
   'timestamp': Clock,
   'regexp': Regex,
+  'signature': ShieldCheck,
   'password': Lock,
   'base64': FileCode,
   'url': Link2,

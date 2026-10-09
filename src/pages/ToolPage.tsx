@@ -7,6 +7,7 @@ import EncodeTool from '../components/tools/EncodeTool'
 import TimestampTool from '../components/tools/TimestampTool'
 import RegexpTool from '../components/tools/RegexpTool'
 import PasswordTool from '../components/tools/PasswordTool'
+import SignatureTool from '../components/tools/SignatureTool'
 import WebsocketTool from '../components/tools/WebsocketTool'
 import TextTranslateTool from '../components/modules/text-translate/TextTranslateTool'
 import SnippetsTool from '../components/modules/snippets/SnippetsTool'
@@ -37,6 +38,7 @@ const toolComponents: Record<string, React.ComponentType<any>> = {
   'snippets': SnippetsTool,
   'port-killer': PortKillerTool,
   'scratchpad': TextScratchpadTool,
+  'signature': SignatureTool,
 }
 
 function ToolLoading() {
