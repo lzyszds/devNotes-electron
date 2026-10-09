@@ -1,9 +1,12 @@
 import { useState } from 'react'
-import { Binary, Code2, Filter, History, ListTree, Search, Trash2, TriangleAlert } from 'lucide-react'
+import { ArrowRight, Binary, Code2, Filter, History, ListTree, Search, Trash2, TriangleAlert } from 'lucide-react'
 import { useToolHistory } from '../../hooks/useToolHistory'
 import { useHistoryContextMenu } from '../../hooks/useHistoryContextMenu'
 import {
   BODY_TEXTAREA,
+  META,
+  SECTION_LABEL,
+  Segmented,
   ToolBadge,
   ToolCard,
   ToolCardFooter,
@@ -12,11 +15,61 @@ import {
   ToolHistoryOverlay,
   ToolNotice,
   ToolShell,
+  buttonClass,
   CopyButton,
   iconButtonClass,
   pillClass,
 } from '../ui'
 import Tooltip from '../ui/Tooltip'
+
+/** 一次匹配：整串 + 各捕获组 + 在原文中的位置 */
+export interface RegexMatch {
+  /** 整串匹配到的文本 */
+  value: string
+  /**
+   * 捕获组。未参与匹配的组 JS 给的是 null（不是 undefined），
+   * 所以这里如实标成可空，别用 undefined 去判。
+   */
+  groups: (string | null)[]
+  /** 具名捕获组 */
+  named: Record<string, string | undefined>
+  /** 在原文中的起始下标 */
+  index: number
+}
+
+/**
+ * 把原文按匹配位置切成片段。
+ *
+ * 匹配可能重叠或相邻（如 `a*` 在 "aa" 上），所以不能简单地逐个 replace ——
+ * 必须按 index 排序后依次切，并跳过落在已输出区间内的匹配，否则片段会错位。
+ */
+export function splitByMatches(
+  text: string,
+  matches: { value: string; index: number }[],
+): { text: string; matched: boolean }[] {
+  const parts: { text: string; matched: boolean }[] = []
+  let cursor = 0
+
+  for (const match of [...matches].sort((a, b) => a.index - b.index)) {
+    if (match.index < cursor) continue // 与上一段重叠，跳过
+    if (match.index > cursor) parts.push({ text: text.slice(cursor, match.index), matched: false })
+
+    if (match.value.length > 0) {
+      parts.push({ text: match.value, matched: true })
+      cursor = match.index + match.value.length
+    } else {
+      /*
+       * 零宽匹配（`\b`、`(?=x)`、`^`）没有可见文本，但**必须推进 cursor**。
+       * 否则下一个匹配的 index 仍大于 cursor，刚才那段普通文本会被再切一遍，
+       * 整段文本被重复输出 —— 而且看起来只是「有点怪」，不容易联想到是这里。
+       */
+      cursor = match.index
+    }
+  }
+
+  if (cursor < text.length) parts.push({ text: text.slice(cursor), matched: false })
+  return parts
+}
 
 const templates = [
   { name: '手机号', pattern: '1[3-9]\\d{9}', desc: '中国大陆手机号' },
@@ -29,14 +82,35 @@ const templates = [
   { name: '中文', pattern: '[\\u4e00-\\u9fa5]+', desc: '纯中文字符' },
 ]
 
-const FLAG_OPTIONS = ['g', 'i', 'm']
+/**
+ * 可勾选的修饰符。
+ *
+ * 补上 s/u 是因为调试别人给的正则时常卡在这两个上：u 影响 emoji 与代理对的
+ * 匹配、s 让 `.` 能跨行。少一个就可能复现不出对方的行为。
+ */
+const FLAG_OPTIONS = ['g', 'i', 'm', 's', 'u']
 
 export default function RegexpTool() {
   const [pattern, setPattern] = useState('')
   const [flags, setFlags] = useState('g')
   const [testText, setTestText] = useState('')
-  const [matches, setMatches] = useState<string[]>([])
+  const [matches, setMatches] = useState<RegexMatch[]>([])
+  /** 替换用的模板，支持 $1 / $<name> 反向引用 */
+  const [replacement, setReplacement] = useState('')
+  const [replaced, setReplaced] = useState('')
+  /** "待测试文本"卡片：编辑原件 or 看带高亮的渲染结果 */
+  const [showHighlight, setShowHighlight] = useState(false)
+  /** 点结果列表时高亮的那一条，用来在预览里区分「当前项」 */
+  const [activeMatch, setActiveMatch] = useState<number | null>(null)
   const [error, setError] = useState('')
+
+  /**
+   * 是否全是零宽匹配（`\b`、`(?=x)`、`^`）。
+   *
+   * 零宽匹配的是「位置」不是字符，没有宽度可以染色 —— 高亮视图看起来会和
+   * 原文一模一样，用户会以为没匹配上。这种时候得明说。
+   */
+  const allZeroWidth = matches.length > 0 && matches.every((match) => match.value.length === 0)
   const [showHistory, setShowHistory] = useState(false)
 
   const { history, saveHistory, clearHistory, removeHistoryItem } = useToolHistory<{ pattern: string, flags: string, text: string }>('regexp')
@@ -56,16 +130,54 @@ export default function RegexpTool() {
     onRemove: removeHistoryItem,
   })
 
+  /**
+   * 执行匹配。
+   *
+   * 用 matchAll 而不是 match：带 g 时 match() 只返回整串、把捕获组全丢掉，
+   * 而分组恰恰是调试正则时最想看的东西。matchAll 每组都带回来。
+   *
+   * matchAll 要求正则必须带 g，所以这里强制补上 —— 用户没勾 g 时也想看
+   * 「有几个分组」而不是只拿到第一个匹配。
+   */
   const testRegex = () => {
     if (!pattern || !testText) return
     try {
-      const result = testText.match(new RegExp(pattern, flags)) || []
+      const safeFlags = flags.includes('g') ? flags : flags + 'g'
+      const regex = new RegExp(pattern, safeFlags)
+      const result: RegexMatch[] = Array.from(testText.matchAll(regex), (m) => ({
+        value: m[0],
+        groups: m.slice(1),
+        named: (m.groups ?? {}) as Record<string, string | undefined>,
+        index: m.index ?? 0,
+      }))
       setMatches(result)
+      setActiveMatch(null)
       setError('')
+      // 跑出结果就自动翻到高亮视图 —— 用户点「运行测试」想看的就是匹配落在哪
+      setShowHighlight(true)
       saveHistory({ pattern, flags, text: testText }, `/${pattern}/${flags}`)
     } catch (e) {
       setError((e as Error).message)
       setMatches([])
+      setActiveMatch(null)
+    }
+  }
+
+  /**
+   * 执行替换预览。
+   *
+   * 用 replaceAll 配合带 g 的正则；补 g 是因为 replaceAll 在无 g 的正则上
+   * 会直接抛错，而用户未必会想到「替换还必须勾 g」这层。
+   */
+  const testReplace = () => {
+    if (!pattern || !testText) return
+    try {
+      const safeFlags = flags.includes('g') ? flags : flags + 'g'
+      setReplaced(testText.replace(new RegExp(pattern, safeFlags), replacement))
+      setError('')
+    } catch (e) {
+      setError((e as Error).message)
+      setReplaced('')
     }
   }
 
@@ -216,33 +328,89 @@ export default function RegexpTool() {
             title="待测试文本"
             icon={Code2}
             actions={
-              <Tooltip content="清空测试文本">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTestText('')
-                    setMatches([])
-                  }}
-                  disabled={!testText}
-                  className={iconButtonClass('danger')}
-                >
-                  <Trash2 size={15} />
-                </button>
-              </Tooltip>
+              <>
+                <Segmented
+                  value={showHighlight ? 'highlight' : 'edit'}
+                  onChange={(mode) => setShowHighlight(mode === 'highlight')}
+                  options={[
+                    { value: 'edit' as const, label: '编辑' },
+                    { value: 'highlight' as const, label: '高亮' },
+                  ]}
+                />
+                <Tooltip content="清空测试文本">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTestText('')
+                      setMatches([])
+                      setReplaced('')
+                      setActiveMatch(null)
+                    }}
+                    disabled={!testText}
+                    className={iconButtonClass('danger')}
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </Tooltip>
+              </>
             }
           />
 
           <div className="flex-1 min-h-0 p-4 flex flex-col">
-            <textarea
-              value={testText}
-              onChange={(e) => setTestText(e.target.value)}
-              placeholder="在此输入需要进行正则匹配测试的长文本…"
-              className={BODY_TEXTAREA}
-            />
+            {showHighlight ? (
+              <div className="flex-1 min-h-0 overflow-y-auto whitespace-pre-wrap break-all font-mono text-[13px] leading-6 text-slate-800 dark:text-slate-100 select-text">
+                {allZeroWidth && (
+                  <p className="mb-2 font-sans text-[11px] text-amber-600 dark:text-amber-400">
+                    本次命中的都是零宽匹配（匹配位置而非字符），没有字符可染色 —— 匹配数见右侧列表。
+                  </p>
+                )}
+                {testText ? (
+                  (() => {
+                    /*
+                     * 逐段渲染。matched 段要能分辨「当前选中的那一处」，
+                     * 所以自己数已渲染过几个匹配，跟 activeMatch 比。
+                     * 被跳过的重叠/零宽匹配不占编号，与右侧列表的序号一致。
+                     */
+                    let matchedSoFar = -1
+                    return splitByMatches(testText, matches).map((part, i) => {
+                      if (!part.matched) return <span key={i}>{part.text}</span>
+                      matchedSoFar++
+                      const isActive = matchedSoFar === activeMatch
+                      return (
+                        <mark
+                          key={i}
+                          className={`rounded-[3px] ${
+                            isActive
+                              ? 'bg-brand-500 text-white dark:bg-brand-500 dark:text-white'
+                              : 'bg-amber-200/70 text-amber-900 dark:bg-amber-500/30 dark:text-amber-100'
+                          }`}
+                        >
+                          {part.text}
+                        </mark>
+                      )
+                    })
+                  })()
+                ) : (
+                  <span className="text-slate-300 dark:text-slate-600 not-italic">
+                    先在上面输入文本并运行测试…
+                  </span>
+                )}
+              </div>
+            ) : (
+              <textarea
+                value={testText}
+                onChange={(e) => setTestText(e.target.value)}
+                placeholder="在此输入需要进行正则匹配测试的长文本…"
+                className={BODY_TEXTAREA}
+              />
+            )}
           </div>
 
           <ToolCardFooter>
             <span className="font-mono">{testText.length} 字符</span>
+            <span className={META}>
+              {showHighlight ? `${matches.length} 处高亮` : '编辑原件'}
+            </span>
           </ToolCardFooter>
         </ToolCard>
 
@@ -253,7 +421,10 @@ export default function RegexpTool() {
             // meta 自带一层灰底，只能传纯文本；套 ToolTag 会双层叠色
             meta={`${matches.length} 项`}
             actions={
-              <CopyButton value={() => matches.join('\n')} disabled={matches.length === 0} />
+              <CopyButton
+                value={() => matches.map((match) => match.value).join('\n')}
+                disabled={matches.length === 0}
+              />
             }
           />
 
@@ -264,19 +435,64 @@ export default function RegexpTool() {
               /* key 随匹配结果变化：每次都重新挂载，fe-rise 才会重播一遍 ——
                  否则从「无匹配」切到「有匹配」只是内容被换掉，没有过渡 */
               <div
-                key={matches.length === 0 ? 'empty' : `${matches.length}-${matches[0]}`}
+                key={`${matches.length}-${matches[0]?.value ?? ''}`}
                 className="fe-rise flex-1 divide-y divide-slate-50 dark:divide-dark-border overflow-y-auto"
               >
                 {matches.map((match, i) => (
                   <div
                     key={i}
-                    className="px-4 py-3 flex items-start gap-3 hover:bg-slate-50 dark:hover:bg-dark-hover transition-colors group"
+                    onClick={() => {
+                      setActiveMatch(i)
+                      setShowHighlight(true)
+                    }}
+                    title="点此在左侧高亮这一处"
+                    className={`px-4 py-3 flex items-start gap-3 cursor-pointer transition-colors group ${
+                      activeMatch === i
+                        ? 'bg-amber-50/70 dark:bg-amber-500/10'
+                        : 'hover:bg-slate-50 dark:hover:bg-dark-hover'
+                    }`}
                   >
                     <span className="text-[10px] font-mono font-bold text-slate-300 dark:text-slate-600 group-hover:text-brand-500 transition-colors mt-0.5 w-6 shrink-0">
                       #{i + 1}
                     </span>
-                    <div className="flex-1 min-w-0 font-mono text-[13px] leading-relaxed text-slate-700 dark:text-slate-200 whitespace-pre-wrap break-all select-text">
-                      {match}
+                    <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+                      <div className="font-mono text-[13px] leading-relaxed text-slate-700 dark:text-slate-200 whitespace-pre-wrap break-all select-text">
+                        {match.value}
+                      </div>
+                      {/* 捕获组：调试正则时最需要看的就是这几行 */}
+                      {match.groups.length > 0 && (
+                        <div className="flex flex-col gap-0.5">
+                          {match.groups.map((group, gi) => (
+                            <div key={gi} className="flex items-baseline gap-2 text-[11px]">
+                              <span className="font-mono text-slate-300 dark:text-slate-600 shrink-0">
+                                ${gi + 1}
+                              </span>
+                              <span className="font-mono text-brand-600 dark:text-brand-400 break-all">
+                                {group === null || group === undefined ? (
+                                  <span className="text-slate-300 dark:text-slate-600 italic">
+                                    （未参与匹配）
+                                  </span>
+                                ) : (
+                                  group
+                                )}
+                              </span>
+                            </div>
+                          ))}
+                          {Object.entries(match.named).map(([name, value]) => (
+                            <div key={name} className="flex items-baseline gap-2 text-[11px]">
+                              <span className="font-mono text-slate-300 dark:text-slate-600 shrink-0">
+                                ${'<' + name + '>'}
+                              </span>
+                              <span className="font-mono text-brand-600 dark:text-brand-400 break-all">
+                                {value ?? ''}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <span className="text-[10px] text-slate-300 dark:text-slate-600 font-mono">
+                        位置 {match.index}
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -292,6 +508,47 @@ export default function RegexpTool() {
           </div>
         </ToolCard>
       </div>
+
+      {/* 替换预览 */}
+      <ToolCard fill={false}>
+        <ToolCardHeader
+          title="替换预览"
+          icon={ArrowRight}
+          meta="支持 $1 / $<name> 引用捕获组"
+          actions={
+            <button
+              type="button"
+              onClick={testReplace}
+              disabled={!pattern || !testText}
+              className={buttonClass('secondary', 'h-7 px-3 text-[11px]')}
+            >
+              执行替换
+            </button>
+          }
+        />
+        <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="flex flex-col gap-1.5">
+            <span className={SECTION_LABEL}>替换为</span>
+            <input
+              type="text"
+              value={replacement}
+              onChange={(e) => setReplacement(e.target.value)}
+              placeholder="例如 $1-$2，或直接写死文本"
+              className="h-9 rounded-lg border border-slate-200 dark:border-dark-border bg-white dark:bg-dark-panel px-3 font-mono text-[12px] text-slate-800 dark:text-slate-100 outline-none placeholder:text-slate-300 dark:placeholder:text-slate-600 focus:border-brand-400"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5 min-w-0">
+            <span className={SECTION_LABEL}>替换结果</span>
+            <div className="h-9 rounded-lg border border-slate-200/70 dark:border-dark-border bg-slate-50/70 dark:bg-dark-hover/40 px-3 flex items-center overflow-hidden">
+              <span className="font-mono text-[12px] text-slate-700 dark:text-slate-200 truncate">
+                {replaced || (
+                  <span className="text-slate-300 dark:text-slate-600 not-italic">尚未替换</span>
+                )}
+              </span>
+            </div>
+          </div>
+        </div>
+      </ToolCard>
     </ToolShell>
   )
 }
