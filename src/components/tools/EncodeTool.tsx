@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { ArrowDown, History, KeyRound, Shuffle, TriangleAlert } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { ArrowDown, History, KeyRound, Search, Shuffle, TriangleAlert, X } from 'lucide-react'
 import { useToolHistory } from '../../hooks/useToolHistory'
 import { useHistoryContextMenu } from '../../hooks/useHistoryContextMenu'
 import {
@@ -118,6 +118,14 @@ export default function EncodeTool({ initialType = 'base64' }: { initialType?: s
   const [running, setRunning] = useState(false)
   const [error, setError] = useState('')
   const [showHistory, setShowHistory] = useState(false)
+  /**
+   * 左栏的算法搜索词。
+   *
+   * 25 种方式平铺在一个滚动列表里，靠肉眼找「SHA」得从头翻到尾。
+   * 关键词命中 name / id / group 三者之一即可 —— 输 "morse" 能出摩斯电码，
+   * 输 "进制" 能出整个分组。
+   */
+  const [query, setQuery] = useState('')
 
   const { history, saveHistory, clearHistory, removeHistoryItem } = useToolHistory<string>('encode')
   const openHistoryMenu = useHistoryContextMenu<string>({
@@ -130,6 +138,33 @@ export default function EncodeTool({ initialType = 'base64' }: { initialType?: s
 
   const isAes = activeType === AES_ID
   const currentType = encoderTypes.find((t) => t.id === activeType)
+
+  /**
+   * 搜索命中的算法，按 group 归拢。
+   *
+   * 关键点：搜索时不能再按「编码 / 解码」两栏各渲染一遍 —— 那样同一个算法
+   * 会命中两次，列表里出现「Base64 →」「Base64 ←」两条，看着像重复项。
+   * 所以有关键词时整体换成单列结果列表，每行自带方向标识。
+   */
+  const searching = query.trim().length > 0
+  const searchGroups = useMemo(() => {
+    if (!searching) return []
+    const needle = query.trim().toLowerCase()
+    const matched = encoderTypes.filter(
+      (type) =>
+        type.name.toLowerCase().includes(needle) ||
+        type.id.toLowerCase().includes(needle) ||
+        type.group.toLowerCase().includes(needle),
+    )
+
+    const ordered: { group: string; items: typeof encoderTypes }[] = []
+    for (const type of matched) {
+      const bucket = ordered.find((entry) => entry.group === type.group)
+      if (bucket) bucket.items.push(type)
+      else ordered.push({ group: type.group, items: [type] })
+    }
+    return ordered
+  }, [query, searching])
 
   const runSync = (direction: 'encode' | 'decode') => {
     if (!currentType) return
@@ -247,65 +282,132 @@ export default function EncodeTool({ initialType = 'base64' }: { initialType?: s
             meta={`${encoderTypes.length + 1} 种`}
           />
 
+          {/* 搜索框常驻：25 种方式靠翻滚动列表找太慢，打两个字就能收窄 */}
+          <div className="px-3 pt-3 shrink-0">
+            <div className="relative">
+              <Search
+                size={13}
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+              />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="搜索算法，如 sha / morse / 进制"
+                className="w-full h-8 pl-7 pr-7 rounded-lg border border-slate-200 dark:border-dark-border bg-white dark:bg-dark-panel text-[12px] text-slate-700 dark:text-slate-200 outline-none placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:border-brand-400"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => setQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                  title="清空搜索"
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+          </div>
+
           <div className="tool-cascade flex-1 min-h-0 overflow-y-auto p-3 flex flex-col gap-4">
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between px-1">
-                <span className={SECTION_LABEL}>编码</span>
-                <span className={META}>ENCODE</span>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                {encoderTypes.map((type) => (
-                  <MethodTile
-                    key={type.id}
-                    name={type.name}
-                    hint={type.hint}
-                    active={activeType === type.id && direction === 'encode'}
-                    onClick={() => pick(type.id, 'encode')}
-                  />
-                ))}
-              </div>
-            </div>
+            {/* 有搜索词：单列结果，按 group 归类，每行自标方向 */}
+            {searching ? (
+              searchGroups.length === 0 ? (
+                <div className="px-1 py-6 text-center">
+                  <p className="text-[12px] text-slate-400 dark:text-slate-500">
+                    没有匹配「{query.trim()}」的算法
+                  </p>
+                </div>
+              ) : (
+                searchGroups.map(({ group, items }) => (
+                  <div key={group} className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between px-1">
+                      <span className={SECTION_LABEL}>{group}</span>
+                      <span className={META}>{items.length}</span>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      {items.flatMap((type) => [
+                        <MethodTile
+                          key={`${type.id}-encode`}
+                          name={type.name}
+                          hint={type.hint}
+                          active={activeType === type.id && direction === 'encode'}
+                          onClick={() => pick(type.id, 'encode')}
+                        />,
+                        <MethodTile
+                          key={`${type.id}-decode`}
+                          name={type.name}
+                          hint={type.lossy ? '有损，不能完全还原' : '还原为原文'}
+                          active={activeType === type.id && direction === 'decode'}
+                          decode
+                          onClick={() => pick(type.id, 'decode')}
+                        />,
+                      ])}
+                    </div>
+                  </div>
+                ))
+              )
+            ) : (
+              <>
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between px-1">
+                    <span className={SECTION_LABEL}>编码</span>
+                    <span className={META}>ENCODE</span>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    {encoderTypes.map((type) => (
+                      <MethodTile
+                        key={type.id}
+                        name={type.name}
+                        hint={type.hint}
+                        active={activeType === type.id && direction === 'encode'}
+                        onClick={() => pick(type.id, 'encode')}
+                      />
+                    ))}
+                  </div>
+                </div>
 
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between px-1">
-                <span className={SECTION_LABEL}>解码</span>
-                <span className={META}>DECODE</span>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                {encoderTypes.map((type) => (
-                  <MethodTile
-                    key={type.id}
-                    name={type.name}
-                    hint={type.lossy ? '有损，不能完全还原' : '还原为原文'}
-                    active={activeType === type.id && direction === 'decode'}
-                    decode
-                    onClick={() => pick(type.id, 'decode')}
-                  />
-                ))}
-              </div>
-            </div>
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between px-1">
+                    <span className={SECTION_LABEL}>解码</span>
+                    <span className={META}>DECODE</span>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    {encoderTypes.map((type) => (
+                      <MethodTile
+                        key={type.id}
+                        name={type.name}
+                        hint={type.lossy ? '有损，不能完全还原' : '还原为原文'}
+                        active={activeType === type.id && direction === 'decode'}
+                        decode
+                        onClick={() => pick(type.id, 'decode')}
+                      />
+                    ))}
+                  </div>
+                </div>
 
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between px-1">
-                <span className={SECTION_LABEL}>加解密</span>
-                <span className={META}>AES</span>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <MethodTile
-                  name="AES 加密"
-                  hint={`${aes.mode} · ${aes.keySize} 位`}
-                  active={isAes && direction === 'encode'}
-                  onClick={() => pick(AES_ID, 'encode')}
-                />
-                <MethodTile
-                  name="AES 解密"
-                  hint={`${aes.mode} · ${aes.keySize} 位`}
-                  active={isAes && direction === 'decode'}
-                  decode
-                  onClick={() => pick(AES_ID, 'decode')}
-                />
-              </div>
-            </div>
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between px-1">
+                    <span className={SECTION_LABEL}>加解密</span>
+                    <span className={META}>AES</span>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <MethodTile
+                      name="AES 加密"
+                      hint={`${aes.mode} · ${aes.keySize} 位`}
+                      active={isAes && direction === 'encode'}
+                      onClick={() => pick(AES_ID, 'encode')}
+                    />
+                    <MethodTile
+                      name="AES 解密"
+                      hint={`${aes.mode} · ${aes.keySize} 位`}
+                      active={isAes && direction === 'decode'}
+                      decode
+                      onClick={() => pick(AES_ID, 'decode')}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           {/* 底部按钮跟上面的滚动列表隔一道，免得像压在最后一格上 */}
