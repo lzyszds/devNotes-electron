@@ -127,21 +127,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     }
   },
 
-  // 截图框选：遮罩窗口侧的接口
-  startCapture: () => ipcRenderer.invoke('start-capture'),
-  finishCapture: (dataUrl: string) => ipcRenderer.invoke('finish-capture', dataUrl),
-  cancelCapture: () => ipcRenderer.invoke('cancel-capture'),
-  /** 主进程推来待框选的全屏图 */
-  onCaptureReady: (callback: (payload: unknown) => void) => {
-    const listener = (_: unknown, payload: unknown) => callback(payload)
-    ipcRenderer.on('capture:ready', listener)
-    return () => {
-      ipcRenderer.removeListener('capture:ready', listener)
-    }
-  },
-  /** 渲染层就绪后主动拉一次截图（防止推的消息早于监听挂上而丢失） */
-  requestCaptureShot: () => ipcRenderer.invoke('request-capture-shot'),
-
   /* 流式翻译：发起 + 中断 + 订阅分块推送 */
   startTranslateStream: (options: {
     requestId: string
@@ -171,14 +156,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('translate-stream-end', listener)
     return () => {
       ipcRenderer.removeListener('translate-stream-end', listener)
-    }
-  },
-  /** 主窗口侧：收到框选好的图，该去做 OCR 了 */
-  onCaptureOcrRequest: (callback: (dataUrl: string) => void) => {
-    const listener = (_: unknown, dataUrl: string) => callback(dataUrl)
-    ipcRenderer.on('capture:ocr-request', listener)
-    return () => {
-      ipcRenderer.removeListener('capture:ocr-request', listener)
     }
   },
 })

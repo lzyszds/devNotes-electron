@@ -5,7 +5,6 @@ import {
   History,
   Languages,
   Loader2,
-  ScanText,
   Trash2,
   TriangleAlert,
   Volume2,
@@ -42,7 +41,6 @@ import { translateTextBatch, type TranslationAPI } from '../../../utils/jsonI18n
 import { openAppSettings } from '../../../utils/settingsBus'
 import { speak } from '../../../utils/speechSettings'
 import { AUTO_LANG, LANGUAGES, langName } from '../../../utils/languages'
-import { subscribeOcrRequest } from '../../../utils/ocrBus'
 import { translateStream } from '../../../utils/translateStream'
 import {
   DEFAULT_TRANSLATE_PREFS,
@@ -50,12 +48,6 @@ import {
   saveTranslatePrefs,
   type TranslatePrefs,
 } from '../../../utils/translatePrefs'
-import {
-  OCR_LANGUAGES,
-  describeStatus,
-  recognizeText,
-  type OcrLanguage,
-} from '../../../utils/ocr'
 
 const API_OPTIONS: SelectOption<TranslationAPI>[] = [
   { value: 'gtx', label: 'GTX' },
@@ -254,7 +246,7 @@ export default function TextTranslateTool() {
    * 读盘补齐（读盘是 IPC，不能阻塞首帧）。
    */
   const [prefs, setPrefs] = useState<TranslatePrefs>(DEFAULT_TRANSLATE_PREFS)
-  const { api, autoTranslate, unwrapLines, ocrLang } = prefs
+  const { api, autoTranslate, unwrapLines } = prefs
   /** 改一项就写盘，调用方不用各自处理持久化 */
   const patchPrefs = (patch: Partial<TranslatePrefs>) =>
     setPrefs((prev) => {
@@ -265,7 +257,6 @@ export default function TextTranslateTool() {
   const setApi = (value: TranslationAPI) => patchPrefs({ api: value })
   const setAutoTranslate = (value: boolean) => patchPrefs({ autoTranslate: value })
   const setUnwrapLines = (value: boolean) => patchPrefs({ unwrapLines: value })
-  const setOcrLang = (value: OcrLanguage) => patchPrefs({ ocrLang: value })
 
   useEffect(() => {
     void loadTranslatePrefs().then(setPrefs)
@@ -275,11 +266,6 @@ export default function TextTranslateTool() {
   const [progress, setProgress] = useState({ current: 0, total: 0 })
   const [error, setError] = useState('')
   const [showHistory, setShowHistory] = useState(false)
-  const [ocrState, setOcrState] = useState<{
-    status: 'recognizing' | 'done'
-    progress: number
-    label: string
-  } | null>(null)
   const { showToast } = useToast()
 
   // 代际 id：翻译请求没有 AbortSignal，用它在响应回来时丢弃过期的结果
@@ -481,52 +467,6 @@ export default function TextTranslateTool() {
   const translateRef = useRef(handleTranslate)
   translateRef.current = handleTranslate
 
-  /**
-   * 截图取字：收到图片 → OCR → 填进输入框并翻译。
-   *
-   * 关掉自动翻译会走上面那条 debounce，所以填完 input 什么都不用做，
-   * 翻译会自己跟上；这里只需要在关掉自动翻译时手动触发一次。
-   */
-  const ocrSeqRef = useRef(0)
-  useEffect(() => {
-    const off = subscribeOcrRequest(async (dataUrl) => {
-      // 连续截好几张时，后发的先回来会被旧结果覆盖，用序号挡掉
-      const seq = ++ocrSeqRef.current
-      setOcrState({ status: 'recognizing', progress: 0, label: '准备识别' })
-      setError('')
-
-      try {
-        const text = await recognizeText(dataUrl, {
-          lang: ocrLang,
-          onProgress: (p) => {
-            if (ocrSeqRef.current !== seq) return
-            setOcrState({
-              status: 'recognizing',
-              progress: p.progress,
-              label: describeStatus(p.status),
-            })
-          },
-        })
-        if (ocrSeqRef.current !== seq) return
-
-        if (!text) {
-          setOcrState(null)
-          setError('没有从这张图里识别出文字，换个区域或换个语言试试')
-          return
-        }
-        setInput(text)
-        setOcrState({ status: 'done', progress: 1, label: '识别完成' })
-        // 关掉自动翻译时不会有 debounce 兜底，这里补一次
-        if (!autoTranslate) window.setTimeout(() => void translateRef.current(), 0)
-      } catch (e) {
-        if (ocrSeqRef.current !== seq) return
-        setOcrState(null)
-        setError('识别失败：' + (e instanceof Error ? e.message : String(e)))
-      }
-    })
-    return off
-  }, [autoTranslate, ocrLang, setError, setInput])
-
   useEffect(() => {
     if (!autoTranslate) return
     if (!input.trim() || mymemoryAutoBlocked) return
@@ -581,26 +521,6 @@ export default function TextTranslateTool() {
       }
       actions={
         <>
-          {/* 识别语言只影响 OCR，跟上面的翻译语言是两回事 */}
-          <Select<OcrLanguage>
-            value={ocrLang}
-            onChange={setOcrLang}
-            options={OCR_LANGUAGES}
-            className="w-28"
-            title="识别语言"
-          />
-
-          <Tooltip content="框选屏幕区域，识别其中的文字">
-            <button
-              onClick={() => void window.electronAPI?.startCapture?.()}
-              disabled={!window.electronAPI?.startCapture}
-              className="tool-button-secondary h-8"
-            >
-              <ScanText size={15} />
-              <span>截图取字</span>
-            </button>
-          </Tooltip>
-
           <Select<TranslationAPI>
             value={api}
             onChange={setApi}
@@ -702,25 +622,6 @@ export default function TextTranslateTool() {
                 </Tooltip>
               )}
             </div>
-
-            {/* 识别进度：只有截了图、还在识别时才出现，识别完自动收掉 */}
-          {ocrState?.status === 'recognizing' && (
-            <div className="mx-4 mt-3 flex items-center gap-2.5 rounded-lg bg-brand-50 dark:bg-brand-500/10 px-3 py-2 shrink-0">
-              <Loader2 size={13} className="animate-spin text-brand-500 shrink-0" />
-              <span className="text-[11px] font-medium text-brand-700 dark:text-brand-300 shrink-0">
-                {ocrState.label}
-              </span>
-              <div className="flex-1 h-1 rounded-full bg-brand-200/50 dark:bg-brand-500/20 overflow-hidden">
-                <div
-                  className="h-full bg-brand-500 transition-[width] duration-200"
-                  style={{ width: `${Math.round(ocrState.progress * 100)}%` }}
-                />
-              </div>
-              <span className="text-[10px] font-mono text-brand-500 tabular-nums shrink-0">
-                {Math.round(ocrState.progress * 100)}%
-              </span>
-            </div>
-          )}
 
           <div className="flex-1 min-h-0 p-4 flex flex-col">
               <textarea

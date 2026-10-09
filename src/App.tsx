@@ -6,7 +6,6 @@ import { NotesProvider } from './context/NotesContext'
 import { TranslateProvider } from './context/TranslateContext'
 import { ContextMenuProvider } from './components/ui/ContextMenu'
 import { ToastProvider } from './components/ui/Toast'
-import { requestOcr } from './utils/ocrBus'
 import {
   getCachedTheme,
   getOppositeTheme,
@@ -70,21 +69,6 @@ function App() {
     const api = window.electronAPI
     if (!api?.onToolOpenRequest) return
     return api.onToolOpenRequest((toolId) => openToolRef.current(toolId))
-  }, [])
-
-  /**
-   * 截图框选完成 → 切到翻译页并把图片广播出去。
-   *
-   * 先切页再广播：翻译页得先挂载、订阅上总线，才收得到这个请求。
-   * 用 setTimeout 让出一帧给挂载，比在翻译页里缓冲未读消息简单。
-   */
-  useEffect(() => {
-    const api = window.electronAPI
-    if (!api?.onCaptureOcrRequest) return
-    return api.onCaptureOcrRequest((dataUrl) => {
-      openToolRef.current('text-translate')
-      window.setTimeout(() => requestOcr(dataUrl), 0)
-    })
   }, [])
 
   const openTool = (toolId: string) => {

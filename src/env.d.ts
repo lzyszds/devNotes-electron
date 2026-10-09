@@ -107,13 +107,6 @@ interface Window {
     /** 主进程要求切到某个工具页（全局快捷键唤起时） */
     onToolOpenRequest?: (callback: (toolId: string) => void) => () => void
 
-    /* 截图框选 */
-    startCapture?: () => Promise<void>
-    finishCapture?: (dataUrl: string) => Promise<void>
-    cancelCapture?: () => Promise<void>
-    onCaptureReady?: (callback: (payload: unknown) => void) => () => void
-    requestCaptureShot?: () => Promise<unknown>
-
     /* 流式翻译 */
     startTranslateStream?: (options: {
       requestId: string
@@ -130,7 +123,6 @@ interface Window {
     onTranslateStreamEnd?: (
       callback: (payload: { requestId: string; error?: string }) => void
     ) => () => void
-    onCaptureOcrRequest?: (callback: (dataUrl: string) => void) => () => void
 
     /* 草稿纸置顶小窗 */
     scratchOpen?: () => Promise<void>
