@@ -6,8 +6,8 @@
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build && node scripts/run-electron-builder.cjs",
-    "build:all": "tsc && vite build && node scripts/run-electron-builder.cjs --mac --win",
+    "build": "node scripts/bump-version.cjs && tsc && vite build && node scripts/run-electron-builder.cjs",
+    "build:all": "node scripts/bump-version.cjs && tsc && vite build && node scripts/run-electron-builder.cjs --mac --win",
     "build:web": "tsc && vite build",
     "build:mobile": "tsc && BUILD_TARGET=capacitor vite build",
     "cap:sync": "bun run build:mobile && cap sync android",
@@ -115,7 +115,8 @@
             "arm64"
           ]
         }
-      ]
+      ],
+      "artifactName": "${version}.${ext}"
     },
     "win": {
       "target": [
@@ -130,7 +131,8 @@
       "electronLanguages": [
         "zh-CN",
         "en-US"
-      ]
+      ],
+      "artifactName": "${version}.${ext}"
     },
     "asarUnpack": [
       "node_modules/@xitanggg/**/*"
