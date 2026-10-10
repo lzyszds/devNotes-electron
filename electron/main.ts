@@ -28,7 +28,8 @@ import {
   pasteImageToFocusedApp,
   copyImageToClipboard,
   requestPastePermission,
-  setAppWasForegroundOnOpen,
+  setPasteContext,
+  getFrontmostAppSync,
 } from './pasteToApp'
 import type { IpcMainInvokeEvent } from 'electron'
 
@@ -520,12 +521,17 @@ function startClipboardCapture(): void {
 let clipboardStop: (() => void) | null = null
 
 function openClipboardWindow(): void {
-  // 记录唤出面板时 devNotes 是否在前台。
-  // 决定粘贴时要不要先 app.hide() 把前台还给外部应用（见 pasteToApp.ts）。
+  // 记录唤出面板时的焦点上下文：devNotes 是否前台，以及前台应用是谁。
+  // 粘贴时据此把焦点还给外部应用（见 pasteToApp.ts）。必须在面板 show/focus
+  // 之前记录 —— 一旦面板抢了焦点，前台应用就变成 devNotes 自己了。
   const wasForeground = Boolean(
     mainWindow && !mainWindow.isDestroyed() && mainWindow.isFocused()
   )
-  setAppWasForegroundOnOpen(wasForeground)
+  setPasteContext({
+    wasForeground,
+    // 只在外部场景才需要记目标应用：devNotes 自己在前台时粘给自己即可
+    frontAppBundleId: wasForeground ? null : getFrontmostAppSync(),
+  })
 
   /*
    * 外部场景（用户在别的应用里唤面板）：先把主窗口藏起来。

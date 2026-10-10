@@ -11,18 +11,60 @@
  */
 
 import { app, clipboard, ClipboardItem, systemPreferences, shell } from 'electron'
+import { execFile, execFileSync } from 'child_process'
 
 /**
- * 唤出面板时，devNotes 是否在前台。
+ * 唤出面板时上下文：devNotes 是否在前台 + 前台应用是谁。
  *
- * 由 openClipboardWindow 在开窗前记录，粘贴时据此判断要不要先把前台还回去。
- * 用模块级变量而不是参数：openClipboardWindow 和 pasteToFocusedApp 分属不同
- * 的 IPC 调用链，中间隔了一层面板渲染进程，传参要绕 IPC 太啰嗦。
+ * 由 openClipboardWindow 在开窗前记录，粘贴时据此把焦点还回去。用模块级
+ * 变量而不是参数：openClipboardWindow 和 pasteToFocusedApp 分属不同的 IPC
+ * 调用链，中间隔了一层面板渲染进程，传参要绕 IPC 太啰嗦。
+ *
+ * previousFrontApp 存的是「唤出面板前前台应用」的 bundle id。之前只记
+ * devNotes 是否前台、粘贴时靠 app.hide() 让 macOS 自己决定把前台还给谁，
+ * 那个「还给谁」不可控 —— 切到微信、Finder、别的窗口都可能，粘错地方。
+ * 现在显式记住目标应用，粘贴前用 open -b 精准激活它。
  */
-let appWasForegroundOnOpen = false
+let appWasForegroundOnOpen = true
+let previousFrontApp: string | null = null
 
-export function setAppWasForegroundOnOpen(value: boolean): void {
-  appWasForegroundOnOpen = value
+export function setPasteContext(options: {
+  wasForeground: boolean
+  frontAppBundleId: string | null
+}): void {
+  appWasForegroundOnOpen = options.wasForeground
+  previousFrontApp = options.frontAppBundleId
+}
+
+/**
+ * 同步读取当前前台应用的 bundle id。
+ *
+ * lsappinfo 是 macOS 自带命令，无需任何权限；只在开窗前那一瞬间调用，
+ * 此时前台还是用户真正在用的应用（微信 / VS Code），面板还没抢焦点。
+ * 拿不到就返回 null，调用方退回 app.hide() 兜底。
+ */
+export function getFrontmostAppSync(): string | null {
+  if (process.platform !== 'darwin') return null
+  try {
+    /*
+     * lsappinfo front 只回 ASN、不带属性，拿不到 bundle id；但 lsappinfo list
+     * 会给每个应用列出 bundleID，且前台应用那条标着 "(in front)"。直接取
+     * 那个标记之后最近的 bundleID 即可。不同 macOS 版本格式有差异
+     * （bundleID="x" 或 bundleID = "x"），用宽松正则兼容。
+     */
+    const out = execFileSync('lsappinfo', ['list'], { encoding: 'utf8', timeout: 800 })
+    const match = /\(in front\)[\s\S]*?bundleID\s*=\s*"([^"]+)"/.exec(out)
+    return match?.[1] ?? null
+  } catch {
+    return null
+  }
+}
+
+/** 激活指定应用。open -b 只激活已运行的实例，不会新开一个窗口 */
+function activateApp(bundleId: string): Promise<void> {
+  return new Promise((resolve) => {
+    execFile('open', ['-b', bundleId], () => resolve())
+  })
 }
 
 /**
@@ -121,17 +163,19 @@ export async function pasteToFocusedApp(text: string): Promise<{
   try {
     /*
      * 外部应用场景：唤出面板时 devNotes 不在前台，但用户点面板的那一刻
-     * macOS 已经把 devNotes 激活了（Electron 不支持 nonactivating panel，
-     * 点窗口必然激活 app），主窗口跟着浮上来。这时直接模拟 ⌘V 会粘到
-     * 主窗口自己身上。
+     * macOS 已经把 devNotes 激活了，直接模拟 ⌘V 会粘到 devNotes 自己身上。
      *
-     * 所以先 app.hide() 把整个 devNotes 退到后台 —— macOS 会把前台还给
-     * 唤出面板前那个应用（微信 / VS Code），等焦点转移完成再模拟 ⌘V，
-     * 才落得回正确的地方。
+     * 所以先把焦点还给「唤出面板前那个应用」：优先用 open -b 显式激活
+     * 记住的目标应用，精准、不靠猜；没记到目标时退回 app.hide() 让系统
+     * 自己归还焦点。等焦点转移完成再模拟 ⌘V。
      */
     if (process.platform === 'darwin' && !appWasForegroundOnOpen) {
-      app.hide()
-      await new Promise((resolve) => setTimeout(resolve, 150))
+      if (previousFrontApp) {
+        await activateApp(previousFrontApp)
+      } else {
+        app.hide()
+      }
+      await new Promise((resolve) => setTimeout(resolve, 200))
     }
 
     /*
@@ -190,8 +234,12 @@ export async function pasteImageToFocusedApp(imageDataUrl: string): Promise<{
 
   try {
     if (process.platform === 'darwin' && !appWasForegroundOnOpen) {
-      app.hide()
-      await new Promise((resolve) => setTimeout(resolve, 150))
+      if (previousFrontApp) {
+        await activateApp(previousFrontApp)
+      } else {
+        app.hide()
+      }
+      await new Promise((resolve) => setTimeout(resolve, 200))
     }
     paste()
     return { ok: true }
