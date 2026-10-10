@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, desktopCapturer, dialog, ipcMain, Menu, screen, Tray, globalShortcut, Notification, nativeImage, shell } from 'electron'
+import { app, BrowserWindow, clipboard, desktopCapturer, dialog, ipcMain, Menu, screen, systemPreferences, Tray, globalShortcut, Notification, nativeImage, shell } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import Store from 'electron-store'
@@ -77,7 +77,7 @@ const GLOBAL_SHORTCUT_ACTIONS: Record<string, () => void> = {
     void focusWindowAndOpenTool('text-translate')
   },
   'screenshot-translate': () => {
-    createCaptureWindow()
+    void openCapture()
   },
   // 草稿纸是独立小窗，跟主窗口的显隐无关 —— 主窗口收进托盘时它照样能唤出来
   'open-scratchpad': () => {
@@ -139,6 +139,53 @@ function applyGlobalShortcuts(): { failed: string[] } {
 }
 
 /**
+ * 确保已获得「屏幕录制」权限，没有就先申请 / 引导，拿到后再继续。
+ *
+ * 必须在开遮罩窗口**之前**做完：抓屏（desktopCapturer.getSources）在
+ * macOS 上受「屏幕录制」权限约束，而首次调用会由系统弹出授权窗。遮罩
+ * 窗口是 alwaysOnTop 的，若先开窗再弹授权，用户可能被遮罩挡住、点不到
+ * 「允许」—— 顺序反了就会卡死。
+ *
+ * 返回是否已授权；只有 true 才允许调用方开窗。
+ */
+async function ensureScreenPermission(): Promise<boolean> {
+  // 非 macOS 没有屏幕录制权限这个概念，直接放行
+  if (process.platform !== 'darwin') return true
+
+  const status = systemPreferences.getMediaAccessStatus('screen')
+  if (status === 'granted') return true
+
+  // 被家长控制 / 企业策略锁死，或用户拒绝过：系统不会再弹窗，只能引导去设置
+  if (status === 'denied' || status === 'restricted') {
+    const locked = status === 'restricted'
+    const { response } = await dialog.showMessageBox({
+      type: 'warning',
+      message: '需要「屏幕录制」权限才能截图取字',
+      detail: locked
+        ? '当前系统策略限制了屏幕录制权限，无法授权。'
+        : '请在系统设置 → 隐私与安全性 → 屏幕录制里勾选 devNotes，然后重试。',
+      buttons: locked ? ['知道了'] : ['打开设置', '取消'],
+      defaultId: 0,
+      cancelId: locked ? 0 : 1,
+    })
+    if (!locked && response === 0) {
+      await shell.openExternal(
+        'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture'
+      )
+    }
+    return false
+  }
+
+  // not-determined / unknown：主动申请，系统会当场弹授权窗
+  return systemPreferences.askForMediaAccess('screen')
+}
+
+/** 查权限 → 有权限就开截图遮罩。快捷键与按钮两处共用的入口 */
+async function openCapture(): Promise<void> {
+  if (await ensureScreenPermission()) createCaptureWindow()
+}
+
+/**
  * 开一个铺满主屏的透明无边框窗口，用来做截图框选。
  *
  * 截图数据在窗口 did-finish-load 之后才推送：渲染层要先挂上监听，
@@ -190,7 +237,15 @@ function createCaptureWindow(): void {
     },
   })
 
-  captureWindow.setAlwaysOnTop(true, 'screen-saver')
+  /*
+   * 用 'floating' 而不是 'screen-saver'。
+   *
+   * 'screen-saver' 是 macOS 上的最高层级，会盖住系统权限弹窗（辅助功能、
+   * 屏幕录制等）—— 用户申请权限时看不到弹窗，又退不出遮罩，等于卡死。
+   * 'floating' 已经高于普通应用窗口，压住别人的界面没问题，同时把
+   * 权限弹窗的层级让出来。
+   */
+  captureWindow.setAlwaysOnTop(true, 'floating')
 
   /*
    * 兜底：注册一个自毁快捷键。
@@ -1042,9 +1097,7 @@ function setupIpc() {
   })
 
   /** 渲染层主动请求开截图（比如翻译页上的按钮） */
-  ipcMain.handle('start-capture', () => {
-    createCaptureWindow()
-  })
+  ipcMain.handle('start-capture', () => openCapture())
 
   /**
    * 遮罩层的渲染进程就绪后主动来拉一次截图。
