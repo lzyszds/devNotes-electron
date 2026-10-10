@@ -1,7 +1,7 @@
 {
   "name": "devnotes",
   "productName": "devNotes",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "devNotes (React + TypeScript + Tailwind)",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -78,7 +78,15 @@
       "assets/icon.png",
       "node_modules/@xitanggg/node-insert-text/**/*",
       "node_modules/@xitanggg/node-insert-text-darwin-*/**/*",
-      "node_modules/@xitanggg/node-insert-text-win32-*/**/*"
+      "node_modules/@xitanggg/node-insert-text-win32-*/**/*",
+      "!**/*.map",
+      "!**/tesseract-core.wasm",
+      "!**/tesseract-core.wasm.js",
+      "!**/tesseract-core-simd.wasm",
+      "!**/tesseract-core-simd.wasm.js",
+      "!**/tesseract-core-relaxedsimd.wasm",
+      "!**/tesseract-core-relaxedsimd.wasm.js",
+      "!**/cherry-markdown/node_modules/**"
     ],
     "fileAssociations": [
       {
