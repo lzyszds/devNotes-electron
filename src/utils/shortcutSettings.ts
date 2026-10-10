@@ -50,6 +50,13 @@ export const SHORTCUT_BINDINGS: ShortcutBinding[] = [
     scope: 'global',
   },
   {
+    id: 'screenshot-translate',
+    label: '截图取字翻译',
+    description: '框选屏幕任意区域，识别其中的文字并翻译',
+    defaultAccelerator: 'Alt+Shift+S',
+    scope: 'global',
+  },
+  {
     id: 'open-scratchpad',
     label: '打开草稿纸',
     description: '呼出常驻置顶的草稿纸小窗，在别的应用里也能随手记一笔',

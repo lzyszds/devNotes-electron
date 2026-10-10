@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, screen, Tray, globalShortcut, Notification, nativeImage, shell } from 'electron'
+import { app, BrowserWindow, clipboard, desktopCapturer, dialog, ipcMain, Menu, screen, Tray, globalShortcut, Notification, nativeImage, shell } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import Store from 'electron-store'
@@ -34,12 +34,16 @@ import type { IpcMainInvokeEvent } from 'electron'
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
+/** 截图框选用的一次性全屏遮罩窗口 */
+let captureWindow: BrowserWindow | null = null
 /** 草稿纸小窗。单例 —— 反复唤起只把它调出来，不开第二个 */
 let scratchWindow: BrowserWindow | null = null
 /** 剪贴板取词面板。同样是单例 */
 let clipboardWindow: BrowserWindow | null = null
 /** 剪贴板轮询计时器 */
 let clipboardTimer: NodeJS.Timeout | null = null
+/** 本次框选的截图结果，缓存起来供推 / 拉两条路径共用（见 createCaptureWindow） */
+let captureShotPromise: Promise<unknown> | null = null
 /** 进行中的流式翻译请求，按 requestId 索引，供中途中断 */
 const streamHandles = new Map<string, { abort: () => void }>()
 
@@ -72,6 +76,9 @@ const GLOBAL_SHORTCUT_ACTIONS: Record<string, () => void> = {
   'open-translate': () => {
     void focusWindowAndOpenTool('text-translate')
   },
+  'screenshot-translate': () => {
+    createCaptureWindow()
+  },
   // 草稿纸是独立小窗，跟主窗口的显隐无关 —— 主窗口收进托盘时它照样能唤出来
   'open-scratchpad': () => {
     openScratchWindow()
@@ -85,6 +92,7 @@ const GLOBAL_SHORTCUT_ACTIONS: Record<string, () => void> = {
 const GLOBAL_SHORTCUT_DEFAULTS: Record<string, string> = {
   'toggle-window': 'Alt+Shift+F',
   'open-translate': 'Alt+Shift+T',
+  'screenshot-translate': 'Alt+Shift+S',
   'open-scratchpad': 'Alt+Shift+N',
   'open-clipboard': 'Alt+Shift+V',
 }
@@ -128,6 +136,137 @@ function applyGlobalShortcuts(): { failed: string[] } {
     }
   }
   return { failed }
+}
+
+/**
+ * 开一个铺满主屏的透明无边框窗口，用来做截图框选。
+ *
+ * 截图数据在窗口 did-finish-load 之后才推送：渲染层要先挂上监听，
+ * 早发就丢了。窗口用 alwaysOnTop + fullscreenable 的组合保证盖住其他应用。
+ */
+function createCaptureWindow(): void {
+  if (captureWindow) {
+    captureWindow.focus()
+    return
+  }
+
+  const primary = screen.getPrimaryDisplay()
+  const { x, y, width, height } = primary.bounds
+
+  /*
+   * 立刻开始抓屏，且必须在窗口显示之前完成 —— 拍到遮罩自己就没底图了。
+   * 结果缓存成 Promise，窗口加载好后无论是主进程推还是渲染层拉，都读这一份，
+   * 避免重复抓屏（第二次抓就会把已经显示出来的遮罩拍进去）。
+   */
+  captureShotPromise = grabPrimaryScreen()
+
+  captureWindow = new BrowserWindow({
+    x,
+    y,
+    width,
+    height,
+    frame: false,
+    transparent: true,
+    // 截图期间要让用户看到底下的原始画面，所以窗口本身不画背景
+    backgroundColor: '#00000000',
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: false,
+    movable: false,
+    hasShadow: false,
+    enableLargerThanScreen: true,
+    /*
+     * 先不显示。窗口默认创建即显示，而抓屏必须发生在它显示**之前** ——
+     * 否则拍到的是自己那层半透明遮罩，底图就是灰的。等图抓完再 show。
+     */
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      // 必须跟主窗口一致用 true。contextIsolation 为 false 时 preload 跑在
+      // 渲染进程主世界里，contextBridge.exposeInMainWorld 会失效 —— 表现为
+      // window.electronAPI 是 undefined，遮罩层既截不到图也关不掉
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  })
+
+  captureWindow.setAlwaysOnTop(true, 'screen-saver')
+
+  /*
+   * 兜底：注册一个自毁快捷键。
+   *
+   * 遮罩层铺满屏幕，一旦渲染层出问题（白屏、脚本报错、接口不可用），
+   * 用户就没有任何办法退出，只能强杀进程。这里在主进程侧留一个不依赖
+   * 渲染层的退出方式 —— 渲染层的 Esc 已经有一层，但它在同一侧，共命运。
+   */
+  globalShortcut.register('Escape', () => {
+    if (captureWindow) closeCaptureWindow()
+  })
+
+  // 窗口被系统或用户关掉时，别把 Escape 留在全局注册表里 ——
+  // 否则正常使用时按 Esc 会被这个残留的注册吃掉
+  captureWindow.on('closed', () => {
+    globalShortcut.unregister('Escape')
+    captureWindow = null
+  })
+
+  const devServerUrl = process.env.VITE_DEV_SERVER_URL
+  if (devServerUrl) {
+    void captureWindow.loadURL(`${devServerUrl}?capture=1`)
+  } else {
+    void captureWindow.loadFile(path.join(__dirname, '../dist/index.html'), {
+      search: 'capture=1',
+    })
+  }
+
+  /*
+   * 图抓到、页面也加载完了，才把遮罩显示出来。
+   *
+   * 用 Promise.all 等两件事：图没抓到就显示会露出桌面一片空白；
+   * 页面没加载完就显示会先闪一下透明白窗。
+   */
+  captureWindow.webContents.once('did-finish-load', async () => {
+    let payload: unknown
+    try {
+      payload = await captureShotPromise
+    } catch (e) {
+      payload = { error: e instanceof Error ? e.message : '截图失败' }
+    }
+    captureWindow?.show()
+    captureWindow?.focus()
+    captureWindow?.webContents.send('capture:ready', payload)
+  })
+}
+
+/** 抓主屏全屏图，转 dataURL */
+async function grabPrimaryScreen() {
+  const primary = screen.getPrimaryDisplay()
+  const scale = primary.scaleFactor || 1
+  const { width, height } = primary.size
+
+  const sources = await desktopCapturer.getSources({
+    types: ['screen'],
+    // 按物理分辨率抓：截图要拿去 OCR，缩过会掉识别率
+    thumbnailSize: { width: Math.round(width * scale), height: Math.round(height * scale) },
+  })
+  const target = sources.find((s) => s.display_id === String(primary.id)) ?? sources[0]
+  if (!target) throw new Error('没有可截取的屏幕')
+
+  return {
+    dataUrl: target.thumbnail.toDataURL(),
+    // 逻辑尺寸，框选坐标按它算
+    width,
+    height,
+    scaleFactor: scale,
+  }
+}
+
+/** 关掉遮罩窗口。框选完成或取消都走这里 */
+function closeCaptureWindow(): void {
+  captureWindow?.close()
+  captureWindow = null
+  // 缓存要清掉：那是一张全屏图，留着白占几 MB 内存
+  captureShotPromise = null
 }
 
 /* ==================== 草稿纸：置顶小窗 ==================== */
@@ -900,6 +1039,46 @@ function setupIpc() {
   ipcMain.handle('set-shortcut-recording', (_, recording: boolean) => {
     if (recording) globalShortcut.unregisterAll()
     else applyGlobalShortcuts()
+  })
+
+  /** 渲染层主动请求开截图（比如翻译页上的按钮） */
+  ipcMain.handle('start-capture', () => {
+    createCaptureWindow()
+  })
+
+  /**
+   * 遮罩层的渲染进程就绪后主动来拉一次截图。
+   *
+   * 主进程推图是在 did-finish-load，那是「HTML 加载完」，React 的 effect
+   * 可能还没跑、监听还没挂上，推过去的消息就丢了 —— 表现为只有遮罩没有底图。
+   * 两条路径都留着，谁先到谁用，读的都是同一份缓存。
+   */
+  ipcMain.handle('request-capture-shot', async () => {
+    if (!captureShotPromise) return { error: '没有可用的截图' }
+    try {
+      return await captureShotPromise
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : '截图失败' }
+    }
+  })
+
+  /**
+   * 框选完成：拿到裁剪好的图片，转交主窗口去做 OCR + 翻译。
+   *
+   * 先关遮罩再发消息：遮罩是 alwaysOnTop 的，不关掉会把主窗口盖住，
+   * 用户看不到识别结果。
+   */
+  ipcMain.handle('finish-capture', (_, dataUrl: string) => {
+    closeCaptureWindow()
+    if (!mainWindow) return
+    if (mainWindow.isMinimized()) mainWindow.restore()
+    mainWindow.show()
+    mainWindow.focus()
+    mainWindow.webContents.send('capture:ocr-request', dataUrl)
+  })
+
+  ipcMain.handle('cancel-capture', () => {
+    closeCaptureWindow()
   })
 
   // Store operations
