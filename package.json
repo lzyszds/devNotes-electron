@@ -1,12 +1,13 @@
 {
   "name": "devnotes",
   "productName": "devNotes",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "devNotes (React + TypeScript + Tailwind)",
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
     "build": "node scripts/bump-version.cjs && tsc && vite build && node scripts/run-electron-builder.cjs",
+    "build:dir": "tsc && vite build && node scripts/run-electron-builder.cjs --dir",
     "build:all": "node scripts/bump-version.cjs && tsc && vite build && node scripts/run-electron-builder.cjs --mac --win",
     "build:web": "tsc && vite build",
     "build:mobile": "tsc && BUILD_TARGET=capacitor vite build",
