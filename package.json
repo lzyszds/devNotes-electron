@@ -119,7 +119,7 @@
           ]
         }
       ],
-      "artifactName": "${version}.${ext}"
+      "artifactName": "${productName}-${version}.${ext}"
     },
     "win": {
       "target": [
@@ -135,7 +135,7 @@
         "zh-CN",
         "en-US"
       ],
-      "artifactName": "${version}.${ext}"
+      "artifactName": "${productName}-${version}.${ext}"
     },
     "asarUnpack": [
       "node_modules/@xitanggg/**/*"
