@@ -10,7 +10,7 @@
  * 程序绕不过去，只能引导用户去勾选。
  */
 
-import { app, clipboard, ClipboardItem, systemPreferences, shell } from 'electron'
+import { app, clipboard, ClipboardItem, dialog, systemPreferences, shell } from 'electron'
 import { execFile, execFileSync } from 'child_process'
 
 /**
@@ -138,6 +138,34 @@ export async function openAccessibilitySettings(): Promise<void> {
 }
 
 /**
+ * 确保有「辅助功能」权限，没有就申请 / 引导。
+ *
+ * 打包重新签名后，这类系统权限会随签名变化一起失效（dev 模式用的
+ * Electron 默认签名是另一份记录），用户没授权时粘贴会静默失败 ——
+ * 必须显式处理。返回是否已授权，只有 true 才继续模拟粘贴。
+ */
+async function ensurePastePermission(): Promise<boolean> {
+  if (process.platform !== 'darwin') return true
+  if (isPasteTrusted()) return true
+
+  // 首次申请：系统会当场弹授权窗，用户点「允许」即生效，本次粘贴继续
+  if (requestPastePermission()) return true
+
+  // 之前拒绝过，系统不再弹窗，只能引导去设置手动勾选
+  const { response } = await dialog.showMessageBox({
+    type: 'warning',
+    message: '需要「辅助功能」权限才能自动粘贴',
+    detail:
+      '打包安装后需要重新授权：在系统设置 → 隐私与安全性 → 辅助功能里勾选 devNotes，然后重试。',
+    buttons: ['打开设置', '取消'],
+    defaultId: 0,
+    cancelId: 1,
+  })
+  if (response === 0) await openAccessibilitySettings()
+  return false
+}
+
+/**
  * 执行粘贴。
  *
  * 返回值告诉调用方结果，界面据此决定是「贴好了」还是「已复制，请手动按 ⌘V」：
@@ -156,7 +184,7 @@ export async function pasteToFocusedApp(text: string): Promise<{
   const insertText = loadNativeModule()?.insertText
   if (!insertText) return { ok: false, reason: 'no-module' }
 
-  if (process.platform === 'darwin' && !isPasteTrusted()) {
+  if (!(await ensurePastePermission())) {
     return { ok: false, reason: 'no-permission' }
   }
 
@@ -228,7 +256,7 @@ export async function pasteImageToFocusedApp(imageDataUrl: string): Promise<{
 
   const paste = loadNativeModule()?.paste
   if (!paste) return { ok: false, reason: 'no-module' }
-  if (process.platform === 'darwin' && !isPasteTrusted()) {
+  if (!(await ensurePastePermission())) {
     return { ok: false, reason: 'no-permission' }
   }
 
