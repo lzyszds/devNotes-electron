@@ -214,9 +214,9 @@ function createCaptureWindow(): void {
     width,
     height,
     frame: false,
-    transparent: true,
-    // 截图期间要让用户看到底下的原始画面，所以窗口本身不画背景
-    backgroundColor: '#00000000',
+    // 深色不透明背景：抓屏一完成就 show 窗口时，页面还没加载完，先露出
+    // 这个深色遮罩，既不露桌面也不闪白，等底图渲染好再盖上去
+    backgroundColor: '#0f172a',
     alwaysOnTop: true,
     skipTaskbar: true,
     resizable: false,
@@ -224,8 +224,9 @@ function createCaptureWindow(): void {
     hasShadow: false,
     enableLargerThanScreen: true,
     /*
-     * 先不显示。窗口默认创建即显示，而抓屏必须发生在它显示**之前** ——
-     * 否则拍到的是自己那层半透明遮罩，底图就是灰的。等图抓完再 show。
+     * 先不显示。抓屏必须发生在窗口显示**之前** —— 否则拍到的是自己那层
+     * 遮罩，底图就是灰的。这里不设 show: false 的话窗口创建即显示；
+     * 真正 show 的时机在抓屏完成后（见下面的 captureShotPromise.then）。
      */
     show: false,
     webPreferences: {
@@ -276,10 +277,22 @@ function createCaptureWindow(): void {
   }
 
   /*
-   * 图抓到、页面也加载完了，才把遮罩显示出来。
+   * 抓屏一完成就 show 窗口，不用等页面加载完 —— dev 模式 loadURL 走 vite
+   * 开发服务器，编译 + 加载模块要几百毫秒起，全等它窗口才出现会显得很慢。
+   * 抓屏（desktopCapturer.getSources）通常几十毫秒，窗口能立刻亮出来，
+   * 先露出深色遮罩；底图等页面渲染好再推（见 did-finish-load）。
    *
-   * 用 Promise.all 等两件事：图没抓到就显示会露出桌面一片空白；
-   * 页面没加载完就显示会先闪一下透明白窗。
+   * 成功和失败都要 show：失败时渲染层会显示错误界面，同样需要窗口可见。
+   */
+  const reveal = () => {
+    captureWindow?.show()
+    captureWindow?.focus()
+  }
+  void captureShotPromise.then(reveal, reveal)
+
+  /*
+   * 页面加载完才推底图：渲染层要先挂上监听，早发就丢了。窗口已经由
+   * reveal 显示出来了，这里只负责把图送过去。
    */
   captureWindow.webContents.once('did-finish-load', async () => {
     let payload: unknown
@@ -288,8 +301,6 @@ function createCaptureWindow(): void {
     } catch (e) {
       payload = { error: e instanceof Error ? e.message : '截图失败' }
     }
-    captureWindow?.show()
-    captureWindow?.focus()
     captureWindow?.webContents.send('capture:ready', payload)
   })
 }
