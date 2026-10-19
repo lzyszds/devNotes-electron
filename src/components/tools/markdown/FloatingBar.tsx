@@ -7,11 +7,22 @@ import { TooltipProvider } from '@milkdown/kit/plugin/tooltip'
 import type { EditorView } from '@milkdown/kit/prose/view'
 import Tooltip from '../../ui/Tooltip'
 
+export type FloatingPlacement = 'top-start' | 'top' | 'bottom-start' | 'bottom' | 'left-start'
+
 export type FloatingBarOptions = {
   /** 什么时候该浮出来。每次视图更新、每次滚动/松手都会问一次 */
   shouldShow: (view: EditorView) => boolean
-  /** 相对光标/选区的位置。默认贴在下方左侧 */
-  placement?: 'top-start' | 'top' | 'bottom-start' | 'bottom' | 'left-start'
+  /**
+   * 相对光标/选区的位置。默认贴在下方左侧。
+   * 可以随渲染变化：hook 会把新值写进 provider 的配置并重新定位。
+   */
+  placement?: FloatingPlacement
+  /**
+   * 浮层内容的标识（如当前展开的面板名）。值一变就重新定位。
+   *
+   * 展开的面板会让浮层变高，不重算的话夹取视口还在用旧高度，面板照样会被顶出去。
+   */
+  repositionKey?: unknown
   /** 触发判定的节流窗口（ms）。leading 生效，所以第一次永远是即时的 */
   throttle?: number
   /**
@@ -83,8 +94,24 @@ export function useFloatingBar(
 ) {
   // 每次渲染都刷新，保证 provider 里读到的是最新的 shouldShow / placement
   const optionsRef = useRef(options)
+  // placement 是 provider 构造时存下的对象里的属性，改了要主动让它重算一次
+  const floatingOptionsRef = useRef<{ placement: FloatingPlacement } | null>(null)
+  // 上一次重算时的「内容标识」，用来判断展开的面板变了没
+  const lastRepositionKeyRef = useRef<unknown>(undefined)
   useEffect(() => {
     optionsRef.current = options
+    const floating = floatingOptionsRef.current
+    if (floating && options.placement && floating.placement !== options.placement) {
+      floating.placement = options.placement
+    }
+    /*
+     * 浮层内容高度变了（展开面板、切换面板）就得重算位置，否则夹取视口那步
+     * 用的还是旧高度。useEffect 在 DOM 提交后跑，此时新面板已经进页面，量得到真实尺寸。
+     */
+    if (options.repositionKey !== lastRepositionKeyRef.current) {
+      lastRepositionKeyRef.current = options.repositionKey
+      if (editor) editor.action((ctx) => providerRef.current?.update(ctx.get(editorViewCtx)))
+    }
   })
 
   /*
@@ -135,15 +162,23 @@ export function useFloatingBar(
     let pinnedLeft: number | null = null
     let pinnedCorner: { top: number; right: number } | null = null
 
+    /*
+     * 这个对象留着引用：TooltipProvider 构造时只是把它存下来，update() 每次都从
+     * 同一个对象读 placement。所以下面改 floatingUIOptions.placement 就能让下一次
+     * 定位用上新方向，不必重建 provider（重建会丢当前的显示状态）。
+     */
+    const floatingUIOptions: { placement: FloatingPlacement; strategy: 'fixed' } = {
+      placement: optionsRef.current.placement ?? 'bottom-start',
+      strategy: 'fixed',
+    }
+    floatingOptionsRef.current = floatingUIOptions
+
     const provider = new TooltipProvider({
       content: host,
       root: document.body,
       debounce: optionsRef.current.throttle ?? 100,
       offset: 8,
-      floatingUIOptions: {
-        placement: optionsRef.current.placement ?? 'bottom-start',
-        strategy: 'fixed',
-      },
+      floatingUIOptions,
       /*
        * 钉死位置的中间件。
        *
@@ -165,6 +200,41 @@ export function useFloatingBar(
               return { x: pinnedCorner.right - width, y: pinnedCorner.top }
             }
             return pinnedLeft == null ? {} : { x: pinnedLeft, y }
+          },
+        },
+        {
+          /*
+           * 最后一道兜底：把浮层夹进视口。
+           *
+           * 内置的 flip()/shift() 量的是**浮条本体**，浮条里展开的面板（AI 菜单、
+           * 字号/色板）不在它们的考虑范围内，面板朝上长时会被顶出窗口。这里按
+           * 整个宿主元素的实际高度再夹一次，代价是面板很高时浮条会略偏离选区，
+           * 但内容始终完整可见。
+           */
+          name: 'fehelper-clamp-viewport',
+          fn: ({ x, y, rects, elements }) => {
+            if (!elements.floating) return {}
+            const margin = 8
+            // 用本条中间件收到的 x/y（本次算出的位置）+ 元素尺寸，
+            // 不要读 getBoundingClientRect —— 那还是上一次写进 style 的旧位置
+            const height = rects.floating.height
+            const width = rects.floating.width
+            let nextX = x
+            let nextY = y
+
+            if (height > 0) {
+              const bottom = y + height
+              const maxBottom = window.innerHeight - margin
+              if (bottom > maxBottom) nextY -= bottom - maxBottom
+              if (nextY < margin) nextY = margin
+            }
+            if (width > 0) {
+              const right = x + width
+              const maxRight = window.innerWidth - margin
+              if (right > maxRight) nextX -= right - maxRight
+              if (nextX < margin) nextX = margin
+            }
+            return nextX === x && nextY === y ? {} : { x: nextX, y: nextY }
           },
         },
       ],
@@ -202,6 +272,7 @@ export function useFloatingBar(
       document.removeEventListener('scroll', onScroll, true)
       provider.destroy()
       providerRef.current = null
+      floatingOptionsRef.current = null
       // provider 只负责把它挂上去，摘下来是自己的事 —— 不摘的话每次卸载都会在 body 里留一个空壳
       host.remove()
     }
@@ -239,10 +310,18 @@ export type FloatingBarButtonProps = {
   icon: ComponentType<{ className?: string }>
   label: string
   active?: boolean
+  /** 图标转圈（如 AI 请求中）。图标本身得是不带动效的纯图形 */
+  spinning?: boolean
   onClick: () => void
 }
 
-export function FloatingBarButton({ icon: Icon, label, active, onClick }: FloatingBarButtonProps) {
+export function FloatingBarButton({
+  icon: Icon,
+  label,
+  active,
+  spinning,
+  onClick,
+}: FloatingBarButtonProps) {
   return (
     // 走全站自绘的 Tooltip，而不是原生 title：原生气泡出现慢、样式不跟主题，
     // 而且浮条上全是纯图标按钮，不给说明根本看不出是干什么的
@@ -258,7 +337,7 @@ export function FloatingBarButton({ icon: Icon, label, active, onClick }: Floati
             : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-dark-hover dark:hover:text-white'
         }`}
       >
-        <Icon className="h-3.5 w-3.5" />
+        <Icon className={spinning ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'} />
       </button>
     </Tooltip>
   )

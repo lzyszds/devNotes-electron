@@ -63,6 +63,7 @@ import SlashMenu, { slash } from './markdown/SlashMenu'
 import BlockHandle from './markdown/BlockHandle'
 import TableTools from './markdown/TableTools'
 import SelectionToolbar from './markdown/SelectionToolbar'
+import { registerAiReviewApply } from '../../utils/aiReview'
 import InsertToolbar from './markdown/InsertToolbar'
 import {
   bumpEnhanceTheme,
@@ -71,8 +72,11 @@ import {
   syncAllCodeHeaderTones,
 } from '../../utils/milkdownEnhance'
 import {
+  applyAiResult,
+  getContextBeforeSelection,
   getCurrentHeadingLevel,
   getMilkdownLinkAtCursor,
+  getSelectionText,
   insertBlockMarkdown,
   insertInlineMarkdown,
   insertMilkdownImage,
@@ -82,6 +86,7 @@ import {
   setInlineTextColor,
   setMilkdownHeading,
   setMilkdownLink,
+  snapshotSelection,
   toggleHighlight,
   toggleSubscript,
   toggleSuperscript,
@@ -349,6 +354,8 @@ export default function MilkdownMarkdownEditor({
 
       if (href.startsWith('http://') || href.startsWith('https://') || href.startsWith('mailto:')) {
         e.preventDefault()
+        // 笔记里的链接多半是随手记下来的，误点就跳走会打断写作，先确认一次
+        if (!window.confirm(`要在浏览器中打开这个链接吗？\n\n${href}`)) return
         if (window.electronAPI?.openExternal) {
           void window.electronAPI.openExternal(href)
         } else {
@@ -359,6 +366,18 @@ export default function MilkdownMarkdownEditor({
 
     root.addEventListener('click', handleLinkClick)
     return () => root.removeEventListener('click', handleLinkClick)
+  }, [])
+
+  /*
+   * 接住侧栏的「插入」请求。
+   *
+   * AI 结果只放在侧栏里，用户点确认后才会调到这里写回文档 —— 这样原文不会被
+   * 无声覆盖。写入时用生成那一刻记下的选区快照定位回去。
+   */
+  useEffect(() => {
+    return registerAiReviewApply((draft) =>
+      applyAiResult(editorRef.current, draft.suggested, draft.mode, draft.snapshot)
+    )
   }, [])
 
   // ================= 构造与销毁 =================
@@ -948,6 +967,10 @@ export default function MilkdownMarkdownEditor({
           editor={ready}
           providerRef={selectionBarRef}
           onClearFormat={() => adapter.unwrapSelection()}
+          getSelectedText={() => getSelectionText(ready)}
+          getContextBefore={() => getContextBeforeSelection(ready)}
+          snapshotSelection={() => snapshotSelection(ready)}
+          getNoteId={() => noteId}
         />
         <InsertToolbar editor={ready} providerRef={insertBarRef} />
 

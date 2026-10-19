@@ -2,6 +2,7 @@ import { editorViewCtx, parserCtx } from '@milkdown/kit/core'
 import type { Editor } from '@milkdown/kit/core'
 import type { Ctx } from '@milkdown/kit/ctx'
 import type { EditorState } from '@milkdown/kit/prose/state'
+import { TextSelection } from '@milkdown/kit/prose/state'
 import { Slice } from '@milkdown/kit/prose/model'
 import { redoCommand, undoCommand } from '@milkdown/kit/plugin/history'
 import {
@@ -538,3 +539,103 @@ export function insertBlockMarkdown(editor: Editor | null, markdown: string): bo
 
 /** 兼容旧调用的别名 */
 export const insertMarkdownSnippet = insertBlockMarkdown
+
+/** 当前选中的纯文本；没有选区或选区为空时返回空串 */
+export function getSelectionText(editor: Editor | null): string {
+  if (!editor) return ''
+  let text = ''
+  editor.action((ctx) => {
+    const view = ctx.get(editorViewCtx)
+    const { from, to } = view.state.selection
+    if (from !== to) text = view.state.doc.textBetween(from, to, '\n')
+  })
+  return text
+}
+
+/**
+ * 选区往前的一段文本，给「续写」当上下文用。
+ *
+ * 只取紧邻选区之前的 textLength 个字符，不整篇塞给模型 —— 笔记可能很长，
+ * 全量发送既慢又费 token，而续写只需要「接着什么写」。
+ */
+export function getContextBeforeSelection(editor: Editor | null, textLength = 600): string {
+  if (!editor) return ''
+  let text = ''
+  editor.action((ctx) => {
+    const view = ctx.get(editorViewCtx)
+    const { from } = view.state.selection
+    const start = Math.max(0, from - textLength)
+    text = view.state.doc.textBetween(start, from, '\n')
+  })
+  return text
+}
+
+/** 选区快照：记下位置，AI 返回后用来恢复 */
+export interface SelectionSnapshot {
+  from: number
+  to: number
+}
+
+export function snapshotSelection(editor: Editor | null): SelectionSnapshot | null {
+  if (!editor) return null
+  let snapshot: SelectionSnapshot | null = null
+  editor.action((ctx) => {
+    const view = ctx.get(editorViewCtx)
+    const { from, to } = view.state.selection
+    if (from !== to) snapshot = { from, to }
+  })
+  return snapshot
+}
+
+/**
+ * 把选区恢复到快照位置。
+ *
+ * AI 请求要几秒到几十秒，这期间用户可能点了别处、选区已经没了。
+ * 直接按当前位置插入会落到错误的地方，所以先校验文档没被大幅改动，
+ * 对得上再把选区摆回去。返回 false 表示原文已变，调用方应放弃写入。
+ */
+export function restoreSelection(editor: Editor | null, snapshot: SelectionSnapshot): boolean {
+  if (!editor) return false
+  let ok = false
+  editor.action((ctx) => {
+    const view = ctx.get(editorViewCtx)
+    const { doc } = view.state
+    // 选区终点超出文档说明原文被删改过，位置不再可靠
+    if (snapshot.to > doc.content.size) return
+    view.dispatch(
+      view.state.tr
+        .setSelection(TextSelection.create(doc, snapshot.from, snapshot.to))
+        .scrollIntoView()
+    )
+    ok = true
+  })
+  return ok
+}
+
+/**
+ * 用 AI 结果改写选区。
+ *
+ * - replace：替换选中文字（`insertInlineMarkdown` 本身就是 replaceSelection）
+ * - append：先折叠到选区末尾再插入，原文保留
+ *
+ * 两者都用 inline 方式，让模型返回的 Markdown 按行内语法解析，
+ * 不会把 `**加粗**` 之类当成独立段落塞进来。
+ */
+export function applyAiResult(
+  editor: Editor | null,
+  text: string,
+  mode: 'replace' | 'append',
+  snapshot?: SelectionSnapshot | null
+): boolean {
+  if (!editor || !text) return false
+  if (snapshot && !restoreSelection(editor, snapshot)) return false
+
+  if (mode === 'replace') return insertInlineMarkdown(editor, text)
+
+  editor.action((ctx) => {
+    const view = ctx.get(editorViewCtx)
+    const { to } = view.state.selection
+    view.dispatch(view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(to))))
+  })
+  return insertInlineMarkdown(editor, `\n\n${text}`)
+}

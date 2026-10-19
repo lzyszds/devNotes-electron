@@ -9,6 +9,8 @@ import EditorModeSwitch, {
   type EditorMode,
 } from "./EditorModeSwitch";
 import MarkdownStatusBar from "./markdown/MarkdownStatusBar";
+import AiReviewPanel from "./markdown/AiReviewPanel";
+import { applyAiReview } from "../../utils/aiReview";
 import {
   persistViewMode,
   readViewMode,
@@ -606,6 +608,11 @@ export default function NotesTool() {
           />
         )}
       </div>
+
+      {/* AI 结果窗口：右下角悬浮，可收起；只有生成了结果才出现 */}
+      {!previewing && activeNote && mode === "milkdown" && (
+        <AiReviewPanel noteId={activeNote.id} onInsert={applyAiReview} />
+      )}
 
       {/* 底部状态栏：保存状态 + 文档统计 + 当前内核/视图，原本是浮在右下角的胶囊。
           移动端保存状态与字数已经收进顶栏胶囊，这里收掉避免重复 */}
