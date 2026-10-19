@@ -46,6 +46,20 @@ interface Window {
       options?: { focusMainWindow?: boolean }
     ) => Promise<void>
     getAppVersion: () => Promise<string>
+    /** 自动更新(可选,浏览器环境下不存在) */
+    checkForUpdates?: () => Promise<unknown>
+    installUpdate?: () => Promise<void>
+    onUpdateStatus?: (
+      callback: (
+        status:
+          | { state: 'checking' }
+          | { state: 'available'; version: string }
+          | { state: 'not-available' }
+          | { state: 'downloading'; percent: number }
+          | { state: 'downloaded'; version: string }
+          | { state: 'error'; message: string }
+      ) => void
+    ) => () => void
     storeGet: (key: string) => Promise<any>
     storeSet: (key: string, value: any) => Promise<void>
     storeDelete: (key: string) => Promise<void>
@@ -153,8 +167,18 @@ interface Window {
     clipboardRequestPermission?: () => Promise<boolean>
     clipboardOpenAccessibility?: () => Promise<void>
     clipboardPaste?: (
-      payload: { type: 'text' | 'image'; text?: string; imageDataUrl?: string }
+      payload: {
+        type: 'text' | 'image' | 'file'
+        text?: string
+        imageDataUrl?: string
+        filePath?: string
+      }
     ) => Promise<{ ok: boolean; reason?: 'no-module' | 'no-permission' | 'failed' }>
+
+    /* 文件局域网分享 */
+    fileShareList?: () => Promise<FileShareItem[]>
+    fileSharePick?: () => Promise<FileShareItem[]>
+    fileShareRemove?: (id: string) => Promise<FileShareItem[]>
 
     /* 端口占用排查 */
     portsCommon?: () => Promise<number[]>
@@ -163,15 +187,28 @@ interface Window {
   }
 }
 
+/** 一个通过局域网分享的文件 */
+interface FileShareItem {
+  id: string
+  name: string
+  path: string
+  size: number
+  addedAt: number
+  /** 局域网下载地址；没有可用网卡时为 null */
+  url: string | null
+}
+
 /** 一条剪贴板历史记录 */
 interface ClipboardEntry {
   id: string
-  /** 'text' 文本，'image' 图片 */
-  type: 'text' | 'image'
+  /** 'text' 文本，'image' 图片，'file' 文件 */
+  type: 'text' | 'image' | 'file'
   /** type='text' 时的正文 */
   text?: string
   /** type='image' 时的 PNG dataURL */
   imageDataUrl?: string
+  /** type='file' 时的绝对路径 */
+  filePath?: string
   /** 采集时刻（毫秒时间戳） */
   at: number
   /** 原文超长被截断 */

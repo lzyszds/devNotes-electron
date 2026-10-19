@@ -1,7 +1,7 @@
 {
   "name": "devnotes",
   "productName": "devNotes",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "devNotes (React + TypeScript + Tailwind)",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -21,7 +21,8 @@
   },
   "dependencies": {
     "@xitanggg/node-insert-text": "^1.5.1",
-    "electron-store": "^11.0.2"
+    "electron-store": "^11.0.2",
+    "electron-updater": "^6.8.9"
   },
   "devDependencies": {
     "@capacitor/android": "^8.5.3",
@@ -73,6 +74,12 @@
     "directories": {
       "output": "release"
     },
+    "publish": {
+      "provider": "github",
+      "owner": "lzyszds",
+      "repo": "devNotes-electron",
+      "releaseType": "release"
+    },
     "files": [
       "dist/**/*",
       "dist-electron/**/*",
@@ -106,6 +113,11 @@
     "mac": {
       "category": "public.app-category.developer-tools",
       "icon": "assets/icon.icns",
+      "identity": "Xiamen Huiqi Xincheng Media Co., Ltd. (M7446VU8K4)",
+      "hardenedRuntime": true,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "notarize": true,
       "target": [
         {
           "target": "dmg",

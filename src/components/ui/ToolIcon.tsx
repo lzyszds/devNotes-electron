@@ -19,6 +19,7 @@ import {
   Link2,
   ShieldCheck,
   Wrench,
+  Share2,
   type LucideProps,
 } from 'lucide-react'
 
@@ -34,6 +35,7 @@ const ICON_MAP: Record<string, React.ComponentType<LucideProps>> = {
   'text-translate': Languages,
   'websocket': Radio,
   'qr-code': QrCode,
+  'file-share-qr': Share2,
   'image-convert': FileImage,
   'en-decode': ArrowLeftRight,
   'timestamp': Clock,

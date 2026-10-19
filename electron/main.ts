@@ -12,7 +12,9 @@ import {
   type ProxyConfig,
 } from './proxy'
 import { migrateUserDataIfNeeded } from './migrateUserData'
+import { listSharedFiles, shareFile, stopFileShare, unshareFile } from './fileShare'
 import { COMMON_PORTS, inspectPort, killProcess } from './ports'
+import { setupAutoUpdater } from './updater'
 import {
   MAX_ENTRIES,
   buildEntry,
@@ -26,6 +28,7 @@ import {
   openAccessibilitySettings,
   pasteToFocusedApp,
   pasteImageToFocusedApp,
+  pasteFileToFocusedApp,
   copyImageToClipboard,
   requestPastePermission,
   setPasteContext,
@@ -1035,10 +1038,18 @@ function setupIpc() {
     'clipboard-paste',
     (
       _event,
-      payload: { type: 'text' | 'image'; text?: string; imageDataUrl?: string }
+      payload: {
+        type: 'text' | 'image' | 'file'
+        text?: string
+        imageDataUrl?: string
+        filePath?: string
+      }
     ) => {
       if (payload.type === 'image') {
         return pasteImageToFocusedApp(payload.imageDataUrl ?? '')
+      }
+      if (payload.type === 'file') {
+        return pasteFileToFocusedApp(payload.filePath ?? '')
       }
       return pasteToFocusedApp(payload.text ?? '')
     }
@@ -1314,6 +1325,26 @@ function setupIpc() {
     }
   )
 
+  /* 文件局域网分享（apk / ipa 等） */
+  ipcMain.handle('file-share-list', () => listSharedFiles())
+  ipcMain.handle('file-share-pick', async () => {
+    const result = await dialog.showOpenDialog({
+      title: '选择要分享的文件',
+      properties: ['openFile', 'multiSelections'],
+      filters: [
+        { name: 'Android 安装包', extensions: ['apk'] },
+      ],
+    })
+    if (result.canceled || result.filePaths.length === 0) return listSharedFiles()
+
+    let items = listSharedFiles()
+    for (const filePath of result.filePaths) {
+      items = await shareFile(filePath)
+    }
+    return items
+  })
+  ipcMain.handle('file-share-remove', (_, id: string) => unshareFile(id))
+
   ipcMain.handle('open-external', (_, url: string) => {
     if (url && (url.startsWith('https:') || url.startsWith('http:') || url.startsWith('mailto:'))) {
       return shell.openExternal(url)
@@ -1355,6 +1386,7 @@ app.whenReady().then(async () => {
   createMainWindow()
   createTray()
   setupIpc()
+  setupAutoUpdater()
 
   // 处理启动参数中的文件(Windows 关联启动 / 命令行直接传路径)
   extractFilePaths(process.argv).forEach(queueOpenFile)
@@ -1384,4 +1416,5 @@ app.on('will-quit', () => {
   closeClipboardWindow()
   clipboardStop?.()
   clipboardStop = null
+  stopFileShare()
 })

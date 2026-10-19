@@ -2,6 +2,7 @@ import React, { Suspense, lazy } from 'react'
 import JsonFormatTool from '../components/tools/JsonFormatTool'
 import JsonI18nTool from '../components/tools/JsonI18nTool'
 import QrCodeTool from '../components/tools/QrCodeTool'
+import FileShareQrTool from '../components/tools/FileShareQrTool'
 import ImageConvertTool from '../components/tools/ImageConvertTool'
 import EncodeTool from '../components/tools/EncodeTool'
 import TimestampTool from '../components/tools/TimestampTool'
@@ -26,6 +27,7 @@ const toolComponents: Record<string, React.ComponentType<any>> = {
   'json-i18n': JsonI18nTool,
   'text-translate': TextTranslateTool,
   'qr-code': QrCodeTool,
+  'file-share-qr': FileShareQrTool,
   'image-convert': ImageConvertTool,
   'en-decode': EncodeTool,
   'timestamp': TimestampTool,

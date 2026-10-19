@@ -1,4 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import type { FileShareItem } from './fileShare'
+import type { UpdateStatus } from './updater'
 
 // Expose API to renderer process
 contextBridge.exposeInMainWorld('electronAPI', {
@@ -37,7 +39,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   clipboardOpenAccessibility: (): Promise<void> =>
     ipcRenderer.invoke('clipboard-open-accessibility'),
   clipboardPaste: (
-    payload: { type: 'text' | 'image'; text?: string; imageDataUrl?: string }
+    payload: {
+      type: 'text' | 'image' | 'file'
+      text?: string
+      imageDataUrl?: string
+      filePath?: string
+    }
   ): Promise<{ ok: boolean; reason?: 'no-module' | 'no-permission' | 'failed' }> =>
     ipcRenderer.invoke('clipboard-paste', payload),
 
@@ -63,6 +70,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // App info
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+
+  // 自动更新：手动检查、立即重启安装，以及订阅状态推送
+  checkForUpdates: () => ipcRenderer.invoke('update-check'),
+  installUpdate: () => ipcRenderer.invoke('update-install'),
+  onUpdateStatus: (callback: (status: UpdateStatus) => void) => {
+    const listener = (_: unknown, status: UpdateStatus) => callback(status)
+    ipcRenderer.on('update:status', listener)
+    return () => {
+      ipcRenderer.removeListener('update:status', listener)
+    }
+  },
 
   // Store operations
   storeGet: (key: string) => ipcRenderer.invoke('store-get', key),
@@ -96,6 +114,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // 在系统默认浏览器中安全打开外部链接
   openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
+
+  /* 文件局域网分享：选文件 → 生成手机可下载的局域网地址 */
+  fileShareList: (): Promise<FileShareItem[]> => ipcRenderer.invoke('file-share-list'),
+  fileSharePick: (): Promise<FileShareItem[]> => ipcRenderer.invoke('file-share-pick'),
+  fileShareRemove: (id: string): Promise<FileShareItem[]> =>
+    ipcRenderer.invoke('file-share-remove', id),
 
   // Markdown 文件关联:外部打开文件请求(双击 .md 文件)
   onOpenFileRequest: (callback: (payload: OpenFilePayload) => void) => {
@@ -226,6 +250,9 @@ declare global {
         options?: { focusMainWindow?: boolean }
       ) => Promise<void>
       getAppVersion: () => Promise<string>
+      checkForUpdates: () => Promise<unknown>
+      installUpdate: () => Promise<void>
+      onUpdateStatus: (callback: (status: UpdateStatus) => void) => () => void
       storeGet: (key: string) => Promise<any>
       storeSet: (key: string, value: any) => Promise<void>
       storeDelete: (key: string) => Promise<void>

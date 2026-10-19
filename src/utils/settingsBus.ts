@@ -3,7 +3,7 @@
  * 取值需与 SettingsModal 的 SettingsSection 保持一致。
  */
 
-export type AppSettingsTopic = "general" | "cloud-sync" | "translate-api" | "speech";
+export type AppSettingsTopic = "general" | "cloud-sync" | "ai-channel" | "translate-api" | "speech";
 
 type Listener = (topic: AppSettingsTopic) => void;
 

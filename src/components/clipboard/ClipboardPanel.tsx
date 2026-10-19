@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Check, ClipboardList, Copy, Search, Trash2, X } from 'lucide-react'
+import { Check, ClipboardList, Copy, File, Search, Trash2, X } from 'lucide-react'
 import Tooltip from '../ui/Tooltip'
 import { copyText } from '../../utils/clipboard'
 
@@ -99,6 +99,7 @@ export default function ClipboardPanel() {
       type: entry.type,
       text: entry.text,
       imageDataUrl: entry.imageDataUrl,
+      filePath: entry.filePath,
     })
     setJustSent(entry.id)
     window.setTimeout(() => void api?.clipboardClose?.(), 200)
@@ -233,7 +234,7 @@ export default function ClipboardPanel() {
                     {index + 1}
                   </span>
 
-                  {/* 内容主体：色块 / 缩略图 + 单行文本 */}
+                  {/* 内容主体：色块 / 缩略图 / 文件图标 + 单行文本 */}
                   <div className="flex-1 min-w-0 flex items-center gap-2">
                     {entry.type === 'image' ? (
                       <img
@@ -241,6 +242,10 @@ export default function ClipboardPanel() {
                         alt="图片"
                         className="w-12 h-12 rounded-md object-cover border border-slate-200 shrink-0"
                       />
+                    ) : entry.type === 'file' ? (
+                      <span className="w-8 h-8 rounded-md bg-slate-100 text-slate-500 flex items-center justify-center shrink-0">
+                        <File size={16} />
+                      </span>
                     ) : color ? (
                       <span
                         className="w-3.5 h-3.5 rounded border border-black/10 shrink-0"
@@ -251,7 +256,9 @@ export default function ClipboardPanel() {
                     <span className="truncate text-[13px] text-slate-900">
                       {entry.type === 'image'
                         ? '图片'
-                        : (entry.text ?? '').slice(0, PREVIEW_LENGTH)}
+                        : entry.type === 'file'
+                          ? (entry.filePath ?? '').split('/').pop() || '文件'
+                          : (entry.text ?? '').slice(0, PREVIEW_LENGTH)}
                     </span>
                   </div>
 
@@ -260,6 +267,10 @@ export default function ClipboardPanel() {
                     {entry.type === 'image' ? (
                       <span className="text-[10px] bg-sky-100 text-sky-700 px-1.5 py-0.5 rounded font-medium">
                         图片
+                      </span>
+                    ) : entry.type === 'file' ? (
+                      <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-medium">
+                        文件
                       </span>
                     ) : color ? (
                       <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-medium">
@@ -285,6 +296,8 @@ export default function ClipboardPanel() {
                               e.stopPropagation()
                               if (entry.type === 'image') {
                                 await api?.clipboardCopyImage?.(entry.imageDataUrl ?? '')
+                              } else if (entry.type === 'file') {
+                                await copyText(entry.filePath ?? '')
                               } else {
                                 await copyText(entry.text ?? '')
                               }

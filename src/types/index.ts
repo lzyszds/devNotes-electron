@@ -33,6 +33,7 @@ export const tools: Tool[] = [
   { id: 'url', name: 'URL 编码', icon: 'Link2', description: 'URL 编码解码', category: 'encode' },
   { id: 'websocket', name: 'WS 测试工具', icon: 'Radio', description: 'WebSocket 连接和消息测试', category: 'dev' },
   { id: 'qr-code', name: '二维码', icon: 'QrCode', description: '二维码生成，以及从图片识别解码', category: 'image' },
+  { id: 'file-share-qr', name: '文件扫码分享', icon: 'Share2', description: '选择 apk，局域网内扫码下载', category: 'dev' },
   { id: 'image-convert', name: '图片转换', icon: 'FileImage', description: 'PNG / JPEG / WebP 互转，可调画质与尺寸', category: 'image' },
   { id: 'en-decode', name: '编码转换', icon: 'ArrowLeftRight', description: 'Base64/URL/Unicode/MD5', category: 'encode' },
   { id: 'timestamp', name: '时间戳', icon: 'Clock', description: '时间戳与日期互转', category: 'encode' },

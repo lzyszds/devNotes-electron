@@ -12,6 +12,8 @@
 
 import { app, clipboard, ClipboardItem, dialog, systemPreferences, shell } from 'electron'
 import { execFile, execFileSync } from 'child_process'
+import { pathToFileURL } from 'url'
+import path from 'path'
 
 /**
  * 唤出面板时上下文：devNotes 是否在前台 + 前台应用是谁。
@@ -253,6 +255,48 @@ export async function pasteImageToFocusedApp(imageDataUrl: string): Promise<{
 }> {
   const written = await copyImageToClipboard(imageDataUrl)
   if (!written) return { ok: false, reason: 'failed' }
+
+  const paste = loadNativeModule()?.paste
+  if (!paste) return { ok: false, reason: 'no-module' }
+  if (!(await ensurePastePermission())) {
+    return { ok: false, reason: 'no-permission' }
+  }
+
+  try {
+    if (process.platform === 'darwin' && !appWasForegroundOnOpen) {
+      if (previousFrontApp) {
+        await activateApp(previousFrontApp)
+      } else {
+        app.hide()
+      }
+      await new Promise((resolve) => setTimeout(resolve, 200))
+    }
+    paste()
+    return { ok: true }
+  } catch {
+    return { ok: false, reason: 'failed' }
+  }
+}
+
+/**
+ * 把文件粘贴进当前聚焦的外部应用。
+ *
+ * 文件剪贴板在 macOS 上走 bookmark 类型：把绝对路径转回 file:// URL 写进
+ * 剪贴板，再模拟 ⌘V。焦点处理与文本/图片一致 —— 先显式激活唤出面板前的
+ * 应用，再粘贴。文件只是路径引用，若已移动/删除，粘贴目标会收不到。
+ */
+export async function pasteFileToFocusedApp(filePath: string): Promise<{
+  ok: boolean
+  reason?: 'no-module' | 'no-permission' | 'failed'
+}> {
+  if (!filePath) return { ok: false, reason: 'failed' }
+  const fileUrl = pathToFileURL(filePath).toString()
+  const fileName = path.basename(filePath)
+  await clipboard.write([
+    new ClipboardItem({
+      'electron application/bookmark': { title: fileName, url: fileUrl },
+    }),
+  ])
 
   const paste = loadNativeModule()?.paste
   if (!paste) return { ok: false, reason: 'no-module' }

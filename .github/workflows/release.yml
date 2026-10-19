@@ -1,0 +1,116 @@
+name: Release
+
+# 只在手动触发时打包，普通提交和 push 不会触发
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: '打包平台'
+        type: choice
+        options:
+          - all
+          - macos
+          - windows
+        default: all
+      publish:
+        description: '打包完成后创建 GitHub Release（关闭则只上传构建产物用于测试）'
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  build-macos:
+    if: inputs.platform == 'all' || inputs.platform == 'macos'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: 安装依赖
+        run: bun install --frozen-lockfile
+
+      - name: 构建前端
+        run: bun run build:web
+
+      - name: 打包 Electron 并签名、公证（不在这里发布）
+        env:
+          CSC_LINK: ${{ secrets.P12_BASE64 }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: node scripts/run-electron-builder.cjs --publish never
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          if-no-files-found: error
+          path: |
+            release/*.dmg
+            release/*.zip
+            release/*.blockmap
+            release/latest*.yml
+
+  build-windows:
+    if: inputs.platform == 'all' || inputs.platform == 'windows'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: 安装依赖
+        run: bun install --frozen-lockfile
+
+      - name: 构建前端
+        run: bun run build:web
+
+      - name: 打包 Electron（不在这里发布）
+        run: node scripts/run-electron-builder.cjs --publish never
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          if-no-files-found: error
+          path: |
+            release/*.exe
+            release/*.blockmap
+            release/latest*.yml
+
+  publish:
+    needs: [build-macos, build-windows]
+    if: always() && !cancelled() && inputs.publish && needs.build-macos.result != 'failure' && needs.build-windows.result != 'failure'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 读取版本号
+        id: version
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: 检查 Release 是否已存在
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: v${{ steps.version.outputs.version }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG 已存在，请先升级 package.json 中的版本号"
+            exit 1
+          fi
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
+
+      - name: 创建 GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          files: release/*
+          generate_release_notes: true
+          draft: false
+          prerelease: false

@@ -11,15 +11,18 @@
  */
 
 import { clipboard, nativeImage } from 'electron'
+import { fileURLToPath } from 'url'
 
 export interface ClipboardEntry {
   id: string
-  /** 'text' 文本，'image' 图片 */
-  type: 'text' | 'image'
+  /** 'text' 文本，'image' 图片，'file' 文件 */
+  type: 'text' | 'image' | 'file'
   /** type='text' 时的正文。超长的会截断，见 MAX_TEXT_LENGTH */
   text?: string
   /** type='image' 时的 PNG dataURL */
   imageDataUrl?: string
+  /** type='file' 时的绝对路径。只记路径引用，文件被移动/删除后即失效 */
+  filePath?: string
   /** 采集时刻 */
   at: number
   /** 文本原文是否被截断 */
@@ -120,6 +123,16 @@ export function buildImageEntry(imageDataUrl: string): ClipboardEntry {
   }
 }
 
+/** 造一条文件记录 */
+export function buildFileEntry(filePath: string): ClipboardEntry {
+  return {
+    id: `clip_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
+    type: 'file',
+    filePath,
+    at: Date.now(),
+  }
+}
+
 /**
  * 启动轮询。
  *
@@ -132,6 +145,7 @@ export function startClipboardWatch(
 ): () => void {
   let lastText = ''
   let lastImageDataUrl = ''
+  let lastFilePath = ''
   /** 上一轮还没读完就跳过这一轮，避免慢读时请求堆积 */
   let reading = false
 
@@ -165,7 +179,7 @@ export function startClipboardWatch(
       return
     }
 
-    // 文本为空，检查图片。Electron 44 把 readImage 移除了，改用 read() 按 MIME 读
+    // 文本为空，检查图片和文件。Electron 44 把 readImage 移除了，改用 read() 按 MIME 读
     try {
       const items = await clipboard.read()
       for (const item of items) {
@@ -197,8 +211,27 @@ export function startClipboardWatch(
         onCapture(buildImageEntry(dataUrl))
         return
       }
+
+      // 没有图片，检查文件。macOS 在 Finder 复制的文件是 bookmark 类型，
+      // getType('electron application/bookmark') 返回 { title, url }。
+      // 目前只记第一个文件，多选文件复制时其余文件暂不入库。
+      for (const item of items) {
+        if (!item.types.includes('electron application/bookmark')) continue
+        const bookmark = await item.getType('electron application/bookmark')
+        let filePath: string
+        try {
+          filePath = fileURLToPath(bookmark.url)
+        } catch {
+          continue // url 不是合法 file:// 就跳过
+        }
+        if (!filePath) continue
+        if (filePath === lastFilePath) return // 同一文件，去重
+        lastFilePath = filePath
+        onCapture(buildFileEntry(filePath))
+        return
+      }
     } catch {
-      // 读图片失败（剪贴板里没有可读的图片等），静默跳过
+      // 读图片/文件失败（剪贴板里没有可读的内容等），静默跳过
     }
   }
 
