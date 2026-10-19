@@ -1,7 +1,7 @@
 {
   "name": "devnotes",
   "productName": "devNotes",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "devNotes (React + TypeScript + Tailwind)",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@xitanggg/node-insert-text": "^1.5.1",
+    "electron-macos-window-extensions": "^0.1.2",
     "electron-store": "^11.0.2",
     "electron-updater": "^6.8.9"
   },
@@ -87,6 +88,8 @@
       "node_modules/@xitanggg/node-insert-text/**/*",
       "node_modules/@xitanggg/node-insert-text-darwin-*/**/*",
       "node_modules/@xitanggg/node-insert-text-win32-*/**/*",
+      "node_modules/electron-macos-window-extensions/**/*",
+      "node_modules/electron-macos-window-extensions-darwin-*/**/*",
       "!**/*.map",
       "!**/tesseract-core.wasm",
       "!**/tesseract-core.wasm.js",
@@ -100,14 +103,12 @@
       {
         "ext": "md",
         "name": "Markdown 文档",
-        "role": "Editor",
-        "icon": "assets/icon"
+        "role": "Editor"
       },
       {
         "ext": "markdown",
         "name": "Markdown 文档",
-        "role": "Editor",
-        "icon": "assets/icon"
+        "role": "Editor"
       }
     ],
     "mac": {
@@ -151,7 +152,8 @@
       "artifactName": "${productName}-${version}.${ext}"
     },
     "asarUnpack": [
-      "node_modules/@xitanggg/**/*"
+      "node_modules/@xitanggg/**/*",
+      "node_modules/electron-macos-window-extensions*/**/*"
     ]
   }
 }
