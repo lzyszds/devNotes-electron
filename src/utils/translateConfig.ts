@@ -76,34 +76,22 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     note: "Qwen3.5 系列默认开思考模式，翻译会很慢，建议打开下方「关闭思考模式」",
   },
   {
-    id: "deepseek",
-    label: "DeepSeek",
-    baseUrl: "https://api.deepseek.com/v1",
-    models: ["deepseek-chat"],
-  },
-  {
     id: "openai",
     label: "OpenAI",
     baseUrl: "https://api.openai.com/v1",
     models: ["gpt-4o-mini", "gpt-4o"],
   },
   {
-    id: "dashscope",
-    label: "阿里百炼",
-    baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
-    models: ["qwen-plus", "qwen-turbo", "qwen-max"],
-  },
-  {
-    id: "moonshot",
-    label: "月之暗面",
-    baseUrl: "https://api.moonshot.cn/v1",
-    models: ["moonshot-v1-8k", "moonshot-v1-32k"],
-  },
-  {
-    id: "zhipu",
-    label: "智谱 GLM",
-    baseUrl: "https://open.bigmodel.cn/api/paas/v4",
-    models: ["glm-4-flash", "glm-4-plus"],
+    id: "nvidia",
+    label: "NVIDIA NIM",
+    baseUrl: "https://integrate.api.nvidia.com/v1",
+    // 免费档实测可用（2026-10-16 验证）。其余模型会超时或 404，不列进来。
+    models: [
+      "openai/gpt-oss-20b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "stepfun-ai/step-5-preview",
+    ],
+    note: "免费档实测可用：openai/gpt-oss-20b、nemotron-3.5-super-vl-120b-a12b、stepfun-ai/step-5-preview。注意 /v1/models 列出的模型并非都能调（部分返回 404），点「从接口拉取列表」后再逐个「测试连接」确认",
   },
   {
     id: "ollama",

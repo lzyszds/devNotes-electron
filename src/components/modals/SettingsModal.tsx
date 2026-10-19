@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Cloud, Keyboard, Languages, Loader2, PanelLeft, Settings2, Volume2, X } from 'lucide-react'
+import { Bot, Cloud, Keyboard, Languages, Loader2, PanelLeft, Settings2, Volume2, X } from 'lucide-react'
 import type { ComponentType } from 'react'
 import { useNotes } from '../../context/NotesContext'
 import { usePresence } from '../../hooks/usePresence'
@@ -7,6 +7,7 @@ import GeneralPanel from '../settings/GeneralPanel'
 import ShortcutSettingsPanel from '../settings/ShortcutSettingsPanel'
 import CloudflareSyncPanel from '../settings/CloudflareSyncPanel'
 import TranslateApiPanel from '../settings/TranslateApiPanel'
+import AiChannelPanel from '../settings/AiChannelPanel'
 import SpeechPanel from '../settings/SpeechPanel'
 import InterfacePanel from '../settings/InterfacePanel'
 import Tooltip from '../ui/Tooltip'
@@ -17,6 +18,7 @@ export type SettingsSection =
   | 'interface'
   | 'shortcuts'
   | 'cloud-sync'
+  | 'ai-channel'
   | 'translate-api'
   | 'speech'
 
@@ -56,6 +58,12 @@ const SECTIONS: SectionMeta[] = [
     label: '云同步',
     hint: 'Cloudflare 备份与多设备同步',
     icon: Cloud,
+  },
+  {
+    id: 'ai-channel',
+    label: 'AI 渠道',
+    hint: '项目 AI 的服务商、Key 与模型',
+    icon: Bot,
   },
   {
     id: 'translate-api',
@@ -196,6 +204,7 @@ export default function SettingsModal({
             {section === 'interface' && <InterfacePanel />}
             {section === 'shortcuts' && <ShortcutSettingsPanel />}
             {section === 'cloud-sync' && <CloudflareSyncPanel />}
+            {section === 'ai-channel' && <AiChannelPanel />}
             {section === 'translate-api' && <TranslateApiPanel />}
             {section === 'speech' && <SpeechPanel />}
           </div>

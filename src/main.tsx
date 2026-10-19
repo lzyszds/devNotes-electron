@@ -5,10 +5,13 @@ import CaptureOverlay from './components/capture/CaptureOverlay'
 import ScratchpadApp from './components/scratch/ScratchpadApp'
 import ClipboardPanel from './components/clipboard/ClipboardPanel'
 import { installCapacitorBridge } from './utils/capacitorBridge'
+import { loadAiChannel } from './utils/aiChannel'
 import './index.css'
 
 // 渲染层首帧就会读 window.electronAPI，桥必须在 render 之前装好
 installCapacitorBridge()
+// AI 渠道的配置在调用时同步读取，启动时就预加载，不依赖打开过设置面板
+void loadAiChannel()
 
 /**
  * 截图框选页、草稿纸小窗、剪贴板面板与主界面共用这个入口。
