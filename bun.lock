@@ -6,6 +6,7 @@
       "name": "devnotes",
       "dependencies": {
         "@xitanggg/node-insert-text": "^1.5.1",
+        "electron-macos-window-extensions": "^0.1.2",
         "electron-store": "^11.0.2",
         "electron-updater": "^6.8.9",
       },
@@ -975,6 +976,12 @@
     "electron-builder-squirrel-windows": ["electron-builder-squirrel-windows@25.1.8", "https://registry.npmmirror.com/electron-builder-squirrel-windows/-/electron-builder-squirrel-windows-25.1.8.tgz", { "dependencies": { "app-builder-lib": "25.1.8", "archiver": "^5.3.1", "builder-util": "25.1.7", "fs-extra": "^10.1.0" } }, "sha512-2ntkJ+9+0GFP6nAISiMabKt6eqBB0kX1QqHNWFWAXgi0VULKGisM46luRFpIBiU3u/TDmhZMM8tzvo2Abn3ayg=="],
 
     "electron-log": ["electron-log@5.4.4", "https://registry.npmmirror.com/electron-log/-/electron-log-5.4.4.tgz", {}, "sha512-istWgaXjBfURBSS8LWVW9C3jsc6+ac+tY1lXrQEOTp0lVj+a4OlO1Tmqb36GgnEUDv92DGC9VI1HNXwJinWpgA=="],
+
+    "electron-macos-window-extensions": ["electron-macos-window-extensions@0.1.2", "https://registry.npmmirror.com/electron-macos-window-extensions/-/electron-macos-window-extensions-0.1.2.tgz", { "optionalDependencies": { "electron-macos-window-extensions-darwin-arm64": "0.1.2", "electron-macos-window-extensions-darwin-x64": "0.1.2" } }, "sha512-koyaKOzASQHaiw28c8dj9ljg5lnxboWWAp3ar19QeXzekpEAJXf/CUUEsVdcuRV00B34F/ziM7TRrxsyootq/Q=="],
+
+    "electron-macos-window-extensions-darwin-arm64": ["electron-macos-window-extensions-darwin-arm64@0.1.2", "https://registry.npmmirror.com/electron-macos-window-extensions-darwin-arm64/-/electron-macos-window-extensions-darwin-arm64-0.1.2.tgz", { "os": "darwin", "cpu": "arm64" }, "sha512-iK+6UJi7tLi6fuSvtTyeZpHU4IB19qYBBgYjGBX2E2BJyYqxtoq7wLMsTSgrM/OJBeD/RzOAO8eihFfR73mTKA=="],
+
+    "electron-macos-window-extensions-darwin-x64": ["electron-macos-window-extensions-darwin-x64@0.1.2", "https://registry.npmmirror.com/electron-macos-window-extensions-darwin-x64/-/electron-macos-window-extensions-darwin-x64-0.1.2.tgz", { "os": "darwin", "cpu": "x64" }, "sha512-oVXj9IP42A4+FocTpJujN3/UDV2sGwBbeQJ9/x82UX36wsQ6iUNiVqZW94KfDHsOiibrxaIh2MIR57nBSvZCfg=="],
 
     "electron-publish": ["electron-publish@25.1.7", "https://registry.npmmirror.com/electron-publish/-/electron-publish-25.1.7.tgz", { "dependencies": { "@types/fs-extra": "^9.0.11", "builder-util": "25.1.7", "builder-util-runtime": "9.2.10", "chalk": "^4.1.2", "fs-extra": "^10.1.0", "lazy-val": "^1.0.5", "mime": "^2.5.2" } }, "sha512-+jbTkR9m39eDBMP4gfbqglDd6UvBC7RLh5Y0MhFSsc6UkGHj9Vj9TWobxevHYMMqmoujL11ZLjfPpMX+Pt6YEg=="],
 
