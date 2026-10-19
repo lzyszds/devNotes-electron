@@ -35,6 +35,9 @@ jobs:
       - name: 构建前端
         run: bun run build:web
 
+      - name: 清理上次打包残留
+        run: rm -rf release
+
       - name: 打包 Electron 并签名、公证（不在这里发布）
         env:
           CSC_LINK: ${{ secrets.P12_BASE64 }}
