@@ -125,6 +125,7 @@ export default function FileShareQrTool() {
   const available = typeof window !== 'undefined' && !!window.electronAPI?.fileSharePick
   const [items, setItems] = useState<FileShareItem[]>([])
   const [busy, setBusy] = useState(false)
+  const [dragging, setDragging] = useState(false)
   const [error, setError] = useState('')
   const { showToast } = useToast()
 
@@ -139,6 +140,22 @@ export default function FileShareQrTool() {
     setError('')
     try {
       setItems(await window.electronAPI.fileSharePick())
+    } catch (err) {
+      setError('添加失败：' + (err instanceof Error ? err.message : String(err)))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** 把拖进来的文件换成本地路径后交给主进程分享 */
+  const addDroppedFiles = async (files: File[]) => {
+    if (!window.electronAPI?.fileShareAdd || !window.electronAPI?.fileSharePathsFromFiles) return
+    const paths = window.electronAPI.fileSharePathsFromFiles(files)
+    if (paths.length === 0) return
+    setBusy(true)
+    setError('')
+    try {
+      setItems(await window.electronAPI.fileShareAdd(paths))
     } catch (err) {
       setError('添加失败：' + (err instanceof Error ? err.message : String(err)))
     } finally {
@@ -178,7 +195,25 @@ export default function FileShareQrTool() {
         </button>
       }
     >
-      <div className="flex flex-col gap-4">
+      <div
+        className={`flex flex-col gap-4 rounded-xl transition-colors ${dragging ? 'outline-2 outline-dashed outline-brand-400 -outline-offset-4 bg-brand-50/40 dark:bg-brand-500/10' : ''}`}
+        onDragOver={(event) => {
+          event.preventDefault()
+          event.dataTransfer.dropEffect = 'copy'
+          setDragging(true)
+        }}
+        onDragLeave={(event) => {
+          // 经过子元素也会触发 dragleave，只有真正离开容器才取消高亮
+          if (event.currentTarget.contains(event.relatedTarget as Node)) return
+          setDragging(false)
+        }}
+        onDrop={(event) => {
+          event.preventDefault()
+          setDragging(false)
+          const files = Array.from(event.dataTransfer.files ?? [])
+          if (files.length > 0) void addDroppedFiles(files)
+        }}
+      >
         <ToolNotice tone="info" icon={Share2}>
           手机需与电脑连接同一 Wi‑Fi。Windows 首次运行可能弹出防火墙提示，请允许访问。关闭全部分享后服务会自动停止。
         </ToolNotice>
@@ -193,7 +228,9 @@ export default function FileShareQrTool() {
           <div className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 dark:border-dark-border py-16">
             <Share2 size={24} className="text-slate-300 dark:text-slate-600" />
             <p className="text-[12px] font-medium text-slate-500 dark:text-slate-400">还没有分享的文件</p>
-            <p className="text-[11px] text-slate-400 dark:text-slate-600">点击右上角「添加文件」选择 apk</p>
+            <p className="text-[11px] text-slate-400 dark:text-slate-600">
+              {dragging ? '松开即可添加文件' : '把文件拖到这里，或点击右上角「添加文件」选择 apk'}
+            </p>
           </div>
         ) : (
           <div className="tool-cascade grid grid-cols-1 xl:grid-cols-2 gap-4 items-start">

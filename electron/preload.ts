@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { FileShareItem } from './fileShare'
 import type { UpdateStatus } from './updater'
 
@@ -118,6 +118,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   /* 文件局域网分享：选文件 → 生成手机可下载的局域网地址 */
   fileShareList: (): Promise<FileShareItem[]> => ipcRenderer.invoke('file-share-list'),
   fileSharePick: (): Promise<FileShareItem[]> => ipcRenderer.invoke('file-share-pick'),
+  fileShareAdd: (paths: string[]): Promise<FileShareItem[]> =>
+    ipcRenderer.invoke('file-share-add', paths),
+  // 拖拽进来的 File 对象带的是虚拟路径，必须用 webUtils 换成本地真实路径
+  fileSharePathsFromFiles: (files: File[]): string[] =>
+    files.map((file) => webUtils.getPathForFile(file)).filter(Boolean),
   fileShareRemove: (id: string): Promise<FileShareItem[]> =>
     ipcRenderer.invoke('file-share-remove', id),
 

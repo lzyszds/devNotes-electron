@@ -9,6 +9,8 @@
  * 配置跟着设置一起上云（和主题、快捷键同样的待遇），换台机器不用重配。
  */
 
+import { allModules } from '../types'
+
 /** 存储键。与 main.ts / capacitorBridge 的 store 键空间共用 */
 export const RAIL_TOOLS_STORAGE_KEY = 'rail-tool-ids'
 
@@ -26,29 +28,17 @@ export const DEFAULT_RAIL_TOOL_IDS = [
 ]
 
 /**
- * 可以在 Rail 上配置的工具白名单。
+ * 可以在 Rail 上配置的工具：直接从工具注册表 allModules 生成，不再手写白名单。
  *
- * 不直接放开全部工具：Rail 只有 56px 宽、一屏十来个，把几十个工具全塞进去
- * 反而让人找不到；而且小工具更常见的入口是工具中心与指令面板。
- * 这里挑的是「高频、且打开就要长时间停留」的那一批。
+ * 以前是硬编码列表，结果新加的工具（比如「文件扫码分享」）在设置里根本不出现，
+ * 每次都得记得来补一行。现在按 allModules 的顺序派生，新增工具只要注册进
+ * allModules 就自动可配；个别不适合上 Rail 的工具写入 RAIL_EXCLUDED_IDS 排除即可。
  */
-export const RAIL_CANDIDATES: string[] = [
-  'markdown-notes',
-  'text-translate',
-  'snippets',
-  'json-format',
-  'json-i18n',
-  'websocket',
-  'qr-code',
-  'image-convert',
-  'en-decode',
-  'timestamp',
-  'regexp',
-  'password',
-  'bitwise',
-  'port-killer',
-  'scratchpad',
-]
+export const RAIL_EXCLUDED_IDS: string[] = []
+
+export const RAIL_CANDIDATES: string[] = allModules
+  .map((item) => item.id)
+  .filter((id) => !RAIL_EXCLUDED_IDS.includes(id))
 
 /** Rail 上最多放几个，再多就要滚动才能看全 */
 export const RAIL_MAX_ITEMS = 8

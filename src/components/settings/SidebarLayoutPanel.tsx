@@ -66,7 +66,7 @@ export default function SidebarLayoutPanel() {
               </span>
             </h4>
             <p className="text-[11px] text-slate-400 mt-0.5">
-              决定那条竖排快捷栏上放哪些工具。只放常用的，其余仍可从工具中心与 ⌘K 指令面板进入
+              决定那条竖排快捷栏上放哪些工具。下方「可添加」会随工具库自动更新，其余工具仍可从工具中心与 ⌘K 指令面板进入
             </p>
           </div>
 

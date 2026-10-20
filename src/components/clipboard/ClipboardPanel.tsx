@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Check, ClipboardList, Copy, File, Search, Trash2, X } from 'lucide-react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Check, ChevronRight, ClipboardList, Copy, File, Search, Trash2, X } from 'lucide-react'
 import Tooltip from '../ui/Tooltip'
 import { copyText } from '../../utils/clipboard'
 
@@ -9,11 +9,17 @@ import { copyText } from '../../utils/clipboard'
  * 与草稿纸共用分流入口（main.tsx 按 `?clipboard=1`），不挂 App 的 Provider。
  *
  * 选中一条 = 写进系统剪贴板 + 模拟 ⌘V，把值粘进「唤出面板前那个输入框」。
- * 面板不抢焦点（focusable: false），所以外部应用的光标一直没丢，⌘V 粘得回去。
+ * 面板是 non-activating 的，不抢焦点，所以外部应用的光标一直没丢，⌘V 粘得回去。
  */
 
 /** 列表里每条摘要显示多少字符，超出省略 */
 const PREVIEW_LENGTH = 200
+
+/** 虚拟滚动的固定行高：条目 / 日期分组标题。高度统一才好按偏移算可视范围 */
+const ENTRY_H = 44
+const HEADER_H = 32
+/** 可视区上下各多渲染几条，滚动时不露白边 */
+const OVERSCAN = 6
 
 function relativeTime(at: number): string {
   const diff = Date.now() - at
@@ -23,11 +29,45 @@ function relativeTime(at: number): string {
   return new Date(at).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })
 }
 
+/** 某天的唯一标识（本地时区），用于分组 */
+function dayKey(at: number): string {
+  const d = new Date(at)
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+}
+
+/** 分组标题：今天 / 昨天 / M月D日 / YYYY年M月D日 */
+function dayLabel(at: number): string {
+  const d = new Date(at)
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+  const that = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+  const diffDays = Math.round((today - that) / 86_400_000)
+  if (diffDays === 0) return '今天'
+  if (diffDays === 1) return '昨天'
+  if (d.getFullYear() === now.getFullYear()) return `${d.getMonth() + 1}月${d.getDate()}日`
+  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`
+}
+
+/** 按日期分组。先按时间倒序排序，否则同一天的条目若被其他日期隔开会拆成多个组 */
+function groupByDate(
+  entries: ClipboardEntry[]
+): { key: string; label: string; entries: ClipboardEntry[] }[] {
+  const sorted = [...entries].sort((a, b) => b.at - a.at)
+  const groups: { key: string; label: string; entries: ClipboardEntry[] }[] = []
+  for (const entry of sorted) {
+    const key = dayKey(entry.at)
+    const last = groups[groups.length - 1]
+    if (last && last.key === key) {
+      last.entries.push(entry)
+    } else {
+      groups.push({ key, label: dayLabel(entry.at), entries: [entry] })
+    }
+  }
+  return groups
+}
+
 /**
  * 识别文本是不是颜色值，是则返回色块颜色与标签。
- *
- * 覆盖常见的色值写法：HEX 六位/八位、rgb()、rgba()、hsl()。
- * 色块直接交给 CSS 的 background-color 解析，这些字符串它都认得。
  */
 function detectColor(text: string): { swatch: string; label: string } | null {
   const t = text.trim()
@@ -54,6 +94,8 @@ export default function ClipboardPanel() {
   const [activeIndex, setActiveIndex] = useState(0)
   /** 刚注入成功的那条，给个原地反馈 */
   const [justSent, setJustSent] = useState<string | null>(null)
+  /** 折叠的日期组。首次加载后默认折叠非今天，用户可手动折叠/展开任意组（含今天） */
+  const [collapsedDays, setCollapsedDays] = useState<Set<string>>(() => new Set())
 
   const searchRef = useRef<HTMLInputElement>(null)
   const api = window.electronAPI
@@ -65,7 +107,6 @@ export default function ClipboardPanel() {
     void api?.clipboardList?.().then((list) => {
       if (alive && list) setEntries(list)
     })
-    // 主进程采集到新的会推过来，不用轮询
     const off = api?.onClipboardChanged?.((list) => setEntries(list))
     return () => {
       alive = false
@@ -73,7 +114,6 @@ export default function ClipboardPanel() {
     }
   }, [api])
 
-  // 开窗即聚焦搜索框，敲字就能筛
   useEffect(() => {
     searchRef.current?.focus()
   }, [])
@@ -81,16 +121,125 @@ export default function ClipboardPanel() {
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase()
     if (!needle) return entries
-    // 图片没有文本可搜，搜索时只匹配文本条目
     return entries.filter(
       (entry) => entry.type === 'text' && (entry.text ?? '').toLowerCase().includes(needle)
     )
   }, [entries, query])
 
-  // 过滤后选中项可能越界，夹回范围内，避免回车注入到不存在的条目
+  // 按日期分组。搜索时全展开，非搜索态由 collapsedDays 决定。
+  const grouped = useMemo(() => groupByDate(filtered), [filtered])
+  const todayKey = dayKey(Date.now())
+  const isExpanded = (key: string) => query.trim() !== '' || !collapsedDays.has(key)
+
+  // 首次拿到数据后，默认折叠非今天；之后用户手动切换不受影响
+  const initializedRef = useRef(false)
   useEffect(() => {
-    setActiveIndex((prev) => (prev >= filtered.length ? Math.max(0, filtered.length - 1) : prev))
-  }, [filtered.length])
+    if (initializedRef.current || entries.length === 0) return
+    initializedRef.current = true
+    setCollapsedDays(new Set(grouped.filter((g) => g.key !== todayKey).map((g) => g.key)))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entries.length])
+
+  /** 展开组的条目平铺成可见列表，键盘导航和 activeIndex 都以它为准 */
+  const visibleEntries = useMemo(
+    () => grouped.filter((g) => isExpanded(g.key)).flatMap((g) => g.entries),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [grouped, collapsedDays, todayKey]
+  )
+
+  type RenderItem =
+    | { kind: 'header'; key: string; label: string; count: number }
+    | { kind: 'entry'; entry: ClipboardEntry; index: number }
+  const renderItems = useMemo<RenderItem[]>(() => {
+    const items: RenderItem[] = []
+    let index = 0
+    for (const g of grouped) {
+      items.push({ kind: 'header', key: g.key, label: g.label, count: g.entries.length })
+      if (isExpanded(g.key)) {
+        for (const entry of g.entries) {
+          items.push({ kind: 'entry', entry, index })
+          index++
+        }
+      }
+    }
+    return items
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [grouped, collapsedDays, todayKey])
+
+  const toggleGroup = (key: string) => {
+    setCollapsedDays((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  /* ---------------- 虚拟滚动 ---------------- */
+
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [scrollTop, setScrollTop] = useState(0)
+  const [viewportH, setViewportH] = useState(0)
+
+  useLayoutEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const measure = () => setViewportH(el.clientHeight)
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  const itemHeights = useMemo(
+    () => renderItems.map((item) => (item.kind === 'header' ? HEADER_H : ENTRY_H)),
+    [renderItems]
+  )
+  const itemOffsets = useMemo(() => {
+    const offsets: number[] = []
+    let acc = 0
+    for (const h of itemHeights) {
+      offsets.push(acc)
+      acc += h
+    }
+    return offsets
+  }, [itemHeights])
+  const totalHeight = itemHeights.reduce((a, b) => a + b, 0)
+
+  const rangeStart = useMemo(() => {
+    let lo = 0
+    let hi = renderItems.length
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1
+      if (itemOffsets[mid] + itemHeights[mid] <= scrollTop) lo = mid + 1
+      else hi = mid
+    }
+    // 往前回溯到「当前分组的标题」，让标题始终留在渲染范围里（sticky 依赖）
+    let start = Math.max(0, lo - 1)
+    while (start > 0 && renderItems[start].kind !== 'header') start--
+    return Math.max(0, start - OVERSCAN)
+  }, [renderItems, itemOffsets, itemHeights, scrollTop])
+
+  const rangeEnd = useMemo(() => {
+    const bottom = scrollTop + viewportH
+    let lo = 0
+    let hi = renderItems.length
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1
+      if (itemOffsets[mid] < bottom) lo = mid + 1
+      else hi = mid
+    }
+    return Math.min(renderItems.length, lo + OVERSCAN)
+  }, [renderItems.length, itemOffsets, viewportH, scrollTop])
+
+  const topPad = itemOffsets[rangeStart] ?? 0
+  const bottomPad = totalHeight - (itemOffsets[rangeEnd - 1] ?? 0) - (itemHeights[rangeEnd - 1] ?? 0)
+
+  useEffect(() => {
+    setActiveIndex((prev) =>
+      prev >= visibleEntries.length ? Math.max(0, visibleEntries.length - 1) : prev
+    )
+  }, [visibleEntries.length])
 
   /* ---------------- 动作 ---------------- */
 
@@ -120,23 +269,21 @@ export default function ClipboardPanel() {
   /* ---------------- 键盘 ---------------- */
 
   const onKeyDown = (event: React.KeyboardEvent) => {
-    // 焦点在搜索框里时，Backspace 要删搜索文字，不能误删历史条目
     const inSearch = document.activeElement === searchRef.current
 
     if (event.key === 'ArrowDown') {
       event.preventDefault()
-      setActiveIndex((prev) => Math.min(prev + 1, filtered.length - 1))
+      setActiveIndex((prev) => Math.min(prev + 1, visibleEntries.length - 1))
     } else if (event.key === 'ArrowUp') {
       event.preventDefault()
       setActiveIndex((prev) => Math.max(prev - 1, 0))
     } else if (event.key === 'Enter') {
       event.preventDefault()
-      const entry = filtered[activeIndex]
+      const entry = visibleEntries[activeIndex]
       if (entry) void pick(entry)
     } else if ((event.key === 'Backspace' || event.key === 'Delete') && !inSearch) {
-      // Del 删除当前选中项
       event.preventDefault()
-      const entry = filtered[activeIndex]
+      const entry = visibleEntries[activeIndex]
       if (entry) {
         void api?.clipboardRemove?.(entry.id).then((list) => {
           if (list) setEntries(list)
@@ -199,128 +346,153 @@ export default function ClipboardPanel() {
           </div>
         </div>
 
-        {/* 列表：卡片式横向排列 */}
-        <div className="flex-1 min-h-0 overflow-y-auto px-3 pb-3 flex flex-col gap-1">
-          {filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-2 flex-1 text-center px-6">
+        {/* 列表：按日期分组，旧分组默认收起；虚拟滚动只渲染可视区 */}
+        <div
+          ref={scrollRef}
+          onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
+          className="flex-1 min-h-0 overflow-y-auto px-3 pb-3"
+        >
+          {grouped.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-2 h-full text-center px-6">
               <ClipboardList size={22} className="text-slate-200" />
               <p className="text-[11px] text-slate-400">
                 {entries.length === 0 ? '还没有记录，复制点什么试试' : '没有匹配的内容'}
               </p>
             </div>
           ) : (
-            filtered.map((entry, index) => {
-              const active = index === activeIndex
-              const sent = justSent === entry.id
-              const color = entry.type === 'text' ? detectColor(entry.text ?? '') : null
+            <div style={{ paddingTop: topPad, paddingBottom: bottomPad }}>
+              {renderItems.slice(rangeStart, rangeEnd).map((item) => {
+                if (item.kind === 'header') {
+                  const expanded = isExpanded(item.key)
+                  return (
+                    <button
+                      key={`h-${item.key}`}
+                      type="button"
+                      onClick={() => toggleGroup(item.key)}
+                      style={{ height: HEADER_H }}
+                      className="sticky top-0 z-10 flex w-full items-center gap-1.5 px-2 rounded-md bg-slate-50 text-slate-500 hover:bg-slate-100 transition-colors text-left"
+                    >
+                      <ChevronRight
+                        size={13}
+                        className={`shrink-0 transition-transform ${expanded ? 'rotate-90' : ''}`}
+                      />
+                      <span className="text-[11px] font-semibold">{item.label}</span>
+                      <span className="text-[10px] text-slate-400">{item.count} 条</span>
+                    </button>
+                  )
+                }
 
-              return (
-                <div
-                  key={entry.id}
-                  onMouseMove={() => setActiveIndex(index)}
-                  onClick={() => void pick(entry)}
-                  className={`group flex items-center gap-3 px-2.5 py-2 rounded-[10px] cursor-pointer transition-colors ${
-                    active ? 'bg-sky-100' : 'hover:bg-slate-100'
-                  }`}
-                >
-                  {/* 键盘序号键帽 */}
-                  <span
-                    className={`w-[18px] h-[18px] rounded text-[11px] font-semibold flex items-center justify-center shrink-0 transition-colors ${
-                      active
-                        ? 'bg-sky-200 text-sky-700'
-                        : 'bg-slate-200 text-slate-500'
+                const { entry, index } = item
+                const active = index === activeIndex
+                const sent = justSent === entry.id
+                const color = entry.type === 'text' ? detectColor(entry.text ?? '') : null
+
+                return (
+                  <div
+                    key={entry.id}
+                    onMouseMove={() => setActiveIndex(index)}
+                    onClick={() => void pick(entry)}
+                    style={{ height: ENTRY_H }}
+                    className={`group flex items-center gap-3 px-2.5 rounded-[10px] cursor-pointer transition-colors ${
+                      active ? 'bg-sky-100' : 'hover:bg-slate-100'
                     }`}
                   >
-                    {index + 1}
-                  </span>
-
-                  {/* 内容主体：色块 / 缩略图 / 文件图标 + 单行文本 */}
-                  <div className="flex-1 min-w-0 flex items-center gap-2">
-                    {entry.type === 'image' ? (
-                      <img
-                        src={entry.imageDataUrl}
-                        alt="图片"
-                        className="w-12 h-12 rounded-md object-cover border border-slate-200 shrink-0"
-                      />
-                    ) : entry.type === 'file' ? (
-                      <span className="w-8 h-8 rounded-md bg-slate-100 text-slate-500 flex items-center justify-center shrink-0">
-                        <File size={16} />
-                      </span>
-                    ) : color ? (
-                      <span
-                        className="w-3.5 h-3.5 rounded border border-black/10 shrink-0"
-                        style={{ backgroundColor: color.swatch }}
-                      />
-                    ) : null}
-
-                    <span className="truncate text-[13px] text-slate-900">
-                      {entry.type === 'image'
-                        ? '图片'
-                        : entry.type === 'file'
-                          ? (entry.filePath ?? '').split('/').pop() || '文件'
-                          : (entry.text ?? '').slice(0, PREVIEW_LENGTH)}
-                    </span>
-                  </div>
-
-                  {/* 元信息：标签 + 时间 + 操作 */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    {entry.type === 'image' ? (
-                      <span className="text-[10px] bg-sky-100 text-sky-700 px-1.5 py-0.5 rounded font-medium">
-                        图片
-                      </span>
-                    ) : entry.type === 'file' ? (
-                      <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-medium">
-                        文件
-                      </span>
-                    ) : color ? (
-                      <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-medium">
-                        {color.label}
-                      </span>
-                    ) : entry.truncated ? (
-                      <span className="text-[10px] text-amber-600 shrink-0">已截断</span>
-                    ) : null}
-
-                    <span className="text-[12px] text-slate-500 tabular-nums shrink-0">
-                      {relativeTime(entry.at)}
+                    <span
+                      className={`w-[18px] h-[18px] rounded text-[11px] font-semibold flex items-center justify-center shrink-0 transition-colors ${
+                        active
+                          ? 'bg-sky-200 text-sky-700'
+                          : 'bg-slate-200 text-slate-500'
+                      }`}
+                    >
+                      {index + 1}
                     </span>
 
-                    {sent ? (
-                      <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-0.5 shrink-0">
-                        <Check size={10} /> 已填入
+                    <div className="flex-1 min-w-0 flex items-center gap-2">
+                      {entry.type === 'image' ? (
+                        <img
+                          src={entry.imageDataUrl}
+                          alt="图片"
+                          className="w-9 h-9 rounded-md object-cover border border-slate-200 shrink-0"
+                        />
+                      ) : entry.type === 'file' ? (
+                        <span className="w-8 h-8 rounded-md bg-slate-100 text-slate-500 flex items-center justify-center shrink-0">
+                          <File size={16} />
+                        </span>
+                      ) : color ? (
+                        <span
+                          className="w-3.5 h-3.5 rounded border border-black/10 shrink-0"
+                          style={{ backgroundColor: color.swatch }}
+                        />
+                      ) : null}
+
+                      <span className="truncate text-[13px] text-slate-900">
+                        {entry.type === 'image'
+                          ? '图片'
+                          : entry.type === 'file'
+                            ? (entry.filePath ?? '').split('/').pop() || '文件'
+                            : (entry.text ?? '').slice(0, PREVIEW_LENGTH)}
                       </span>
-                    ) : (
-                      <div className="flex items-center gap-0.5">
-                        <Tooltip content="复制到剪贴板" placement="left">
-                          <button
-                            onClick={async (e) => {
-                              e.stopPropagation()
-                              if (entry.type === 'image') {
-                                await api?.clipboardCopyImage?.(entry.imageDataUrl ?? '')
-                              } else if (entry.type === 'file') {
-                                await copyText(entry.filePath ?? '')
-                              } else {
-                                await copyText(entry.text ?? '')
-                              }
-                            }}
-                            className="inline-flex items-center justify-center h-5 w-5 rounded text-slate-400 hover:text-slate-900 hover:bg-slate-200"
-                          >
-                            <Copy size={11} />
-                          </button>
-                        </Tooltip>
-                        <Tooltip content="删除这条" placement="left">
-                          <button
-                            onClick={(e) => void remove(entry.id, e)}
-                            className="inline-flex items-center justify-center h-5 w-5 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50"
-                          >
-                            <Trash2 size={11} />
-                          </button>
-                        </Tooltip>
-                      </div>
-                    )}
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      {entry.type === 'image' ? (
+                        <span className="text-[10px] bg-sky-100 text-sky-700 px-1.5 py-0.5 rounded font-medium">
+                          图片
+                        </span>
+                      ) : entry.type === 'file' ? (
+                        <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-medium">
+                          文件
+                        </span>
+                      ) : color ? (
+                        <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-medium">
+                          {color.label}
+                        </span>
+                      ) : entry.truncated ? (
+                        <span className="text-[10px] text-amber-600 shrink-0">已截断</span>
+                      ) : null}
+
+                      <span className="text-[12px] text-slate-500 tabular-nums shrink-0">
+                        {relativeTime(entry.at)}
+                      </span>
+
+                      {sent ? (
+                        <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-0.5 shrink-0">
+                          <Check size={10} /> 已填入
+                        </span>
+                      ) : (
+                        <div className="flex items-center gap-0.5">
+                          <Tooltip content="复制到剪贴板" placement="left">
+                            <button
+                              onClick={async (e) => {
+                                e.stopPropagation()
+                                if (entry.type === 'image') {
+                                  await api?.clipboardCopyImage?.(entry.imageDataUrl ?? '')
+                                } else if (entry.type === 'file') {
+                                  await copyText(entry.filePath ?? '')
+                                } else {
+                                  await copyText(entry.text ?? '')
+                                }
+                              }}
+                              className="inline-flex items-center justify-center h-5 w-5 rounded text-slate-400 hover:text-slate-900 hover:bg-slate-200"
+                            >
+                              <Copy size={11} />
+                            </button>
+                          </Tooltip>
+                          <Tooltip content="删除这条" placement="left">
+                            <button
+                              onClick={(e) => void remove(entry.id, e)}
+                              className="inline-flex items-center justify-center h-5 w-5 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                            >
+                              <Trash2 size={11} />
+                            </button>
+                          </Tooltip>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )
-            })
+                )
+              })}
+            </div>
           )}
         </div>
 

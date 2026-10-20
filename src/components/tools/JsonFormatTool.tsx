@@ -5,8 +5,6 @@ import {
   ArrowUpDown,
   Trash2,
   Download,
-  GitCompareArrows,
-  CheckCircle2,
   AlertTriangle,
   History,
   ChevronRight,
@@ -20,7 +18,6 @@ import { useHistoryContextMenu } from "../../hooks/useHistoryContextMenu";
 import {
   CodeEditor,
   Segmented,
-  StatTile,
   ToolBadge,
   ToolCard,
   ToolCardHeader,
@@ -28,20 +25,9 @@ import {
   ToolHistoryOverlay,
   ToolShell,
   CopyButton,
-  CopyButtonPrimary,
   iconButtonClass,
 } from "../ui";
 import Tooltip from "../ui/Tooltip";
-
-type JsonFormatToolProps = {
-  mode?: "format" | "diff";
-};
-
-type DiffLine = {
-  left: string;
-  right: string;
-  status: "same" | "added" | "removed" | "changed";
-};
 
 /* --- Tree View Components --- */
 
@@ -161,11 +147,6 @@ const TreeNode = ({
 
 /* --- Utility Functions --- */
 
-const formatForDisplay = (value: string) => {
-  if (!value.trim()) return "";
-  return JSON.stringify(JSON.parse(value), null, 2);
-};
-
 const sortObjectKeys = (obj: unknown): unknown => {
   if (Array.isArray(obj)) return obj.map(sortObjectKeys);
 
@@ -186,71 +167,17 @@ const sortObjectKeys = (obj: unknown): unknown => {
   return obj;
 };
 
-const buildDiffLines = (leftText: string, rightText: string): DiffLine[] => {
-  const leftLines = leftText.split("\n");
-  const rightLines = rightText.split("\n");
-  const lineCount = Math.max(leftLines.length, rightLines.length);
-
-  return Array.from({ length: lineCount }, (_, index) => {
-    const left = leftLines[index] ?? "";
-    const right = rightLines[index] ?? "";
-
-    if (left === right) return { left, right, status: "same" as const };
-    if (!left && right) return { left, right, status: "added" as const };
-    if (left && !right) return { left, right, status: "removed" as const };
-
-    return { left, right, status: "changed" as const };
-  });
-};
-
-const diffStyles: Record<DiffLine["status"], string> = {
-  same: "text-slate-400 dark:text-slate-500",
-  added:
-    "bg-emerald-50 text-emerald-700 border-l-2 border-emerald-500 dark:bg-emerald-500/10 dark:text-emerald-300",
-  removed:
-    "bg-rose-50 text-rose-700 border-l-2 border-rose-500 dark:bg-rose-500/10 dark:text-rose-300",
-  changed:
-    "bg-amber-50 text-amber-700 border-l-2 border-amber-500 dark:bg-amber-500/10 dark:text-amber-300",
-};
-
-/** 统计卡的语义色：匹配=灰、新增=绿、删除=红、修改=琥珀 */
-const DIFF_STAT_TONES: Record<DiffLine["status"], { tone: "neutral" | "emerald" | "rose" | "amber" }> = {
-  same: { tone: "neutral" },
-  added: { tone: "emerald" },
-  removed: { tone: "rose" },
-  changed: { tone: "amber" },
-};
-
 /* --- Main Tool Component --- */
 
-export default function JsonFormatTool({
-  mode = "format",
-}: JsonFormatToolProps) {
+export default function JsonFormatTool() {
   const [input, setInput] = useState("");
   const [output, setOutput] = useState("");
   const [error, setError] = useState("");
   const [viewMode, setViewMode] = useState<"text" | "tree">("text");
-  const [leftInput, setLeftInput] = useState("");
-  const [rightInput, setRightInput] = useState("");
   const [showHistory, setShowHistory] = useState(false);
 
-  const { history, saveHistory, clearHistory, removeHistoryItem } = useToolHistory<string>(
-    mode === "diff" ? "json-diff" : "json-format",
-  );
-  // 两个面板共用同一份 history,但回填逻辑不同,各自一份右键菜单
-  const openDiffHistoryMenu = useHistoryContextMenu<string>({
-    onUse: (item) => {
-      try {
-        const data = JSON.parse(item.data);
-        setLeftInput(data.left || item.data);
-        setRightInput(data.right || "");
-      } catch {
-        setLeftInput(item.data);
-      }
-      setShowHistory(false);
-    },
-    onRemove: removeHistoryItem,
-  });
+  const { history, saveHistory, clearHistory, removeHistoryItem } =
+    useToolHistory<string>("json-format");
 
   const openFormatHistoryMenu = useHistoryContextMenu<string>({
     onUse: (item) => {
@@ -316,198 +243,6 @@ export default function JsonFormatTool({
     link.download = "formatted.json";
     link.click();
   };
-
-  const leftParsed = useMemo(() => {
-    try {
-      return { formatted: formatForDisplay(leftInput), error: "" };
-    } catch (err) {
-      return { formatted: "", error: "左侧 JSON 无法解析" };
-    }
-  }, [leftInput]);
-
-  const rightParsed = useMemo(() => {
-    try {
-      return { formatted: formatForDisplay(rightInput), error: "" };
-    } catch (err) {
-      return { formatted: "", error: "右侧 JSON 无法解析" };
-    }
-  }, [rightInput]);
-
-  const diffError = leftParsed.error || rightParsed.error;
-
-  const diffLines = useMemo(() => {
-    if (!leftParsed.formatted || !rightParsed.formatted) return [];
-    return buildDiffLines(leftParsed.formatted, rightParsed.formatted);
-  }, [leftParsed.formatted, rightParsed.formatted]);
-
-  const diffStats = useMemo(
-    () =>
-      diffLines.reduce(
-        (stats, line) => {
-          stats[line.status] += 1;
-          return stats;
-        },
-        { same: 0, added: 0, removed: 0, changed: 0 },
-      ),
-    [diffLines],
-  );
-
-  if (mode === "diff") {
-    return (
-      <ToolShell
-        icon={GitCompareArrows}
-        title="JSON 内容比对"
-        subtitle="逐行分析两个 JSON 的差异"
-        badge={
-          diffLines.length > 0 ? <ToolBadge tone="brand">{diffLines.length} 行</ToolBadge> : undefined
-        }
-        actions={
-          <>
-            <button
-              onClick={() => setShowHistory(!showHistory)}
-              className={`tool-button-secondary h-8 ${
-                showHistory
-                  ? "ring-2 ring-brand-500/20 border-brand-200 text-brand-600 dark:border-brand-500/40 dark:text-brand-400"
-                  : ""
-              }`}
-            >
-              <History size={15} />
-              <span>比对历史</span>
-            </button>
-            <button
-              onClick={() => {
-                setLeftInput("");
-                setRightInput("");
-              }}
-              className="tool-button-secondary h-8 text-rose-500 hover:text-rose-600 hover:bg-rose-50 border-rose-100 dark:text-rose-400 dark:border-rose-500/30 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
-            >
-              <Trash2 size={15} />
-              <span>清空</span>
-            </button>
-            <button
-              onClick={() => {
-                if (!leftInput || !rightInput) return;
-                saveHistory(
-                  JSON.stringify({ left: leftInput, right: rightInput }),
-                  `比对: ${leftInput.slice(0, 10)}...`,
-                );
-              }}
-              className="tool-button-primary h-8 px-5"
-            >
-              <CopyButtonPrimary value={() => output} disabled={!output} />
-
-            </button>
-          </>
-        }
-        overlay={
-          <ToolHistoryOverlay
-            open={showHistory}
-            onClose={() => setShowHistory(false)}
-            title="历史比对记录"
-            items={history}
-            onClear={clearHistory}
-            onPick={(item) => {
-              try {
-                const data = JSON.parse(item.data);
-                setLeftInput(data.left || item.data);
-                setRightInput(data.right || "");
-              } catch {
-                setLeftInput(item.data);
-              }
-              setShowHistory(false);
-            }}
-            onItemContextMenu={openDiffHistoryMenu}
-            renderItemTitle={(item) => item.title || "无标题比对"}
-          />
-        }
-      >
-        {/* 差异统计 */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 shrink-0">
-          {(
-            [
-              { key: "same", label: "匹配", value: diffStats.same },
-              { key: "added", label: "新增", value: diffStats.added },
-              { key: "removed", label: "删除", value: diffStats.removed },
-              { key: "changed", label: "修改", value: diffStats.changed },
-            ] as const
-          ).map((stat) => (
-            <StatTile
-              key={stat.key}
-              label={stat.label}
-              value={stat.value}
-              tone={DIFF_STAT_TONES[stat.key].tone}
-            />
-          ))}
-        </div>
-
-        {/* 两份 JSON */}
-        <div className="tool-cascade grid grid-cols-1 xl:grid-cols-2 gap-4 flex-1 min-h-[400px]">
-          <ToolCard>
-            <ToolCardHeader title="原始 JSON（左侧）" meta={`${leftInput.length} 字符`} />
-            <CodeEditor
-              value={leftInput}
-              onChange={setLeftInput}
-              placeholder="在这里粘贴原始 JSON..."
-            />
-          </ToolCard>
-
-          <ToolCard>
-            <ToolCardHeader title="比对 JSON（右侧）" meta={`${rightInput.length} 字符`} />
-            <CodeEditor
-              value={rightInput}
-              onChange={setRightInput}
-              placeholder="在这里粘贴要比对的 JSON..."
-            />
-          </ToolCard>
-        </div>
-
-        {/* 逐行差异 */}
-        {!diffError && diffLines.length > 0 && (
-          <ToolCard className="flex-1 min-h-[320px]">
-            <ToolCardHeader
-              title="逐行差异视图"
-              actions={
-                <ToolBadge tone="emerald">
-                  <CheckCircle2 size={11} />
-                  实时比对中
-                </ToolBadge>
-              }
-            />
-            <div className="flex-1 min-h-0 divide-y divide-slate-50 dark:divide-dark-border overflow-y-auto">
-              {diffLines.map((line, index) => (
-                <div
-                  key={index}
-                  className="grid grid-cols-[48px_1fr_1fr] group transition-colors hover:bg-slate-50/50 dark:hover:bg-dark-hover/40 shrink-0"
-                >
-                  <div className="py-2 px-3 text-[10px] font-mono text-slate-300 dark:text-slate-600 border-r border-slate-50 dark:border-dark-border bg-slate-50/30 dark:bg-dark-sidebar/30 flex justify-center items-center">
-                    {String(index + 1).padStart(2, "0")}
-                  </div>
-                  <div
-                    className={`py-2 px-4 font-mono text-[11px] whitespace-pre-wrap break-all border-r border-slate-50/50 dark:border-dark-border ${
-                      line.status === "removed" || line.status === "changed"
-                        ? diffStyles[line.status]
-                        : "text-slate-600 dark:text-slate-300"
-                    }`}
-                  >
-                    {line.left || " "}
-                  </div>
-                  <div
-                    className={`py-2 px-4 font-mono text-[11px] whitespace-pre-wrap break-all ${
-                      line.status === "added" || line.status === "changed"
-                        ? diffStyles[line.status]
-                        : "text-slate-600 dark:text-slate-300"
-                    }`}
-                  >
-                    {line.right || " "}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </ToolCard>
-        )}
-      </ToolShell>
-    );
-  }
 
   return (
     <ToolShell

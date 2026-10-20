@@ -178,6 +178,8 @@ interface Window {
     /* 文件局域网分享 */
     fileShareList?: () => Promise<FileShareItem[]>
     fileSharePick?: () => Promise<FileShareItem[]>
+    fileShareAdd?: (paths: string[]) => Promise<FileShareItem[]>
+    fileSharePathsFromFiles?: (files: File[]) => string[]
     fileShareRemove?: (id: string) => Promise<FileShareItem[]>
 
     /* 端口占用排查 */

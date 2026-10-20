@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react'
-import Home from './pages/Home'
 import DashboardLayout from './components/layout/DashboardLayout'
 import Stats from './pages/Stats'
 import { NotesProvider } from './context/NotesContext'
@@ -15,7 +14,7 @@ import {
   type ThemeId,
 } from './utils/theme'
 
-export type ViewMode = 'hub' | 'dashboard' | 'stats'
+export type ViewMode = 'dashboard' | 'stats'
 
 function App() {
   const [viewMode, setViewMode] = useState<ViewMode>('dashboard')
@@ -101,7 +100,7 @@ function App() {
   // 让订阅回调始终拿到最新的 openTool（它每次渲染都是新函数）
   openToolRef.current = openTool
 
-  const navigateToHub = () => setViewMode('hub')
+  const navigateToDashboard = () => setViewMode('dashboard')
   const navigateToStats = () => setViewMode('stats')
 
   // 外部打开 md 文件导入成功后,切回 Markdown 笔记页并选中
@@ -118,27 +117,17 @@ function App() {
               翻译页与它的专属二级侧边栏共用同一份状态 */}
           <TranslateProvider>
             {viewMode === 'stats' && (
-              <Stats usageStats={usageStats} onBack={navigateToHub} />
+              <Stats usageStats={usageStats} onBack={navigateToDashboard} />
             )}
 
             {viewMode === 'dashboard' && (
               <DashboardLayout
                 activeTabId={activeTabId || 'markdown-notes'}
                 onOpenTool={openTool}
-                onBackToHub={navigateToHub}
                 onOpenStats={navigateToStats}
                 theme={theme}
                 onToggleTheme={toggleTheme}
                 onSelectTheme={selectTheme}
-              />
-            )}
-
-            {viewMode === 'hub' && (
-              <Home
-                onOpenTool={openTool}
-                onOpenStats={navigateToStats}
-                onBack={() => setViewMode('dashboard')}
-                usageStats={usageStats}
               />
             )}
           </TranslateProvider>

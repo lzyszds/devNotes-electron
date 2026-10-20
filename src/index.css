@@ -4744,3 +4744,8 @@ select:focus-visible {
     animation: none !important;
   }
 }
+
+@keyframes tool-tab-press {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}

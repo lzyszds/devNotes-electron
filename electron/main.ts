@@ -31,10 +31,33 @@ import {
   pasteFileToFocusedApp,
   copyImageToClipboard,
   requestPastePermission,
-  setPasteContext,
-  getFrontmostAppSync,
 } from './pasteToApp'
 import type { IpcMainInvokeEvent } from 'electron'
+
+/**
+ * 本地原生 addon（native/ 目录编译出的 .node）：给剪贴板窗口设置
+ * nonactivatingPanel mask，让它交互时不激活 app。这是 Electron 原生
+ * focusable 选项给不了的（focusable 只控制 key window，挡不住 app 激活）。
+ *
+ * 编译不出 .node 或平台不对就返回 null，调用方退回 focusable: false +
+ * showInactive 的过渡方案，保证非 mac 平台不崩。
+ */
+let nonactivatingFn: ((handle: Buffer) => void) | null | undefined
+
+function loadNonactivating(): ((handle: Buffer) => void) | null {
+  if (process.platform !== 'darwin') return null
+  if (nonactivatingFn !== undefined) return nonactivatingFn
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const mod = require(path.join(__dirname, '../native')) as {
+      makeNonActivating?: (handle: Buffer) => void
+    }
+    nonactivatingFn = typeof mod.makeNonActivating === 'function' ? mod.makeNonActivating : null
+  } catch {
+    nonactivatingFn = null
+  }
+  return nonactivatingFn
+}
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
@@ -535,24 +558,19 @@ function startClipboardCapture(): void {
 let clipboardStop: (() => void) | null = null
 
 function openClipboardWindow(): void {
-  // 记录唤出面板时的焦点上下文：devNotes 是否前台，以及前台应用是谁。
-  // 粘贴时据此把焦点还给外部应用（见 pasteToApp.ts）。必须在面板 show/focus
-  // 之前记录 —— 一旦面板抢了焦点，前台应用就变成 devNotes 自己了。
+  // 原生 addon 是否可用：可用则走「nonactivating mask + show/focus」的完整方案
+  // （不抢焦点、有 hover、有键盘）；不可用则退回 focusable: false + showInactive。
+  const nonactivating = loadNonactivating()
+
+  // devNotes 是否在前台。面板是 non-activating 的，不抢焦点，所以这个
+  // 只用来决定「要不要把主窗口藏起来」，粘贴不再需要它记目标应用。
   const wasForeground = Boolean(
     mainWindow && !mainWindow.isDestroyed() && mainWindow.isFocused()
   )
-  setPasteContext({
-    wasForeground,
-    // 只在外部场景才需要记目标应用：devNotes 自己在前台时粘给自己即可
-    frontAppBundleId: wasForeground ? null : getFrontmostAppSync(),
-  })
 
   /*
-   * 外部场景（用户在别的应用里唤面板）：先把主窗口藏起来。
-   *
-   * Electron 不支持 nonactivating panel，点面板的那一刻 macOS 必然激活
-   * devNotes —— 若主窗口还可见，就会跟着浮上来闪一下。提前把它藏好，
-   * 点面板时浮上来的就只有面板自己（它本来就在显示），主窗口不会出现。
+   * 外部场景（用户在别的应用里唤面板）：先把主窗口藏起来，
+   * 免得面板出现时主窗口跟着浮上来。
    */
   if (!wasForeground && mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible()) {
     mainWindow.hide()
@@ -560,8 +578,12 @@ function openClipboardWindow(): void {
 
   if (clipboardWindow && !clipboardWindow.isDestroyed()) {
     if (clipboardWindow.isMinimized()) clipboardWindow.restore()
-    clipboardWindow.show()
-    clipboardWindow.focus()
+    if (nonactivating) {
+      clipboardWindow.show()
+      clipboardWindow.focus()
+    } else {
+      clipboardWindow.showInactive()
+    }
     return
   }
 
@@ -572,19 +594,16 @@ function openClipboardWindow(): void {
     minHeight: CLIPBOARD_MIN_SIZE.height,
     frame: false,
     /*
-     * 可聚焦 —— 这样面板内部才有正常的鼠标 hover 和键盘输入。
+     * type: 'panel' 让窗口成为 NSPanel（nonactivating mask 只对它有效）。
      *
-     * 之前设 focusable: false 想「不抢焦点、让模拟粘贴粘回外部应用」，
-     * 但那是条错路：focusable: false 的面板在 macOS 上是 inactive 窗口，
-     * 系统不向它派发 mouse move，导致列表 hover 高亮、搜索框打字、键盘
-     * 上下键全都失效。
-     *
-     * 「把值粘回外部应用」这件事现在由 pasteToApp 里的 app.hide() 负责：
-     * 点历史后先把 devNotes 整个退到后台、让 macOS 把前台还给微信，再模拟
-     * ⌘V。所以面板本身可聚焦并不会让粘贴粘错地方。
+     * focusable 跟着 addon 走：addon 可用则 true —— 窗口能成为 key window
+     * 收键盘，而 nonactivating mask 保证它不激活 app，两者叠加才是 Paste 的
+     * 完整效果（有键盘、有 hover、不抢焦点）。addon 不可用则 false 退回
+     * 「不抢焦点但没键盘」的过渡方案。
      */
-    focusable: true,
-    alwaysOnTop: false,
+    focusable: !!nonactivating,
+    type: 'panel',
+    alwaysOnTop: true,
     fullscreenable: false,
     hasShadow: true,
     resizable: true,
@@ -601,6 +620,9 @@ function openClipboardWindow(): void {
   clipboardWindow = window
   registerWindowShortcuts(window)
 
+  // 设置 nonactivating mask（追加 + 私有 SPI 同步），要在 show 之前生效
+  nonactivating?.(window.getNativeWindowHandle())
+
   const devServerUrl = process.env.VITE_DEV_SERVER_URL
   if (devServerUrl) {
     void window.loadURL(`${devServerUrl}?clipboard=1`)
@@ -609,22 +631,28 @@ function openClipboardWindow(): void {
   }
 
   window.once('ready-to-show', () => {
-    // 打开即聚焦：面板一出现就能用键盘、有 hover 高亮
-    window.show()
-    window.focus()
+    if (nonactivating) {
+      // nonactivating mask 已生效：show/focus 让它成为 key window（收键盘），
+      // 但不会激活 app —— 唤出面板前的应用保持焦点。
+      window.show()
+      window.focus()
+    } else {
+      // 退回方案：只渲染置顶、不激活。
+      window.showInactive()
+    }
   })
 
   /*
-   * 失焦即关闭。
+   * 失焦即收起（隐藏，不销毁）。
    *
    * 面板 focusable: true，点击面板外（切到微信 / 别的应用）会触发 blur ——
-   * 那一刻就该收起来，而不是赖在屏幕上或缩进 Dock。用 close 而不是 hide：
-   * 它是临时取词面板，关掉即结束，不留状态。
+   * 那一刻就该收起来。用 hide 而不是 close：窗口常驻复用，下次唤出直接
+   * show 即出，省掉重建窗口 + 重新加载页面那几百毫秒。
    *
-   * 点面板内部的按钮（删除、复制）不会 blur，所以不会误关。
+   * 点面板内部的按钮（删除、复制）不会 blur，所以不会误收。
    */
   window.on('blur', () => {
-    if (!window.isDestroyed()) window.close()
+    if (!window.isDestroyed()) window.hide()
   })
 
   const persistBounds = () => {
@@ -638,6 +666,15 @@ function openClipboardWindow(): void {
   })
 }
 
+/**
+ * 收起面板：只隐藏、不销毁。窗口常驻复用 —— 下次唤出直接 show 即出，
+ * 省去「新建窗口 + 加载页面」那几百毫秒，历史记录也在渲染层内存里原样保留。
+ */
+function hideClipboardWindow(): void {
+  if (clipboardWindow && !clipboardWindow.isDestroyed()) clipboardWindow.hide()
+}
+
+/** 真正销毁面板，仅应用退出时调用 */
 function closeClipboardWindow(): void {
   if (clipboardWindow && !clipboardWindow.isDestroyed()) clipboardWindow.close()
   clipboardWindow = null
@@ -981,7 +1018,7 @@ function setupIpc() {
   })
 
   ipcMain.handle('clipboard-close', () => {
-    closeClipboardWindow()
+    hideClipboardWindow()
   })
 
   /** 面板读全量列表。渲染端挂载时拉一次，之后的增量走 clipboard:changed 推送 */
@@ -1036,7 +1073,7 @@ function setupIpc() {
    */
   ipcMain.handle(
     'clipboard-paste',
-    (
+    async (
       _event,
       payload: {
         type: 'text' | 'image' | 'file'
@@ -1045,6 +1082,13 @@ function setupIpc() {
         filePath?: string
       }
     ) => {
+      /*
+       * non-activating 面板抢了 key window（键盘焦点），收起它之后 key window
+       * 会自动还给唤出面板前的应用。等一小拍让这个转移稳定，再模拟 ⌘V。
+       */
+      hideClipboardWindow()
+      await new Promise((resolve) => setTimeout(resolve, 80))
+
       if (payload.type === 'image') {
         return pasteImageToFocusedApp(payload.imageDataUrl ?? '')
       }
@@ -1339,6 +1383,16 @@ function setupIpc() {
 
     let items = listSharedFiles()
     for (const filePath of result.filePaths) {
+      items = await shareFile(filePath)
+    }
+    return items
+  })
+  // 拖拽分享：渲染进程通过 webUtils.getPathForFile 拿到本地路径后传进来
+  ipcMain.handle('file-share-add', async (_, paths: string[]) => {
+    if (!Array.isArray(paths)) throw new Error('无效的文件路径')
+    let items = listSharedFiles()
+    for (const filePath of paths) {
+      if (typeof filePath !== 'string' || !filePath) continue
       items = await shareFile(filePath)
     }
     return items

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
+  Check,
+  Copy,
   Download,
   FileImage,
   FileWarning,
@@ -24,6 +26,7 @@ import {
   META,
   SECTION_LABEL,
   Segmented,
+  type SegmentOption,
   ToolActionBar,
   ToolBadge,
   ToolCard,
@@ -33,7 +36,6 @@ import {
   ToolNotice,
   ToolShell,
   ToolTag,
-  CopyButton,
   CopyImageButton,
   CountUp,
   iconButtonClass,
@@ -42,6 +44,83 @@ import Tooltip from '../ui/Tooltip'
 import { useToast } from '../ui/Toast'
 import { ICO_SIZES, canvasToIco } from '../../utils/icoEncoder'
 import { blobToDataUrl, bundleZip, downloadBlob, type BundleEntry } from '../../utils/zipBundle'
+import { copyText } from '../../utils/clipboard'
+import {
+  FORMATS,
+  canvasToBlob,
+  encodeUnderTarget,
+  fitToLongEdge,
+  formatBytes,
+  loadImage,
+  type FormatValue,
+  type Size,
+} from '../../utils/imageConvertCore'
+import ImageBatchPanel from './ImageBatchPanel'
+
+/** 顶部的单张 / 批量切换。批量模式下整个工作区换成批量面板 */
+const MODE_OPTIONS: SegmentOption<'single' | 'batch'>[] = [
+  { value: 'single', label: '单张' },
+  { value: 'batch', label: '批量' },
+]
+
+/**
+ * 文字版复制按钮：结果区底部的 Base64 / DataURL / CSS 用。
+ * 文字直接露在按钮上，不用悬浮才知道是什么；点击后原地变成「已复制」。
+ */
+function CopyChip({
+  label,
+  getText,
+  disabled,
+}: {
+  label: string
+  getText: () => string
+  disabled: boolean
+}) {
+  const { showToast } = useToast()
+  const [copied, setCopied] = useState(false)
+  const timerRef = useRef<number | null>(null)
+
+  useEffect(
+    () => () => {
+      if (timerRef.current !== null) window.clearTimeout(timerRef.current)
+    },
+    [],
+  )
+
+  const handleCopy = async () => {
+    const text = getText()
+    if (!text) {
+      showToast('编码还在生成，稍等一下再试', 'error')
+      return
+    }
+    if (!(await copyText(text))) {
+      showToast('复制失败', 'error')
+      return
+    }
+    if (timerRef.current !== null) window.clearTimeout(timerRef.current)
+    setCopied(true)
+    timerRef.current = window.setTimeout(() => {
+      setCopied(false)
+      timerRef.current = null
+    }, 1300)
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => void handleCopy()}
+      disabled={disabled}
+      className={`inline-flex h-6 shrink-0 items-center gap-1 rounded-md px-2 text-[11px] font-semibold transition-colors disabled:pointer-events-none disabled:opacity-40 ${
+        copied
+          ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400'
+          : 'bg-slate-100 text-slate-600 hover:bg-brand-50 hover:text-brand-600 dark:bg-dark-hover dark:text-slate-300 dark:hover:bg-brand-500/10 dark:hover:text-brand-400'
+      }`}
+    >
+      {copied ? <Check size={12} strokeWidth={2.6} /> : <Copy size={12} />}
+      <span>{copied ? '已复制' : label}</span>
+    </button>
+  )
+}
 
 /** 多倍图导出的倍率。1x/2x 覆盖普通与视网膜屏，3x 给部分安卓 */
 const MULTI_SCALES = [1, 2, 3] as const
@@ -59,12 +138,6 @@ const MULTI_SCALES = [1, 2, 3] as const
  * 想改这里的同步逻辑，先看清楚下面尺寸状态那一节的注释。
  */
 
-type FormatValue = 'webp' | 'avif' | 'jpeg' | 'png'
-
-interface Size {
-  width: number
-  height: number
-}
 
 /** 常用尺寸预设。长边取值，手机竖图与横图都能对上；over 为真时只缩小不放大 */
 interface SizePreset {
@@ -83,130 +156,6 @@ const SIZE_PRESETS: SizePreset[] = [
   { label: '512', long: 512, over: true },
 ]
 
-/** 按长边缩放，结果不小于 1px */
-function fitToLongEdge(source: Size, long: number): Size {
-  const factor = long / Math.max(source.width, source.height)
-  return {
-    width: Math.max(1, Math.round(source.width * factor)),
-    height: Math.max(1, Math.round(source.height * factor)),
-  }
-}
-
-/** 用二分法把体积压到目标以下。不依赖任何编码质量模型，直接试真实的编码结果 */
-async function encodeUnderTarget(
-  canvas: HTMLCanvasElement,
-  mime: string,
-  targetBytes: number,
-  startQuality: number,
-): Promise<{ blob: Blob; quality: number }> {
-  let size = { width: canvas.width, height: canvas.height }
-  let fallback: { blob: Blob; quality: number } | null = null
-
-  for (let attempt = 0; attempt < 5; attempt++) {
-    let best = await canvasToBlob(canvas, mime, startQuality / 100)
-    if (best.size <= targetBytes) return { blob: best, quality: startQuality }
-
-    // 画质下限还压不下去，就折一半尺寸再来一轮
-    let low = 10
-    let high = startQuality
-    for (let step = 0; step < 7 && high - low > 2; step++) {
-      const mid = Math.round((low + high) / 2)
-      const blob = await canvasToBlob(canvas, mime, mid / 100)
-      if (blob.size <= targetBytes) {
-        best = blob
-        low = mid
-      } else {
-        high = mid
-        fallback = { blob, quality: mid }
-      }
-    }
-    if (best.size <= targetBytes) return { blob: best, quality: low }
-
-    if (size.width <= 1 || size.height <= 1) break
-    const next: Size = {
-      width: Math.max(1, Math.round(size.width * 0.75)),
-      height: Math.max(1, Math.round(size.height * 0.75)),
-    }
-    const scaled = shrinkCanvas(canvas, size)
-    if (!scaled) break
-    size = next
-    canvas.width = next.width
-    canvas.height = next.height
-    const ctx = canvas.getContext('2d')
-    if (!ctx) break
-    ctx.drawImage(scaled, 0, 0)
-  }
-
-  // 目标实在够不着，交出最接近的一次，别让用户空手
-  if (fallback) return fallback
-  return { blob: await canvasToBlob(canvas, mime, 10 / 100), quality: 10 }
-}
-
-/**
- * 先把当前画布内容拷进一张等大的临时画布，再把原画布改小重绘。
- * 必须这么绕：改 canvas.width 会连带清空内容，直接缩就是一张白图。
- */
-function shrinkCanvas(canvas: HTMLCanvasElement, from: Size): HTMLCanvasElement | null {
-  const tmp = document.createElement('canvas')
-  tmp.width = from.width
-  tmp.height = from.height
-  const ctx = tmp.getContext('2d')
-  if (!ctx) return null
-  ctx.drawImage(canvas, 0, 0)
-  return tmp
-}
-
-interface ImageFormat {
-  value: FormatValue
-  label: string
-  mime: string
-  /** 导出文件名用的扩展名 */
-  ext: string
-  /** 有损格式才有画质参数；也是「目标体积」能不能自动压的依据 */
-  lossy: boolean
-  /** 是否带透明通道；不带的话导出前要铺一层背景色 */
-  alpha: boolean
-  hint: string
-}
-
-const FORMATS: ImageFormat[] = [
-  {
-    value: 'webp',
-    label: 'WebP',
-    mime: 'image/webp',
-    ext: 'webp',
-    lossy: true,
-    alpha: true,
-    hint: '同画质下体积最小，支持透明；旧版软件可能打不开',
-  },
-  {
-    value: 'avif',
-    label: 'AVIF',
-    mime: 'image/avif',
-    ext: 'avif',
-    lossy: true,
-    alpha: true,
-    hint: '压缩率比 WebP 更高，Next-gen 格式；编码慢，且老浏览器不支持',
-  },
-  {
-    value: 'jpeg',
-    label: 'JPEG',
-    mime: 'image/jpeg',
-    ext: 'jpg',
-    lossy: true,
-    alpha: false,
-    hint: '兼容性最好，不支持透明，透明区域会填成背景色',
-  },
-  {
-    value: 'png',
-    label: 'PNG',
-    mime: 'image/png',
-    ext: 'png',
-    lossy: false,
-    alpha: true,
-    hint: '无损且支持透明，适合图标与截图，体积偏大',
-  },
-]
 
 interface SourceImage {
   file: File
@@ -229,31 +178,6 @@ interface ResultImage {
   quality: number
 }
 
-/** 解码图片。object URL 要等 onload 才能拿到尺寸，只能包成 Promise */
-function loadImage(url: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image()
-    img.onload = () => resolve(img)
-    img.onerror = () => reject(new Error('图片解码失败'))
-    img.src = url
-  })
-}
-
-function canvasToBlob(canvas: HTMLCanvasElement, mime: string, quality?: number): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob(
-      (blob) => (blob ? resolve(blob) : reject(new Error(`当前环境不支持导出 ${mime}`))),
-      mime,
-      quality,
-    )
-  })
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / 1024 / 1024).toFixed(2)} MB`
-}
 
 export default function ImageConvertTool() {
   const [source, setSource] = useState<SourceImage | null>(null)
@@ -271,6 +195,7 @@ export default function ImageConvertTool() {
   const [error, setError] = useState('')
   /** 预览看的是原图还是转换结果 */
   const [view, setView] = useState<'before' | 'after'>('after')
+  const [mode, setMode] = useState<'single' | 'batch'>('single')
   const [dragging, setDragging] = useState(false)
   /** 松手那一瞬的「落入」反馈，只亮一帧，动画跑完就撤 */
   const [landing, setLanding] = useState(false)
@@ -386,6 +311,7 @@ export default function ImageConvertTool() {
 
   // 支持 Ctrl/⌘ + V 直接粘贴剪贴板里的图
   useEffect(() => {
+    if (mode !== 'single') return
     const onPaste = (event: ClipboardEvent) => {
       const item = Array.from(event.clipboardData?.items ?? []).find((entry) =>
         entry.type.startsWith('image/'),
@@ -397,7 +323,7 @@ export default function ImageConvertTool() {
     }
     window.addEventListener('paste', onPaste)
     return () => window.removeEventListener('paste', onPaste)
-  }, [applyFile])
+  }, [applyFile, mode])
 
   /* ---------------- 尺寸状态 ----------------
    * 输出尺寸以 width / height 两个像素数为准（不是百分比）。两条入口最终都落到
@@ -671,11 +597,11 @@ export default function ImageConvertTool() {
   /* ---------------- 内联用：DataURL ---------------- */
 
   /*
-   * DataURL 是同步取值（CopyButton 点下去就要拿到字符串），而 base64 生成是异步的。
+   * 编码结果是同步取值（点下去就要拿到字符串），而 base64 生成是异步的。
    * 所以这里改成「结果一变就先算好、存进 ref」，点击时只做一次性读取 ——
    * 既是同步的，也避免了每次点击都把几十 KB 的字符串重算一遍。
    */
-  const dataUrlCache = useRef<{ raw: string; css: string } | null>(null)
+  const dataUrlCache = useRef<{ dataUrl: string; base64: string; css: string } | null>(null)
   useEffect(() => {
     dataUrlCache.current = null
     if (!result) return
@@ -685,7 +611,8 @@ export default function ImageConvertTool() {
         const dataUrl = await blobToDataUrl(result.blob)
         if (cancelled) return
         dataUrlCache.current = {
-          raw: dataUrl,
+          dataUrl,
+          base64: dataUrl.slice(dataUrl.indexOf(',') + 1),
           css: `background-image: url("${dataUrl}");`,
         }
       } catch (e) {
@@ -724,18 +651,28 @@ export default function ImageConvertTool() {
               event.target.value = ''
             }}
           />
-          <button onClick={() => inputRef.current?.click()} className="tool-button-secondary h-8">
-            <Upload size={15} />
-            <span>{source ? '更换图片' : '选择图片'}</span>
-          </button>
-          <button onClick={download} disabled={!result} className="tool-button-primary h-8 px-5">
-            <Download size={15} />
-            <span>导出 {activeFormat.label}</span>
-          </button>
+          <Segmented value={mode} options={MODE_OPTIONS} onChange={setMode} />
+          {mode === 'single' && (
+            <>
+              <button onClick={() => inputRef.current?.click()} className="tool-button-secondary h-8">
+                <Upload size={15} />
+                <span>{source ? '更换图片' : '选择图片'}</span>
+              </button>
+              <button onClick={download} disabled={!result} className="tool-button-primary h-8 px-5">
+                <Download size={15} />
+                <span>导出 {activeFormat.label}</span>
+              </button>
+            </>
+          )}
         </>
       }
     >
-      {/* scroll={false} 时 ToolShell 不会给内容加内边距，这里自己包一层 */}
+      {mode === 'batch' ? (
+        <div className="flex-1 min-h-0 flex flex-col gap-3.5 p-4 md:p-6 md:pr-0">
+          <ImageBatchPanel />
+        </div>
+      ) : (
+      /* scroll={false} 时 ToolShell 不会给内容加内边距，这里自己包一层 */
       <div className="flex-1 min-h-0 flex flex-col gap-3.5 p-4 md:p-6 md:pr-0">
       {error && (
         <ToolNotice tone="error" icon={FileWarning}>
@@ -927,23 +864,10 @@ export default function ImageConvertTool() {
                     {savedRatio >= 0 ? `体积 -${savedRatio}%` : `体积 +${Math.abs(savedRatio)}%`}
                   </ToolTag>
                 ) : null}
-                {/* 小图标惯用内联写法，省得再跑一趟 Base64 工具 */}
-                <CopyButton
-                  value={() => dataUrlCache.current?.raw ?? ''}
-                  disabled={!result}
-                  tone="neutral"
-                  size={13}
-                  label="复制为 DataURL"
-                  className="opacity-100"
-                />
-                <CopyButton
-                  value={() => dataUrlCache.current?.css ?? ''}
-                  disabled={!result}
-                  tone="neutral"
-                  size={13}
-                  label="复制为 CSS background"
-                  className="opacity-100"
-                />
+                {/* 内联用的几种写法，直接复制粘贴，无需保存图片再去 Base64 工具 */}
+                <CopyChip label="复制 Base64" getText={() => dataUrlCache.current?.base64 ?? ''} disabled={!result} />
+                <CopyChip label="复制 DataURL" getText={() => dataUrlCache.current?.dataUrl ?? ''} disabled={!result} />
+                <CopyChip label="复制 CSS" getText={() => dataUrlCache.current?.css ?? ''} disabled={!result} />
               </span>
             </ToolCardFooter>
           )}
@@ -1139,9 +1063,11 @@ export default function ImageConvertTool() {
         </div>
       </div>
       </div>
+      )}
       </ToolShell>
 
       {/* 底部动作条：ToolShell 之外、外层 flex 的兄弟节点，独占一条高度 */}
+      {mode === 'single' && (
       <div className="shrink-0 px-4 md:px-6 py-3">
       <ToolActionBar
         info={
@@ -1187,6 +1113,7 @@ export default function ImageConvertTool() {
         </button>
       </ToolActionBar>
       </div>
+      )}
     </div>
   )
 }

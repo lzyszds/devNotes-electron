@@ -146,7 +146,8 @@ export default function NotesTool() {
     setEditingTitle(false);
     if (!note || !next || next === note.title) {
       // 没改动或改空了：把 DOM 恢复成当前标题，别让界面停在一个没被采纳的值上
-      if (titleRef.current) titleRef.current.textContent = note?.title || "未命名文档";
+      if (titleRef.current)
+        titleRef.current.textContent = note?.title || "未命名文档";
       return;
     }
     handleRename(note.id, next);
@@ -216,7 +217,7 @@ export default function NotesTool() {
   const isBookmarkStale = useCallback(
     (bookmark: { heading: string; offset: number }) =>
       !isBookmarkResolvable(livePosition?.container ?? null, bookmark),
-    [livePosition?.container, content]
+    [livePosition?.container, content],
   );
 
   /**
@@ -265,7 +266,10 @@ export default function NotesTool() {
     showToast(note ? `已记下书签：${note}` : `已记下书签：${draft.heading}`);
   };
 
-  const handleJumpBookmark = (bookmark: { heading: string; offset: number }) => {
+  const handleJumpBookmark = (bookmark: {
+    heading: string;
+    offset: number;
+  }) => {
     requestReadingJump(bookmark);
   };
 
@@ -515,11 +519,15 @@ export default function NotesTool() {
             onBlur={() => {
               if (editingTitle) commitTitleEdit();
             }}
-            title={editingTitle ? undefined : `${activeNote?.title || "未命名文档"}（点击重命名）`}
-            className={`min-w-0 flex-1 truncate text-left text-[12px] font-semibold rounded px-1 -mx-1 outline-none transition-colors ${
+            title={
               editingTitle
-                ? "bg-slate-100 text-slate-900 dark:bg-dark-hover dark:text-white"
-                : "cursor-text text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-dark-hover dark:hover:text-slate-100"
+                ? undefined
+                : `${activeNote?.title || "未命名文档"}（点击重命名）`
+            }
+            className={`min-w-0 flex-1 truncate text-left text-[12px] font-semibold rounded p-1 px-2 -mx-1 outline-none transition-colors ${
+              editingTitle
+                ? "text-slate-900 dark:text-white"
+                : "cursor-text text-slate-500 hover:text-slate-800 dark:text-slate-400  dark:hover:text-slate-100"
             }`}
           ></div>
           <div className="flex flex-shrink-0 items-center gap-2">
@@ -626,8 +634,12 @@ export default function NotesTool() {
           saveStatus={saveStatus}
           saveMessage={saveMessage}
           bookmark={activeBookmark}
-          bookmarkStale={activeBookmark ? isBookmarkStale(activeBookmark) : false}
-          onJumpBookmark={() => activeBookmark && handleJumpBookmark(activeBookmark)}
+          bookmarkStale={
+            activeBookmark ? isBookmarkStale(activeBookmark) : false
+          }
+          onJumpBookmark={() =>
+            activeBookmark && handleJumpBookmark(activeBookmark)
+          }
         />
       )}
 

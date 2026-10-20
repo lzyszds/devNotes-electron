@@ -10,9 +10,10 @@ export const TOOLTIP_DELAY = 240
 /**
  * 气泡优先出现的方向。
  * top  —— 默认，浮在触发元素上方
+ * bottom —— 浮在触发元素下方（下方放不下时翻到上方）
  * right / left —— 贴在触发元素侧面并与它垂直居中（一侧放不下会自动翻到另一侧）
  */
-export type TooltipPlacement = 'top' | 'right' | 'left'
+export type TooltipPlacement = 'top' | 'bottom' | 'right' | 'left'
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(value, max))
 
@@ -52,7 +53,12 @@ export function computeTooltipPosition(
   }
 
   let top = anchor.top - TOOLTIP_GAP - size.height
-  if (top < TOOLTIP_VIEWPORT_MARGIN) top = anchor.bottom + TOOLTIP_GAP
+  if (placement === 'bottom') {
+    const below = anchor.bottom + TOOLTIP_GAP
+    top = below <= maxTop ? below : top
+  } else if (top < TOOLTIP_VIEWPORT_MARGIN) {
+    top = anchor.bottom + TOOLTIP_GAP
+  }
 
   const centered = anchor.left + anchor.width / 2 - size.width / 2
   const left = Math.max(TOOLTIP_VIEWPORT_MARGIN, Math.min(centered, maxLeft))

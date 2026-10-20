@@ -1,0 +1,7 @@
+{
+  "name": "devnotes-nonactivating",
+  "version": "1.0.0",
+  "main": "index.js",
+  "gypfile": true,
+  "private": true
+}

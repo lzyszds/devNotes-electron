@@ -88,8 +88,6 @@
       "node_modules/@xitanggg/node-insert-text/**/*",
       "node_modules/@xitanggg/node-insert-text-darwin-*/**/*",
       "node_modules/@xitanggg/node-insert-text-win32-*/**/*",
-      "node_modules/electron-macos-window-extensions/**/*",
-      "node_modules/electron-macos-window-extensions-darwin-*/**/*",
       "!**/*.map",
       "!**/tesseract-core.wasm",
       "!**/tesseract-core.wasm.js",
@@ -152,8 +150,7 @@
       "artifactName": "${productName}-${version}.${ext}"
     },
     "asarUnpack": [
-      "node_modules/@xitanggg/**/*",
-      "node_modules/electron-macos-window-extensions*/**/*"
+      "node_modules/@xitanggg/**/*"
     ]
   }
 }

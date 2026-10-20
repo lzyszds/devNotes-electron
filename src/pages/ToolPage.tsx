@@ -1,5 +1,6 @@
 import React, { Suspense, lazy } from 'react'
 import JsonFormatTool from '../components/tools/JsonFormatTool'
+import JsonDiffTool from '../components/tools/JsonDiffTool'
 import JsonI18nTool from '../components/tools/JsonI18nTool'
 import QrCodeTool from '../components/tools/QrCodeTool'
 import FileShareQrTool from '../components/tools/FileShareQrTool'
@@ -22,8 +23,8 @@ const PortKillerTool = lazy(() => import('../components/tools/PortKillerTool'))
 
 const toolComponents: Record<string, React.ComponentType<any>> = {
   'markdown-notes': NotesTool,
-  'json-format': () => <JsonFormatTool mode="format" />,
-  'json-diff': () => <JsonFormatTool mode="diff" />,
+  'json-format': JsonFormatTool,
+  'json-diff': JsonDiffTool,
   'json-i18n': JsonI18nTool,
   'text-translate': TextTranslateTool,
   'qr-code': QrCodeTool,

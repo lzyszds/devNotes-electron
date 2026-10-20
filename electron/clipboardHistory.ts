@@ -4,10 +4,8 @@
  * 为什么不走事件：Electron 在 macOS 上没有剪贴板变化事件，只能轮询读。
  * 系统剪贴板是一次只能读一份的全局资源，多读几次没有额外代价。
  *
- * 两条硬约束（用户明确要求）：
- *  - 全部存本地，绝不进云同步白名单
- *  - 敏感内容不入库：密码管理器复制的密码、API Key、Token 一旦落盘，
- *    就是明文躺在磁盘上的一份风险
+ * 全部存本地，绝不进云同步白名单。所有内容原样保留，不做任何过滤
+ * （用户明确要求：密钥、Token 之类也照存）。
  */
 
 import { clipboard, nativeImage } from 'electron'
@@ -35,52 +33,12 @@ const MAX_TEXT_LENGTH = 2000
 /** 图片单条上限（PNG 字节数）。截图动辄几百 KB，超了说明是张高清大图，存 base64 会撑爆 store */
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024
 
-/** 保留条数。再多也翻不动，反而把搜索变慢 */
-export const MAX_ENTRIES = 200
-
 /**
- * 疑似凭据的特征。
- *
- * 只挡「明显是密钥」的那几类，不做通用熵检测 —— 熵高了会误杀 base64 文本、
- * 哈希值、压缩数据，而那些恰恰是用户想留的。
+ * 保留条数上限。设一个接近「无限」的大值：日常几乎用不完，又能防止
+ * 极端情况（脚本疯狂写剪贴板）把 store 文件撑爆。界面按日期分组折叠，
+ * 条数多也不会撑爆列表。
  */
-const SECRET_PATTERNS: RegExp[] = [
-  // OpenAI / Anthropic 风格
-  /\bsk-[A-Za-z0-9_-]{16,}/,
-  /\bsk-ant-[A-Za-z0-9_-]{16,}/,
-  // GitHub token
-  /\bgh[pousr]_[A-Za-z0-9]{20,}/,
-  // AWS Access Key
-  /\bAKIA[0-9A-Z]{16}\b/,
-  // Google API Key
-  /\bAIza[0-9A-Za-z_-]{30,}/,
-  // Slack token
-  /\bxox[baprs]-[A-Za-z0-9-]{10,}/,
-  // JWT：三段 base64url 用点连起来，且首段解出来是 {"alg"...
-  /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/,
-  // 私钥头
-  /-----BEGIN [A-Z ]*PRIVATE KEY-----/,
-  /*
-   * 形如 password=xxx / secret: xxx 的赋值。
-   *
-   * 关键字前用 `[\w-]*` 而不是 `\b`：`client_secret`、`api_token`、
-   * `db_password` 这类命名很常见，而下划线属于单词字符，`\bsecret` 在
-   * `client_secret` 里根本不成立，会整类漏过。
-   */
-  /[\w-]*(password|passwd|pwd|secret|token|apikey|api[_-]?key)\s*[:=]\s*\S{6,}/i,
-  // 带账号密码的 URL：scheme://user:pass@host —— 数据库连接串、带 Basic 认证的地址
-  /\b[a-z][a-z0-9+.-]*:\/\/[^\s:@/]+:[^\s@/]+@/i,
-]
-
-/**
- * 判断一段文本是否疑似凭据。
- *
- * 单看某一类可能误伤（比如某篇文章里引用了 `token=abcdef`），但漏存的代价
- * 是把真密钥写进磁盘 —— 两者不对称，宁可少存。用户真想留，手动存进片段库。
- */
-export function looksSecret(text: string): boolean {
-  return SECRET_PATTERNS.some((pattern) => pattern.test(text))
-}
+export const MAX_ENTRIES = 10000
 
 /**
  * 采集一条。
@@ -97,7 +55,6 @@ export function shouldCapture(
   if (typeof text !== 'string') return false
   if (!text.trim()) return false
   if (latest && latest.text === text) return false
-  if (looksSecret(text)) return false
   return true
 }
 
