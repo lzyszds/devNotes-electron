@@ -143,7 +143,7 @@ export default function ToolShell({
 }: ToolShellProps) {
   return (
     <div className="relative flex h-full min-h-0 bg-slate-50/60 dark:bg-dark-bg overflow-hidden text-slate-900 dark:text-slate-100">
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 min-h-0">
         <header className="flex-wrap gap-3 px-4 py-3 md:px-6 md:py-3 bg-white dark:bg-dark-panel border-b border-slate-200/70 dark:border-dark-border flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-3.5 min-w-0">
             {/* 渐变 squircle 图标 + 品牌色光晕，内缘一道高光 */}
@@ -188,7 +188,7 @@ export default function ToolShell({
 
         {scroll ? (
           <div
-            className={`flex-1 p-4 md:p-6 flex flex-col gap-3.5 ${contentClassName}`}
+            className={`flex-1 min-h-0 overflow-y-auto p-3 flex flex-col gap-3.5 ${contentClassName}`}
           >
             {children}
           </div>

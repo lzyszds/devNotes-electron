@@ -33,7 +33,7 @@ export const tools: Tool[] = [
   { id: 'url', name: 'URL 编码', icon: 'Link2', description: 'URL 编码解码', category: 'encode' },
   { id: 'websocket', name: 'WS 测试工具', icon: 'Radio', description: 'WebSocket 连接和消息测试', category: 'dev' },
   { id: 'qr-code', name: '二维码', icon: 'QrCode', description: '二维码生成，以及从图片识别解码', category: 'image' },
-  { id: 'file-share-qr', name: '文件扫码分享', icon: 'Share2', description: '选择 apk，局域网内扫码下载', category: 'dev' },
+  { id: 'lan-transfer', name: '局域网互传', icon: 'ArrowUpFromLine', description: '手机扫一次码，图片、文件、文字双向传，文字可一键复制', category: 'productivity' },
   { id: 'image-convert', name: '图片转换', icon: 'FileImage', description: 'PNG / JPEG / WebP 互转，可调画质与尺寸', category: 'image' },
   { id: 'en-decode', name: '编码转换', icon: 'ArrowLeftRight', description: 'Base64/URL/Unicode/MD5', category: 'encode' },
   { id: 'timestamp', name: '时间戳', icon: 'Clock', description: '时间戳与日期互转', category: 'encode' },
@@ -42,6 +42,9 @@ export const tools: Tool[] = [
   { id: 'password', name: '密码生成', icon: 'Lock', description: '随机密码生成器', category: 'calculator' },
   { id: 'bitwise', name: '进制与位运算', icon: 'Binary', description: '2/8/10/16 进制换算、位掩码、位移、大小端与 IEEE 754 解析', category: 'calculator' },
   { id: 'port-killer', name: '端口占用排查', icon: 'Network', description: '查出谁占了端口，一键强杀腾出来', category: 'dev' },
+  { id: 'file-hash', name: '文件哈希校验', icon: 'Fingerprint', description: 'MD5 / SHA 校验，支持对照期望值与两文件比对', category: 'encode' },
+  { id: 'data-convert', name: '数据互转', icon: 'Shuffle', description: 'JSON / YAML / TOML / CSV / .env / URL Query 互相转换', category: 'encode' },
+  { id: 'net-probe', name: '网络探测', icon: 'Activity', description: 'Ping、TCP 端口、HTTP(S) 探测，看延迟、丢包并判断卡在哪一层', category: 'dev' },
   { id: 'scratchpad', name: '草稿纸', icon: 'StickyNote', description: '常驻置顶小窗，随手记临时地址、Token 与待办', category: 'productivity' },
 ]
 

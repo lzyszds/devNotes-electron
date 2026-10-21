@@ -1,5 +1,8 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type { FileShareItem } from './fileShare'
+import type { InboxEntry, LanStatus, OutboxEntry } from './lanTransfer'
+import type { HttpResult, PingEvent, TcpResult } from './netProbe'
+import type { LocalInterface, PublicIpResult } from './netInfo'
+import type { HashProgress, HashResult } from './hashFile'
 import type { UpdateStatus } from './updater'
 
 // Expose API to renderer process
@@ -115,16 +118,65 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 在系统默认浏览器中安全打开外部链接
   openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
 
-  /* 文件局域网分享：选文件 → 生成手机可下载的局域网地址 */
-  fileShareList: (): Promise<FileShareItem[]> => ipcRenderer.invoke('file-share-list'),
-  fileSharePick: (): Promise<FileShareItem[]> => ipcRenderer.invoke('file-share-pick'),
-  fileShareAdd: (paths: string[]): Promise<FileShareItem[]> =>
-    ipcRenderer.invoke('file-share-add', paths),
-  // 拖拽进来的 File 对象带的是虚拟路径，必须用 webUtils 换成本地真实路径
-  fileSharePathsFromFiles: (files: File[]): string[] =>
+  /* 文件路径：拖拽进来的 File 对象需要用 webUtils 换成本地真实路径 */
+  filePathsFromFiles: (files: File[]): string[] =>
     files.map((file) => webUtils.getPathForFile(file)).filter(Boolean),
-  fileShareRemove: (id: string): Promise<FileShareItem[]> =>
-    ipcRenderer.invoke('file-share-remove', id),
+
+  /* 网络探测 */
+  netPingStart: (options: { host: string; count: number; intervalSec: number; timeoutSec: number; size: number }): Promise<{ id: number; host: string }> =>
+    ipcRenderer.invoke('net-ping-start', options),
+  netPingStop: (id: number): Promise<void> => ipcRenderer.invoke('net-ping-stop', id),
+  netInfoInterfaces: (): Promise<LocalInterface[]> => ipcRenderer.invoke('netinfo-interfaces'),
+
+  /* 文件哈希 */
+  hashPick: (): Promise<string[]> => ipcRenderer.invoke('hash-pick'),
+  hashCompute: (payload: { paths: string[]; algorithms: string[]; requestId: number }): Promise<HashResult[]> =>
+    ipcRenderer.invoke('hash-compute', payload),
+  onHashProgress: (callback: (progress: HashProgress & { requestId: number }) => void) => {
+    const listener = (_: unknown, progress: HashProgress & { requestId: number }) => callback(progress)
+    ipcRenderer.on('hash:progress', listener)
+    return () => {
+      ipcRenderer.removeListener('hash:progress', listener)
+    }
+  },
+  netInfoPublicIp: (mode: 'direct' | 'proxy'): Promise<PublicIpResult> =>
+    ipcRenderer.invoke('netinfo-public-ip', mode),
+  netTcpProbe: (options: { host: string; port: number; timeoutMs: number }): Promise<TcpResult> =>
+    ipcRenderer.invoke('net-tcp-probe', options),
+  netHttpProbe: (options: { url: string; timeoutMs: number }): Promise<HttpResult> =>
+    ipcRenderer.invoke('net-http-probe', options),
+  onNetPingEvent: (callback: (event: PingEvent & { id: number }) => void) => {
+    const listener = (_: unknown, event: PingEvent & { id: number }) => callback(event)
+    ipcRenderer.on('net-ping:event', listener)
+    return () => {
+      ipcRenderer.removeListener('net-ping:event', listener)
+    }
+  },
+
+  /* 局域网中转台 */
+  lanStart: (): Promise<LanStatus> => ipcRenderer.invoke('lan-start'),
+  lanStop: (): Promise<LanStatus> => ipcRenderer.invoke('lan-stop'),
+  lanStatus: (): Promise<LanStatus> => ipcRenderer.invoke('lan-status'),
+  lanInboxList: (): Promise<InboxEntry[]> => ipcRenderer.invoke('lan-inbox-list'),
+  lanInboxThumb: (id: string): Promise<string | null> => ipcRenderer.invoke('lan-inbox-thumb', id),
+  lanInboxCopy: (id: string): Promise<boolean> => ipcRenderer.invoke('lan-inbox-copy', id),
+  lanInboxReveal: (id: string): Promise<void> => ipcRenderer.invoke('lan-inbox-reveal', id),
+  lanInboxDelete: (id: string): Promise<boolean> => ipcRenderer.invoke('lan-inbox-delete', id),
+  lanInboxClear: (): Promise<void> => ipcRenderer.invoke('lan-inbox-clear'),
+  lanOutboxList: (): Promise<OutboxEntry[]> => ipcRenderer.invoke('lan-outbox-list'),
+  lanOutboxPick: (): Promise<OutboxEntry[]> => ipcRenderer.invoke('lan-outbox-pick'),
+  lanOutboxAddFiles: (paths: string[]): Promise<OutboxEntry[]> => ipcRenderer.invoke('lan-outbox-add-files', paths),
+  lanOutboxAddText: (text: string): Promise<OutboxEntry[]> => ipcRenderer.invoke('lan-outbox-add-text', text),
+  lanOutboxRemove: (id: string): Promise<OutboxEntry[]> => ipcRenderer.invoke('lan-outbox-remove', id),
+  lanOutboxClear: (): Promise<OutboxEntry[]> => ipcRenderer.invoke('lan-outbox-clear'),
+  lanSetAutoCopy: (on: boolean): Promise<void> => ipcRenderer.invoke('lan-set-auto-copy', on),
+  onLanInboxReceived: (callback: (entry: InboxEntry) => void) => {
+    const listener = (_: unknown, entry: InboxEntry) => callback(entry)
+    ipcRenderer.on('lan:inbox-received', listener)
+    return () => {
+      ipcRenderer.removeListener('lan:inbox-received', listener)
+    }
+  },
 
   // Markdown 文件关联:外部打开文件请求(双击 .md 文件)
   onOpenFileRequest: (callback: (payload: OpenFilePayload) => void) => {

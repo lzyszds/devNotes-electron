@@ -26,6 +26,7 @@ import {
 } from '../ui'
 import Tooltip from '../ui/Tooltip'
 import { useToast } from '../ui/Toast'
+import NetInfoCard from './NetInfoCard'
 
 /** 内置的常见开发端口，主进程那份是权威，读不到时用这份兜底 */
 const FALLBACK_COMMON_PORTS = [3000, 3001, 4200, 5000, 5173, 5174, 8000, 8080, 8888]
@@ -199,6 +200,9 @@ export default function PortKillerTool() {
       }
     >
       <div className="tool-cascade flex flex-col gap-3.5">
+        {/* 本机网络：排查端口问题时常要先看 IP 和出口，放在同一页 */}
+        <NetInfoCard />
+
         {/* 端口选择 */}
         <ToolCard fill={false}>
           <ToolCardHeader

@@ -176,11 +176,42 @@ interface Window {
     ) => Promise<{ ok: boolean; reason?: 'no-module' | 'no-permission' | 'failed' }>
 
     /* 文件局域网分享 */
-    fileShareList?: () => Promise<FileShareItem[]>
-    fileSharePick?: () => Promise<FileShareItem[]>
-    fileShareAdd?: (paths: string[]) => Promise<FileShareItem[]>
-    fileSharePathsFromFiles?: (files: File[]) => string[]
-    fileShareRemove?: (id: string) => Promise<FileShareItem[]>
+
+    /* 文件哈希 */
+    hashPick?: () => Promise<string[]>
+    hashCompute?: (payload: { paths: string[]; algorithms: string[]; requestId: number }) => Promise<HashFileResult[]>
+    onHashProgress?: (callback: (progress: HashFileProgress & { requestId: number }) => void) => () => void
+
+    /* 网络探测 */
+    netInfoInterfaces?: () => Promise<LocalInterface[]>
+    netInfoPublicIp?: (mode: 'direct' | 'proxy') => Promise<PublicIpResult>
+    netPingStart?: (options: { host: string; count: number; intervalSec: number; timeoutSec: number; size: number }) => Promise<{ id: number; host: string }>
+    netPingStop?: (id: number) => Promise<void>
+    netTcpProbe?: (options: { host: string; port: number; timeoutMs: number }) => Promise<NetTcpResult>
+    netHttpProbe?: (options: { url: string; timeoutMs: number }) => Promise<NetHttpResult>
+    onNetPingEvent?: (callback: (event: NetPingEvent) => void) => () => void
+
+    /* 文件路径（拖拽的 File 换成本地路径） */
+    filePathsFromFiles?: (files: File[]) => string[]
+
+    /* 局域网中转台 */
+    lanStart?: () => Promise<LanStatus>
+    lanStop?: () => Promise<LanStatus>
+    lanStatus?: () => Promise<LanStatus>
+    lanInboxList?: () => Promise<LanInboxEntry[]>
+    lanInboxThumb?: (id: string) => Promise<string | null>
+    lanInboxCopy?: (id: string) => Promise<boolean>
+    lanInboxReveal?: (id: string) => Promise<void>
+    lanInboxDelete?: (id: string) => Promise<boolean>
+    lanInboxClear?: () => Promise<void>
+    lanOutboxList?: () => Promise<LanOutboxEntry[]>
+    lanOutboxPick?: () => Promise<LanOutboxEntry[]>
+    lanOutboxAddFiles?: (paths: string[]) => Promise<LanOutboxEntry[]>
+    lanOutboxAddText?: (text: string) => Promise<LanOutboxEntry[]>
+    lanOutboxRemove?: (id: string) => Promise<LanOutboxEntry[]>
+    lanOutboxClear?: () => Promise<LanOutboxEntry[]>
+    lanSetAutoCopy?: (on: boolean) => Promise<void>
+    onLanInboxReceived?: (callback: (entry: LanInboxEntry) => void) => () => void
 
     /* 端口占用排查 */
     portsCommon?: () => Promise<number[]>
@@ -189,16 +220,77 @@ interface Window {
   }
 }
 
-/** 一个通过局域网分享的文件 */
-interface FileShareItem {
-  id: string
-  name: string
+/** 文件哈希的单个文件结果 */
+interface HashFileResult {
   path: string
+  name: string
   size: number
-  addedAt: number
-  /** 局域网下载地址；没有可用网卡时为 null */
+  digests: Partial<Record<'md5' | 'sha1' | 'sha256' | 'sha512', string>>
+  error?: string
+}
+
+interface HashFileProgress {
+  path: string
+  readBytes: number
+  totalBytes: number
+}
+
+/** 本机 IPv4 网卡 */
+interface LocalInterface {
+  name: string
+  kind: 'wifi' | 'ethernet' | 'virtual'
+  address: string
+  netmask: string
+  cidr: string
+  mac: string
+}
+
+/** 公网出口 IP 查询结果 */
+interface PublicIpResult {
+  ok: boolean
+  ip: string | null
+  via: string | null
+  error?: string
+}
+
+/** 网络探测：ping 的单条事件 */
+type NetPingEvent =
+  | { id: number; kind: 'reply'; seq: number; ms: number; ttl: number | null }
+  | { id: number; kind: 'timeout'; seq: number }
+  | { id: number; kind: 'error'; message: string }
+  | { id: number; kind: 'done'; code: number | null }
+
+interface NetTcpResult {
+  ok: boolean
+  ms: number | null
+  error?: string
+}
+
+interface NetHttpResult {
+  ok: boolean
+  status: number | null
+  dnsMs: number | null
+  ttfbMs: number | null
+  server: string | null
+  error?: string
+}
+
+/** 局域网中转台：服务状态 */
+interface LanStatus {
+  running: boolean
+  /** 手机扫码打开的地址；没有可用局域网地址时为 null */
   url: string | null
 }
+
+/** 局域网中转台：手机发来的一条内容 */
+type LanInboxEntry =
+  | { kind: 'file'; id: string; name: string; size: number; mime: string; receivedAt: number }
+  | { kind: 'text'; id: string; text: string; receivedAt: number }
+
+/** 局域网中转台：电脑发给手机的一条内容 */
+type LanOutboxEntry =
+  | { kind: 'file'; id: string; name: string; size: number; path: string; addedAt: number }
+  | { kind: 'text'; id: string; text: string; addedAt: number }
 
 /** 一条剪贴板历史记录 */
 interface ClipboardEntry {

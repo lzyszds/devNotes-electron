@@ -1,9 +1,13 @@
-import React, { Suspense, lazy } from 'react'
+import React, { Suspense, lazy, useEffect, useState } from 'react'
+import { takeToolMode, subscribeToolMode, type ModeRequest } from '../utils/toolModeRequest'
 import JsonFormatTool from '../components/tools/JsonFormatTool'
 import JsonDiffTool from '../components/tools/JsonDiffTool'
 import JsonI18nTool from '../components/tools/JsonI18nTool'
 import QrCodeTool from '../components/tools/QrCodeTool'
-import FileShareQrTool from '../components/tools/FileShareQrTool'
+import LanTransferTool from '../components/tools/LanTransferTool'
+import NetProbeTool from '../components/tools/NetProbeTool'
+import FileHashTool from '../components/tools/FileHashTool'
+import DataConvertTool from '../components/tools/DataConvertTool'
 import ImageConvertTool from '../components/tools/ImageConvertTool'
 import EncodeTool from '../components/tools/EncodeTool'
 import TimestampTool from '../components/tools/TimestampTool'
@@ -21,21 +25,42 @@ const NotesTool = lazy(() => import('../components/tools/NotesTool'))
 const BitwiseTool = lazy(() => import('../components/tools/BitwiseTool'))
 const PortKillerTool = lazy(() => import('../components/tools/PortKillerTool'))
 
+/**
+ * 编码类工具的入口（编码转换、URL 编码共用同一个编码页面）。
+ * 搜索面板可能指定了某种编码（如 Unicode），这里负责把请求交给工具：
+ * 工具还没挂载就在挂载时取走，已经开着就订阅变化。
+ */
+function EncodeToolEntry({ toolId, initialType }: { toolId: string; initialType?: string }) {
+  const [request, setRequest] = useState<ModeRequest | null>(() => takeToolMode(toolId))
+  useEffect(
+    () =>
+      subscribeToolMode(() => {
+        const next = takeToolMode(toolId)
+        if (next) setRequest(next)
+      }),
+    [toolId],
+  )
+  return <EncodeTool initialType={initialType} modeRequest={request} />
+}
+
 const toolComponents: Record<string, React.ComponentType<any>> = {
   'markdown-notes': NotesTool,
   'json-format': JsonFormatTool,
   'json-diff': JsonDiffTool,
+  'lan-transfer': LanTransferTool,
+  'net-probe': NetProbeTool,
+  'file-hash': FileHashTool,
+  'data-convert': DataConvertTool,
   'json-i18n': JsonI18nTool,
   'text-translate': TextTranslateTool,
   'qr-code': QrCodeTool,
-  'file-share-qr': FileShareQrTool,
   'image-convert': ImageConvertTool,
-  'en-decode': EncodeTool,
+  'en-decode': () => <EncodeToolEntry toolId="en-decode" />,
   'timestamp': TimestampTool,
   'regexp': RegexpTool,
   'password': PasswordTool,
   'base64': () => <EncodeTool initialType="base64" />,
-  'url': () => <EncodeTool initialType="url" />,
+  'url': () => <EncodeToolEntry toolId="url" initialType="url" />,
   'websocket': WebsocketTool,
   'bitwise': BitwiseTool,
   'snippets': SnippetsTool,

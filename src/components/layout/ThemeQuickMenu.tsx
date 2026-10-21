@@ -54,7 +54,7 @@ export default function ThemeQuickMenu({
   }, [open])
 
   return (
-    <div ref={menuRef} className="relative">
+    <div ref={menuRef} className="no-drag relative">
       <Tooltip content={`当前主题：${currentPreset.name} · 点击快速换肤`}>
         <button
           type="button"
@@ -93,7 +93,7 @@ export default function ThemeQuickMenu({
       {mounted && (
         <div
           data-state={state}
-          className="fe-pop absolute right-0 top-full mt-1.5 z-50 w-72 rounded-2xl bg-white/95 dark:bg-dark-panel/95 backdrop-blur-xl border border-slate-200/80 dark:border-dark-border shadow-xl p-2"
+          className="no-drag fe-pop absolute right-0 top-full mt-1.5 z-50 w-72 rounded-2xl bg-white/95 dark:bg-dark-panel/95 backdrop-blur-xl border border-slate-200/80 dark:border-dark-border shadow-xl p-2"
         >
           {/* 顶栏说明 */}
           <div className="flex items-center justify-between px-2.5 py-1.5 mb-1 border-b border-slate-100 dark:border-dark-border">

@@ -640,7 +640,7 @@ export default function TextTranslateTool() {
       }
     >
       {/* 主工作区 */}
-      <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 flex flex-col gap-4">
+      <div className="flex-1 overflow-y-auto p-3 lg:p-8 flex flex-col gap-4">
         {/* MyMemory 不支持自动检测，提前说清楚，别让它把原文当译文返回 */}
         {mymemoryAutoBlocked && (
           <ToolNotice tone="warn" icon={TriangleAlert} className="flex-shrink-0">

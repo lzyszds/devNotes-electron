@@ -668,12 +668,12 @@ export default function ImageConvertTool() {
       }
     >
       {mode === 'batch' ? (
-        <div className="flex-1 min-h-0 flex flex-col gap-3.5 p-4 md:p-6 md:pr-0">
+        <div className="flex-1 min-h-0 flex flex-col gap-3.5 p-3 md:pr-0">
           <ImageBatchPanel />
         </div>
       ) : (
       /* scroll={false} 时 ToolShell 不会给内容加内边距，这里自己包一层 */
-      <div className="flex-1 min-h-0 flex flex-col gap-3.5 p-4 md:p-6 md:pr-0">
+      <div className="flex-1 min-h-0 flex flex-col gap-3.5 p-3 md:pr-0">
       {error && (
         <ToolNotice tone="error" icon={FileWarning}>
           {error}

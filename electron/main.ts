@@ -12,8 +12,28 @@ import {
   type ProxyConfig,
 } from './proxy'
 import { migrateUserDataIfNeeded } from './migrateUserData'
-import { listSharedFiles, shareFile, stopFileShare, unshareFile } from './fileShare'
+import {
+  addOutboxFiles,
+  addOutboxText,
+  clearInbox,
+  clearOutbox,
+  copyInboxItem,
+  deleteInboxItem,
+  listInbox,
+  listOutbox,
+  readInboxThumb,
+  removeOutbox,
+  revealInboxItem,
+  setAutoCopy,
+  setInboxListener,
+  startLanTransfer,
+  status as lanStatus,
+  stopLanTransfer,
+} from './lanTransfer'
 import { COMMON_PORTS, inspectPort, killProcess } from './ports'
+import { httpProbe, startPing, tcpProbe, validateHost, validatePort, type PingOptions } from './netProbe'
+import { listLocalInterfaces, queryPublicIp } from './netInfo'
+import { HASH_ALGORITHMS, hashFiles, type HashAlgorithm } from './hashFile'
 import { setupAutoUpdater } from './updater'
 import {
   MAX_ENTRIES,
@@ -1369,35 +1389,96 @@ function setupIpc() {
     }
   )
 
-  /* 文件局域网分享（apk / ipa 等） */
-  ipcMain.handle('file-share-list', () => listSharedFiles())
-  ipcMain.handle('file-share-pick', async () => {
-    const result = await dialog.showOpenDialog({
-      title: '选择要分享的文件',
-      properties: ['openFile', 'multiSelections'],
-      filters: [
-        { name: 'Android 安装包', extensions: ['apk'] },
-      ],
-    })
-    if (result.canceled || result.filePaths.length === 0) return listSharedFiles()
 
-    let items = listSharedFiles()
-    for (const filePath of result.filePaths) {
-      items = await shareFile(filePath)
+  /* 网络探测：ICMP ping 以事件流推给渲染进程，TCP / HTTP 为单次请求 */
+  const pingRuns = new Map<number, () => void>()
+  let pingCounter = 0
+  const clamp = (value: unknown, min: number, max: number, fallback: number) => {
+    const n = Number(value)
+    return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback
+  }
+  ipcMain.handle('net-ping-start', (event, payload: { host: string; count: number; intervalSec: number; timeoutSec: number; size: number }) => {
+    const host = validateHost(String(payload?.host ?? ''))
+    if (!host) throw new Error('地址格式不对，只能是域名或 IP')
+    const opts: PingOptions = {
+      count: Math.round(clamp(payload.count, 1, 200, 10)),
+      intervalSec: clamp(payload.intervalSec, 0.2, 10, 1),
+      timeoutSec: clamp(payload.timeoutSec, 0.5, 10, 2),
+      size: Math.round(clamp(payload.size, 8, 1472, 56)),
     }
-    return items
+    pingCounter += 1
+    const id = pingCounter
+    const stop = startPing(host, opts, (ev) => {
+      if (ev.kind === 'done') pingRuns.delete(id)
+      if (!event.sender.isDestroyed()) event.sender.send('net-ping:event', { id, ...ev })
+    })
+    pingRuns.set(id, stop)
+    return { id, host }
   })
-  // 拖拽分享：渲染进程通过 webUtils.getPathForFile 拿到本地路径后传进来
-  ipcMain.handle('file-share-add', async (_, paths: string[]) => {
-    if (!Array.isArray(paths)) throw new Error('无效的文件路径')
-    let items = listSharedFiles()
-    for (const filePath of paths) {
-      if (typeof filePath !== 'string' || !filePath) continue
-      items = await shareFile(filePath)
+  ipcMain.handle('net-ping-stop', (_, id: number) => {
+    pingRuns.get(id)?.()
+    pingRuns.delete(id)
+  })
+  ipcMain.handle('net-tcp-probe', async (_, payload: { host: string; port: number; timeoutMs: number }) => {
+    const host = validateHost(String(payload?.host ?? ''))
+    const port = validatePort(Number(payload?.port))
+    if (!host) return { ok: false, ms: null, error: '地址格式不对' }
+    if (!port) return { ok: false, ms: null, error: '端口需在 1–65535 之间' }
+    return tcpProbe(host, port, clamp(payload.timeoutMs, 300, 10000, 2000))
+  })
+  /* 文件哈希：主进程流式计算，进度以事件推送 */
+  ipcMain.handle('hash-pick', async () => {
+    const result = await dialog.showOpenDialog({ title: '选择要计算哈希的文件', properties: ['openFile', 'multiSelections'] })
+    return result.canceled ? [] : result.filePaths
+  })
+  ipcMain.handle(
+    'hash-compute',
+    async (event, payload: { paths: string[]; algorithms: string[]; requestId: number }) => {
+      if (!Array.isArray(payload?.paths)) throw new Error('无效的文件列表')
+      const algorithms = (payload.algorithms ?? []).filter((algo): algo is HashAlgorithm =>
+        (HASH_ALGORITHMS as readonly string[]).includes(algo),
+      )
+      if (algorithms.length === 0) throw new Error('至少选择一种算法')
+      return hashFiles(payload.paths.filter((p) => typeof p === 'string' && p), algorithms, (progress) => {
+        if (!event.sender.isDestroyed()) event.sender.send('hash:progress', { requestId: payload.requestId, ...progress })
+      })
+    },
+  )
+  ipcMain.handle('netinfo-interfaces', () => listLocalInterfaces())
+  ipcMain.handle('netinfo-public-ip', (_, mode: 'direct' | 'proxy') => queryPublicIp(mode === 'proxy' ? 'proxy' : 'direct'))
+  ipcMain.handle('net-http-probe', (_, payload: { url: string; timeoutMs: number }) =>
+    httpProbe(String(payload?.url ?? ''), clamp(payload.timeoutMs, 300, 15000, 5000)),
+  )
+
+  /* 局域网中转台：手机扫一次码即可双向传（文件 / 图片 / 文字） */
+  setInboxListener(({ entry }) => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) win.webContents.send('lan:inbox-received', entry)
     }
-    return items
   })
-  ipcMain.handle('file-share-remove', (_, id: string) => unshareFile(id))
+  ipcMain.handle('lan-start', () => startLanTransfer())
+  ipcMain.handle('lan-stop', () => {
+    stopLanTransfer()
+    return lanStatus()
+  })
+  ipcMain.handle('lan-status', () => lanStatus())
+  ipcMain.handle('lan-inbox-list', () => listInbox())
+  ipcMain.handle('lan-inbox-thumb', (_, id: string) => readInboxThumb(id))
+  ipcMain.handle('lan-inbox-copy', (_, id: string) => copyInboxItem(id))
+  ipcMain.handle('lan-inbox-reveal', (_, id: string) => revealInboxItem(id))
+  ipcMain.handle('lan-inbox-delete', (_, id: string) => deleteInboxItem(id))
+  ipcMain.handle('lan-inbox-clear', () => clearInbox())
+  ipcMain.handle('lan-outbox-list', () => listOutbox())
+  ipcMain.handle('lan-outbox-pick', async () => {
+    const result = await dialog.showOpenDialog({ title: '选择要发给手机的文件', properties: ['openFile', 'multiSelections'] })
+    if (result.canceled) return listOutbox()
+    return addOutboxFiles(result.filePaths)
+  })
+  ipcMain.handle('lan-outbox-add-files', (_, paths: string[]) => addOutboxFiles(Array.isArray(paths) ? paths : []))
+  ipcMain.handle('lan-outbox-add-text', (_, text: string) => addOutboxText(text))
+  ipcMain.handle('lan-outbox-remove', (_, id: string) => removeOutbox(id))
+  ipcMain.handle('lan-outbox-clear', () => clearOutbox())
+  ipcMain.handle('lan-set-auto-copy', (_, on: boolean) => setAutoCopy(!!on))
 
   ipcMain.handle('open-external', (_, url: string) => {
     if (url && (url.startsWith('https:') || url.startsWith('http:') || url.startsWith('mailto:'))) {
@@ -1470,5 +1551,5 @@ app.on('will-quit', () => {
   closeClipboardWindow()
   clipboardStop?.()
   clipboardStop = null
-  stopFileShare()
+  stopLanTransfer()
 })

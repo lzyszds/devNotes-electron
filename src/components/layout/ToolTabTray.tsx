@@ -104,7 +104,9 @@ export default function ToolTabTray({ activeId, onSelect }: ToolTabTrayProps) {
     }
     return head
   }, [tabs, activeId])
-  const hiddenCount = tabs.length - visible.length
+  // 下拉只放胶囊里没显示的标签，避免和胶囊里的图标重复
+  const hiddenTabs = useMemo(() => tabs.filter((id) => !visible.includes(id)), [tabs, visible])
+  const hiddenCount = hiddenTabs.length
 
   const cancelPress = () => {
     if (pressTimerRef.current !== null) {
@@ -199,7 +201,7 @@ export default function ToolTabTray({ activeId, onSelect }: ToolTabTrayProps) {
         <div className="absolute right-0 top-full z-[55] mt-2 rounded-xl border border-slate-200/80 bg-white p-2 shadow-xl dark:border-dark-border dark:bg-dark-panel">
           <div className="mb-1.5 flex items-center justify-between gap-6 px-1">
             <p className="text-[10px] font-semibold text-slate-400 dark:text-slate-500">
-              全部标签 · {tabs.length}
+              更多标签 · {hiddenCount}
             </p>
             <div className="flex items-center gap-1">
               <button
@@ -234,7 +236,7 @@ export default function ToolTabTray({ activeId, onSelect }: ToolTabTrayProps) {
             </div>
           </div>
           <div className="flex flex-col gap-1">
-            {chunk(tabs, ROW_SIZE).map((row, index) => (
+            {chunk(hiddenTabs, ROW_SIZE).map((row, index) => (
               <div key={index} className="flex gap-1">
                 {row.map((id) => (
                   <div key={id} onClick={() => setMoreOpen(false)}>

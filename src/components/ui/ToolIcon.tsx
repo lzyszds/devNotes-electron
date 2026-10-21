@@ -19,7 +19,10 @@ import {
   Link2,
   ShieldCheck,
   Wrench,
-  Share2,
+  ArrowUpFromLine,
+  Activity,
+  Fingerprint,
+  Shuffle,
   type LucideProps,
 } from 'lucide-react'
 
@@ -35,7 +38,10 @@ const ICON_MAP: Record<string, React.ComponentType<LucideProps>> = {
   'text-translate': Languages,
   'websocket': Radio,
   'qr-code': QrCode,
-  'file-share-qr': Share2,
+  'lan-transfer': ArrowUpFromLine,
+  'net-probe': Activity,
+  'file-hash': Fingerprint,
+  'data-convert': Shuffle,
   'image-convert': FileImage,
   'en-decode': ArrowLeftRight,
   'timestamp': Clock,

@@ -305,7 +305,7 @@ export default function JsonFormatTool() {
         />
       }
     >
-      <div className="flex-1 min-h-0 p-4 md:p-6">
+      <div className="flex-1 min-h-0 p-3">
         <div className="tool-cascade grid grid-cols-1 lg:grid-cols-2 gap-4 h-full">
           {/* 原始输入 */}
           <ToolCard>

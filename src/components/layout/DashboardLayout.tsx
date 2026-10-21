@@ -62,6 +62,20 @@ import {
 } from "../../utils/sidebarLayout";
 import { requestOutline, subscribeDocStats } from "../../utils/editorBus";
 import { isDarkTheme, THEMES, type ThemeId } from "../../utils/theme";
+import { encoderTypes } from "../../utils/encoders";
+import { requestToolMode } from "../../utils/toolModeRequest";
+
+/**
+ * 指令面板里编码条目的显示名与额外搜索词。
+ * 「码位 U+」本身不带 Unicode 字样，这里补上，搜 unicode 才能找到它。
+ */
+/** 共用编码页面的工具入口 */
+const ENCODE_ENTRY_IDS = ["en-decode", "url"];
+
+const ENCODER_LABELS: Record<string, string> = {
+  "unicode-cp": "码位 U+ (Unicode 码点)",
+  unicode: "Unicode 转义 \\uXXXX",
+};
 import logo from "../../assets/logo.png";
 import WindowControls from "./WindowControls";
 import ThemeQuickMenu from "./ThemeQuickMenu";
@@ -547,6 +561,9 @@ export default function DashboardLayout({
       .map((tool) => ({
         id: `cmd-tool-${tool.id}`,
         title: `打开 ${tool.name}`,
+        // 搜索除了标题还要看描述，比如「Unicode」应该能找到编码转换
+        keywords: `${tool.name} ${tool.description} ${tool.id}`,
+        subtitle: tool.description,
         shortcut: "",
         icon: (props: any) => <ToolIcon toolId={tool.id} {...props} />,
         action: () => {
@@ -556,9 +573,35 @@ export default function DashboardLayout({
         },
       }))
       .filter((item) => !item.id.endsWith("scratchpad")),
-  ].filter((item) =>
-    item.title.toLowerCase().includes(cmdSearch.toLowerCase()),
-  );
+    /*
+     * 编码转换的每种编码各占一条：搜 unicode 直接落到 Unicode 模式，不用再手动切。
+     */
+    /* 编码类工具共用同一个编码页面，每个入口下都能找到每种编码 */
+    ...ENCODE_ENTRY_IDS.flatMap((toolId) => {
+      const entryName = allModules.find((item) => item.id === toolId)?.name ?? toolId;
+      return encoderTypes.map((enc) => ({
+        id: `cmd-encode-${toolId}-${enc.id}`,
+        title: `${entryName} · ${ENCODER_LABELS[enc.id] ?? enc.name}`,
+        keywords: `${enc.name} ${ENCODER_LABELS[enc.id] ?? ""} ${enc.id} ${enc.group} ${enc.hint ?? ""} 编码 解码`,
+        subtitle: enc.hint ?? "",
+        shortcut: "",
+        icon: (props: any) => <ToolIcon toolId={toolId} {...props} />,
+        action: () => {
+          requestToolMode(toolId, enc.id);
+          onOpenTool(toolId);
+        },
+      }));
+    }),
+  ].filter((item) => {
+    // 多个词用空格分开，每个词都要命中（标题或关键词任一处）
+    const haystack = `${item.title} ${"keywords" in item ? item.keywords : ""}`.toLowerCase();
+    return cmdSearch
+      .trim()
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(Boolean)
+      .every((term) => haystack.includes(term));
+  });
 
   // 独立模块不在工具库里，得一起查，否则面包屑上的名字会掉成「工具」
   const currentTool = allModules.find((t) => t.id === activeTabId);
@@ -1323,7 +1366,14 @@ export default function DashboardLayout({
                   >
                     <span className="flex items-center gap-2.5 text-slate-700 dark:text-slate-200 group-hover:text-inherit">
                       <IconComponent className="w-4 h-4 text-slate-400" />
-                      <span>{item.title}</span>
+                      <span className="flex flex-col">
+                        <span>{item.title}</span>
+                        {"subtitle" in item && item.subtitle && (
+                          <span className="text-[11px] text-slate-400 dark:text-slate-500 truncate max-w-[340px]">
+                            {item.subtitle}
+                          </span>
+                        )}
+                      </span>
                     </span>
                     {item.shortcut && (
                       <span className="text-[10px] text-slate-400 font-mono bg-slate-50 dark:bg-dark-sidebar px-1.5 py-0.5 rounded border border-slate-100 dark:border-dark-border">

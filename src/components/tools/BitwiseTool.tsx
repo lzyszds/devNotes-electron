@@ -350,7 +350,7 @@ export default function BitwiseTool() {
               </ToolTag>
             }
           />
-          <div className="p-3.5 flex flex-wrap gap-1.5">
+          <div className="p-3.5 flex flex-nowrap justify-around">
             {bitIndexes.map((index) => {
               const on = ((bits >> BigInt(index)) & 1n) === 1n
               return (
@@ -359,7 +359,7 @@ export default function BitwiseTool() {
                   type="button"
                   onClick={() => setBit(index)}
                   title={`第 ${index} 位`}
-                  className={`group flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-md border transition-colors ${
+                  className={`group flex shrink-0 flex-col items-center gap-0.5 px-1.5 py-1 rounded-md border transition-colors ${
                     on
                       ? 'border-brand-300 bg-brand-50 text-brand-700 dark:border-brand-500/40 dark:bg-brand-500/15 dark:text-brand-300'
                       : 'border-slate-200 dark:border-dark-border text-slate-400 hover:bg-slate-50 dark:hover:bg-dark-hover'

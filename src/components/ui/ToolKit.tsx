@@ -321,7 +321,7 @@ interface ToolActionBarProps {
 export function ToolActionBar({ info, children, className = '' }: ToolActionBarProps) {
   return (
     <div
-      className={`bg-white dark:bg-dark-panel rounded-[10px] border border-slate-200/70 dark:border-dark-border shadow-[0_1px_3px_rgba(0,0,0,0.03),0_6px_16px_-4px_rgba(0,0,0,0.03)] px-4 h-12 flex items-center justify-between gap-3 flex-wrap shrink-0 ${className}`}
+      className={`bg-white dark:bg-dark-panel rounded-[10px] border border-slate-200/70 dark:border-dark-border shadow-[0_1px_3px_rgba(0,0,0,0.03),0_6px_16px_-4px_rgba(0,0,0,0.03)] px-4 py-2 min-h-[48px] flex items-center justify-between gap-x-3 gap-y-2 flex-wrap shrink-0 ${className}`}
     >
       {info && (
         <div className="text-[11px] text-slate-500 dark:text-slate-400 min-w-0 flex items-center gap-2.5">

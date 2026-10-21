@@ -15,7 +15,7 @@ import { history } from '@milkdown/kit/plugin/history'
 import { indent } from '@milkdown/kit/plugin/indent'
 import { listener, listenerCtx } from '@milkdown/kit/plugin/listener'
 import { trailing } from '@milkdown/kit/plugin/trailing'
-import { commonmark } from '@milkdown/kit/preset/commonmark'
+import { commonmark, imageSchema } from '@milkdown/kit/preset/commonmark'
 import { gfm } from '@milkdown/kit/preset/gfm'
 import { Plugin } from '@milkdown/kit/prose/state'
 import type { TooltipProvider } from '@milkdown/kit/plugin/tooltip'
@@ -61,6 +61,7 @@ import BookmarkGutter from './markdown/BookmarkGutter'
 import FindReplaceBar from './markdown/FindReplaceBar'
 import SlashMenu, { slash } from './markdown/SlashMenu'
 import BlockHandle from './markdown/BlockHandle'
+import ImageLightbox, { type LightboxImage } from '../ui/ImageLightbox'
 import TableTools from './markdown/TableTools'
 import SelectionToolbar from './markdown/SelectionToolbar'
 import { registerAiReviewApply } from '../../utils/aiReview'
@@ -340,6 +341,39 @@ export default function MilkdownMarkdownEditor({
     [onEditorContextMenu]
   )
 
+  /*
+   * 点图片放大预览。左右键切的是「整篇笔记里的所有图片」，而不是只看点中的那一张：
+   * 按文档顺序收集 ProseMirror 里的 img，点中的那张就是起始位置。
+   */
+  const [lightbox, setLightbox] = useState<{ images: LightboxImage[]; index: number }>({
+    images: [],
+    index: -1,
+  })
+  useEffect(() => {
+    const root = mountRef.current
+    if (!root) return
+
+    const handleImageClick = (e: MouseEvent) => {
+      // 第一次点击会选中图片，选中态可能盖上一层元素，点击目标就不再是 <img>。
+      // 所以按坐标找出点中位置下的图片，不依赖事件目标。
+      const hit = document
+        .elementsFromPoint(e.clientX, e.clientY)
+        .find((el) => el.tagName === 'IMG' && root.contains(el)) as HTMLImageElement | undefined
+      if (!hit) return
+      const images = Array.from(root.querySelectorAll<HTMLImageElement>('.ProseMirror img'))
+      const index = images.indexOf(hit)
+      if (index < 0) return
+      e.preventDefault()
+      setLightbox({
+        images: images.map((img) => ({ src: img.currentSrc || img.src, alt: img.alt })),
+        index,
+      })
+    }
+
+    root.addEventListener('click', handleImageClick)
+    return () => root.removeEventListener('click', handleImageClick)
+  }, [])
+
   // 监听超链接点击，统一在系统默认浏览器中安全打开
   useEffect(() => {
     const root = mountRef.current
@@ -431,6 +465,26 @@ export default function MilkdownMarkdownEditor({
         })
       })
       .use(commonmark)
+      // Markdown 里没有标题的图片 `![alt](src)` 会被解析成 title: null，
+      // 而 schema 要求字符串，读回笔记时直接抛 RangeError、图片消失。这里解析时统一补成空串。
+      .use(
+        imageSchema.extendSchema((prev) => (ctx) => {
+          const base = prev(ctx)
+          return {
+            ...base,
+            parseMarkdown: {
+              match: ({ type }) => type === 'image',
+              runner: (state, node, type) => {
+                state.addNode(type, {
+                  src: node.url ?? '',
+                  alt: node.alt ?? '',
+                  title: node.title ?? '',
+                })
+              },
+            },
+          }
+        }),
+      )
       .use(gfm)
       .use(listener)
       .use(history)
@@ -898,6 +952,11 @@ export default function MilkdownMarkdownEditor({
 
   return (
     <div className={`milkdown-notes-editor flex h-full min-h-0 flex-col ${className}`}>
+      <ImageLightbox
+        images={lightbox.images}
+        index={lightbox.index}
+        onClose={() => setLightbox((prev) => ({ ...prev, index: -1 }))}
+      />
       {/* 预览态是只读的，工具栏上每一颗按钮都点不出效果。
           移动端把工具栏挪到底部，当作键盘上方的格式配件条。 */}
       {!preview && (

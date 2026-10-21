@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import type { ModeRequest } from '../../utils/toolModeRequest'
 import { ArrowDown, History, KeyRound, Search, Shuffle, TriangleAlert, X } from 'lucide-react'
 import { useToolHistory } from '../../hooks/useToolHistory'
 import { useHistoryContextMenu } from '../../hooks/useHistoryContextMenu'
@@ -97,7 +98,10 @@ function MethodTile({
   )
 }
 
-export default function EncodeTool({ initialType = 'base64' }: { initialType?: string } = {}) {
+export default function EncodeTool({
+  initialType = 'base64',
+  modeRequest = null,
+}: { initialType?: string; modeRequest?: ModeRequest | null } = {}) {
   const [input, setInput] = useState('')
   const [output, setOutput] = useState('')
   // 工具库里的 Base64 / URL 是同一个工具的不同入口，各自指定落点模式；
@@ -113,6 +117,15 @@ export default function EncodeTool({ initialType = 'base64' }: { initialType?: s
    * 加上方向状态，「选中」才唯一，高亮也只亮一格。
    */
   const [direction, setDirection] = useState<'encode' | 'decode'>('encode')
+
+  // 从搜索面板等外部入口指定了模式：切过去，方向回到「编码」
+  useEffect(() => {
+    if (!modeRequest) return
+    if (encoderTypes.some((type) => type.id === modeRequest.mode) || modeRequest.mode === AES_ID) {
+      setActiveType(modeRequest.mode)
+      setDirection('encode')
+    }
+  }, [modeRequest])
   const [aes, setAes] = useState<AesParams>(DEFAULT_AES)
   /** GCM 是 AEAD 模式，安全但密文长度会多 16 字节认证标签；这里给个可见提示 */
   const [running, setRunning] = useState(false)

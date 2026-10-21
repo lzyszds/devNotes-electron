@@ -268,8 +268,26 @@ export default function ClipboardPanel() {
 
   /* ---------------- 键盘 ---------------- */
 
-  const onKeyDown = (event: React.KeyboardEvent) => {
+  /** 条目 id → 所在日期组的 key，左右键展开/收起分组时要用 */
+  const groupKeyByEntry = useMemo(() => {
+    const map = new Map<string, string>()
+    grouped.forEach((g) => g.entries.forEach((entry) => map.set(entry.id, g.key)))
+    return map
+  }, [grouped])
+
+  /** 收起某个分组：选中项落到它前面那条，没有前面的就落到第一条 */
+  const collapseGroup = (key: string) => {
+    const idx = visibleEntries.findIndex((entry) => groupKeyByEntry.get(entry.id) === key)
+    setCollapsedDays((prev) => new Set(prev).add(key))
+    setActiveIndex(Math.max(0, idx - 1))
+  }
+
+  // 键盘挂在 window 上：焦点在哪儿（比如鼠标点了列表空白处）都能上下选
+  const keyHandlerRef = useRef<(event: KeyboardEvent) => void>(() => {})
+  keyHandlerRef.current = (event: KeyboardEvent) => {
     const inSearch = document.activeElement === searchRef.current
+    const current = visibleEntries[activeIndex]
+    const searching = query.trim() !== ''
 
     if (event.key === 'ArrowDown') {
       event.preventDefault()
@@ -277,15 +295,23 @@ export default function ClipboardPanel() {
     } else if (event.key === 'ArrowUp') {
       event.preventDefault()
       setActiveIndex((prev) => Math.max(prev - 1, 0))
+    } else if (event.key === 'ArrowRight' && !inSearch) {
+      // 右：展开当前条目所在的分组（搜索时全部展开，无需操作）
+      event.preventDefault()
+      const key = current && groupKeyByEntry.get(current.id)
+      if (key && !searching && collapsedDays.has(key)) toggleGroup(key)
+    } else if (event.key === 'ArrowLeft' && !inSearch) {
+      // 左：收起当前条目所在的分组
+      event.preventDefault()
+      const key = current && groupKeyByEntry.get(current.id)
+      if (key && !searching) collapseGroup(key)
     } else if (event.key === 'Enter') {
       event.preventDefault()
-      const entry = visibleEntries[activeIndex]
-      if (entry) void pick(entry)
+      if (current) void pick(current)
     } else if ((event.key === 'Backspace' || event.key === 'Delete') && !inSearch) {
       event.preventDefault()
-      const entry = visibleEntries[activeIndex]
-      if (entry) {
-        void api?.clipboardRemove?.(entry.id).then((list) => {
+      if (current) {
+        void api?.clipboardRemove?.(current.id).then((list) => {
           if (list) setEntries(list)
         })
       }
@@ -294,12 +320,29 @@ export default function ClipboardPanel() {
     }
   }
 
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => keyHandlerRef.current(event)
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  // 选中项移出可视区域时，把它滚进来（向上时带上分组标题，不被吸顶挡住）
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const rIdx = renderItems.findIndex((item) => item.kind === 'entry' && item.index === activeIndex)
+    if (rIdx < 0) return
+    const top = itemOffsets[rIdx]
+    const bottom = top + itemHeights[rIdx]
+    if (top < el.scrollTop) el.scrollTop = Math.max(0, top - HEADER_H)
+    else if (bottom > el.scrollTop + el.clientHeight) el.scrollTop = bottom - el.clientHeight
+    // 只在选中项变化时滚动，列表数据更新时不去抢滚动位置
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeIndex])
+
   return (
     <div className="h-screen w-screen bg-transparent">
-      <div
-        onKeyDown={onKeyDown}
-        className="flex flex-col h-full bg-white text-slate-900 overflow-hidden"
-      >
+      <div className="flex flex-col h-full bg-white text-slate-900 overflow-hidden">
         {/* 标题条：整条可拖动 */}
         <header className="drag-region flex items-center gap-2 pl-4 pr-2.5 h-12 shrink-0">
           <span className="text-[13px] font-semibold tracking-tight">剪贴板历史</span>

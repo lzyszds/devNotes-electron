@@ -492,7 +492,7 @@ export default function JsonDiffTool() {
         />
       }
     >
-      <div className="flex flex-1 min-h-0 flex-col gap-4 p-4 md:p-6">
+      <div className="flex flex-1 min-h-0 flex-col gap-4 p-3">
         <div className="tool-cascade grid grid-cols-1 xl:grid-cols-2 gap-4 flex-[1_1_0] min-h-[260px]">
           <JsonSidePanel
             title="原始 JSON（左）"

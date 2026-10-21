@@ -842,7 +842,7 @@ export default function JsonI18nTool() {
 
         {/* 视图机：编辑 / 结果列表 / 单语言详情 */}
         {view === "edit" ? (
-          <div className="flex-1 min-h-0 overflow-hidden p-4 md:p-6 flex flex-col gap-3">
+          <div className="flex-1 min-h-0 overflow-hidden p-3 flex flex-col gap-3">
             {error && (
               <ToolNotice tone="warn" icon={AlertTriangle} className="shrink-0">
                 <p className="whitespace-pre-line">{error}</p>
@@ -896,7 +896,7 @@ export default function JsonI18nTool() {
             </ToolCard>
           </div>
         ) : view === "results" ? (
-        <div className="flex-1 min-h-0 overflow-hidden p-4 md:p-6">
+        <div className="flex-1 min-h-0 overflow-hidden p-3">
           <ToolCard className="h-full">
             <ToolCardHeader
               title="翻译结果"
@@ -989,7 +989,7 @@ export default function JsonI18nTool() {
           </ToolCard>
         </div>
         ) : (
-        <div className="flex-1 min-h-0 overflow-hidden p-4 md:p-6">
+        <div className="flex-1 min-h-0 overflow-hidden p-3">
           <ToolCard className="h-full">
             <ToolCardHeader
               title={detailLang ? langName(detailLang) : ""}
