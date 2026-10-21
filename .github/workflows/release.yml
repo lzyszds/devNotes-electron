@@ -4,6 +4,10 @@ name: Release
 on:
   workflow_dispatch:
     inputs:
+      version:
+        description: '版本号（不用带 v，例如 1.0.8）'
+        type: string
+        required: true
       platform:
         description: '打包平台'
         type: choice
@@ -21,13 +25,53 @@ permissions:
   contents: write
 
 jobs:
+  # 只在这里定一次版本号，两个平台用同一个版本打包，产物才能对得上同一个标签
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.set.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 写入版本号
+        id: set
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "版本号格式不对，应为 x.y.z，例如 1.0.8"
+            exit 1
+          fi
+          node -e "
+            const fs = require('fs')
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'))
+            pkg.version = process.env.VERSION
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n')
+          "
+          echo 'version='"$VERSION" >> "$GITHUB_OUTPUT"
+
+      # 产物名里带版本号，必须把写好版本的文件带到各平台，不能各算各的
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-json
+          path: package.json
+
   build-macos:
+    needs: prepare
     if: inputs.platform == 'all' || inputs.platform == 'macos'
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
 
       - uses: oven-sh/setup-bun@v2
+
+      - name: 取回指定版本的 package.json
+        uses: actions/download-artifact@v4
+        with:
+          name: package-json
+          path: .
+          overwrite: true
 
       - name: 安装依赖
         run: bun install --frozen-lockfile
@@ -62,12 +106,20 @@ jobs:
             release/latest*.yml
 
   build-windows:
+    needs: prepare
     if: inputs.platform == 'all' || inputs.platform == 'windows'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
       - uses: oven-sh/setup-bun@v2
+
+      - name: 取回指定版本的 package.json
+        uses: actions/download-artifact@v4
+        with:
+          name: package-json
+          path: .
+          overwrite: true
 
       - name: 安装依赖
         run: bun install --frozen-lockfile
@@ -88,35 +140,33 @@ jobs:
             release/latest*.yml
 
   publish:
-    needs: [build-macos, build-windows]
+    needs: [prepare, build-macos, build-windows]
     if: always() && !cancelled() && inputs.publish && needs.build-macos.result != 'failure' && needs.build-windows.result != 'failure'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: 读取版本号
-        id: version
-        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
-
       - name: 检查 Release 是否已存在
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: v${{ steps.version.outputs.version }}
+          TAG: v${{ needs.prepare.outputs.version }}
         run: |
           if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Release $TAG 已存在，请先升级 package.json 中的版本号"
+            echo "Release $TAG 已存在，请换一个版本号重新触发"
             exit 1
           fi
 
+      # 只拉两个平台的安装包，prepare 上传的 package.json 不能混进 Release
       - uses: actions/download-artifact@v4
         with:
+          pattern: '{macos,windows}'
           path: release
           merge-multiple: true
 
       - name: 创建 GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.version.outputs.version }}
+          tag_name: v${{ needs.prepare.outputs.version }}
           files: release/*
           generate_release_notes: true
           draft: false

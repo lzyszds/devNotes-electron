@@ -22,3 +22,8 @@ pkg.version = parts.join('.')
 
 fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n')
 console.log('版本号已升级到 ' + pkg.version)
+
+// 在 GitHub Actions 里把新版本号写进输出，供后续 job 读取
+if (process.env.GITHUB_OUTPUT) {
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${pkg.version}\n`)
+}
