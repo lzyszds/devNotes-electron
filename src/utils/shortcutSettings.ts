@@ -106,6 +106,13 @@ export const SHORTCUT_BINDINGS: ShortcutBinding[] = [
     scope: 'app',
   },
   {
+    id: 'save-note',
+    label: '保存当前笔记',
+    description: '立刻把未保存的修改写进本机磁盘（自动保存关着时最常用）',
+    defaultAccelerator: `${PRIMARY}+S`,
+    scope: 'app',
+  },
+  {
     id: 'toggle-theme',
     label: '切换深浅主题',
     description: '在深色与浅色主题之间来回切换',

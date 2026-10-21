@@ -13,6 +13,8 @@ import {
   deriveTitleFromMarkdown,
   loadNotesState,
   saveNotesState,
+  saveNotesStateSync,
+  type NotesSaveResult,
   sortNotes,
   trashedNotes,
   visibleFolders,
@@ -23,6 +25,11 @@ import {
   type NotesState,
   type ReadingBookmark,
 } from '../utils/notesStore'
+import {
+  loadNotesSaveSettings,
+  saveNotesSaveSettings,
+  type NotesSaveSettings,
+} from '../utils/notesSettings'
 import {
   loadCloudflareConfig,
   saveCloudflareConfig,
@@ -40,7 +47,7 @@ import {
   type BackupSnapshot,
 } from '../utils/cloudflareSync'
 
-export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
+export type SaveStatus = 'idle' | 'unsaved' | 'saving' | 'saved' | 'error'
 export type ViewMode = 'code' | 'split' | 'preview'
 export type CfSyncStatus = 'idle' | 'syncing' | 'success' | 'error'
 
@@ -113,6 +120,14 @@ interface NotesContextType {
   setStatusCounter: (counter: { words: number; lines: number }) => void
   insertText: (prefix: string, suffix?: string) => void
   registerInsertHandler: (fn: (prefix: string, suffix?: string) => void) => void
+  /** 当前文档正文的「被外部换过几次」。编辑器据此决定要不要整篇重载 */
+  contentRevision: number
+  /** 立刻把当前状态写进本机磁盘（⌘S / 切文档前 / 隐藏窗口前都会走到） */
+  /** saved = 确实写了；clean = 本来就没有未保存改动；error = 写盘失败 */
+  saveNow: () => Promise<'saved' | 'clean' | 'error'>
+  /** 保存策略（是否自动保存、间隔多久） */
+  notesSave: NotesSaveSettings
+  updateNotesSave: (partial: Partial<NotesSaveSettings>) => Promise<void>
   // Cloudflare 同步能力
   cfConfig: CloudflareSyncConfig
   cfSyncStatus: CfSyncStatus
@@ -150,6 +165,20 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
   const [viewMode, setViewMode] = useState<ViewMode>('split')
   const [splitPercent, setSplitPercent] = useState<number>(50)
   const [statusCounter, setStatusCounter] = useState({ words: 0, lines: 0 })
+  // 保存策略：是否自动落盘、停手多久落盘。默认关，见 notesSettings.ts
+  const [notesSave, setNotesSave] = useState<NotesSaveSettings>({
+    autoSaveEnabled: false,
+    autoSaveDelayMs: 1500,
+  })
+  /*
+   * 每篇文档正文的「被外部换过几次」。
+   *
+   * 编辑器靠它判断要不要整篇重载：自己敲字不计数，只有云端拉取、快照恢复、
+   * 文件刷新这类「正文被外部换掉」才 +1。用计数器而不是比较 value 字符串，
+   * 是因为后者会把「编辑器刚吐出去的 markdown 回流」也当成外部修改，
+   * 触发一次整篇 replaceAll —— 文档被重新解析再序列化，格式全变一遍。
+   */
+  const [contentRevisions, setContentRevisions] = useState<Record<string, number>>({})
 
   // Cloudflare 备份与同步状态
   const [cfConfig, setCfConfig] = useState<CloudflareSyncConfig>(DEFAULT_CF_CONFIG)
@@ -163,6 +192,50 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
   const insertHandlerRef = useRef<((prefix: string, suffix?: string) => void) | null>(null)
   const onFileOpenNavigateRef = useRef<(() => void) | undefined>(undefined)
   const importExternalFileRef = useRef<(file: OpenFilePayload) => void>(() => {})
+  /**
+   * 有没有还没写进磁盘的改动。
+   *
+   * 与「自动保存开没开」无关：自动保存开着时它代表「防抖定时器还没到点」，
+   * 关着时代表「攒着等 ⌘S」。saveNow / flushSync 两个入口都只认它 ——
+   * 只看「用户有没有手动改过」会让「自动保存开着、退出时定时器被清掉」
+   * 这种情况把待写的改动一起丢掉。
+   */
+  const pendingSaveRef = useRef(false)
+  /**
+   * 落盘序号：每发起一次写盘 +1，完成时只有「仍是最后一次」的那次才能清 pending。
+   *
+   * 没有它时，一个慢的旧写入（比如切文档触发的同步写入）返回后会无条件把
+   * pendingSaveRef 清成 false —— 期间用户敲的新内容就被当成「已落盘」，
+   * 退出时 flushSync 看到 false 直接返回，最后一段编辑凭空消失。
+   */
+  const saveSeqRef = useRef(0)
+  /** 保存策略的 ref 副本：persist 每次输入都会走，不能因为闭包过期读到旧策略 */
+  const notesSaveRef = useRef<NotesSaveSettings>(notesSave)
+
+  const applySaveStatus = useCallback((status: SaveStatus, text: string) => {
+    setSaveStatus(status)
+    setMessage(text)
+  }, [])
+
+  const reportSaveResult = useCallback(
+    (result: NotesSaveResult) => {
+      if (!result.ok) {
+        applySaveStatus('error', '保存失败：本机磁盘写入失败')
+        return
+      }
+      // 只有一份写成也照常提示已保存，但得让用户知道另一份没跟上 ——
+      // 下次启动会按 savedAt 挑新的一份，大概率没事，可磁盘满的时候不该装作无事发生
+      applySaveStatus(
+        'saved',
+        result.localFailed
+          ? '已保存（本地缓存写入失败）'
+          : result.remoteFailed
+          ? '已保存（磁盘写入失败）'
+          : '已保存'
+      )
+    },
+    [applySaveStatus]
+  )
 
   const appendSnapshot = useCallback(
     async (
@@ -208,6 +281,12 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
       stateRef.current = state
       setReady(true)
 
+      // 保存策略（是否自动保存、间隔多久）—— 与笔记数据分开存，互不影响
+      const saveSettings = await loadNotesSaveSettings()
+      if (cancelled) return
+      notesSaveRef.current = saveSettings
+      setNotesSave(saveSettings)
+
       // 载入历史快照
       const storedSnapshots = await loadBackupSnapshots()
       if (cancelled) return
@@ -236,11 +315,9 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
           }
           const { mergedState, addedFromRemote, updatedFromRemote, removedFolders } =
             smartMergeNotes(stateRef.current, res.remoteState)
-          setNotes(mergedState.notes)
-          setAllFolders(mergedState.folders)
-          setActiveId(mergedState.activeId)
-          stateRef.current = mergedState
-          await saveNotesState(mergedState)
+          // 走 applyExternalState：合并可能把活动文档的正文换成云端版本，
+          // 编辑器要靠 revision 知道该整篇重载
+          await applyExternalState(mergedState)
           const now = Date.now()
           const updatedCfg = { ...cfg, lastSyncTime: now }
           setCfConfig(updatedCfg)
@@ -338,38 +415,184 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
     [cfConfig, appendSnapshot]
   )
 
-  const persist = useCallback((next: NotesState, immediate = false) => {
-    stateRef.current = next
-    setSaveStatus('saving')
-    setMessage('同步中...')
-
-    const run = async () => {
-      try {
-        await saveNotesState(next)
-        setSaveStatus('saved')
-        setMessage('已保存')
-        scheduleAutoSync(next)
-      } catch (error) {
-        console.error(error)
-        setSaveStatus('error')
-        setMessage('保存失败')
+  /*
+   * 落盘。
+   *
+   * immediate 给「一次点击就是一个完整动作」的操作用（新建、删除、改名、归类…）：
+   * 这些不该被防抖吞掉，延迟窗口内退出会把整个动作丢掉。
+   *
+   * 其余（正文编辑）走保存策略：
+   *   - 自动保存开：停手 autoSaveDelayMs 才写一次，期间继续打字则顺延
+   *   - 自动保存关：只标记「有未保存的修改」，等切文档 / 隐藏窗口 / 退出 / ⌘S
+   *
+   * 默认不自动保存：边写边落盘会让「改一个小东西」也触发整份状态重写，
+   * 磁盘与 CPU 持续占用，也与云同步的自动拉取叠成「正文被整篇换掉」的观感。
+   */
+  /**
+   * 所有异步写盘的唯一入口（persist 的定时器、saveNow、applyExternalState、
+   * flushSync 的补写都走它）。
+   *
+   * 返回落盘结果，写失败时把 pending 还回去 —— 改动仍在内存里，别让用户以为落了盘。
+   * 只有「仍是最后一次发起」的写入才准动 pending 与状态栏：慢的旧写入回来时，
+   * 期间用户可能又改了内容（pending 已被重新置 true），它不能替新改动宣布「已保存」。
+   *
+   * quiet：不自己改状态栏，由调用方（flushSync）带着更完整的结果去汇报 ——
+   * 否则「已保存」会在同步那份写失败之后把它盖掉。
+   */
+  const writeState = useCallback(
+    async (next: NotesState, quiet = false): Promise<NotesSaveResult> => {
+      const seq = ++saveSeqRef.current
+      if (!quiet) applySaveStatus('saving', '保存中...')
+      const result = await saveNotesState(next)
+      if (seq !== saveSeqRef.current) {
+        // 已经有更新的写入在后面，状态交给它；这里只在失败时把 pending 补回来
+        if (!result.ok) pendingSaveRef.current = true
+        return result
       }
-    }
+      pendingSaveRef.current = !result.ok
+      if (!quiet) {
+        reportSaveResult(result)
+      } else if (!result.ok) {
+        applySaveStatus('error', '保存失败：本机磁盘写入失败')
+      }
+      if (result.ok) scheduleAutoSync(next)
+      return result
+    },
+    [applySaveStatus, reportSaveResult, scheduleAutoSync]
+  )
 
+  const persist = useCallback(
+    (next: NotesState, immediate = false) => {
+      stateRef.current = next
+      // 只要有改动就标记待落盘：自动保存开着时会由下面的定时器清掉，
+      // 关着时一直挂到 saveNow / flushSync。退出路径靠它决定要不要写。
+      pendingSaveRef.current = true
+
+      if (saveTimerRef.current) {
+        window.clearTimeout(saveTimerRef.current)
+        saveTimerRef.current = null
+      }
+
+      const run = () => {
+        void writeState(next)
+      }
+
+      if (immediate) {
+        void run()
+        return
+      }
+
+      const { autoSaveEnabled, autoSaveDelayMs } = notesSaveRef.current
+      if (!autoSaveEnabled) {
+        applySaveStatus('unsaved', '有未保存的修改')
+        return
+      }
+
+      saveTimerRef.current = window.setTimeout(() => {
+        saveTimerRef.current = null
+        run()
+      }, autoSaveDelayMs)
+    },
+    [writeState]
+  )
+
+  /**
+   * 立刻把当前状态写进本机磁盘。
+   *
+   * 三个调用方：⌘S、切换文档前、以及主进程通知退出/隐藏窗口时。
+   * 没有未保存修改时直接返回，不打扰状态栏。
+   *
+   * 返回 what 供调用方给反馈：saved 真写了、clean 本来就没改动、error 写失败。
+   */
+  const saveNow = useCallback(async (): Promise<'saved' | 'clean' | 'error'> => {
     if (saveTimerRef.current) {
       window.clearTimeout(saveTimerRef.current)
       saveTimerRef.current = null
     }
+    if (!pendingSaveRef.current) return 'clean'
 
-    if (immediate) {
-      void run()
-      return
+    const result = await writeState(stateRef.current)
+    return result.ok ? 'saved' : 'error'
+  }, [writeState])
+
+  /**
+   * 同步兜底落盘，供来不及 await 的时机（pagehide / 窗口隐藏 / 退出通知）。
+   *
+   * 只保证 localStorage 那份是同步写完的；electron-store 那次照常发起，
+   * 正常情况会接着写完。两边内容一致，下次启动按时间戳挑新的（见
+   * loadNotesState），不会因为异步那次被打断就丢内容。
+   *
+   * 同步那份写失败（配额溢出）时不能把它当成功：pending 留着，让主进程的
+   * 退出等待照常兜底，状态栏也如实显示失败。
+   */
+  const flushSync = useCallback(() => {
+    if (saveTimerRef.current) {
+      window.clearTimeout(saveTimerRef.current)
+      saveTimerRef.current = null
     }
+    if (!pendingSaveRef.current) return
 
-    saveTimerRef.current = window.setTimeout(() => {
-      void run()
-    }, 400)
-  }, [scheduleAutoSync])
+    const synced = saveNotesStateSync(stateRef.current)
+    if (!synced) {
+      // 此刻还没有更晚的写入在跑（序号尚未推进），先把失败摆出来；
+      // 下面那次补写若被新写入顶掉，汇报权会自动让给它
+      applySaveStatus('error', '保存失败：本地缓存写入失败')
+    }
+    // 异步那次接着补写 electron-store；它自己的结果会经 writeState 汇报
+    void writeState(stateRef.current, true)
+  }, [applySaveStatus, writeState])
+
+  /*
+   * 隐藏 / 退出前把未保存的正文落盘。
+   *
+   * 自动保存关着时这是唯一的兜底，三条来路互补：
+   *   - notes:flush-request：主进程在 before-quit 与窗口隐藏时发来（见 main.ts），
+   *     覆盖「点托盘退出」这种渲染层收不到 pagehide 的路径
+   *   - pagehide / beforeunload：窗口真的被关掉时
+   *   - visibilitychange：窗口被隐藏时
+   */
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') flushSync()
+    }
+    window.addEventListener('pagehide', flushSync)
+    window.addEventListener('beforeunload', flushSync)
+    document.addEventListener('visibilitychange', onVisibility)
+    const off = window.electronAPI?.onNotesFlushRequest?.(flushSync)
+    return () => {
+      window.removeEventListener('pagehide', flushSync)
+      window.removeEventListener('beforeunload', flushSync)
+      document.removeEventListener('visibilitychange', onVisibility)
+      off?.()
+    }
+  }, [flushSync])
+
+  /** 保存策略变更。关掉自动保存时把待写的防抖定时器收回，标成未保存 */
+  const updateNotesSave = useCallback(
+    async (partial: Partial<NotesSaveSettings>) => {
+      const next = { ...notesSaveRef.current, ...partial }
+      notesSaveRef.current = next
+      setNotesSave(next)
+      await saveNotesSaveSettings(next)
+
+      if (!next.autoSaveEnabled) {
+        if (saveTimerRef.current) {
+          window.clearTimeout(saveTimerRef.current)
+          saveTimerRef.current = null
+        }
+        // 收回定时器时可能正有一次没写完的改动：状态要跟着改成未保存，
+        // 否则界面停在「已保存」上，用户以为落盘了
+        if (pendingSaveRef.current) {
+          applySaveStatus('unsaved', '有未保存的修改')
+        }
+        return
+      }
+
+      // 刚打开自动保存，而此前攒着未保存的修改：立刻补一次，别等下一次输入
+      if (pendingSaveRef.current) await saveNow()
+    },
+    [saveNow]
+  )
 
   const updateState = useCallback(
     (updater: (prev: NotesState) => NotesState, immediate = false) => {
@@ -381,6 +604,59 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
       persist(next, immediate)
     },
     [persist]
+  )
+
+  /**
+   * 给正文被换掉的文档累加 revision。
+   *
+   * 按 id 逐篇比：只有 content 真的变了的才计数。云端合并常常只动其中几篇，
+   * 全量计数会让没变的文档也白重载一次。
+   */
+  const bumpRevisions = useCallback((prev: NotesState, next: NotesState) => {
+    const changed: string[] = []
+    prev.notes.forEach((oldNote) => {
+      const fresh = next.notes.find((note) => note.id === oldNote.id)
+      if (!fresh || fresh.content !== oldNote.content) changed.push(oldNote.id)
+    })
+    if (!changed.length) return
+
+    setContentRevisions((rev) => {
+      const updated = { ...rev }
+      changed.forEach((id) => {
+        updated[id] = (updated[id] ?? 0) + 1
+      })
+      return updated
+    })
+  }, [])
+
+  /**
+   * 用一份来自外部的状态整体替换当前状态（云端拉取 / 快照恢复 / 文件刷新）。
+   *
+   * 与 updateState 的区别有三处：
+   *  1. bumpRevisions：编辑器要能分清「这篇正文不是用户自己敲的」。少了这个
+   *     信号，正文被换成旧版时编辑器会以为自己刚吐过这份 markdown 而跳过重载 ——
+   *     屏幕上是旧内容、磁盘上是新内容，接着用户在旧内容上继续敲，再把整篇
+   *     推回去，格式与内容一起错乱。
+   *  2. 必须作废还在排队的自动保存定时器：它的回调闭包攥着**排期时**的旧状态，
+   *     不清掉就会在几秒后用旧状态覆盖刚写进来的外部数据（并把旧数据推上云）。
+   *     这份外部状态紧接着会整份落盘，所以 pending 也一并清掉。
+   *  3. 返回这次落盘的结果，调用方（恢复快照）要据此决定能不能报「成功」。
+   */
+  const applyExternalState = useCallback(
+    async (next: NotesState) => {
+      if (saveTimerRef.current) {
+        window.clearTimeout(saveTimerRef.current)
+        saveTimerRef.current = null
+      }
+      pendingSaveRef.current = false
+      bumpRevisions(stateRef.current, next)
+      setNotes(next.notes)
+      setAllFolders(next.folders)
+      setActiveId(next.activeId)
+      stateRef.current = next
+      return writeState(next)
+    },
+    [bumpRevisions, writeState]
   )
 
   /* 活动文档必须还在（不是回收站里的）：被删进回收站的那一瞬 activeId 会被顺移，
@@ -821,10 +1097,9 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
 
   // 导入外部 md 文件(文件关联打开 / 对话框导入共用):按 sourcePath 去重,mtime 更新时刷新
   const importExternalFile = useCallback(
-    (file: OpenFilePayload) => {
+    async (file: OpenFilePayload) => {
       if (file.error || typeof file.content !== 'string') {
-        setSaveStatus('error')
-        setMessage(`打开文件失败:${file.name}`)
+        applySaveStatus('error', `打开文件失败:${file.name}`)
         return
       }
 
@@ -840,25 +1115,24 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
           // 磁盘文件未更新,仅激活该笔记
           updateState((prev) => ({ ...prev, activeId: existing.id }), true)
         } else {
-          // 磁盘文件已更新,以磁盘内容刷新(自动快照兜底)
-          updateState(
-            (prev) => ({
-              ...prev,
-              activeId: existing.id,
-              notes: prev.notes.map((note) =>
-                note.id === existing.id
-                  ? {
-                      ...note,
-                      content,
-                      title: note.title || fallbackTitle,
-                      sourceMtime: mtime,
-                      updatedAt: Date.now(),
-                    }
-                  : note
-              ),
-            }),
-            true
-          )
+          // 磁盘文件已更新,以磁盘内容刷新(自动快照兜底)。
+          // 正文是外部换进来的,走 applyExternalState 让编辑器整篇重载
+          const prev = stateRef.current
+          await applyExternalState({
+            ...prev,
+            activeId: existing.id,
+            notes: prev.notes.map((note) =>
+              note.id === existing.id
+                ? {
+                    ...note,
+                    content,
+                    title: note.title || fallbackTitle,
+                    sourceMtime: mtime,
+                    updatedAt: Date.now(),
+                  }
+                : note
+            ),
+          })
         }
       } else {
         const note = createEmptyNote({
@@ -1019,11 +1293,7 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
       if (mode === 'merge') {
         const { mergedState, addedFromRemote, updatedFromRemote, removedFolders } =
           smartMergeNotes(stateRef.current, res.remoteState)
-        setNotes(mergedState.notes)
-        setAllFolders(mergedState.folders)
-        setActiveId(mergedState.activeId)
-        stateRef.current = mergedState
-        await saveNotesState(mergedState)
+        await applyExternalState(mergedState)
         const now = Date.now()
         const nextCfg = { ...cfConfig, lastSyncTime: now }
         setCfConfig(nextCfg)
@@ -1045,11 +1315,7 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
           ...res.remoteState,
           folders: res.remoteState.folders || [],
         }
-        setNotes(overwritten.notes)
-        setAllFolders(overwritten.folders)
-        setActiveId(overwritten.activeId)
-        stateRef.current = overwritten
-        await saveNotesState(overwritten)
+        await applyExternalState(overwritten)
         const now = Date.now()
         const nextCfg = { ...cfConfig, lastSyncTime: now }
         setCfConfig(nextCfg)
@@ -1086,14 +1352,13 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
           ? target.state.folders
           : stateRef.current.folders,
       }
-      setNotes(restored.notes)
-      setAllFolders(restored.folders)
-      setActiveId(restored.activeId)
-      stateRef.current = restored
-      await saveNotesState(restored)
-      return true
+      // 恢复的是整份旧状态，活动文档的正文很可能变回旧版 —— 必须让编辑器
+      // 整篇重载，否则屏幕上还是新内容，跟「已恢复」的提示对不上
+      const saved = await applyExternalState(restored)
+      // 磁盘落盘失败时快照里的内容只在内存里 —— 不能报「恢复成功」骗用户
+      return saved.ok
     },
-    [snapshots, appendSnapshot]
+    [snapshots, appendSnapshot, applyExternalState]
   )
 
   const deleteSnapshot = useCallback(async (id: string) => {
@@ -1158,6 +1423,11 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
         setStatusCounter,
         insertText,
         registerInsertHandler,
+        // 保存策略与手动保存
+        contentRevision: activeId ? contentRevisions[activeId] ?? 0 : 0,
+        saveNow,
+        notesSave,
+        updateNotesSave,
         // Cloudflare
         cfConfig,
         cfSyncStatus,

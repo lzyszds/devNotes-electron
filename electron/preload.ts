@@ -188,6 +188,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   notifyRendererReady: () => ipcRenderer.invoke('notes-renderer-ready'),
 
+  /**
+   * 主进程要求把未保存的笔记立刻落盘（退出前 / 窗口隐藏时）。
+   * 返回取消订阅函数，与其它 on* 一致。
+   */
+  onNotesFlushRequest: (callback: () => void) => {
+    const listener = () => callback()
+    ipcRenderer.on('notes:flush-request', listener)
+    return () => {
+      ipcRenderer.removeListener('notes:flush-request', listener)
+    }
+  },
+
   // 全局快捷键：读配置、存配置（存完主进程会立刻重注册，返回注册失败的 id）
   getShortcuts: (): Promise<Record<string, string>> => ipcRenderer.invoke('get-shortcuts'),
   setShortcuts: (map: Record<string, string>): Promise<{ failed: string[] }> =>
@@ -352,6 +364,7 @@ declare global {
         callback: (payload: OpenFilePayload) => void
       ) => () => void
       notifyRendererReady: () => Promise<void>
+      onNotesFlushRequest: (callback: () => void) => () => void
 
       /** 草稿纸置顶小窗 */
       scratchOpen: () => Promise<void>

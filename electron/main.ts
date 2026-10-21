@@ -780,6 +780,22 @@ function queueOpenFile(filePath: string) {
   flushOpenFiles()
 }
 
+/*
+ * 通知渲染层「把未保存的笔记立刻落盘」。
+ *
+ * 笔记默认不自动保存，未保存的改动只存在于渲染进程内存里。进程被退出
+ * （托盘「退出」、系统关机）时如果没人通知它，最后几段编辑就丢了。
+ * 渲染层收到后会同步写 localStorage 并发起 electron-store 写入
+ * （见 NotesContext.flushSync）。
+ *
+ * 故意不等待回执：落盘本身很快，而等待会让退出变慢，渲染层卡死时更会把
+ * 用户困在一个关不掉的应用里。由调用方（before-quit）的延时兜底。
+ */
+function requestNotesFlush() {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  mainWindow.webContents.send('notes:flush-request')
+}
+
 function loadRendererWindow(window: BrowserWindow, toolName?: string) {
   const query = toolName ? `?tool=${encodeURIComponent(toolName)}` : ''
 
@@ -859,6 +875,14 @@ function createMainWindow() {
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show()
   })
+
+  /*
+   * 窗口被藏起来时落一次盘（托盘点击、全局快捷键唤起前的收起）。
+   *
+   * 用户常常敲完就直接 ⌘H 或切去别的应用，不会再按 ⌘S —— 这是「不自动保存」
+   * 下最常走的一条兜底路径。挂在窗口上而不是 app 上：只有这个窗口里有编辑器。
+   */
+  mainWindow.on('hide', () => requestNotesFlush())
 
   mainWindow.on('closed', () => {
     mainWindow = null
@@ -1552,4 +1576,29 @@ app.on('will-quit', () => {
   clipboardStop?.()
   clipboardStop = null
   stopLanTransfer()
+})
+
+/*
+ * 退出前给渲染层一次落盘的机会。
+ *
+ * 托盘「退出」走的是 app.quit()，窗口被直接销毁，渲染层收不到 pagehide；
+ * 而笔记默认不自动保存，此时内存里可能还有用户刚敲的内容。这里拦一次
+ * before-quit，通知渲染层写完再真正退出。
+ *
+ * 500ms 是 empirically 够用的量级（localStorage 同步写 + electron-store
+ * 一次 IPC），到点重新 quit。第二次进来时 notesFlushPending 仍为 true，
+ * 直接放行，于是 will-quit 里的清理（全局快捷键、剪贴板监听等）照常执行。
+ */
+let notesFlushPending = false
+app.on('before-quit', (event) => {
+  if (notesFlushPending) return
+  const win = mainWindow
+  if (!win || win.isDestroyed()) return
+
+  event.preventDefault()
+  notesFlushPending = true
+  requestNotesFlush()
+  setTimeout(() => {
+    app.quit()
+  }, 500)
 })

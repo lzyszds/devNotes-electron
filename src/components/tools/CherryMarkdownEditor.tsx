@@ -38,6 +38,15 @@ const SPLIT_MAX = 80
 
 export type CherryMarkdownEditorProps = {
   value: string
+  /**
+   * 正文被外部换过的次数（云端拉取 / 快照恢复 / 文件刷新）。
+   *
+   * 整篇重载的唯一触发信号。早先这里监听 [value] 并与 getMarkdown() 比字符串，
+   * Cherry 的序列化与 CodeMirror 内容不保证字节级一致，于是每敲几下键就会
+   * setMarkdown 整篇替换一次 —— 光标被重置、预览整篇重排。自己敲字不推进
+   * revision，这个 effect 就永远不会为用户输入而跑。
+   */
+  contentRevision?: number
   onChange?: (markdown: string) => void
   className?: string
   /** 当前笔记标题，供右键菜单的「Front Matter」「当前文档信息」使用 */
@@ -82,6 +91,7 @@ const MODEL_BY_VIEW: Record<EditorViewMode, 'editOnly' | 'edit&preview' | 'previ
 
 export default function CherryMarkdownEditor({
   value,
+  contentRevision = 0,
   onChange,
   className = '',
   title = '',
@@ -103,6 +113,8 @@ export default function CherryMarkdownEditor({
   const onChangeRef = useRef(onChange)
   const suppressChangeRef = useRef(false)
   const latestValueRef = useRef(value)
+  // 自己最近一次抛出去的 markdown。外部换进来的正文与它不同才值得整篇重载
+  const lastEmittedRef = useRef(value)
 
   const lastSplitRef = useRef<number | null>(null)
 
@@ -175,6 +187,8 @@ export default function CherryMarkdownEditor({
         const current = cherry.getMarkdown()
         const newMd = current + (current.endsWith('\n') ? '' : '\n') + prefix + suffix
         cherry.setMarkdown(newMd, false)
+        // 记账：这份 markdown 是我们刚写进编辑器的，外部回流时别再当陌生内容
+        lastEmittedRef.current = newMd
         onChangeRef.current?.(newMd)
       } catch (err) {
         console.error('Insert text failed:', err)
@@ -280,6 +294,7 @@ export default function CherryMarkdownEditor({
         afterChange: (md: string) => {
           if (suppressChangeRef.current) return
           latestValueRef.current = md
+          lastEmittedRef.current = md
           onChangeRef.current?.(md)
         },
       },
@@ -317,6 +332,30 @@ export default function CherryMarkdownEditor({
       }
     })
     observer.observe(mountRef.current)
+
+    /*
+     * 构造期间外部可能已换过正文（云端拉取、快照恢复正好落在挂载窗口里）：
+     * 那时 cherryRef 还没就绪，下面的 revision effect 会直接 return 且不推进
+     * lastRevisionRef —— 之后 revision 不再变化，这一篇就永远停在旧正文上。
+     * 与 Milkdown 一致，构造完成后补一次同步。
+     *
+     * lastEmittedRef 也要跟着改：它记的是「编辑器里此刻是什么」，不更新的话
+     * 之后同内容的外部刷新会被误判成「和现有的不一样」，白白整篇重写一次。
+     */
+    if (contentRevisionRef.current !== lastRevisionRef.current) {
+      lastRevisionRef.current = contentRevisionRef.current
+      if (latestValueRef.current !== lastEmittedRef.current) {
+        lastEmittedRef.current = latestValueRef.current
+        suppressChangeRef.current = true
+        try {
+          cherry.setMarkdown(latestValueRef.current, false)
+        } finally {
+          requestAnimationFrame(() => {
+            suppressChangeRef.current = false
+          })
+        }
+      }
+    }
 
     return () => {
       observer.disconnect()
@@ -454,14 +493,34 @@ export default function CherryMarkdownEditor({
     })
   }, [containerId])
 
+  /*
+   * 外部正文回流：只在 contentRevision 推进时整篇替换。
+   *
+   * 早先这里依赖 [value]，并与 cherry.getMarkdown() 比字符串。问题在于
+   * getMarkdown() 返回的是 CodeMirror 的当前内容，与 afterChange 抛出去的那份
+   * 不保证字节级一致（尾部换行、CRLF、自动补的空行），一旦有差就会
+   * setMarkdown 整篇替换 —— 光标被重置、预览整篇重排，用户看到的就是
+   * 「改一个小东西，整篇笔记的格式全乱了」。
+   *
+   * 改成 revision 后，只有云端拉取 / 快照恢复 / 文件刷新才会走到这里
+   * （见 NotesContext.applyExternalState）；用户自己敲字推进的是 afterChange
+   * 那条路，永远不触发整篇替换。
+   */
+  const lastRevisionRef = useRef(contentRevision)
+  // 构造 effect 只在挂载时跑一次，闭包里拿得到的是首渲染的 revision ——
+  // 补同步要用「此刻最新」的那个，所以另存一份
+  const contentRevisionRef = useRef(contentRevision)
+  contentRevisionRef.current = contentRevision
   useEffect(() => {
     const cherry = cherryRef.current
     if (!cherry) return
-
-    const current = cherry.getMarkdown()
-    if (current === value) return
+    if (contentRevision === lastRevisionRef.current) return
+    lastRevisionRef.current = contentRevision
+    // 外部换进来的正文与编辑器里现有的一致时不必重写
+    if (value === lastEmittedRef.current) return
 
     suppressChangeRef.current = true
+    lastEmittedRef.current = value
     try {
       cherry.setMarkdown(value, false)
     } finally {
@@ -470,7 +529,7 @@ export default function CherryMarkdownEditor({
         suppressChangeRef.current = false
       })
     }
-  }, [value])
+  }, [contentRevision, value])
 
   /**
    * 工具栏命令派发。

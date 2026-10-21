@@ -10,6 +10,7 @@ import {
   Sun,
 } from 'lucide-react'
 import Select from '../ui/Select'
+import Switch from '../ui/Switch'
 import {
   CODE_BLOCK_THEMES,
   getCachedCodeBlockTheme,
@@ -24,6 +25,11 @@ import {
   type ThemeId,
   type ThemePreset,
 } from '../../utils/theme'
+import { useNotes } from '../../context/NotesContext'
+import {
+  AUTO_SAVE_DELAY_OPTIONS,
+  clampAutoSaveDelay,
+} from '../../utils/notesSettings'
 
 /**
  * 档位做成下拉项：先按深色/浅色分成两组，组内再按显示名排序。
@@ -161,6 +167,10 @@ export default function GeneralPanel({
 }: GeneralPanelProps) {
   const [version, setVersion] = useState('')
   const [filter, setFilter] = useState<ThemeFilter>('all')
+
+  // 笔记保存策略。放在 Context 里而不是这里自持一份：编辑器与主进程退出
+  // 兜底读的都是同一份，改完立刻生效，不用等设置面板关闭
+  const { notesSave, updateNotesSave } = useNotes()
 
   const currentThemePreset = useMemo(() => getThemePreset(theme), [theme])
 
@@ -345,6 +355,56 @@ export default function GeneralPanel({
               </button>
             )
           })}
+        </div>
+      </section>
+
+      {/* ================= 笔记保存策略 ================= */}
+      <section className="space-y-3">
+        <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+          笔记保存
+        </h4>
+
+        <div className="p-3.5 rounded-xl border border-slate-200 dark:border-dark-border space-y-3">
+          <Switch
+            checked={notesSave.autoSaveEnabled}
+            onChange={(checked) => void updateNotesSave({ autoSaveEnabled: checked })}
+            label="自动保存"
+            description="停止编辑后按设定的间隔自动写入本机磁盘"
+          />
+
+          <div
+            className={`flex items-center justify-between gap-3 pt-3 border-t border-slate-200/60 dark:border-dark-border/60 transition-opacity ${
+              notesSave.autoSaveEnabled ? '' : 'opacity-50 pointer-events-none'
+            }`}
+          >
+            <div className="min-w-0">
+              <div className="text-xs font-bold text-slate-800 dark:text-white">
+                自动保存间隔
+              </div>
+              <div className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                停止编辑这么久才真正写一次，期间继续打字则顺延
+              </div>
+            </div>
+            <Select
+              value={String(notesSave.autoSaveDelayMs)}
+              options={AUTO_SAVE_DELAY_OPTIONS.map((item) => ({
+                value: String(item.value),
+                label: item.label,
+              }))}
+              onChange={(value) =>
+                void updateNotesSave({ autoSaveDelayMs: clampAutoSaveDelay(Number(value)) })
+              }
+              className="w-28 shrink-0"
+            />
+          </div>
+
+          <p className="text-[11px] text-slate-400 leading-relaxed">
+            关闭自动保存后，编辑内容只留在内存中，按{' '}
+            <kbd className="px-1 py-0.5 bg-slate-100 dark:bg-dark-hover border border-slate-200/60 dark:border-dark-border rounded text-[10px]">
+              ⌘S
+            </kbd>{' '}
+            手动保存；切换文档、切换工具、隐藏或退出窗口时也会自动保存，不会丢内容。
+          </p>
         </div>
       </section>
 

@@ -111,6 +111,8 @@ interface Window {
       }) => void
     ) => () => void
     notifyRendererReady?: () => Promise<void>
+    /** 主进程要求把未保存的笔记立刻落盘（退出前 / 窗口隐藏时） */
+    onNotesFlushRequest?: (callback: () => void) => () => void
 
     /** 全局快捷键配置：读 / 写。写会立刻在主进程重注册，返回注册失败的 id */
     getShortcuts?: () => Promise<Record<string, string>>

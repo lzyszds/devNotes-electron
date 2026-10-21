@@ -177,5 +177,7 @@ export function installCapacitorBridge() {
     // 文件关联是桌面端特性(双击 .md)，移动端不会触发
     onOpenFileRequest: () => () => {},
     notifyRendererReady: async () => {},
+    // 退出前落盘同样是桌面端特性；移动端由系统负责生命周期
+    onNotesFlushRequest: () => () => {},
   }
 }

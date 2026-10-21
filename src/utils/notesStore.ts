@@ -97,6 +97,15 @@ export interface NotesState {
   notes: NoteItem[]
   folders: FolderItem[]
   activeId: string | null
+  /**
+   * 整份状态最后一次落盘的时刻，由 saveNotesState / saveNotesStateSync 盖章。
+   *
+   * localStorage 与 electron-store 两份副本靠它判新旧。不能只看笔记的
+   * updatedAt —— 彻底删除一篇笔记后它从数组里消失、文件夹改名写的是
+   * folder.updatedAt、只加阅读书签写的是 bookmark.at，这些动作都不会让
+   * 剩余笔记的 updatedAt 变大，旧口径会挑中那份「还留着已删笔记」的旧副本。
+   */
+  savedAt?: number
 }
 
 const STORE_KEY = 'fehelper-markdown-notes'
@@ -307,6 +316,7 @@ export function initializeDevNotes(): Promise<boolean> {
    * <kbd>⌘D</kbd> / <kbd>Ctrl+D</kbd>：快捷切换深色 / 浅色模式
    * <kbd>⌘F</kbd> / <kbd>Ctrl+F</kbd>：调出编辑器内查找替换面板
    * <kbd>⌘E</kbd> / <kbd>Ctrl+E</kbd>：导出当前笔记为 <kbd>.md</kbd> 本地文件
+   * <kbd>⌘S</kbd> / <kbd>Ctrl+S</kbd>：立刻保存当前笔记（默认不自动保存，见「设置 → 通用 → 笔记保存」）
 `
 
 function createId() {
@@ -508,17 +518,20 @@ export function normalizeState(raw: unknown): NotesState {
     note.folderId && !folderIds.has(note.folderId) ? { ...note, folderId: null } : note
   )
 
+  // 落盘时间原样透传，否则每次读盘都会把新旧判断的依据丢掉
+  const savedAt = typeof data.savedAt === 'number' ? data.savedAt : undefined
+
   const alive = visibleNotes(notesWithValidFolder)
   // 全部文档都被删进回收站时，activeId 允许为空 —— 此时编辑器显示空状态
   if (alive.length === 0 && notesWithValidFolder.length === 0) {
     const note = createEmptyNote()
-    return { notes: [note], folders, activeId: note.id }
+    return { notes: [note], folders, activeId: note.id, ...(savedAt !== undefined ? { savedAt } : {}) }
   }
 
   const activeId =
     data.activeId && alive.some((note) => note.id === data.activeId) ? data.activeId : null
 
-  return { notes: notesWithValidFolder, folders, activeId }
+  return { notes: notesWithValidFolder, folders, activeId, ...(savedAt !== undefined ? { savedAt } : {}) }
 }
 
 async function readFromElectron(): Promise<NotesState | null> {
@@ -541,11 +554,49 @@ function readFromLocalStorage(): NotesState | null {
   }
 }
 
+/**
+ * 状态的「新鲜度」：优先看落盘时盖的 savedAt。
+ *
+ * 用来在两份落盘副本之间挑新的那份。为什么需要它：同步写只写 localStorage
+ * （见 saveNotesStateSync），异步写才更新 electron-store；进程被 kill 时
+ * 后者可能没写完，于是磁盘上同时存在「新的 localStorage」和「旧的 store」。
+ * 不做这个比较就会永远读到旧的那份，用户最后几次敲键凭空消失。
+ *
+ * 老版本写下的数据没有 savedAt，退回按笔记时间戳推算 —— 那套口径识别不了
+ * 「删掉一篇」这类让最大值回退的改动，只对老数据生效，读一次之后就会被
+ * saveNotesState 盖上新的 savedAt。
+ */
+function stateFreshness(state: NotesState): number {
+  if (typeof state.savedAt === 'number') return state.savedAt
+  const noteStamps = state.notes.reduce((max, note) => {
+    const stamp = Math.max(note.updatedAt || 0, note.deletedAt || 0, note.folderMovedAt || 0)
+    return stamp > max ? stamp : max
+  }, 0)
+  const folderStamps = state.folders.reduce(
+    (max, folder) => Math.max(max, folder.updatedAt || 0, folder.deletedAt || 0),
+    0
+  )
+  return Math.max(noteStamps, folderStamps)
+}
+
 export async function loadNotesState(): Promise<NotesState> {
   const fromElectron = await readFromElectron()
+  const fromLocal = readFromLocalStorage()
+
+  // 两份都有时挑新的：localStorage 是同步写的，异步 store 被打断时它反而更新。
+  // 老数据两边都没有 savedAt、新旧也无从判断时信 electron-store（历史行为），
+  // 读完之后落一次盘把 savedAt 盖上，下次就有明确依据了
+  if (fromElectron && fromLocal) {
+    if (stateFreshness(fromLocal) > stateFreshness(fromElectron)) {
+      await saveNotesState(fromLocal)
+      return fromLocal
+    }
+    await saveNotesState(fromElectron)
+    return fromElectron
+  }
+
   if (fromElectron) return fromElectron
 
-  const fromLocal = readFromLocalStorage()
   if (fromLocal) {
     await saveNotesState(fromLocal)
     return fromLocal
@@ -557,19 +608,66 @@ export async function loadNotesState(): Promise<NotesState> {
   return initial
 }
 
-export async function saveNotesState(state: NotesState): Promise<void> {
-  const payload = normalizeState(state)
-  try {
-    if (window.electronAPI?.storeSet) {
-      await window.electronAPI.storeSet(STORE_KEY, payload)
-    }
-  } catch {
-    // fallback below
-  }
+/**
+ * 落盘结果。调用方靠它决定状态栏显示「已保存」还是「保存失败」，别再无条件吞错。
+ */
+export interface NotesSaveResult {
+  ok: boolean
+  localFailed: boolean
+  remoteFailed: boolean
+}
 
+/**
+ * 把状态写进本机磁盘（localStorage + electron-store）。
+ *
+ * state 上带的 savedAt 会被忽略，由这里按写入时刻重新盖章 —— 防止调用方拿着
+ * 一份旧对象「原样存回去」时把新鲜度也带成旧值。
+ */
+export async function saveNotesState(state: NotesState): Promise<NotesSaveResult> {
+  const payload = normalizeState({ ...state, savedAt: Date.now() })
+  /*
+   * localStorage 先写、electron-store 后写。
+   *
+   * 前者是同步的，调用返回时就已经落地；后者走 IPC + 文件写入，进程被 kill
+   * 时可能没跑完。反过来写的话，「异步那次被打断」会让磁盘上留着旧数据，
+   * 而下次启动是优先读 electron-store 的（见 loadNotesState）。
+   */
+  let localFailed = false
   try {
     localStorage.setItem(LEGACY_LOCAL_KEY, JSON.stringify(payload))
   } catch {
-    // ignore quota errors
+    localFailed = true
+  }
+
+  let remoteFailed = false
+  if (window.electronAPI?.storeSet) {
+    try {
+      await window.electronAPI.storeSet(STORE_KEY, payload)
+    } catch {
+      remoteFailed = true
+    }
+  }
+
+  return { ok: !(localFailed && remoteFailed), localFailed, remoteFailed }
+}
+
+/**
+ * 同步落盘（只写 localStorage）。
+ *
+ * 给来不及 await 的场合用：pagehide、窗口隐藏、主进程通知退出。这些时机里
+ * 异步函数的续段可能根本不会被执行，只有同步写能保证内容不丢。
+ *
+ * 返回是否写成功：配额溢出这类失败必须让调用方知道，否则它会把
+ * electron-store 那次也当成「正在补写」而不去报告失败。
+ */
+export function saveNotesStateSync(state: NotesState): boolean {
+  try {
+    localStorage.setItem(
+      LEGACY_LOCAL_KEY,
+      JSON.stringify(normalizeState({ ...state, savedAt: Date.now() }))
+    )
+    return true
+  } catch {
+    return false
   }
 }

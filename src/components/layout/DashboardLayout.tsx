@@ -174,6 +174,7 @@ export default function DashboardLayout({
     cfSyncMessage,
     triggerCfBackup,
     triggerCfPull,
+    saveNow,
   } = useNotes();
 
   const isMarkdownActive = activeTabId === "markdown-notes";
@@ -285,6 +286,21 @@ export default function DashboardLayout({
       "export-note": () => {
         if (isMarkdownActive) void handleExportNote();
       },
+      "save-note": () => {
+        // 自动保存开着时这个动作基本是空跑（没有未保存修改），关着时才真正干活。
+        // 提示按 saveNow 真实的结果给：写盘失败时不能再报「已保存」
+        if (isMarkdownActive) {
+          void saveNow().then((result) => {
+            showToast(
+              result === "error"
+                ? "保存失败，改动仍在本机内存中，请稍后重试"
+                : result === "saved"
+                ? "已保存"
+                : "已保存，没有新修改"
+            );
+          });
+        }
+      },
       "toggle-theme": () => onToggleTheme(),
       "open-settings": () => {
         setSettingsSection("general");
@@ -304,6 +320,8 @@ export default function DashboardLayout({
       isTranslateActive,
       onOpenTool,
       onToggleTheme,
+      saveNow,
+      saveStatus,
       scope,
       showToast,
     ],
@@ -735,6 +753,8 @@ export default function DashboardLayout({
                       ? "text-rose-600 dark:text-rose-400"
                       : saveStatus === "saving"
                       ? "text-amber-600 dark:text-amber-400"
+                      : saveStatus === "unsaved"
+                      ? "text-amber-600 dark:text-amber-400"
                       : "text-emerald-600 dark:text-emerald-400"
                   }`}
                 >
@@ -744,6 +764,8 @@ export default function DashboardLayout({
                         ? "bg-rose-500"
                         : saveStatus === "saving"
                         ? "bg-amber-500 animate-pulse"
+                        : saveStatus === "unsaved"
+                        ? "bg-amber-500"
                         : "bg-emerald-500"
                     }`}
                   />
@@ -751,6 +773,8 @@ export default function DashboardLayout({
                     ? "保存中"
                     : saveStatus === "error"
                     ? "保存失败"
+                    : saveStatus === "unsaved"
+                    ? "未保存"
                     : "已保存"}{" "}
                   · {docCharCount.toLocaleString()} 字
                 </span>

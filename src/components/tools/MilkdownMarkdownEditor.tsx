@@ -105,6 +105,15 @@ import '@milkdown/kit/prose/tables/style/tables.css'
 
 export type MilkdownMarkdownEditorProps = {
   value: string
+  /**
+   * 正文被外部换过的次数（云端拉取 / 快照恢复 / 文件刷新）。
+   *
+   * 整篇重载的唯一触发信号。早先这里监听 [value]：用户每敲一个字 value 都会
+   * 变成编辑器刚吐出去的那份 markdown，两边字符串只要有任何细微差别就会
+   * 触发 replaceAll —— 整篇文档重新解析再序列化，格式全跟着变一遍、光标归位。
+   * 自己敲字不推进 revision，这个 effect 就永远不为它跑。
+   */
+  contentRevision?: number
   onChange?: (markdown: string) => void
   className?: string
   /** 内容里含 Cherry 专有语法时回调一次,由宿主决定怎么提示 */
@@ -194,13 +203,16 @@ const taskListClickPlugin = $prose(
  * 与 Cherry 那套「构造原生实例 + 隐形原生工具栏」不同,Milkdown 没有 UI 外壳,
  * 自己就是 ProseMirror 的 EditorView,所以工具栏是纯 React 的、命令直连(见 milkdownCommands.ts)。
  *
- * 内容同步沿用与 Cherry 同构的三层防回环:
+ * 内容同步的三层防回环:
  *   1. suppressChangeRef 标记程序化写入,期间不往外抛 onChange
- *   2. 往外抛过的 markdown 记在 lastEmittedRef,外部 value 回流时先比字符串,是自己刚吐的就跳过
+ *   2. 整篇重载只认 contentRevision(外部换过正文),用户自己敲字不推进它 ——
+ *      早先监听 [value] 会把「刚吐出去的 markdown 回流」也当成外部修改,
+ *      触发 replaceAll 把整篇重新序列化一遍,格式全变
  *   3. 写入后 requestAnimationFrame 复位标志,避开同一帧里 listener 的延迟回调
  */
 export default function MilkdownMarkdownEditor({
   value,
+  contentRevision = 0,
   onChange,
   className = '',
   onWarning,
@@ -711,10 +723,25 @@ export default function MilkdownMarkdownEditor({
   }, [preview, ready])
 
   // ================= 外部 value 回流 =================
+  /*
+   * 只在「正文被外部换过」时整篇重载，触发信号是 contentRevision 而不是 value。
+   *
+   * 早先这里依赖 [value]，问题出在：用户每敲一个字，value 都会变成编辑器刚
+   * 吐出去的那份 markdown，而序列化往返（尾部换行、HTML 标签写法、表格对齐）
+   * 很难保证两边字节级一致 —— 一旦有差，就会 replaceAll 整篇重载，文档被重新
+   * 解析再序列化，通篇格式变一遍、光标回到开头。看起来就是「改一个小东西，
+   * 整篇笔记的格式全乱了」。
+   *
+   * 改成 revision 后：自己敲字不推进它，这个 effect 永远不会为用户输入而跑；
+   * 只有云端拉取、快照恢复、文件刷新才会（见 NotesContext.applyExternalState）。
+   */
+  const lastRevisionRef = useRef(contentRevision)
   useEffect(() => {
     const editor = editorRef.current
     if (!editor || !readyRef.current) return
-    // 先比较再写:自己刚抛出去的那次不该再写回去,否则光标会被重置
+    if (contentRevision === lastRevisionRef.current) return
+    lastRevisionRef.current = contentRevision
+    // 外部换进来的正文与编辑器里现有的一致时不必重写（例如合并后仍是本地赢）
     if (value === lastEmittedRef.current) return
 
     suppressChangeRef.current = true
@@ -727,7 +754,7 @@ export default function MilkdownMarkdownEditor({
         suppressChangeRef.current = false
       })
     }
-  }, [value])
+  }, [contentRevision, value])
 
   // ================= 深浅色切换时重绘装饰器 =================
   // 图表卡片要跟着换配色。装饰器由 state 驱动，这里推一个空事务让它重算，

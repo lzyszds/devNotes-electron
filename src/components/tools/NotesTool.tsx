@@ -67,6 +67,8 @@ export default function NotesTool() {
     handleDeleteReadingBookmark,
     saveStatus,
     message: saveMessage,
+    contentRevision,
+    saveNow,
   } = useNotes();
   const { showToast } = useToast();
   const [mode, setMode] = useState<EditorMode>(readEditorMode);
@@ -202,6 +204,24 @@ export default function NotesTool() {
   useEffect(() => subscribeZoom(setZoom), []);
 
   const isMobile = useIsMobile();
+
+  /*
+   * 离开笔记模块（切到别的工具、关设置等）前把未保存的正文落盘。
+   *
+   * 自动保存关着时这是最常用的兜底之一 —— 用户敲完一篇常常直接切到翻译页，
+   * 不会再按 ⌘S。写在这里而不是 NotesContext 的生命周期里，是因为只有这个
+   * 组件知道「用户已经不在编辑器前了」。
+   *
+   * 用 ref 存最新的 saveNow：它的身份会随云同步配置变化，直接进依赖会让
+   * effect 反复重跑，每次重跑都顺手触发一次保存。
+   */
+  const saveNowRef = useRef(saveNow);
+  saveNowRef.current = saveNow;
+  useEffect(() => {
+    return () => {
+      void saveNowRef.current();
+    };
+  }, []);
 
   const content = activeNote?.content || "";
 
@@ -581,6 +601,7 @@ export default function NotesTool() {
           <CherryMarkdownEditor
             key={activeNote.id}
             value={activeNote.content}
+            contentRevision={contentRevision}
             onChange={handleContentChange}
             title={activeNote.title}
             viewMode={viewMode}
@@ -596,6 +617,7 @@ export default function NotesTool() {
           <MilkdownMarkdownEditor
             key={activeNote.id}
             value={activeNote.content}
+            contentRevision={contentRevision}
             onChange={handleContentChange}
             onWarning={setWarning}
             title={activeNote.title}
@@ -633,6 +655,7 @@ export default function NotesTool() {
           }
           saveStatus={saveStatus}
           saveMessage={saveMessage}
+          onSave={() => void saveNow()}
           bookmark={activeBookmark}
           bookmarkStale={
             activeBookmark ? isBookmarkStale(activeBookmark) : false

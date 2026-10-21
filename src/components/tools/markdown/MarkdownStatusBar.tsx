@@ -11,6 +11,8 @@ export type MarkdownStatusBarProps = {
   viewLabel: string
   saveStatus: SaveStatus
   saveMessage: string
+  /** 有未保存修改时，点了立刻落盘。不传则只做状态展示 */
+  onSave?: () => void
   /**
    * 要显示的那条书签：优先是「当前所在章节的那条」，不在任何书签章节里时
    * 退回「最近记的那条」。没有书签就传 undefined，整块不出现。
@@ -25,6 +27,8 @@ const SAVE_TONE: Record<SaveStatus, { text: string; dot: string }> = {
   saving: { text: 'text-amber-600 dark:text-amber-400', dot: 'bg-amber-500 animate-ping' },
   error: { text: 'text-rose-600 dark:text-rose-400', dot: 'bg-rose-500' },
   saved: { text: 'text-emerald-600 dark:text-emerald-400', dot: 'bg-emerald-500' },
+  // 自动保存关着时的常态：改动只在内存里，提示一下该保存了
+  unsaved: { text: 'text-amber-600 dark:text-amber-400', dot: 'bg-amber-500' },
   idle: { text: 'text-slate-500 dark:text-slate-400', dot: 'bg-slate-400' },
 }
 
@@ -41,19 +45,35 @@ export default function MarkdownStatusBar({
   viewLabel,
   saveStatus,
   saveMessage,
+  onSave,
   bookmark,
   bookmarkStale = false,
   onJumpBookmark,
 }: MarkdownStatusBarProps) {
   const tone = SAVE_TONE[saveStatus]
+  // 有未保存修改时，这个指示器本身就是「保存」按钮 —— 自动保存关着的情况下，
+  // 用户需要一个顺手可及的落盘入口，不必每次都想起 ⌘S
+  const saveClickable = saveStatus === 'unsaved' && Boolean(onSave)
 
   return (
     <div className="relative z-40 flex h-7 flex-shrink-0 items-center justify-between gap-3 border-t border-slate-200/80 bg-gray-50 px-3 font-mono text-[11px] text-slate-400 dark:border-dark-border dark:bg-dark-hover/30 dark:text-slate-500">
       <div className="group relative flex min-w-0 items-center gap-2">
-        <span className={`flex flex-shrink-0 items-center gap-1.5 font-sans font-semibold ${tone.text}`}>
-          <span className={`h-1.5 w-1.5 rounded-full ${tone.dot}`} />
-          {saveMessage}
-        </span>
+        {saveClickable ? (
+          <button
+            type="button"
+            onClick={onSave}
+            title="立刻保存到本机（⌘S）"
+            className={`flex flex-shrink-0 items-center gap-1.5 rounded font-sans font-semibold underline-offset-2 outline-none transition-colors hover:underline focus-visible:underline ${tone.text}`}
+          >
+            <span className={`h-1.5 w-1.5 rounded-full ${tone.dot}`} />
+            {saveMessage}
+          </button>
+        ) : (
+          <span className={`flex flex-shrink-0 items-center gap-1.5 font-sans font-semibold ${tone.text}`}>
+            <span className={`h-1.5 w-1.5 rounded-full ${tone.dot}`} />
+            {saveMessage}
+          </span>
+        )}
         <span className="text-slate-300 dark:text-dark-border">·</span>
         <span className="truncate">
           {stats.totalWords.toLocaleString()} 字 · {stats.totalLines.toLocaleString()} 行 · 约{' '}
