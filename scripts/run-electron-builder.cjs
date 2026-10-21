@@ -9,14 +9,14 @@ if (process.platform === "darwin" && !env.PYTHON_PATH) {
   env.PYTHON_PATH = "/usr/bin/python3";
 }
 
-const child = spawn(
-  process.platform === "win32" ? "npx.cmd" : "npx",
-  args,
-  {
-    stdio: "inherit",
-    env,
-  }
-);
+// Windows 上 npx 是 .cmd，Node 不允许直接 spawn 批处理文件（会抛 EINVAL），必须走 shell
+const isWindows = process.platform === "win32";
+
+const child = spawn("npx", args, {
+  stdio: "inherit",
+  env,
+  shell: isWindows,
+});
 
 child.on("exit", (code, signal) => {
   if (signal) {
