@@ -27,7 +27,6 @@ import {
   Copy,
   Settings,
   Sparkles,
-  Network,
   StickyNote,
 } from "lucide-react";
 import {
