@@ -31,3 +31,11 @@ npm-debug.log*
 .cache/
 .parcel-cache/
 .vite/
+
+# AI 助手本地配置与产物（仅本机保留，不入库）
+/CLAUDE.md
+/AGENTS.md
+/.claude/
+/.cursor/
+# answer-me-with-html 等插件会把生成的 HTML 写进工作目录
+/.tmp/
