@@ -196,24 +196,44 @@ const CF_CONFIG_STORE_KEY = 'fehelper-cf-sync-config'
 export const SNAPSHOTS_STORE_KEY = 'fehelper-backup-snapshots'
 
 export const DEFAULT_CF_CONFIG: CloudflareSyncConfig = {
-  enabled: true,
+  /*
+   * 全部自动化默认关。
+   *
+   * 早先这里 enabled / autoSync / autoSyncOnStartup 都是 true，且 workerUrl
+   * 指向一个公共共享端点 —— 结果是每次启动都从那个端点拉一份别人的数据回来
+   * 合并，远端 updatedAt 更新的文档会把本地正文整篇换掉；编辑停手 3 秒又会
+   * 把整份笔记推上去。用户看到的现象就是「改一个小东西，整篇笔记格式全乱」。
+   *
+   * 云同步从此是显式 opt-in：填好自己的 Worker / KV 凭据，再自己决定要不要
+   * 自动上传、要不要启动时拉取。
+   */
+  enabled: false,
   mode: 'worker',
-  workerUrl: 'https://fehelper.1024327189.workers.dev',
+  workerUrl: '',
   workerToken: '',
   kvAccountId: '',
   kvNamespaceId: '',
   kvApiToken: '',
   enableE2EE: false,
   encryptionPassword: '',
-  autoSync: true,
-  autoSyncOnStartup: true,
-  autoBackupEnabled: true,
+  autoSync: false,
+  autoSyncOnStartup: false,
+  autoBackupEnabled: false,
   autoBackupIntervalMinutes: 10,
-  autoBackupOnEdit: true,
+  autoBackupOnEdit: false,
   maxSnapshots: 20,
   lastSyncTime: 0,
   lastBackupTime: 0,
 }
+
+/**
+ * 内置的公共示例 Worker 地址。
+ *
+ * * 不再作为默认 workerUrl 自动启用 * —— 所有用默认配置的用户会写到同一份
+ * 云端数据里，互相覆盖。它只出现在「接入设置」的输入框 placeholder 与部署
+ * 指南里，用户看完指南应部署自己的 Worker。
+ */
+export const SAMPLE_WORKER_URL = 'https://fehelper.1024327189.workers.dev'
 
 // ================= 1. 端到端加密 (Web Crypto AES-256-GCM) =================
 async function getKeyFromPassword(password: string, salt: Uint8Array): Promise<CryptoKey> {
@@ -805,10 +825,33 @@ export async function loadCloudflareConfig(): Promise<CloudflareSyncConfig> {
         cfg = { ...DEFAULT_CF_CONFIG, ...JSON.parse(local) }
       }
     }
-    if (!cfg || !cfg.workerUrl) {
-      cfg = { ...DEFAULT_CF_CONFIG, ...(cfg || {}), workerUrl: DEFAULT_CF_CONFIG.workerUrl, enabled: true }
-      void saveCloudflareConfig(cfg)
+    if (!cfg) return DEFAULT_CF_CONFIG
+
+    /*
+     * 老版本迁移：把「还在用内置公共端点」的配置的自动化开关全部关掉。
+     *
+     * 判断依据是 workerUrl 仍是那个公共地址 —— 那个端点不属于任何用户，
+     * 没改过它就意味着用户从未真正接入过自己的云端，此时的 autoSync /
+     * autoSyncOnStartup 只是旧版本默认值带来的副作用，不是用户的选择。
+     * 放任不管的后果就是每次启动都被动拉一份合并，正文整篇被换掉。
+     *
+     * 已经填了自己 Worker / KV 凭据的配置原样尊重，一项都不动。
+     */
+    const stillOnSampleWorker = cfg.mode === 'worker' && cfg.workerUrl === SAMPLE_WORKER_URL
+    if (stillOnSampleWorker) {
+      const migrated: CloudflareSyncConfig = {
+        ...cfg,
+        workerUrl: '',
+        enabled: false,
+        autoSync: false,
+        autoSyncOnStartup: false,
+        autoBackupEnabled: false,
+        autoBackupOnEdit: false,
+      }
+      void saveCloudflareConfig(migrated)
+      return migrated
     }
+
     return cfg
   } catch {
     return DEFAULT_CF_CONFIG

@@ -24,6 +24,7 @@ import {
 import { useNotes } from '../../context/NotesContext'
 import {
   CLOUDFLARE_WORKER_SCRIPT,
+  SAMPLE_WORKER_URL,
   type CloudflareSyncConfig,
   type BackupSnapshot,
 } from '../../utils/cloudflareSync'
@@ -244,6 +245,16 @@ export default function CloudflareSyncPanel() {
         : cfConfig.kvAccountId && cfConfig.kvNamespaceId && cfConfig.kvApiToken)
   )
 
+  /*
+   * 还在用内置公共端点的用户给一句提醒。
+   *
+   * 那个地址不属于任何用户：所有没改过它的客户端会写到同一份云端数据里，
+   * 互相覆盖，且内容对端点所有者可见。迁移逻辑（loadCloudflareConfig）已经
+   * 把它的自动化开关关掉了，这里再把原因说明白，引导用户去部署自己的 Worker。
+   */
+  const usingSharedEndpoint =
+    cfConfig.mode === 'worker' && Boolean(cfConfig.workerUrl) && cfConfig.workerUrl === SAMPLE_WORKER_URL
+
   const TABS: {
     id: 'console' | 'snapshots' | 'config' | 'deploy'
     label: string
@@ -288,6 +299,17 @@ export default function CloudflareSyncPanel() {
           {cfConfig.lastSyncTime ? new Date(cfConfig.lastSyncTime).toLocaleString() : '暂无同步记录'}
         </span>
       </div>
+
+      {/* 共享端点警示：只在实际还指着内置公共 Worker 时出现 */}
+      {usingSharedEndpoint && (
+        <NoteCard variant="warning" icon={Shield}>
+          <span className="font-semibold block text-xs mb-0.5">正在使用内置公共示例端点</span>
+          <span className="text-[11px] opacity-90">
+            该地址仅作演示，所有未修改配置的用户会写入同一份云端数据、互相覆盖。
+            请参照「Worker 部署指南」部署属于自己的 Worker，或改用 KV 模式接入。
+          </span>
+        </NoteCard>
+      )}
 
       {/* 面板内标签页切换栏：分段胶囊式控制器 */}
       <div className="p-1 bg-slate-100/90 dark:bg-dark-sidebar/90 rounded-xl border border-slate-200/70 dark:border-dark-border flex gap-1 overflow-x-auto scrollbar-hide">
@@ -534,7 +556,7 @@ export default function CloudflareSyncPanel() {
                     checked={Boolean(cfConfig.autoSyncOnStartup)}
                     onChange={(checked) => updateCfConfig({ autoSyncOnStartup: checked })}
                     label="软件启动时自动拉取"
-                    description="每次打开 devNotes 时，自动拉取云端最新笔记并进行智能合并"
+                    description="每次打开 devNotes 时，自动拉取云端最新笔记并智能合并。注意：远端更新时间较新的文档会整篇覆盖本地正文，正在编辑的文档也会被重载"
                   />
                 </div>
               </div>
@@ -787,9 +809,13 @@ export default function CloudflareSyncPanel() {
                     onChange={(e) =>
                       setFormConfig((prev) => ({ ...prev, workerUrl: e.target.value.trim() }))
                     }
-                    placeholder="https://fehelper.1024327189.workers.dev"
+                    placeholder={SAMPLE_WORKER_URL}
                     className="w-full px-3 py-2 text-xs bg-white dark:bg-dark-panel border border-slate-200/80 dark:border-dark-border rounded-xl outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 text-slate-800 dark:text-white placeholder:text-slate-400 transition-all shadow-2xs"
                   />
+                  <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">
+                    默认不预填任何地址。上方示例地址是公共演示端点，多人共用会互相覆盖，
+                    建议部署自己的 Worker（见「Worker 部署指南」）。
+                  </p>
                 </div>
 
                 <div>
