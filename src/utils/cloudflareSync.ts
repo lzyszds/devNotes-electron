@@ -195,21 +195,15 @@ export interface SyncResult {
 const CF_CONFIG_STORE_KEY = 'fehelper-cf-sync-config'
 export const SNAPSHOTS_STORE_KEY = 'fehelper-backup-snapshots'
 
+/**
+ * 默认自有云端同步服务地址
+ */
+export const DEFAULT_SERVER_URL = 'https://sync.lzyszds.cn'
+
 export const DEFAULT_CF_CONFIG: CloudflareSyncConfig = {
-  /*
-   * 全部自动化默认关。
-   *
-   * 早先这里 enabled / autoSync / autoSyncOnStartup 都是 true，且 workerUrl
-   * 指向一个公共共享端点 —— 结果是每次启动都从那个端点拉一份别人的数据回来
-   * 合并，远端 updatedAt 更新的文档会把本地正文整篇换掉；编辑停手 3 秒又会
-   * 把整份笔记推上去。用户看到的现象就是「改一个小东西，整篇笔记格式全乱」。
-   *
-   * 云同步从此是显式 opt-in：填好自己的 Worker / KV 凭据，再自己决定要不要
-   * 自动上传、要不要启动时拉取。
-   */
   enabled: false,
   mode: 'worker',
-  workerUrl: '',
+  workerUrl: DEFAULT_SERVER_URL,
   workerToken: '',
   kvAccountId: '',
   kvNamespaceId: '',
@@ -227,11 +221,7 @@ export const DEFAULT_CF_CONFIG: CloudflareSyncConfig = {
 }
 
 /**
- * 内置的公共示例 Worker 地址。
- *
- * * 不再作为默认 workerUrl 自动启用 * —— 所有用默认配置的用户会写到同一份
- * 云端数据里，互相覆盖。它只出现在「接入设置」的输入框 placeholder 与部署
- * 指南里，用户看完指南应部署自己的 Worker。
+ * 内置的公共示例 Worker 地址（向后兼容提示）
  */
 export const SAMPLE_WORKER_URL = 'https://fehelper.1024327189.workers.dev'
 
@@ -368,6 +358,39 @@ async function executeRequest(
   }
 }
 
+/**
+ * 当前客户端专属应用租户标识
+ */
+export const APP_SYNC_ID = 'notes'
+
+/**
+ * 规范化多应用云同步服务路由：
+ * 将用户配置的服务基础地址自动对齐到 `/${app}/sync` 端点，
+ * 同时兼容健康检查 `/health` 路径。
+ */
+export function resolveSyncEndpoints(rawServerUrl: string, appId: string = APP_SYNC_ID): {
+  healthUrl: string
+  syncUrl: string
+} {
+  let base = (rawServerUrl || DEFAULT_SERVER_URL).trim().replace(/\/+$/, '')
+  // 若传入带有末尾 /sync，先去除
+  if (base.endsWith('/sync')) {
+    base = base.slice(0, -5).replace(/\/+$/, '')
+  }
+  // 若传入末尾已经带有 /notes 或对应 app，提取基础域名
+  if (base.endsWith(`/${appId}`)) {
+    const root = base.slice(0, -(appId.length + 1)).replace(/\/+$/, '')
+    return {
+      healthUrl: `${root}/health`,
+      syncUrl: `${base}/sync`,
+    }
+  }
+  return {
+    healthUrl: `${base}/health`,
+    syncUrl: `${base}/${appId}/sync`,
+  }
+}
+
 // ================= 3. Cloudflare 操作层 (Worker & KV) =================
 export async function testCloudflareConnection(config: CloudflareSyncConfig): Promise<{
   ok: boolean
@@ -375,25 +398,32 @@ export async function testCloudflareConnection(config: CloudflareSyncConfig): Pr
 }> {
   try {
     if (config.mode === 'worker') {
-      if (!config.workerUrl) {
-        return { ok: false, message: '请填写 Cloudflare Worker 完整地址' }
+      const serverUrl = (config.workerUrl || DEFAULT_SERVER_URL).trim()
+      if (!serverUrl) {
+        return { ok: false, message: '请填写云端同步服务完整地址' }
       }
-      const pingUrl = config.workerUrl.replace(/\/+$/, '') + '/health'
-      const res = await executeRequest(pingUrl, {
-        headers: config.workerToken
+      const token = (config.workerToken || '').trim()
+      if (token && token.length < 8) {
+        return { ok: false, message: '同步凭据 (Token) 长度需至少 8 位' }
+      }
+
+      const { healthUrl } = resolveSyncEndpoints(serverUrl, APP_SYNC_ID)
+      const res = await executeRequest(healthUrl, {
+        headers: token
           ? {
-              Authorization: `Bearer ${config.workerToken}`,
-              'x-sync-token': config.workerToken,
+              Authorization: `Bearer ${token}`,
+              'X-App-Id': APP_SYNC_ID,
+              'x-sync-token': token,
             }
-          : undefined,
+          : { 'X-App-Id': APP_SYNC_ID },
       })
 
       if (res.ok) {
-        return { ok: true, message: '连接成功：Cloudflare Worker 状态正常响应' }
+        return { ok: true, message: '连接成功：统一云端同步平台在线，devNotes 专属空间就绪 (HTTP 200)' }
       }
       return {
         ok: false,
-        message: `Worker 响应异常 (HTTP ${res.status}): ${res.text.slice(0, 120)}`,
+        message: `服务响应异常 (HTTP ${res.status}): ${res.text.slice(0, 120)}`,
       }
     } else {
       // KV 模式测试
@@ -417,7 +447,7 @@ export async function testCloudflareConnection(config: CloudflareSyncConfig): Pr
       }
     }
   } catch (err: any) {
-    return { ok: false, message: `网络连接错误: ${err?.message || '无法连接到 Cloudflare'}` }
+    return { ok: false, message: `网络连接错误: ${err?.message || '无法连接到云端同步服务器'}` }
   }
 }
 
@@ -481,19 +511,26 @@ export async function pushToCloudflare(
     const payloadStr = JSON.stringify(payload)
 
     if (config.mode === 'worker') {
-      const url = config.workerUrl.replace(/\/+$/, '') + '/sync'
-      const res = await executeRequest(url, {
-        method: 'POST',
+      const serverUrl = (config.workerUrl || DEFAULT_SERVER_URL).trim()
+      const token = (config.workerToken || '').trim()
+      if (!token || token.length < 8) {
+        throw new Error('同步凭据 (Token) 未设置或长度少于 8 位，请在「接入设置」中配置')
+      }
+      const { syncUrl } = resolveSyncEndpoints(serverUrl, APP_SYNC_ID)
+      // 自有多租户云服务使用 PUT /notes/sync
+      const res = await executeRequest(syncUrl, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${config.workerToken}`,
-          'x-sync-token': config.workerToken,
+          Authorization: `Bearer ${token}`,
+          'X-App-Id': APP_SYNC_ID,
+          'x-sync-token': token,
         },
         body: payloadStr,
       })
 
       if (!res.ok) {
-        throw new Error(`Worker 上传失败 (HTTP ${res.status}): ${res.text.slice(0, 120)}`)
+        throw new Error(`云端上传失败 (HTTP ${res.status}): ${res.text.slice(0, 120)}`)
       }
     } else {
       const url = `https://api.cloudflare.com/client/v4/accounts/${config.kvAccountId}/storage/kv/namespaces/${config.kvNamespaceId}/values/fehelper_notes_backup`
@@ -519,7 +556,7 @@ export async function pushToCloudflare(
   } catch (err: any) {
     return {
       success: false,
-      message: err?.message || '备份至 Cloudflare 失败',
+      message: err?.message || '备份至云端失败',
     }
   }
 }
@@ -537,12 +574,18 @@ export async function pullFromCloudflare(config: CloudflareSyncConfig): Promise<
     let rawPayloadText = ''
 
     if (config.mode === 'worker') {
-      const url = config.workerUrl.replace(/\/+$/, '') + '/sync'
-      const res = await executeRequest(url, {
+      const serverUrl = (config.workerUrl || DEFAULT_SERVER_URL).trim()
+      const token = (config.workerToken || '').trim()
+      if (!token || token.length < 8) {
+        throw new Error('同步凭据 (Token) 未设置或长度少于 8 位，请在「接入设置」中配置')
+      }
+      const { syncUrl } = resolveSyncEndpoints(serverUrl, APP_SYNC_ID)
+      const res = await executeRequest(syncUrl, {
         method: 'GET',
         headers: {
-          Authorization: `Bearer ${config.workerToken}`,
-          'x-sync-token': config.workerToken,
+          Authorization: `Bearer ${token}`,
+          'X-App-Id': APP_SYNC_ID,
+          'x-sync-token': token,
         },
       })
 
@@ -550,7 +593,7 @@ export async function pullFromCloudflare(config: CloudflareSyncConfig): Promise<
         return { success: false, message: '云端暂无备份数据，请先执行一次备份' }
       }
       if (!res.ok) {
-        throw new Error(`Worker 拉取失败 (HTTP ${res.status}): ${res.text.slice(0, 120)}`)
+        throw new Error(`云端拉取失败 (HTTP ${res.status}): ${res.text.slice(0, 120)}`)
       }
       rawPayloadText = res.text
     } else {
@@ -571,7 +614,26 @@ export async function pullFromCloudflare(config: CloudflareSyncConfig): Promise<
       rawPayloadText = res.text
     }
 
-    const payload: SyncPayload = JSON.parse(rawPayloadText)
+    const parsedJson = JSON.parse(rawPayloadText)
+    // 兼容自有服务器包裹结构: { data: <SyncPayload>, updatedAt: ... }
+    let payload: SyncPayload
+    if (parsedJson && typeof parsedJson === 'object') {
+      if (parsedJson.data === null && parsedJson.updatedAt === null) {
+        return { success: false, message: '云端暂无备份数据，请先在当前设备执行一次备份' }
+      }
+      if (
+        parsedJson.data &&
+        typeof parsedJson.data === 'object' &&
+        ('version' in parsedJson.data || 'data' in parsedJson.data)
+      ) {
+        payload = parsedJson.data as SyncPayload
+      } else {
+        payload = parsedJson as SyncPayload
+      }
+    } else {
+      throw new Error('云端返回的数据格式无法解析')
+    }
+
     let jsonString = payload.data
 
     if (payload.encrypted) {
@@ -608,7 +670,7 @@ export async function pullFromCloudflare(config: CloudflareSyncConfig): Promise<
   } catch (err: any) {
     return {
       success: false,
-      message: err?.message || '从 Cloudflare 拉取失败',
+      message: err?.message || '从云端拉取失败',
     }
   }
 }
@@ -837,19 +899,8 @@ export async function loadCloudflareConfig(): Promise<CloudflareSyncConfig> {
      *
      * 已经填了自己 Worker / KV 凭据的配置原样尊重，一项都不动。
      */
-    const stillOnSampleWorker = cfg.mode === 'worker' && cfg.workerUrl === SAMPLE_WORKER_URL
-    if (stillOnSampleWorker) {
-      const migrated: CloudflareSyncConfig = {
-        ...cfg,
-        workerUrl: '',
-        enabled: false,
-        autoSync: false,
-        autoSyncOnStartup: false,
-        autoBackupEnabled: false,
-        autoBackupOnEdit: false,
-      }
-      void saveCloudflareConfig(migrated)
-      return migrated
+    if (cfg.mode === 'worker' && (!cfg.workerUrl || cfg.workerUrl === SAMPLE_WORKER_URL)) {
+      cfg.workerUrl = DEFAULT_SERVER_URL
     }
 
     return cfg

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Plus, Search, Star, Tags } from 'lucide-react'
+import { PanelLeftClose, Plus, Search, Star, Tags } from 'lucide-react'
 import { META, ToolEmpty, pillClass } from '../../ui'
+import Tooltip from '../../ui/Tooltip'
 import { useSnippets, filterSnippets, type Snippet } from './useSnippets'
 import SnippetListContextMenu from './SnippetListContextMenu'
 
@@ -13,9 +14,12 @@ import SnippetListContextMenu from './SnippetListContextMenu'
  */
 export default function SnippetsSidebar({
   onAfterSelect,
+  onCollapse,
 }: {
   /** 移动端抽屉里选中后要关掉抽屉 */
   onAfterSelect?: () => void
+  /** 折叠侧边栏回调 */
+  onCollapse?: () => void
 }) {
   const { snippets, loaded, allTags } = useSnippets()
   const [keyword, setKeyword] = useState('')
@@ -30,10 +34,26 @@ export default function SnippetsSidebar({
     <div className="flex flex-col h-full min-h-0">
       <div className="p-2.5 border-b border-slate-100 dark:border-dark-border space-y-2.5 shrink-0">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-            片段库
-          </span>
-          <span className="text-[10px] text-slate-400">{filtered.length} / {snippets.length}</span>
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-xs font-bold text-slate-700 dark:text-slate-200 tracking-tight">
+              片段库
+            </span>
+            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-slate-100 dark:bg-dark-hover text-slate-500 dark:text-slate-400">
+              {filtered.length} / {snippets.length}
+            </span>
+          </div>
+          {onCollapse && (
+            <Tooltip content="折叠侧边栏 (⌘B)">
+              <button
+                type="button"
+                onClick={onCollapse}
+                className="flex items-center justify-center p-1 bg-slate-100 dark:bg-dark-hover hover:bg-slate-200 dark:hover:bg-dark-border text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 rounded-lg transition-all"
+                aria-label="折叠侧边栏"
+              >
+                <PanelLeftClose className="w-3.5 h-3.5" />
+              </button>
+            </Tooltip>
+          )}
         </div>
 
         <div className="relative flex items-center">

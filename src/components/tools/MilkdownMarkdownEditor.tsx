@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { MouseEvent as ReactMouseEvent } from 'react'
+import type { ReactNode } from 'react'
 import {
   Editor,
   defaultValueCtx,
@@ -131,6 +132,10 @@ export type MilkdownMarkdownEditorProps = {
   onTogglePreview?: () => void
   /** 「返回顶部」：状态与回调都在宿主（NotesTool），这里只透传给工具栏 */
   backToTop?: { visible: boolean; onClick: () => void }
+  /** 笔记页自己的控件（内核切换、缩放）。摆在工具栏最右端 */
+  toolbarExtra?: ReactNode
+  /** 笔记页自己的控件（内核切换）。摆在工具栏左端 */
+  toolbarLeading?: ReactNode
   /** 当前笔记 id。随阅读位置一起上报，供外壳认领「这份数据是哪一篇的」 */
   noteId?: string
   /** 这篇笔记的阅读书签。数据归宿主（要参与同步），胶囊只负责显示与交互 */
@@ -224,6 +229,8 @@ export default function MilkdownMarkdownEditor({
   preview = false,
   onTogglePreview,
   backToTop,
+  toolbarExtra,
+  toolbarLeading,
   noteId = '',
   bookmarks,
   onJumpBookmark,
@@ -996,6 +1003,8 @@ export default function MilkdownMarkdownEditor({
             // Milkdown 不像 Cherry 那样把状态渲染进 DOM，active 态由这里给出
             state={toolbarState}
             backToTop={backToTop}
+            extra={toolbarExtra}
+            leading={toolbarLeading}
           />
         </div>
       )}

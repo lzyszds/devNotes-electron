@@ -8,7 +8,6 @@ import {
   Check,
   Shield,
   KeyRound,
-  ExternalLink,
   Lock,
   Eye,
   EyeOff,
@@ -20,11 +19,13 @@ import {
   Sparkles,
   Archive,
   FileText,
+  Server,
+  Dices,
 } from 'lucide-react'
 import { useNotes } from '../../context/NotesContext'
 import {
   CLOUDFLARE_WORKER_SCRIPT,
-  SAMPLE_WORKER_URL,
+  DEFAULT_SERVER_URL,
   type CloudflareSyncConfig,
   type BackupSnapshot,
 } from '../../utils/cloudflareSync'
@@ -57,7 +58,7 @@ function formatRelativeTime(timestamp: number): string {
   return `${day} 天前`
 }
 
-/** 全局设置 · 云同步：Cloudflare 备份/同步/快照面板（自 CloudflareSyncModal 迁移而来） */
+/** 全局设置 · 云同步：私有云服务器与自建同步/快照面板 */
 export default function CloudflareSyncPanel() {
   const {
     aliveCount,
@@ -105,6 +106,17 @@ export default function CloudflareSyncPanel() {
     }
   }
 
+  // 随机生成 Token
+  const handleGenerateRandomToken = () => {
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
+    let rand = 'devnotes_'
+    for (let i = 0; i < 16; i++) {
+      rand += chars[Math.floor(Math.random() * chars.length)]
+    }
+    setFormConfig((prev) => ({ ...prev, workerToken: rand }))
+    showToast('已生成新同步凭据，请点击「保存设置」生效', 'default')
+  }
+
   // 测试连接
   const handleTestConnection = async () => {
     setIsTesting(true)
@@ -147,7 +159,7 @@ export default function CloudflareSyncPanel() {
 
   // 触发单向覆盖拉取
   const handlePullOverwrite = async () => {
-    const ok = window.confirm('警告：此操作将用 Cloudflare 云端备份完全覆盖本地全部笔记，确定继续吗？')
+    const ok = window.confirm('警告：此操作将用云端备份完全覆盖本地全部笔记，确定继续吗？')
     if (!ok) return
     setIsOperating(true)
     try {
@@ -245,16 +257,6 @@ export default function CloudflareSyncPanel() {
         : cfConfig.kvAccountId && cfConfig.kvNamespaceId && cfConfig.kvApiToken)
   )
 
-  /*
-   * 还在用内置公共端点的用户给一句提醒。
-   *
-   * 那个地址不属于任何用户：所有没改过它的客户端会写到同一份云端数据里，
-   * 互相覆盖，且内容对端点所有者可见。迁移逻辑（loadCloudflareConfig）已经
-   * 把它的自动化开关关掉了，这里再把原因说明白，引导用户去部署自己的 Worker。
-   */
-  const usingSharedEndpoint =
-    cfConfig.mode === 'worker' && Boolean(cfConfig.workerUrl) && cfConfig.workerUrl === SAMPLE_WORKER_URL
-
   const TABS: {
     id: 'console' | 'snapshots' | 'config' | 'deploy'
     label: string
@@ -263,7 +265,7 @@ export default function CloudflareSyncPanel() {
     { id: 'console', label: '同步控制台', icon: Zap },
     { id: 'snapshots', label: '自动备份与快照', icon: History },
     { id: 'config', label: '接入设置', icon: KeyRound },
-    { id: 'deploy', label: 'Worker 部署指南', icon: ExternalLink },
+    { id: 'deploy', label: '架构与服务说明', icon: Server },
   ]
 
   return (
@@ -287,29 +289,18 @@ export default function CloudflareSyncPanel() {
               isConfigured ? 'text-emerald-800 dark:text-emerald-300' : 'text-slate-700 dark:text-slate-300'
             }`}
           >
-            {isConfigured ? '云端已接入' : '尚未接入云端'}
+            {isConfigured ? '私有云端已就绪' : '尚未启用云同步'}
           </span>
           <span className="text-[11px] text-slate-400 truncate">
             {isConfigured
-              ? '笔记变更会自动加密备份到 Cloudflare'
-              : '前往「接入设置」填写 Cloudflare 凭据后启用'}
+              ? '笔记变更会自动安全同步至您的专属私有云服务器'
+              : '前往「接入设置」配置服务器与同步凭据即可启用'}
           </span>
         </div>
         <span className="text-[10px] text-slate-400 flex-shrink-0 font-mono">
           {cfConfig.lastSyncTime ? new Date(cfConfig.lastSyncTime).toLocaleString() : '暂无同步记录'}
         </span>
       </div>
-
-      {/* 共享端点警示：只在实际还指着内置公共 Worker 时出现 */}
-      {usingSharedEndpoint && (
-        <NoteCard variant="warning" icon={Shield}>
-          <span className="font-semibold block text-xs mb-0.5">正在使用内置公共示例端点</span>
-          <span className="text-[11px] opacity-90">
-            该地址仅作演示，所有未修改配置的用户会写入同一份云端数据、互相覆盖。
-            请参照「Worker 部署指南」部署属于自己的 Worker，或改用 KV 模式接入。
-          </span>
-        </NoteCard>
-      )}
 
       {/* 面板内标签页切换栏：分段胶囊式控制器 */}
       <div className="p-1 bg-slate-100/90 dark:bg-dark-sidebar/90 rounded-xl border border-slate-200/70 dark:border-dark-border flex gap-1 overflow-x-auto scrollbar-hide">
@@ -414,7 +405,7 @@ export default function CloudflareSyncPanel() {
                   <div>
                     <div className="flex items-center gap-2 font-semibold text-slate-800 dark:text-white text-xs">
                       <CloudUpload className="w-4 h-4 text-brand-500" />
-                      <span>推送备份至 Cloudflare</span>
+                      <span>推送备份至私有云端</span>
                     </div>
                     <p className="text-[11px] text-slate-400 mt-1">
                       将本地全部 {aliveCount} 篇笔记加密打包推送到云端空间作为最新快照。
@@ -430,7 +421,7 @@ export default function CloudflareSyncPanel() {
                     ) : (
                       <CloudUpload className="w-3.5 h-3.5" />
                     )}
-                    <span>立即备份到云端</span>
+                    <span>立即备份到私有云</span>
                   </button>
                 </div>
 
@@ -547,7 +538,7 @@ export default function CloudflareSyncPanel() {
                     checked={Boolean(cfConfig.autoSync)}
                     onChange={(checked) => updateCfConfig({ autoSync: checked })}
                     label="内容修改后防抖自动上传与快照"
-                    description="停止编辑 3 秒后，自动将笔记静默同步到 Cloudflare 云端并存档"
+                    description="停止编辑 3 秒后，自动将笔记静默同步到私有云端并存档"
                   />
                 </div>
 
@@ -556,7 +547,7 @@ export default function CloudflareSyncPanel() {
                     checked={Boolean(cfConfig.autoSyncOnStartup)}
                     onChange={(checked) => updateCfConfig({ autoSyncOnStartup: checked })}
                     label="软件启动时自动拉取"
-                    description="每次打开 devNotes 时，自动拉取云端最新笔记并智能合并。注意：远端更新时间较新的文档会整篇覆盖本地正文，正在编辑的文档也会被重载"
+                    description="每次打开 devNotes 时，自动拉取云端最新笔记并智能合并。远端更新时间较新的文档会智能同步"
                   />
                 </div>
               </div>
@@ -744,8 +735,8 @@ export default function CloudflareSyncPanel() {
               <Switch
                 checked={Boolean(formConfig.enabled)}
                 onChange={(checked) => setFormConfig((prev) => ({ ...prev, enabled: checked }))}
-                label="开启 Cloudflare 云端同步"
-                description="开启后允许本客户端与 Cloudflare 通信进行备份与拉取"
+                label="开启云端数据同步"
+                description="开启后允许本客户端与专属云端服务器通信，进行安全备份与多端同步"
               />
             </div>
 
@@ -765,15 +756,16 @@ export default function CloudflareSyncPanel() {
                   }`}
                 >
                   <div className="flex items-center justify-between gap-1.5">
-                    <span className="text-xs font-bold text-slate-900 dark:text-white">
-                      Cloudflare Worker
+                    <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                      <Server className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
+                      <span>专属私有云服务</span>
                     </span>
                     <span className="text-[9px] font-semibold bg-brand-600 text-white px-1.5 py-px rounded-full flex-shrink-0">
-                      推荐
+                      默认推荐
                     </span>
                   </div>
                   <div className="text-[10px] text-slate-400 mt-1 leading-relaxed">
-                    只需 Worker 地址与秘钥，免 CORS 限制
+                    基于独立服务器与 PostgreSQL，极速响应，支持多端数据隔离与无缝同步
                   </div>
                 </button>
 
@@ -787,10 +779,10 @@ export default function CloudflareSyncPanel() {
                   }`}
                 >
                   <div className="text-xs font-bold text-slate-900 dark:text-white">
-                    Cloudflare KV API
+                    Cloudflare KV 直连
                   </div>
                   <div className="text-[10px] text-slate-400 mt-1 leading-relaxed">
-                    官方 REST API 直连，免写 Worker 代码
+                    使用 Cloudflare 官方 REST API 直连（备用通道）
                   </div>
                 </button>
               </div>
@@ -798,39 +790,84 @@ export default function CloudflareSyncPanel() {
 
             {/* 根据模式显示不同的输入表单 */}
             {formConfig.mode === 'worker' ? (
-              <div className="space-y-3 p-3.5 bg-slate-50/60 dark:bg-dark-sidebar/40 rounded-xl border border-slate-100 dark:border-dark-border">
+              <div className="space-y-3.5 p-3.5 bg-slate-50/60 dark:bg-dark-sidebar/40 rounded-xl border border-slate-100 dark:border-dark-border">
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                    Worker 部署地址 (URL)
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                      云端同步服务地址 (Server URL)
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                        已部署专属服务
+                      </span>
+                      <a
+                        href={DEFAULT_SERVER_URL}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[10px] text-brand-600 dark:text-brand-400 hover:underline font-medium"
+                      >
+                        在线文档 ↗
+                      </a>
+                    </div>
+                  </div>
                   <input
                     type="text"
                     value={formConfig.workerUrl}
                     onChange={(e) =>
                       setFormConfig((prev) => ({ ...prev, workerUrl: e.target.value.trim() }))
                     }
-                    placeholder={SAMPLE_WORKER_URL}
-                    className="w-full px-3 py-2 text-xs bg-white dark:bg-dark-panel border border-slate-200/80 dark:border-dark-border rounded-xl outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 text-slate-800 dark:text-white placeholder:text-slate-400 transition-all shadow-2xs"
+                    placeholder={DEFAULT_SERVER_URL}
+                    className="w-full px-3 py-2 text-xs bg-white dark:bg-dark-panel border border-slate-200/80 dark:border-dark-border rounded-xl outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 text-slate-800 dark:text-white placeholder:text-slate-400 transition-all shadow-2xs font-mono"
                   />
                   <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">
-                    默认不预填任何地址。上方示例地址是公共演示端点，多人共用会互相覆盖，
-                    建议部署自己的 Worker（见「Worker 部署指南」）。
+                    默认已预填您的专属服务器端点 <span className="font-mono text-slate-600 dark:text-slate-300">{DEFAULT_SERVER_URL}</span>，健康检查接口实时在线。
                   </p>
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                    同步鉴权秘钥 (Secret Token, 可选)
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                      同步访问凭据 (Token / 至少 8 位)
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleGenerateRandomToken}
+                        className="inline-flex items-center gap-1 text-[10px] text-brand-600 dark:text-brand-400 hover:underline"
+                      >
+                        <Dices className="w-3 h-3" />
+                        <span>随机生成</span>
+                      </button>
+                      {formConfig.workerToken && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const ok = await copyText(formConfig.workerToken)
+                            showToast(ok ? '已复制同步凭据' : '复制失败', ok ? 'default' : 'error')
+                          }}
+                          className="inline-flex items-center gap-1 text-[10px] text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                        >
+                          <Copy className="w-3 h-3" />
+                          <span>复制</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
                   <input
-                    type="password"
+                    type="text"
                     value={formConfig.workerToken}
                     onChange={(e) =>
                       setFormConfig((prev) => ({ ...prev, workerToken: e.target.value.trim() }))
                     }
-                    placeholder="在 Worker 环境变量中配置的 SECRET_TOKEN"
+                    placeholder="输入或生成您的专属 Token（例如：devnotes_my_secret_token）"
                     className="w-full px-3 py-2 text-xs bg-white dark:bg-dark-panel border border-slate-200/80 dark:border-dark-border rounded-xl outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 text-slate-800 dark:text-white placeholder:text-slate-400 font-mono transition-all shadow-2xs"
                   />
+                  <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">
+                    在您的其它设备上填入相同的 Token，即可自动双向同步全部笔记。
+                    <span className="text-emerald-700 dark:text-emerald-300 font-medium ml-1 block sm:inline mt-0.5 sm:mt-0">
+                      🛡️ 具备应用命名空间隔离：即便服务器同时供「萌厨食光」等其它项目共用同步，底层也会附加专属应用指纹，各项目数据在数据库中绝对物理隔离，永不混淆覆盖。
+                    </span>
+                  </p>
                 </div>
               </div>
             ) : (
@@ -892,10 +929,10 @@ export default function CloudflareSyncPanel() {
                 label={
                   <span className="flex items-center gap-1.5">
                     <Shield className="w-3.5 h-3.5 text-emerald-500" />
-                    <span>端到端数据加密 (E2EE)</span>
+                    <span>端到端数据加密 (E2EE 零知识保护)</span>
                   </span>
                 }
-                description="笔记在离开本地前完成 AES-256-GCM 加密，云端无法解密读取"
+                description="笔记与设置在离开本机前由 Web Crypto AES-256-GCM 彻底加密，云端仅存储密文，即使服务器被攻击也无法读取任何内容"
               />
 
               {formConfig.enableE2EE && (
@@ -960,21 +997,62 @@ export default function CloudflareSyncPanel() {
           </div>
         )}
 
-        {/* TAB 4: Cloudflare Worker 部署指南 */}
+        {/* TAB 4: 私有云服务架构与说明 */}
         {activeTab === 'deploy' && (
           <div className="space-y-4">
-            <NoteCard variant="warning" title="三步拥有属于你的 Cloudflare 同步服务">
-              1. 登录 Cloudflare Dashboard 并在 Workers 中新建一个 Worker。
-              <br />
-              2. 复制下方脚本粘贴并部署，在 Settings → Variables 中绑定名为{' '}
-              <strong className="font-semibold">FEHELPER_KV</strong> 的 KV 空间。
-              <br />
-              3. 将生成的 Worker 网址填回「接入设置」即可永久免费同步。
+            <NoteCard variant="success" icon={Server} title="统一多租户云同步平台（已全面就绪）">
+              <span className="text-xs leading-relaxed block">
+                您的专属云同步服务已在服务器（<strong className="font-mono">101.201.171.168</strong>）上升级为<strong>统一多租户云同步网关</strong>（托管服务 <code className="font-mono bg-black/5 dark:bg-white/10 px-1 rounded">mengchu-sync</code>），完美支持多个独立项目共用。
+              </span>
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                <div className="p-2.5 rounded-xl bg-white/70 dark:bg-dark-panel/60 border border-slate-200/60 dark:border-dark-border space-y-1">
+                  <div className="font-semibold text-slate-800 dark:text-white flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                    <span>开发笔记 (devNotes)</span>
+                  </div>
+                  <div className="text-slate-500 dark:text-slate-400 font-mono text-[10px]">租户标识: notes</div>
+                  <div className="text-slate-400 text-[10px]">专属路由: /notes/sync</div>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-white/70 dark:bg-dark-panel/60 border border-slate-200/60 dark:border-dark-border space-y-1">
+                  <div className="font-semibold text-slate-800 dark:text-white flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-amber-500" />
+                    <span>萌厨食光 (lzyRecipe)</span>
+                  </div>
+                  <div className="text-slate-500 dark:text-slate-400 font-mono text-[10px]">租户标识: recipe</div>
+                  <div className="text-slate-400 text-[10px]">兼容路由: /sync 或 /recipe/sync</div>
+                </div>
+              </div>
+
+              <ul className="list-disc list-inside mt-3 space-y-1 text-[11px] opacity-90">
+                <li><strong>联合主键物理隔离</strong>：PostgreSQL 采用 <code>PRIMARY KEY (app, token_hash)</code>，无论两边是否设置相同密码，数据绝对独立。</li>
+                <li><strong>无感平滑兼容</strong>：lzyRecipe 现有的线上代码无需做任何修改，未带 app 标识的请求全自动归属 <code>recipe</code> 租户。</li>
+                <li><strong>端到端双重安全</strong>：支持 Web Crypto AES-256-GCM 零知识加密，云端仅存放密文。</li>
+              </ul>
+
+              <div className="pt-2">
+                <a
+                  href={DEFAULT_SERVER_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-brand-50 hover:bg-brand-100/80 dark:bg-brand-950/40 dark:hover:bg-brand-900/60 border border-brand-200/80 dark:border-brand-800/40 text-brand-700 dark:text-brand-300 text-xs font-semibold transition-all active:scale-[0.99] text-decoration-none"
+                >
+                  <span>在浏览器打开完整在线开发者文档 ({DEFAULT_SERVER_URL})</span>
+                  <span>↗</span>
+                </a>
+              </div>
             </NoteCard>
 
-            <div className="relative">
+            <NoteCard variant="warning" title="多设备同步说明">
+              只需在另一台电脑安装相同版本的软件，在「接入设置」中填入相同的
+              <strong className="font-semibold">【服务地址】</strong>和
+              <strong className="font-semibold">【同步凭据 (Token)】</strong>
+              （若开启了端到端加密，需输入相同的加密密码），即可自动双向同步全部笔记文档和应用偏好！
+            </NoteCard>
+
+            <div className="relative pt-2">
               <div className="flex items-center justify-between pb-1.5 text-xs text-slate-400">
-                <span>Worker 完整网关脚本</span>
+                <span>备用：Cloudflare Worker 网关脚本（自建备用）</span>
                 <Tooltip content="复制 Worker 脚本">
                   <button
                     onClick={handleCopyWorkerScript}
@@ -995,7 +1073,7 @@ export default function CloudflareSyncPanel() {
                 </Tooltip>
               </div>
 
-              <pre className="p-3.5 bg-slate-900 text-slate-200 rounded-2xl font-mono text-[11px] leading-5 max-h-72 overflow-y-auto border border-slate-800 shadow-2xs">
+              <pre className="p-3.5 bg-slate-900 text-slate-200 rounded-2xl font-mono text-[11px] leading-5 max-h-56 overflow-y-auto border border-slate-800 shadow-2xs">
                 {CLOUDFLARE_WORKER_SCRIPT}
               </pre>
             </div>

@@ -266,7 +266,7 @@ timeline
 \`\`\`typescript
 interface WorkspaceConfig {
   /** 当前活动的主题标识 */
-  theme: 'default' | 'paper' | 'tokyo-night' | 'dracula' | 'forest';
+  theme: 'tokyo-night' | 'one-dark' | 'nordic-snow' | 'ocean';
   /** 是否开启双栏协同分屏 */
   splitView: boolean;
   /** 自动云备份配置 */

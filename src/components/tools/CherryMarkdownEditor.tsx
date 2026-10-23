@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useMemo, useRef } from 'react'
 import type { MouseEvent as ReactMouseEvent } from 'react'
+import type { ReactNode } from 'react'
 import Cherry from 'cherry-markdown'
 import 'cherry-markdown/dist/cherry-markdown.css'
 import { useNotes } from '../../context/NotesContext'
@@ -63,6 +64,10 @@ export type CherryMarkdownEditorProps = {
   onTogglePreview?: () => void
   /** 「返回顶部」：状态与回调都在宿主（NotesTool），这里只透传给工具栏 */
   backToTop?: { visible: boolean; onClick: () => void }
+  /** 笔记页自己的控件（内核切换、缩放）。摆在工具栏最右端 */
+  toolbarExtra?: ReactNode
+  /** 笔记页自己的控件（内核切换）。摆在工具栏左端 */
+  toolbarLeading?: ReactNode
   /** 当前笔记 id。随阅读位置一起上报，供外壳认领「这份数据是哪一篇的」 */
   noteId?: string
 }
@@ -103,6 +108,8 @@ export default function CherryMarkdownEditor({
   preview = false,
   onTogglePreview,
   backToTop,
+  toolbarExtra,
+  toolbarLeading,
   noteId = '',
 }: CherryMarkdownEditorProps) {
   const { registerInsertHandler } = useNotes()
@@ -593,6 +600,8 @@ export default function CherryMarkdownEditor({
             state={toolbarState}
             trailing={<ViewModeSwitch value={viewMode} onChange={onViewModeChange} />}
             backToTop={backToTop}
+            extra={toolbarExtra}
+            leading={toolbarLeading}
           />
         </div>
       )}

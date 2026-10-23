@@ -80,9 +80,10 @@ function ToolLoading() {
 /**
  * 工具页容器。
  *
- * 切换动画不在这里做 —— 页面本身不动、也不交叉淡化（那样总有一层要淡出，
- * 免不了发虚），改成各工具内容自己「级联落位」：顶栏瞬间就位，卡片依次落下，
- * 见 index.css 的 .tool-cascade。
+ * 切工具是硬切，页面本身不做任何动画 —— 之前叠两层做竖滑转场时，新旧两页
+ * 必然有一段同时半透明，旧页的内容会从新页底下透出来（切页时先闪一下上一个
+ * 工具的内容）。入场感交给各工具内容自己「级联落位」：顶栏瞬间就位，卡片依次
+ * 落下，见 index.css 的 .tool-cascade。
  */
 export default function ToolPage({ toolId }: { toolId: string }) {
   const tool = allModules.find((item) => item.id === toolId)

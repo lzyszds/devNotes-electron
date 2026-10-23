@@ -2,7 +2,6 @@ import { Fragment, useState, useRef, useEffect, useMemo } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import {
   PanelLeft,
-  ChevronRight,
   Menu,
   ListTree,
   MoreVertical,
@@ -23,7 +22,6 @@ import {
   Cloud,
   CloudUpload,
   CloudDownload,
-  FolderOpen,
   Copy,
   Settings,
   Sparkles,
@@ -32,8 +30,6 @@ import {
 import {
   allModules,
   standaloneModules,
-  tools,
-  toolCategories,
 } from "../../types";
 import NotesSidebar from "../modules/markdown-notes/NotesSidebar";
 import SnippetsSidebar from "../modules/snippets/SnippetsSidebar";
@@ -45,9 +41,7 @@ import Tooltip from "../ui/Tooltip";
 import { useToast } from "../ui/Toast";
 import { copyText } from "../../utils/clipboard";
 import { usePresence } from "../../hooks/usePresence";
-import { useHorizontalScroll } from "../../hooks/useHorizontalScroll";
 import { useIsMobile } from "../../hooks/useIsMobile";
-import { useSlideTransition } from "../../hooks/useSlideTransition";
 import { useShortcutSettings } from "../../hooks/useShortcutSettings";
 import {
   SHORTCUT_BINDINGS,
@@ -79,8 +73,6 @@ import logo from "../../assets/logo.png";
 import WindowControls from "./WindowControls";
 import ThemeQuickMenu from "./ThemeQuickMenu";
 import ToolIcon from "../ui/ToolIcon";
-import ToolTabTray from "./ToolTabTray";
-import { openToolTab } from "../../utils/toolTabs";
 
 /** 是否是独立模块。Rail 上独立模块与普通小工具之间要画一条分隔线 */
 function isStandalone(id: string | undefined): boolean {
@@ -121,13 +113,6 @@ export default function DashboardLayout({
   const isDark = isDarkTheme(theme);
   // < 768px 走移动端外壳：目录改抽屉、顶栏精简
   const isMobile = useIsMobile();
-  /*
-   * 切工具的竖滑转场。顺序取工具在 allModules 里的下标 —— 用它判断这次是
-   * 「往后跳」还是「往回跳」，据此决定新页从下方上来还是从上方压下来。
-   */
-  const slide = useSlideTransition(activeTabId, (id) =>
-    allModules.findIndex((t) => t.id === id),
-  );
 
   // 移动端初值就得是收起：若先以展开态挂载、再由 effect 改成收起，
   // 每次切回笔记都会看到目录滑出一下（300ms 过渡）。
@@ -145,14 +130,21 @@ export default function DashboardLayout({
   const [settingsSection, setSettingsSection] =
     useState<SettingsSection>("general");
   const [cmdSearch, setCmdSearch] = useState("");
-  const [toolFilter, setToolFilter] = useState("");
-  // 切到哪个工具，就把它记进标签托盘（笔记、翻译等入口都走这里）
-  useEffect(() => {
-    openToolTab(activeTabId);
-  }, [activeTabId]);
 
-  const [activeCategory, setActiveCategory] = useState("all");
-  const categoryRowRef = useHorizontalScroll<HTMLDivElement>();
+  // 顶栏文档标题就地编辑
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [tempTitle, setTempTitle] = useState("");
+  const titleInputRef = useRef<HTMLInputElement>(null);
+
+  const handleTitleCommit = () => {
+    setIsEditingTitle(false);
+    const trimmed = tempTitle.trim();
+    if (activeNote && trimmed && trimmed !== activeNote.title) {
+      handleRenameNote(activeNote.id, trimmed);
+      showToast("已重命名笔记");
+    }
+  };
+
 
   const cmdInputRef = useRef<HTMLInputElement>(null);
   const sidebarRef = useRef<HTMLElement>(null);
@@ -182,6 +174,8 @@ export default function DashboardLayout({
   const isTranslateActive = activeTabId === "text-translate";
   // 代码片段库同样是独立模块，有自己的二级导航
   const isSnippetsActive = activeTabId === "snippets";
+  // 只有笔记和片段库拥有二级侧栏，其它小工具独占全宽大视野
+  const hasSecondarySidebar = isMarkdownActive || isSnippetsActive;
   /*
    * 左侧菜单栏的默认项。存一份在内存里并订阅变化 —— 设置面板里勾一下，
    * Rail 要当场跟着变，不能等重新进页面。
@@ -295,8 +289,8 @@ export default function DashboardLayout({
               result === "error"
                 ? "保存失败，改动仍在本机内存中，请稍后重试"
                 : result === "saved"
-                ? "已保存"
-                : "已保存，没有新修改"
+                  ? "已保存"
+                  : "已保存，没有新修改"
             );
           });
         }
@@ -399,16 +393,6 @@ export default function DashboardLayout({
     if ((event.target as HTMLElement).closest(".no-drag")) return;
     handleMaximize();
   };
-
-  // 侧边栏所有组件过滤
-  const filteredTools = tools.filter((tool) => {
-    const matchesSearch =
-      tool.name.toLowerCase().includes(toolFilter.toLowerCase()) ||
-      tool.description.toLowerCase().includes(toolFilter.toLowerCase());
-    const matchesCategory =
-      activeCategory === "all" || tool.category === activeCategory;
-    return matchesSearch && matchesCategory;
-  });
 
   // 指令面板指令过滤
   const commandList = [
@@ -559,9 +543,8 @@ export default function DashboardLayout({
     },
     ...THEMES.map((t) => ({
       id: `cmd-theme-${t.id}`,
-      title: `切换主题：${t.name} (${t.englishName} · ${
-        t.mode === "dark" ? "深色" : "浅色"
-      })`,
+      title: `切换主题：${t.name} (${t.englishName} · ${t.mode === "dark" ? "深色" : "浅色"
+        })`,
       shortcut: t.id === theme ? "当前" : "",
       icon: t.mode === "dark" ? Moon : Sun,
       action: () => {
@@ -729,8 +712,8 @@ export default function DashboardLayout({
                   isMarkdownActive
                     ? "打开文档列表"
                     : isSnippetsActive
-                    ? "打开片段列表"
-                    : "打开翻译面板"
+                      ? "打开片段列表"
+                      : "打开翻译面板"
                 }
               >
                 <Menu className="w-5 h-5" />
@@ -748,34 +731,32 @@ export default function DashboardLayout({
               </span>
               {isMarkdownActive && (
                 <span
-                  className={`flex items-center gap-1 text-[10px] font-medium ${
-                    saveStatus === "error"
-                      ? "text-rose-600 dark:text-rose-400"
-                      : saveStatus === "saving"
+                  className={`flex items-center gap-1 text-[10px] font-medium ${saveStatus === "error"
+                    ? "text-rose-600 dark:text-rose-400"
+                    : saveStatus === "saving"
                       ? "text-amber-600 dark:text-amber-400"
                       : saveStatus === "unsaved"
-                      ? "text-amber-600 dark:text-amber-400"
-                      : "text-emerald-600 dark:text-emerald-400"
-                  }`}
+                        ? "text-amber-600 dark:text-amber-400"
+                        : "text-emerald-600 dark:text-emerald-400"
+                    }`}
                 >
                   <span
-                    className={`h-1.5 w-1.5 rounded-full ${
-                      saveStatus === "error"
-                        ? "bg-rose-500"
-                        : saveStatus === "saving"
+                    className={`h-1.5 w-1.5 rounded-full ${saveStatus === "error"
+                      ? "bg-rose-500"
+                      : saveStatus === "saving"
                         ? "bg-amber-500 animate-pulse"
                         : saveStatus === "unsaved"
-                        ? "bg-amber-500"
-                        : "bg-emerald-500"
-                    }`}
+                          ? "bg-amber-500"
+                          : "bg-emerald-500"
+                      }`}
                   />
                   {saveStatus === "saving"
                     ? "保存中"
                     : saveStatus === "error"
-                    ? "保存失败"
-                    : saveStatus === "unsaved"
-                    ? "未保存"
-                    : "已保存"}{" "}
+                      ? "保存失败"
+                      : saveStatus === "unsaved"
+                        ? "未保存"
+                        : "已保存"}{" "}
                   · {docCharCount.toLocaleString()} 字
                 </span>
               )}
@@ -803,131 +784,121 @@ export default function DashboardLayout({
           </>
         ) : (
           <>
-            {/*
-              左侧这块不再整体 no-drag：无边框下这片空白是最好用的拖拽区，
-              只把真正要响应点击的元素标成 no-drag，剩下的交给顶栏的 drag-region。
-            */}
-            <div className="flex items-center gap-3 flex-shrink-0 min-w-0 flex-1 md:flex-none">
+            {/* 左侧：窗口控件 + 侧边栏折叠 + 文档标题 / 模块信息 */}
+            <div className="flex items-center gap-2.5 flex-shrink-0 min-w-0">
               <WindowControls className="mr-1 hidden md:flex" />
 
-              {/* 只有笔记页有可折叠的二级面板。翻译页原先也有（方向 + 历史），
-              现已移除 —— 那里两个区块在右侧输入区与顶栏都有等价入口 */}
-              {!isTranslateActive && (!isMobile || isMarkdownActive) && (
-                <Tooltip
-                  content={
-                    isSidebarOpen ? "折叠侧边栏 (⌘B)" : "展开侧边栏 (⌘B)"
-                  }
-                >
-                  <button
-                    onClick={() => setIsSidebarOpen((prev) => !prev)}
-                    className="no-drag p-1 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-dark-hover transition-colors"
-                  >
-                    <PanelLeft className="w-4 h-4" />
-                  </button>
-                </Tooltip>
-              )}
-
-              <div className="hidden md:block h-4 w-[1px] bg-slate-200 dark:bg-dark-border" />
-
-              {/* 面包屑：移动端只留当前文档名，把宽度让给标题 */}
-              <div className="flex items-center gap-2 text-[13px] font-medium text-slate-500 dark:text-slate-400 min-w-0 flex-1 md:flex-none">
-                <span className="no-drag hidden md:inline">devNotes</span>
-                <ChevronRight className="hidden md:block w-3.5 h-3.5 text-slate-300 dark:text-slate-600" />
-                {/*
-              这一层本来就能弹右键菜单（handleBreadcrumbContextMenu），说明它的指针事件
-              一定是通的 —— 把「点击进编辑」挂在这里，是挂在一块已证实可交互的区域上，
-              而不是赌某个子孙元素的 no-drag 生效。
-            */}
-                <span
-                  onContextMenu={handleBreadcrumbContextMenu}
-                  className="no-drag text-slate-900 dark:text-white font-semibold flex items-center gap-1.5 min-w-0 flex-1 md:flex-none md:w-[200px]"
-                >
-                  {/*
-                key 绑当前工具：名字换了就重挂载一次，让 fe-rise 重播一段淡入。
-                包在外层 span 里而不是给 span 加 key —— 外层带 onContextMenu 与
-                宽度约束，跟着重挂会把这几个布局属性一起重建，顶栏会闪一下。
-              */}
-                  <span
-                    key={currentTool?.id || "none"}
-                    className="fe-rise flex items-center gap-1.5 min-w-0"
-                  >
-                    {isMarkdownActive ? (
-                      <>
-                        <FileCode className="w-4 h-4 text-brand-600 dark:text-brand-400 flex-shrink-0" />
-                        <span className="min-w-0 truncate">
-                          {activeNote?.title || "未命名笔记"}
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <ToolIcon
-                          toolId={currentTool?.id || ""}
-                          className="w-4 h-4 text-brand-600 dark:text-brand-400 flex-shrink-0"
+              {/* 标题呈现与就地重命名 */}
+              <div className="flex items-center gap-2 min-w-0">
+                {isMarkdownActive ? (
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div onContextMenu={handleBreadcrumbContextMenu} className="no-drag flex items-center gap-1.5 min-w-0">
+                      <FileCode className="w-4 h-4 text-brand-600 dark:text-brand-400 flex-shrink-0" />
+                      {isEditingTitle ? (
+                        <input
+                          ref={titleInputRef}
+                          type="text"
+                          value={tempTitle}
+                          onChange={(e) => setTempTitle(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleTitleCommit();
+                            if (e.key === "Escape") setIsEditingTitle(false);
+                          }}
+                          onBlur={handleTitleCommit}
+                          className="h-6 px-1.5 text-xs font-semibold rounded bg-white dark:bg-dark-panel border border-brand-500 outline-none text-slate-900 dark:text-white min-w-[120px] max-w-[260px]"
+                          autoFocus
                         />
-                        <span className="min-w-0 truncate">
-                          {currentTool?.name || "工具"}
-                        </span>
-                      </>
-                    )}
-                  </span>
-                </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTempTitle(activeNote?.title || "");
+                            setIsEditingTitle(true);
+                          }}
+                          title="点击就地重命名文档"
+                          className="group text-xs font-semibold text-slate-800 dark:text-slate-100 hover:text-brand-600 dark:hover:text-brand-400 truncate max-w-[220px] text-left transition-colors flex items-center gap-1.5 py-0.5 px-1.5 -ml-1 rounded-md hover:bg-slate-200/50 dark:hover:bg-dark-hover"
+                        >
+                          <span className="truncate">
+                            {activeNote?.title || "未命名笔记"}
+                          </span>
+                          <Pencil className="w-2.5 h-2.5 opacity-0 group-hover:opacity-60 transition-opacity flex-shrink-0 text-slate-400" />
+                        </button>
+                      )}
+                    </div>
+
+
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-800 dark:text-slate-100 min-w-0">
+                    <ToolIcon
+                      toolId={currentTool?.id || ""}
+                      className="w-4 h-4 text-brand-600 dark:text-brand-400 flex-shrink-0"
+                    />
+                    <span className="truncate">
+                      {currentTool?.name || "工具"}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* 中部全局指令触发器 (⌘K) */}
-            <div className="hidden md:block flex-1 max-w-[260px] mx-4">
+            {/* 中部全局命令搜索入口 (⌘K) - 呼吸感极简胶囊 */}
+            <div className="hidden md:flex flex-1 justify-center max-w-[280px] mx-auto">
               <button
+                type="button"
                 onClick={() => setIsCmdOpen(true)}
-                className="no-drag w-full flex items-center justify-between px-3 py-1 bg-slate-100/80 dark:bg-dark-hover/60 hover:bg-slate-100 dark:hover:bg-dark-hover border border-slate-200/60 dark:border-dark-border rounded-lg text-xs text-slate-400 transition-all shadow-2xs group"
+                className="no-drag w-full flex items-center justify-between px-2.5 py-1 bg-slate-100/80 dark:bg-dark-hover/60 hover:bg-slate-200/50 dark:hover:bg-dark-hover border border-slate-200/60 dark:border-dark-border rounded-lg text-xs text-slate-400 transition-all shadow-2xs group"
               >
-                <span className="flex items-center gap-2">
-                  <Search className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300" />
-                  <span className="text-slate-500 dark:text-slate-400">
+                <span className="flex items-center gap-1.5">
+                  <Search className="w-3.5 h-3.5 text-slate-400 group-hover:text-brand-500 transition-colors" />
+                  <span className="text-slate-500 dark:text-slate-400 text-[11px]">
                     搜索功能或笔记...
                   </span>
                 </span>
-                <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-white dark:bg-dark-panel border border-slate-200 dark:border-dark-border rounded text-slate-400">
+                <kbd className="px-1.5 py-0.5 text-[9px] font-mono bg-white dark:bg-dark-panel border border-slate-200/80 dark:border-dark-border rounded text-slate-400">
                   ⌘K
                 </kbd>
               </button>
             </div>
 
-            {/* 右侧功能区 */}
-            <div className="flex items-center gap-1.5 text-xs">
-              <ToolTabTray activeId={activeTabId} onSelect={onOpenTool} />
-              {/* 主题入口：移动端不在顶栏出现，统一收进「设置 → 通用」 */}
-              <div className="hidden md:flex items-center gap-1.5">
-                <ThemeQuickMenu
-                  theme={theme}
-                  onSelectTheme={onSelectTheme}
-                  onOpenSettings={() => {
-                    setSettingsSection("general");
-                    setIsSettingsOpen(true);
-                  }}
-                />
+            {/* 右侧功能控制区 */}
+            <div className="flex items-center gap-2 text-xs flex-shrink-0">
+              {/*
+                笔记专属操作（内核切换 / 缩放 / 大纲）不在这儿了 ——
+                它们属于笔记编辑器，摆在笔记页自己的工具栏上（见 NotesTool）。
+                顶栏是全局的，放页面级的控件会让人以为它们对所有工具都管用。
+              */}
 
-                {/* 快捷对偶深浅切换 */}
-                <Tooltip
-                  content={
-                    isDark
-                      ? "快捷切换为浅色模式 (⌘D)"
-                      : "快捷切换为深色模式 (⌘D)"
-                  }
+              {/* 快捷对偶深浅切换 */}
+              <Tooltip
+                content={
+                  isDark
+                    ? "快捷切换为浅色模式 (⌘D)"
+                    : "快捷切换为深色模式 (⌘D)"
+                }
+              >
+                <button
+                  type="button"
+                  onClick={onToggleTheme}
+                  className="no-drag p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover rounded-md transition-colors"
                 >
-                  <button
-                    onClick={onToggleTheme}
-                    className="no-drag p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-dark-hover rounded-lg transition-colors"
-                  >
-                    {isDark ? (
-                      <Moon className="w-4 h-4 text-brand-400" />
-                    ) : (
-                      <Sun className="w-4 h-4 text-amber-500" />
-                    )}
-                  </button>
-                </Tooltip>
+                  {isDark ? (
+                    <Moon className="w-4 h-4 text-brand-400" />
+                  ) : (
+                    <Sun className="w-4 h-4 text-amber-500" />
+                  )}
+                </button>
+              </Tooltip>
 
-                <div className="h-4 w-[1px] bg-slate-200 dark:bg-dark-border" />
-              </div>
+              {/* 主题选择菜单 */}
+              <ThemeQuickMenu
+                theme={theme}
+                onSelectTheme={onSelectTheme}
+                onOpenSettings={() => {
+                  setSettingsSection("general");
+                  setIsSettingsOpen(true);
+                }}
+              />
             </div>
           </>
         )}
@@ -956,7 +927,7 @@ export default function DashboardLayout({
                   {/* 独立模块（笔记 / 翻译 / 片段库）与普通小工具之间留一条分隔线 */}
                   {index > 0 &&
                     isStandalone(railToolIds[index - 1]) !==
-                      isStandalone(toolId) && (
+                    isStandalone(toolId) && (
                       <div className="h-[1px] w-6 mx-auto bg-slate-200 dark:bg-dark-border" />
                     )}
                   <Tooltip placement="right" content={meta.name}>
@@ -971,13 +942,16 @@ export default function DashboardLayout({
                           void window.electronAPI.scratchOpen();
                           return;
                         }
+                        if (isActive && hasSecondarySidebar) {
+                          setIsSidebarOpen((prev) => !prev);
+                          return;
+                        }
                         onOpenTool(toolId);
                       }}
-                      className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${
-                        isActive
-                          ? "bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-brand-400"
-                          : "text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover"
-                      }`}
+                      className={`relative group w-full aspect-square flex items-center justify-center rounded-xl transition-all ${isActive
+                        ? "bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border text-brand-600 dark:text-brand-400"
+                        : "text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover"
+                        }`}
                     >
                       <ToolIcon toolId={toolId} className="w-4 h-4" />
                       {isActive && (
@@ -996,25 +970,23 @@ export default function DashboardLayout({
             {cfConfig.enabled && (
               <Tooltip
                 placement="right"
-                content={cfSyncMessage || "Cloudflare 云同步"}
+                content={cfSyncMessage || "云端数据同步"}
               >
                 <button
                   onClick={() => openSettings("cloud-sync")}
-                  className={`relative w-full aspect-square flex items-center justify-center rounded-xl transition-all ${
-                    cfSyncStatus === "error"
-                      ? "text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/30"
-                      : "text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover"
-                  }`}
+                  className={`relative w-full aspect-square flex items-center justify-center rounded-xl transition-all ${cfSyncStatus === "error"
+                    ? "text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/30"
+                    : "text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-hover"
+                    }`}
                 >
                   <Cloud className="w-4 h-4" />
                   <span
-                    className={`absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full ${
-                      cfSyncStatus === "syncing"
-                        ? "bg-orange-500 animate-pulse"
-                        : cfSyncStatus === "error"
+                    className={`absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full ${cfSyncStatus === "syncing"
+                      ? "bg-orange-500 animate-pulse"
+                      : cfSyncStatus === "error"
                         ? "bg-rose-500"
                         : "bg-emerald-500"
-                    }`}
+                      }`}
                   />
                 </button>
               </Tooltip>
@@ -1048,171 +1020,48 @@ export default function DashboardLayout({
           />
         )}
 
-        {/* 2.2 二级侧边栏（文档目录，宽度可拖拽调整 / 可折叠） */}
-        {/* 翻译页不挂侧边栏：它原来那两个区块（翻译方向、翻译历史）在右侧
-            输入区与顶栏都有等价入口，留着只占地方。
-            笔记与片段库则相反 —— 它们的列表就住在这条侧栏里，必须留着 */}
-        {!isTranslateActive && (
+        {/* 2.2 二级侧边栏（仅在 Markdown 笔记与代码片段库时展示，常规小工具全宽舒适展示） */}
+        {hasSecondarySidebar && (
           <section
             ref={sidebarRef}
             style={
               isMobile ? undefined : { width: isSidebarOpen ? sidebarWidth : 0 }
             }
-            className={`bg-white dark:bg-dark-panel border-r border-slate-200/80 dark:border-dark-border flex flex-col ${
-              isMobile
-                ? `absolute inset-y-0 left-0 z-50 w-[82vw] max-w-[320px] shadow-2xl transition-transform duration-300 ${
-                    isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-                  }`
-                : `flex-shrink-0 ${
-                    isSidebarOpen
-                      ? "opacity-100"
-                      : "w-0 opacity-0 overflow-hidden border-r-0"
-                  } ${
-                    isResizingSidebar
-                      ? ""
-                      : "transition-[width,opacity] duration-300"
-                  }`
-            }`}
+            className={`bg-white dark:bg-dark-panel border-r border-slate-200/80 dark:border-dark-border flex flex-col ${isMobile
+              ? `absolute inset-y-0 left-0 z-50 w-[82vw] max-w-[320px] shadow-2xl transition-transform duration-300 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+              }`
+              : `flex-shrink-0 ${isSidebarOpen
+                ? "opacity-100"
+                : "w-0 opacity-0 overflow-hidden border-r-0"
+              } ${isResizingSidebar
+                ? ""
+                : "transition-[width,opacity] duration-300"
+              }`
+              }`}
           >
             {isMarkdownActive ? (
               <NotesSidebar
                 onAfterSelect={() => isMobile && setIsSidebarOpen(false)}
-              />
-            ) : isSnippetsActive ? (
-              <SnippetsSidebar
-                onAfterSelect={() => isMobile && setIsSidebarOpen(false)}
+                onCollapse={() => setIsSidebarOpen(false)}
               />
             ) : (
-              /* 其它工具时的侧边栏：分类与工具列表导航 */
-              <>
-                <div className="p-3 border-b border-slate-100 dark:border-dark-border space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                      组件工具库
-                    </span>
-                    <span className="text-[10px] text-slate-400">
-                      {filteredTools.length} 个
-                    </span>
-                  </div>
-                  <div className="relative flex items-center">
-                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <input
-                      type="text"
-                      value={toolFilter}
-                      onChange={(e) => setToolFilter(e.target.value)}
-                      placeholder="搜索组件..."
-                      className="w-full pl-8 pr-7 h-7 text-xs bg-slate-50 dark:bg-dark-sidebar border border-slate-200 dark:border-dark-border rounded-lg outline-none focus:border-brand-500 dark:focus:border-brand-500 transition-all text-slate-800 dark:text-slate-200 placeholder-slate-400"
-                    />
-                    {toolFilter && (
-                      <button
-                        onClick={() => setToolFilter("")}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs"
-                        title="清空"
-                      >
-                        ×
-                      </button>
-                    )}
-                  </div>
-                  <div
-                    ref={categoryRowRef}
-                    className="flex gap-1 overflow-x-auto scrollbar-hide py-1 select-none"
-                  >
-                    {toolCategories.map((cat) => (
-                      <button
-                        key={cat.id}
-                        onClick={() => setActiveCategory(cat.id)}
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap transition-all ${
-                          activeCategory === cat.id
-                            ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900"
-                            : "text-slate-500 hover:bg-slate-100 dark:hover:bg-dark-hover"
-                        }`}
-                      >
-                        {cat.name}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex-1 overflow-y-auto p-2 space-y-1">
-                  {filteredTools.map((tool) => {
-                    const isActive = tool.id === activeTabId;
-                    return (
-                      <div
-                        key={tool.id}
-                        onClick={() => onOpenTool(tool.id)}
-                        onContextMenu={(e) =>
-                          openContextMenu(e, [
-                            {
-                              id: "tool-open",
-                              label: "打开",
-                              icon: <FolderOpen className="w-3.5 h-3.5" />,
-                              onSelect: () => onOpenTool(tool.id),
-                            },
-                            { id: "tool-sep", separator: true },
-                            {
-                              id: "tool-copy-name",
-                              label: "复制名称",
-                              icon: <Copy className="w-3.5 h-3.5" />,
-                              onSelect: () =>
-                                void copyWithToast(tool.name, "已复制名称"),
-                            },
-                            {
-                              id: "tool-copy-desc",
-                              label: "复制描述",
-                              icon: <Copy className="w-3.5 h-3.5" />,
-                              disabled: !tool.description,
-                              onSelect: () =>
-                                void copyWithToast(
-                                  tool.description,
-                                  "已复制描述",
-                                ),
-                            },
-                            {
-                              id: "tool-copy-id",
-                              label: "复制 ID",
-                              icon: <Copy className="w-3.5 h-3.5" />,
-                              onSelect: () =>
-                                void copyWithToast(tool.id, "已复制 ID"),
-                            },
-                          ])
-                        }
-                        className={`group p-2 rounded-xl cursor-pointer transition-all border flex items-center justify-between ${
-                          isActive
-                            ? "bg-brand-50/70 dark:bg-brand-500/10 border-brand-100 dark:border-brand-500/20 text-slate-900 dark:text-white font-semibold"
-                            : "hover:bg-slate-50 dark:hover:bg-dark-hover/60 border-transparent text-slate-600 dark:text-slate-300"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 truncate">
-                          <span className="w-5 h-5 flex items-center justify-center rounded-md bg-slate-100 dark:bg-dark-sidebar flex-shrink-0">
-                            <ToolIcon
-                              toolId={tool.id}
-                              className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400 group-hover:text-brand-500 transition-colors"
-                            />
-                          </span>
-                          <span className="text-xs truncate">{tool.name}</span>
-                        </div>
-                        {isActive && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </>
+              <SnippetsSidebar
+                onAfterSelect={() => isMobile && setIsSidebarOpen(false)}
+                onCollapse={() => setIsSidebarOpen(false)}
+              />
             )}
 
-            {/* 移动端抽屉底部：状态 + 主入口。移动端顶栏没有标签栏，导航统一收在这里 */}
+            {/* 移动端抽屉底部：状态 + 主入口 */}
             {isMobile && (
               <div className="flex flex-shrink-0 items-center justify-between border-t border-slate-200/80 bg-white px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] dark:border-dark-border dark:bg-dark-panel">
                 <span className="flex min-w-0 items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
                   <span
-                    className={`h-2 w-2 flex-shrink-0 rounded-full ${
-                      cfSyncStatus === "error"
-                        ? "bg-rose-500"
-                        : cfSyncStatus === "syncing"
+                    className={`h-2 w-2 flex-shrink-0 rounded-full ${cfSyncStatus === "error"
+                      ? "bg-rose-500"
+                      : cfSyncStatus === "syncing"
                         ? "bg-orange-500 animate-pulse"
                         : "bg-emerald-500"
-                    }`}
+                      }`}
                   />
                   <span className="truncate">
                     {cfConfig.enabled
@@ -1248,48 +1097,39 @@ export default function DashboardLayout({
         )}
 
         {/* 2.2.1 文档目录宽度分割线：负边距覆盖在侧边栏右边框上，不挤占主工作台 */}
-        {!isTranslateActive && !isMobile && isSidebarOpen && (
+        {hasSecondarySidebar && !isMobile && isSidebarOpen && (
           <Tooltip content="拖动调整文档目录宽度，双击恢复默认">
             <div
               onMouseDown={handleSidebarResizeStart}
               onDoubleClick={resetSidebarWidth}
-              className={`-ml-[5px] w-[5px] flex-shrink-0 cursor-col-resize relative z-30 transition-colors ${
-                isResizingSidebar
-                  ? "bg-brand-500"
-                  : "hover:bg-brand-400/70 dark:hover:bg-brand-500/70"
-              }`}
+              className={`-ml-[5px] w-[5px] flex-shrink-0 cursor-col-resize relative z-30 transition-colors ${isResizingSidebar
+                ? "bg-brand-500"
+                : "hover:bg-brand-400/70 dark:hover:bg-brand-500/70"
+                }`}
             />
           </Tooltip>
         )}
 
         {/* 2.3 编辑器 / 工具主工作台 (Editor Workspace) */}
-        <main className="flex-1 flex flex-col bg-white dark:bg-dark-panel overflow-hidden min-w-0">
+        <main className="flex-1 flex flex-col bg-white dark:bg-dark-panel overflow-hidden min-w-0 relative">
+          {/* 当二级侧边栏折叠时，在工作区内容左上角提供精巧的展开按钮 */}
+          {hasSecondarySidebar && !isMobile && !isSidebarOpen && (
+            <div className="absolute top-2.5 left-2.5 z-40">
+              <Tooltip content="展开侧边栏 (⌘B)">
+                <button
+                  type="button"
+                  onClick={() => setIsSidebarOpen(true)}
+                  className="flex items-center justify-center w-7 h-7 rounded-lg bg-white/95 dark:bg-dark-panel/95 backdrop-blur-sm border border-slate-200/90 dark:border-dark-border shadow-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-dark-hover transition-all"
+                  aria-label="展开侧边栏"
+                >
+                  <PanelLeft className="w-4 h-4" />
+                </button>
+              </Tooltip>
+            </div>
+          )}
           {/* 渲染当前工具内容 */}
-          {/*
-            主工作台：切工具时上下滑动切换。
-            旧页往上走（并压远一点点）、新页从下方推上来，方向跟着「在工具列表里
-            往前还是往后跳」变 —— 用 Tab 循环切标签时的空间感就来自这里。
-
-            两页都是 absolute 铺满：动画期间它们必须重叠才能各播各的，
-            留在文档流里的话会一上一下把容器撑成两倍高，滚一下整页就抖。
-          */}
-          <div
-            className="flex-1 overflow-hidden relative"
-            data-dir={slide.direction}
-          >
-            {slide.leaving && (
-              <div
-                key={`out-${slide.leaving.key}`}
-                className="fe-slide-out absolute inset-0 pointer-events-none"
-                aria-hidden
-              >
-                <ToolPage toolId={slide.leaving.value} />
-              </div>
-            )}
-            <div
-              key={`in-${activeTabId}`}
-              className="fe-slide-in absolute inset-0"
-            >
+          <div className="flex-1 overflow-hidden relative">
+            <div className="absolute inset-0">
               <ToolPage toolId={activeTabId} />
             </div>
           </div>

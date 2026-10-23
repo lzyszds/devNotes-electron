@@ -1,4 +1,5 @@
 import { Bookmark } from 'lucide-react'
+import type { ReactNode } from 'react'
 import type { SaveStatus } from '../../../context/NotesContext'
 import type { DocStats } from '../../../utils/markdownStats'
 import type { ReadingBookmark } from '../../../utils/notesStore'
@@ -21,6 +22,14 @@ export type MarkdownStatusBarProps = {
   /** 书签是否还认得回正文；认不回时按钮变灰、只提示不跳 */
   bookmarkStale?: boolean
   onJumpBookmark?: () => void
+  /**
+   * 右端附加控件（缩放）。
+   *
+   * 缩放摆在这儿而不是编辑器工具栏：工具栏那一行横向已经排满了，
+   * 再塞进去就要横向滚动才看得见。状态栏右侧本来空着，放这儿正好
+   * ——VS Code 的缩放比例也是挂在状态栏上的。
+   */
+  extra?: ReactNode
 }
 
 const SAVE_TONE: Record<SaveStatus, { text: string; dot: string }> = {
@@ -49,6 +58,7 @@ export default function MarkdownStatusBar({
   bookmark,
   bookmarkStale = false,
   onJumpBookmark,
+  extra,
 }: MarkdownStatusBarProps) {
   const tone = SAVE_TONE[saveStatus]
   // 有未保存修改时，这个指示器本身就是「保存」按钮 —— 自动保存关着的情况下，
@@ -143,6 +153,13 @@ export default function MarkdownStatusBar({
         <span className="text-slate-400 dark:text-slate-500">{engineLabel}</span>
         <span className="text-slate-300 dark:text-dark-border">·</span>
         <span className="text-slate-500 dark:text-slate-400">{viewLabel}</span>
+
+        {extra && (
+          <>
+            <span className="text-slate-300 dark:text-dark-border">·</span>
+            {extra}
+          </>
+        )}
       </div>
     </div>
   )

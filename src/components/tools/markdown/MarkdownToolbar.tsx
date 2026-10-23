@@ -28,6 +28,20 @@ export type MarkdownToolbarProps = {
   /** 右端插槽：视图模式切换、内核切换等 */
   trailing?: ReactNode
   /**
+   * 左端插槽：宿主页面自己的控件（编辑器内核切换）。
+   *
+   * 放左端而不是右端有两个原因：
+   *   - 右端紧挨着编辑器自己的视图三态，两组「双栏/预览」样式的开关并排会看花眼
+   *   - 手机上工具栏在底部且要横向滚动，左端是默认就能看到的位置
+   */
+  leading?: ReactNode
+  /**
+   * 最右端插槽：笔记页自己的控件（缩放）。
+   * 与 trailing 分开是因为 trailing 属于编辑器自身（Cherry 的视图三态），
+   * extra 属于宿主页面 —— 两者挨着但不是一伙的，视觉上用一条竖线隔开。
+   */
+  extra?: ReactNode
+  /**
    * 「返回顶部」。由宿主给状态（滚离顶部才显示）与回调，
    * 工具栏只负责摆在最右端 —— 放最右是有意的：它出现/消失时不会推挤左边的按钮。
    */
@@ -55,6 +69,8 @@ export default function MarkdownToolbar({
   onMenuCommand,
   state,
   trailing,
+  leading,
+  extra,
   backToTop,
 }: MarkdownToolbarProps) {
   const commands = commandsFor(engine)
@@ -179,6 +195,14 @@ export default function MarkdownToolbar({
         </Tooltip>
       )}
 
+      {leading && (
+        <>
+          {/* 宿主控件放左端：与右端 Cherry 的视图三态隔开，避免两组开关并排看花眼 */}
+          <span className="mr-1 flex flex-shrink-0 items-center">{leading}</span>
+          <span className="mx-1 h-3.5 w-px flex-shrink-0 bg-slate-200 dark:bg-dark-border" />
+        </>
+      )}
+
       {left.map((entry, index) => renderEntry(entry, left[index - 1]))}
 
       {/* 把右端那一组顶到另一端 */}
@@ -187,6 +211,14 @@ export default function MarkdownToolbar({
       {right.map((entry, index) => renderEntry(entry, right[index - 1]))}
 
       {trailing && <span className="ml-1.5 flex flex-shrink-0 items-center">{trailing}</span>}
+
+      {extra && (
+        <>
+          {/* 宿主控件与编辑器控件分开：一条竖线说清「这边不是编辑器的东西」 */}
+          <span className="mx-1.5 h-3.5 w-px flex-shrink-0 bg-slate-200 dark:bg-dark-border" />
+          <span className="flex flex-shrink-0 items-center gap-1.5">{extra}</span>
+        </>
+      )}
     </div>
   )
 }

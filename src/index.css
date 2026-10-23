@@ -72,191 +72,71 @@
    */
   --fe-read-max-width: 80rem;
 
-  /* 默认深色表面备用值 */
-  --theme-dark-bg-rgb: 9 10 15;
-  --theme-dark-panel-rgb: 18 20 26;
-  --theme-dark-sidebar-rgb: 14 16 21;
-  --theme-dark-border-rgb: 35 39 51;
-  --theme-dark-hover-rgb: 27 31 43;
+  /* 默认深色表面备用值 (对应东京暗夜) */
+  --theme-dark-bg-rgb: 22 22 30;
+  --theme-dark-panel-rgb: 26 27 38;
+  --theme-dark-sidebar-rgb: 19 20 28;
+  --theme-dark-border-rgb: 41 46 66;
+  --theme-dark-hover-rgb: 35 40 59;
 }
 
 html.dark {
   color-scheme: dark;
 }
 
-/* ================= 20 套主题 CSS 变量详细定义 ================= */
+/* ================= 精选 4 套主题 CSS 变量详细定义 ================= */
 
-/* 1. 经典浅色 (Light Default) */
-html[data-theme='light'] {
-  --brand-50-rgb: 239 250 251;
-  --brand-100-rgb: 219 243 245;
-  --brand-200-rgb: 182 230 236;
-  --brand-300-rgb: 143 215 224;
-  --brand-400-rgb: 111 202 216;
-  --brand-500-rgb: 80 189 207;
-  --brand-600-rgb: 33 131 151;
-  --brand-700-rgb: 22 99 116;
-  --brand-800-rgb: 16 76 91;
-  --brand-900-rgb: 13 57 69;
-  --brand-950-rgb: 8 39 48;
-}
+/* 1. 东京暗夜 (Tokyo Night) - 霓虹夜蓝紫极客 */
+html[data-theme='tokyo-night'] {
+  --brand-50-rgb: 240 244 255;
+  --brand-100-rgb: 223 232 255;
+  --brand-200-rgb: 197 214 255;
+  --brand-300-rgb: 158 188 255;
+  --brand-400-rgb: 122 162 247;
+  --brand-500-rgb: 97 137 232;
+  --brand-600-rgb: 70 111 212;
+  --brand-700-rgb: 52 87 181;
+  --brand-800-rgb: 46 71 147;
+  --brand-900-rgb: 42 62 117;
+  --brand-950-rgb: 26 37 72;
 
-/* 2. 暖阳纸墨 (Warm Paper) - 羊皮纸暖白护眼底 */
-html[data-theme='paper'] {
-  --brand-50-rgb: 253 248 240;
-  --brand-100-rgb: 251 240 221;
-  --brand-200-rgb: 246 222 186;
-  --brand-300-rgb: 236 196 141;
-  --brand-400-rgb: 223 162 92;
-  --brand-500-rgb: 212 131 50;
-  --brand-600-rgb: 180 98 31;
-  --brand-700-rgb: 146 74 25;
-  --brand-800-rgb: 120 60 25;
-  --brand-900-rgb: 99 51 24;
-  --brand-950-rgb: 57 25 10;
+  --theme-dark-bg-rgb: 22 22 30;
+  --theme-dark-panel-rgb: 26 27 38;
+  --theme-dark-sidebar-rgb: 19 20 28;
+  --theme-dark-border-rgb: 41 46 66;
+  --theme-dark-hover-rgb: 35 40 59;
 }
-html[data-theme='paper']:not(.dark) body {
-  background-color: #fbf8f2;
-  color: #2c2523;
-}
-html[data-theme='paper']:not(.dark) .bg-white {
-  background-color: #fcfbfa;
-}
-html[data-theme='paper']:not(.dark) .bg-slate-50 {
-  background-color: #f9f6ef;
-}
-html[data-theme='paper']:not(.dark) :is(.border-slate-200, .border-slate-200\/80, .border-slate-200\/70, .border-slate-200\/60) {
-  border-color: #e6dbcd;
-}
-html[data-theme='paper']:not(.dark) :is(.hover\:bg-slate-100:hover, .hover\:bg-slate-50:hover) {
-  background-color: #eee4d6;
+html[data-theme='tokyo-night'].dark body {
+  background-color: #16161e;
+  color: #c0caf5;
 }
 
-/* 3. 薄荷清夏 (Fresh Mint) - 清透自然淡绿底 */
-html[data-theme='mint'] {
-  --brand-50-rgb: 237 251 243;
-  --brand-100-rgb: 212 246 227;
-  --brand-200-rgb: 172 236 203;
-  --brand-300-rgb: 116 220 172;
-  --brand-400-rgb: 59 196 137;
-  --brand-500-rgb: 22 163 109;
-  --brand-600-rgb: 13 132 87;
-  --brand-700-rgb: 12 105 71;
-  --brand-800-rgb: 14 83 57;
-  --brand-900-rgb: 13 69 49;
-  --brand-950-rgb: 5 39 28;
+/* 2. 暗夜流光 (One Dark Pro) - Atom 经典深空蓝灰与天青 */
+html[data-theme='one-dark'] {
+  --brand-50-rgb: 239 246 255;
+  --brand-100-rgb: 219 234 254;
+  --brand-200-rgb: 191 219 254;
+  --brand-300-rgb: 147 197 253;
+  --brand-400-rgb: 97 175 239;
+  --brand-500-rgb: 59 150 229;
+  --brand-600-rgb: 37 99 235;
+  --brand-700-rgb: 29 78 216;
+  --brand-800-rgb: 30 64 175;
+  --brand-900-rgb: 30 58 138;
+  --brand-950-rgb: 23 37 84;
+
+  --theme-dark-bg-rgb: 33 37 43;
+  --theme-dark-panel-rgb: 40 44 52;
+  --theme-dark-sidebar-rgb: 27 29 35;
+  --theme-dark-border-rgb: 53 59 69;
+  --theme-dark-hover-rgb: 47 52 62;
 }
-html[data-theme='mint']:not(.dark) body {
-  background-color: #f1faf5;
-  color: #13382c;
-}
-html[data-theme='mint']:not(.dark) .bg-white {
-  background-color: #fcfefc;
-}
-html[data-theme='mint']:not(.dark) .bg-slate-50 {
-  background-color: #f4faf7;
-}
-html[data-theme='mint']:not(.dark) :is(.border-slate-200, .border-slate-200\/80, .border-slate-200\/70, .border-slate-200\/60) {
-  border-color: #cce8d9;
-}
-html[data-theme='mint']:not(.dark) :is(.hover\:bg-slate-100:hover, .hover\:bg-slate-50:hover) {
-  background-color: #d8f0e3;
+html[data-theme='one-dark'].dark body {
+  background-color: #21252b;
+  color: #abb2bf;
 }
 
-/* 4. 樱花绯梦 (Sakura Rose) - 柔粉暖白雅致底 */
-html[data-theme='sakura'] {
-  --brand-50-rgb: 255 241 244;
-  --brand-100-rgb: 255 228 233;
-  --brand-200-rgb: 254 205 215;
-  --brand-300-rgb: 253 164 184;
-  --brand-400-rgb: 251 113 147;
-  --brand-500-rgb: 244 63 110;
-  --brand-600-rgb: 222 33 82;
-  --brand-700-rgb: 187 19 64;
-  --brand-800-rgb: 156 19 57;
-  --brand-900-rgb: 132 20 53;
-  --brand-950-rgb: 75 4 25;
-}
-html[data-theme='sakura']:not(.dark) body {
-  background-color: #fff6f8;
-  color: #381e26;
-}
-html[data-theme='sakura']:not(.dark) .bg-white {
-  background-color: #fffdfd;
-}
-html[data-theme='sakura']:not(.dark) .bg-slate-50 {
-  background-color: #fae7ec;
-}
-html[data-theme='sakura']:not(.dark) :is(.border-slate-200, .border-slate-200\/80, .border-slate-200\/70, .border-slate-200\/60) {
-  border-color: #f3cede;
-}
-html[data-theme='sakura']:not(.dark) :is(.hover\:bg-slate-100:hover, .hover\:bg-slate-50:hover) {
-  background-color: #f8dce5;
-}
-
-/* 5. 碧海晴空 (Ocean Breeze) - 海盐天蓝开朗底 */
-html[data-theme='ocean'] {
-  --brand-50-rgb: 240 247 255;
-  --brand-100-rgb: 224 239 254;
-  --brand-200-rgb: 186 224 253;
-  --brand-300-rgb: 124 196 250;
-  --brand-400-rgb: 54 166 244;
-  --brand-500-rgb: 12 142 233;
-  --brand-600-rgb: 1 112 197;
-  --brand-700-rgb: 2 89 159;
-  --brand-800-rgb: 6 75 131;
-  --brand-900-rgb: 10 64 110;
-  --brand-950-rgb: 7 41 73;
-}
-html[data-theme='ocean']:not(.dark) body {
-  background-color: #f1f7fd;
-  color: #102a43;
-}
-html[data-theme='ocean']:not(.dark) .bg-white {
-  background-color: #fbfdff;
-}
-html[data-theme='ocean']:not(.dark) .bg-slate-50 {
-  background-color: #e3f0fc;
-}
-html[data-theme='ocean']:not(.dark) :is(.border-slate-200, .border-slate-200\/80, .border-slate-200\/70, .border-slate-200\/60) {
-  border-color: #cce2f7;
-}
-html[data-theme='ocean']:not(.dark) :is(.hover\:bg-slate-100:hover, .hover\:bg-slate-50:hover) {
-  background-color: #d8eafb;
-}
-
-/* 6. 薰衣草雾 (Lavender Mist) - 柔美淡紫纯净底 */
-html[data-theme='lavender'] {
-  --brand-50-rgb: 245 243 255;
-  --brand-100-rgb: 237 233 254;
-  --brand-200-rgb: 221 214 254;
-  --brand-300-rgb: 196 181 253;
-  --brand-400-rgb: 167 139 250;
-  --brand-500-rgb: 139 92 246;
-  --brand-600-rgb: 124 58 237;
-  --brand-700-rgb: 109 40 217;
-  --brand-800-rgb: 91 33 182;
-  --brand-900-rgb: 76 29 149;
-  --brand-950-rgb: 46 16 101;
-}
-html[data-theme='lavender']:not(.dark) body {
-  background-color: #faf7fd;
-  color: #2e1065;
-}
-html[data-theme='lavender']:not(.dark) .bg-white {
-  background-color: #ffffff;
-}
-html[data-theme='lavender']:not(.dark) .bg-slate-50 {
-  background-color: #f7f2fe;
-}
-html[data-theme='lavender']:not(.dark) :is(.border-slate-200, .border-slate-200\/80, .border-slate-200\/70, .border-slate-200\/60) {
-  border-color: #e6d6fb;
-}
-html[data-theme='lavender']:not(.dark) :is(.hover\:bg-slate-100:hover, .hover\:bg-slate-50:hover) {
-  background-color: #eee2fa;
-}
-
-/* 7. 北欧初雪 (Nordic Snow) - 冰川冷灰理性底 */
+/* 3. 北欧初雪 (Nordic Snow) - 冰川冷灰理性底 */
 html[data-theme='nordic-snow'] {
   --brand-50-rgb: 248 250 252;
   --brand-100-rgb: 241 245 249;
@@ -287,307 +167,35 @@ html[data-theme='nordic-snow']:not(.dark) :is(.hover\:bg-slate-100:hover, .hover
   background-color: #e2e8f0;
 }
 
-/* 8. 抹茶雅韵 (Matcha Zen) - 禅意温润草木底 */
-html[data-theme='matcha'] {
-  --brand-50-rgb: 247 248 242;
-  --brand-100-rgb: 238 241 228;
-  --brand-200-rgb: 220 227 203;
-  --brand-300-rgb: 193 206 167;
-  --brand-400-rgb: 158 178 123;
-  --brand-500-rgb: 119 143 82;
-  --brand-600-rgb: 77 107 47;
-  --brand-700-rgb: 61 85 38;
-  --brand-800-rgb: 50 69 32;
-  --brand-900-rgb: 43 59 29;
-  --brand-950-rgb: 22 33 13;
+/* 4. 碧海晴空 (Ocean Breeze) - 海盐天蓝开朗底 */
+html[data-theme='ocean'] {
+  --brand-50-rgb: 240 247 255;
+  --brand-100-rgb: 224 239 254;
+  --brand-200-rgb: 186 224 253;
+  --brand-300-rgb: 124 196 250;
+  --brand-400-rgb: 54 166 244;
+  --brand-500-rgb: 12 142 233;
+  --brand-600-rgb: 1 112 197;
+  --brand-700-rgb: 2 89 159;
+  --brand-800-rgb: 6 75 131;
+  --brand-900-rgb: 10 64 110;
+  --brand-950-rgb: 7 41 73;
 }
-html[data-theme='matcha']:not(.dark) body {
-  background-color: #f7f8f2;
-  color: #1f2b12;
+html[data-theme='ocean']:not(.dark) body {
+  background-color: #f1f7fd;
+  color: #102a43;
 }
-html[data-theme='matcha']:not(.dark) .bg-white {
-  background-color: #ffffff;
+html[data-theme='ocean']:not(.dark) .bg-white {
+  background-color: #fbfdff;
 }
-html[data-theme='matcha']:not(.dark) .bg-slate-50 {
-  background-color: #eff3e6;
+html[data-theme='ocean']:not(.dark) .bg-slate-50 {
+  background-color: #e3f0fc;
 }
-html[data-theme='matcha']:not(.dark) :is(.border-slate-200, .border-slate-200\/80, .border-slate-200\/70, .border-slate-200\/60) {
-  border-color: #d4dcbe;
+html[data-theme='ocean']:not(.dark) :is(.border-slate-200, .border-slate-200\/80, .border-slate-200\/70, .border-slate-200\/60) {
+  border-color: #cce2f7;
 }
-html[data-theme='matcha']:not(.dark) :is(.hover\:bg-slate-100:hover, .hover\:bg-slate-50:hover) {
-  background-color: #e3e9d4;
-}
-
-/* 9. 蜜糖暖橘 (Honey Amber) - 秋日琥珀焦糖暖色 */
-html[data-theme='honey-amber'] {
-  --brand-50-rgb: 255 251 235;
-  --brand-100-rgb: 254 243 199;
-  --brand-200-rgb: 253 230 138;
-  --brand-300-rgb: 252 211 77;
-  --brand-400-rgb: 251 191 36;
-  --brand-500-rgb: 245 158 11;
-  --brand-600-rgb: 217 119 6;
-  --brand-700-rgb: 180 83 9;
-  --brand-800-rgb: 146 64 14;
-  --brand-900-rgb: 120 53 15;
-  --brand-950-rgb: 69 26 3;
-}
-html[data-theme='honey-amber']:not(.dark) body {
-  background-color: #fffbf2;
-  color: #451a03;
-}
-html[data-theme='honey-amber']:not(.dark) .bg-white {
-  background-color: #ffffff;
-}
-html[data-theme='honey-amber']:not(.dark) .bg-slate-50 {
-  background-color: #fdf5e2;
-}
-html[data-theme='honey-amber']:not(.dark) :is(.border-slate-200, .border-slate-200\/80, .border-slate-200\/70, .border-slate-200\/60) {
-  border-color: #fed7aa;
-}
-html[data-theme='honey-amber']:not(.dark) :is(.hover\:bg-slate-100:hover, .hover\:bg-slate-50:hover) {
-  background-color: #fef0cd;
-}
-
-/* 10. 灰粉赤陶 (Rose Terracotta) - 莫兰迪烟粉雅致暖底 */
-html[data-theme='rose-clay'] {
-  --brand-50-rgb: 253 242 248;
-  --brand-100-rgb: 252 231 243;
-  --brand-200-rgb: 249 207 230;
-  --brand-300-rgb: 244 172 210;
-  --brand-400-rgb: 236 122 181;
-  --brand-500-rgb: 219 39 119;
-  --brand-600-rgb: 190 24 93;
-  --brand-700-rgb: 157 23 77;
-  --brand-800-rgb: 131 24 67;
-  --brand-900-rgb: 112 26 63;
-  --brand-950-rgb: 76 5 39;
-}
-html[data-theme='rose-clay']:not(.dark) body {
-  background-color: #fdf7f9;
-  color: #500724;
-}
-html[data-theme='rose-clay']:not(.dark) .bg-white {
-  background-color: #ffffff;
-}
-html[data-theme='rose-clay']:not(.dark) .bg-slate-50 {
-  background-color: #fbf0f4;
-}
-html[data-theme='rose-clay']:not(.dark) :is(.border-slate-200, .border-slate-200\/80, .border-slate-200\/70, .border-slate-200\/60) {
-  border-color: #f8d1e0;
-}
-html[data-theme='rose-clay']:not(.dark) :is(.hover\:bg-slate-100:hover, .hover\:bg-slate-50:hover) {
-  background-color: #fce4ed;
-}
-
-/* 11. 极夜深色 (Midnight Dark) - 默认极客深黑 */
-html[data-theme='dark'] {
-  --brand-50-rgb: 239 250 251;
-  --brand-100-rgb: 219 243 245;
-  --brand-200-rgb: 182 230 236;
-  --brand-300-rgb: 143 215 224;
-  --brand-400-rgb: 111 202 216;
-  --brand-500-rgb: 80 189 207;
-  --brand-600-rgb: 33 131 151;
-  --brand-700-rgb: 22 99 116;
-  --brand-800-rgb: 16 76 91;
-  --brand-900-rgb: 13 57 69;
-  --brand-950-rgb: 8 39 48;
-
-  --theme-dark-bg-rgb: 9 10 15;
-  --theme-dark-panel-rgb: 18 20 26;
-  --theme-dark-sidebar-rgb: 14 16 21;
-  --theme-dark-border-rgb: 35 39 51;
-  --theme-dark-hover-rgb: 27 31 43;
-}
-
-/* 7. 东京暗夜 (Tokyo Night) - 霓虹夜蓝紫极客 */
-html[data-theme='tokyo-night'] {
-  --brand-50-rgb: 240 244 255;
-  --brand-100-rgb: 223 232 255;
-  --brand-200-rgb: 197 214 255;
-  --brand-300-rgb: 158 188 255;
-  --brand-400-rgb: 122 162 247;
-  --brand-500-rgb: 97 137 232;
-  --brand-600-rgb: 70 111 212;
-  --brand-700-rgb: 52 87 181;
-  --brand-800-rgb: 46 71 147;
-  --brand-900-rgb: 42 62 117;
-  --brand-950-rgb: 26 37 72;
-
-  --theme-dark-bg-rgb: 22 22 30;
-  --theme-dark-panel-rgb: 26 27 38;
-  --theme-dark-sidebar-rgb: 19 20 28;
-  --theme-dark-border-rgb: 41 46 66;
-  --theme-dark-hover-rgb: 35 40 59;
-}
-
-/* 8. 德古拉之夜 (Dracula Dark) - 高对比紫灰与品红 */
-html[data-theme='dracula'] {
-  --brand-50-rgb: 255 240 248;
-  --brand-100-rgb: 255 227 243;
-  --brand-200-rgb: 255 199 232;
-  --brand-300-rgb: 255 155 212;
-  --brand-400-rgb: 255 121 198;
-  --brand-500-rgb: 247 74 168;
-  --brand-600-rgb: 219 43 137;
-  --brand-700-rgb: 186 27 110;
-  --brand-800-rgb: 153 25 90;
-  --brand-900-rgb: 127 25 77;
-  --brand-950-rgb: 78 8 44;
-
-  --theme-dark-bg-rgb: 30 31 41;
-  --theme-dark-panel-rgb: 40 42 54;
-  --theme-dark-sidebar-rgb: 33 34 44;
-  --theme-dark-border-rgb: 68 71 90;
-  --theme-dark-hover-rgb: 56 58 76;
-}
-
-/* 9. 幽静深苔 (Forest Pine) - 深林暗苔与云杉青翠 */
-html[data-theme='forest'] {
-  --brand-50-rgb: 237 251 244;
-  --brand-100-rgb: 213 246 230;
-  --brand-200-rgb: 174 252 208;
-  --brand-300-rgb: 114 239 169;
-  --brand-400-rgb: 52 211 127;
-  --brand-500-rgb: 16 185 129;
-  --brand-600-rgb: 5 150 105;
-  --brand-700-rgb: 4 119 84;
-  --brand-800-rgb: 6 94 67;
-  --brand-900-rgb: 7 78 56;
-  --brand-950-rgb: 2 44 32;
-
-  --theme-dark-bg-rgb: 12 21 18;
-  --theme-dark-panel-rgb: 19 32 27;
-  --theme-dark-sidebar-rgb: 15 26 22;
-  --theme-dark-border-rgb: 32 54 46;
-  --theme-dark-hover-rgb: 26 46 38;
-}
-
-/* 10. 暮色暖咖 (Sunset Twilight) - 暖炭黑木与焦糖落日暖橙 */
-html[data-theme='sunset'] {
-  --brand-50-rgb: 255 247 237;
-  --brand-100-rgb: 255 237 213;
-  --brand-200-rgb: 254 215 170;
-  --brand-300-rgb: 253 186 116;
-  --brand-400-rgb: 251 146 60;
-  --brand-500-rgb: 249 115 22;
-  --brand-600-rgb: 234 88 12;
-  --brand-700-rgb: 194 65 12;
-  --brand-800-rgb: 154 52 18;
-  --brand-900-rgb: 124 45 18;
-  --brand-950-rgb: 67 20 7;
-
-  --theme-dark-bg-rgb: 22 19 17;
-  --theme-dark-panel-rgb: 31 26 23;
-  --theme-dark-sidebar-rgb: 25 21 19;
-  --theme-dark-border-rgb: 54 44 38;
-  --theme-dark-hover-rgb: 42 34 29;
-}
-
-/* 16. 赛博霓虹 (Cyberpunk Neon) - 电光霓虹粉紫暗夜未来感 */
-html[data-theme='cyberpunk'] {
-  --brand-50-rgb: 250 245 255;
-  --brand-100-rgb: 243 232 255;
-  --brand-200-rgb: 233 213 255;
-  --brand-300-rgb: 216 180 254;
-  --brand-400-rgb: 192 132 252;
-  --brand-500-rgb: 168 85 247;
-  --brand-600-rgb: 147 51 234;
-  --brand-700-rgb: 126 34 206;
-  --brand-800-rgb: 107 33 168;
-  --brand-900-rgb: 88 28 135;
-  --brand-950-rgb: 59 7 100;
-
-  --theme-dark-bg-rgb: 13 11 20;
-  --theme-dark-panel-rgb: 21 18 33;
-  --theme-dark-sidebar-rgb: 16 14 26;
-  --theme-dark-border-rgb: 42 34 61;
-  --theme-dark-hover-rgb: 32 27 51;
-}
-
-/* 17. 极光黑曜 (Nord Aurora) - 北极光冷冰蓝与霜雪黑曜 */
-html[data-theme='nord-dark'] {
-  --brand-50-rgb: 236 239 244;
-  --brand-100-rgb: 229 233 240;
-  --brand-200-rgb: 216 222 233;
-  --brand-300-rgb: 143 188 187;
-  --brand-400-rgb: 136 192 208;
-  --brand-500-rgb: 129 161 193;
-  --brand-600-rgb: 94 129 172;
-  --brand-700-rgb: 76 104 140;
-  --brand-800-rgb: 59 81 109;
-  --brand-900-rgb: 46 64 87;
-  --brand-950-rgb: 30 42 58;
-
-  --theme-dark-bg-rgb: 36 41 51;
-  --theme-dark-panel-rgb: 46 52 64;
-  --theme-dark-sidebar-rgb: 30 34 42;
-  --theme-dark-border-rgb: 59 66 82;
-  --theme-dark-hover-rgb: 53 60 74;
-}
-
-/* 18. 黑曜暗晶 (Monokai Pro) - 纯黑极客玄晶与代码暖金 */
-html[data-theme='monokai-pro'] {
-  --brand-50-rgb: 255 251 235;
-  --brand-100-rgb: 254 243 199;
-  --brand-200-rgb: 254 235 158;
-  --brand-300-rgb: 255 226 122;
-  --brand-400-rgb: 255 216 102;
-  --brand-500-rgb: 245 197 66;
-  --brand-600-rgb: 217 165 37;
-  --brand-700-rgb: 180 130 20;
-  --brand-800-rgb: 146 100 15;
-  --brand-900-rgb: 120 80 12;
-  --brand-950-rgb: 69 45 6;
-
-  --theme-dark-bg-rgb: 25 24 26;
-  --theme-dark-panel-rgb: 34 31 34;
-  --theme-dark-sidebar-rgb: 23 21 23;
-  --theme-dark-border-rgb: 54 51 54;
-  --theme-dark-hover-rgb: 45 42 45;
-}
-
-/* 19. 深蓝极目 (Solarized Dark) - 经典墨蓝护眼极目 */
-html[data-theme='solarized-dark'] {
-  --brand-50-rgb: 238 251 250;
-  --brand-100-rgb: 209 245 242;
-  --brand-200-rgb: 165 235 229;
-  --brand-300-rgb: 108 217 208;
-  --brand-400-rgb: 58 193 184;
-  --brand-500-rgb: 42 161 152;
-  --brand-600-rgb: 31 129 122;
-  --brand-700-rgb: 27 103 98;
-  --brand-800-rgb: 25 82 78;
-  --brand-900-rgb: 23 68 65;
-  --brand-950-rgb: 9 39 38;
-
-  --theme-dark-bg-rgb: 0 43 54;
-  --theme-dark-panel-rgb: 7 54 66;
-  --theme-dark-sidebar-rgb: 0 33 43;
-  --theme-dark-border-rgb: 14 75 90;
-  --theme-dark-hover-rgb: 9 67 82;
-}
-
-/* 20. 暗夜流光 (One Dark Pro) - Atom 经典深空蓝灰与天青 */
-html[data-theme='one-dark'] {
-  --brand-50-rgb: 239 246 255;
-  --brand-100-rgb: 219 234 254;
-  --brand-200-rgb: 191 219 254;
-  --brand-300-rgb: 147 197 253;
-  --brand-400-rgb: 97 175 239;
-  --brand-500-rgb: 59 150 229;
-  --brand-600-rgb: 37 99 235;
-  --brand-700-rgb: 29 78 216;
-  --brand-800-rgb: 30 64 175;
-  --brand-900-rgb: 30 58 138;
-  --brand-950-rgb: 23 37 84;
-
-  --theme-dark-bg-rgb: 33 37 43;
-  --theme-dark-panel-rgb: 40 44 52;
-  --theme-dark-sidebar-rgb: 27 29 35;
-  --theme-dark-border-rgb: 53 59 69;
-  --theme-dark-hover-rgb: 47 52 62;
+html[data-theme='ocean']:not(.dark) :is(.hover\:bg-slate-100:hover, .hover\:bg-slate-50:hover) {
+  background-color: #d8eafb;
 }
 
 html,
@@ -614,8 +222,8 @@ body {
 }
 
 html.dark body {
-  background-color: #090a0f;
-  color: #e2e8f0;
+  background-color: #16161e;
+  color: #c0caf5;
 }
 
 button,
@@ -802,17 +410,6 @@ html.dark ::-webkit-scrollbar-thumb:hover {
 }
 .dark .scratch-preview a { color: rgb(var(--brand-400-rgb, 56 178 196)); }
 
-@keyframes scene-enter {
-  from {
-    opacity: 0;
-    transform: scale(0.9985);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
 /*
  * 工作台级联落位：切换工具时顶栏瞬间就位，下面的卡片自上而下依次落位，
  * 每张相隔 40ms。页面本身不移动、也不交叉淡化 —— 动的是内容自己。
@@ -825,57 +422,6 @@ html.dark ::-webkit-scrollbar-thumb:hover {
   to {
     opacity: 1;
     transform: none;
-  }
-}
-
-/*
- * 页面级竖滑的四个关键帧。
- *
- * 位移量取 28px 而不是满屏 —— 满屏位移在 320ms 里会糊成一片，只看到一条影子
- * 划过；28px 是「能明确读出方向」又「不喧宾夺主」的量级。
- * 旧页面额外压一点缩放（0.985），退场时像被推远一层，纵深感来自这里。
- */
-@keyframes fe-slide-in-down {
-  from {
-    opacity: 0;
-    transform: translateY(28px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-@keyframes fe-slide-out-down {
-  from {
-    opacity: 1;
-    transform: none;
-  }
-  to {
-    opacity: 0;
-    transform: translateY(-22px) scale(0.985);
-  }
-}
-
-@keyframes fe-slide-in-up {
-  from {
-    opacity: 0;
-    transform: translateY(-28px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-@keyframes fe-slide-out-up {
-  from {
-    opacity: 1;
-    transform: none;
-  }
-  to {
-    opacity: 0;
-    transform: translateY(22px) scale(0.985);
   }
 }
 
@@ -953,8 +499,12 @@ html.dark ::-webkit-scrollbar-thumb:hover {
 }
 
 @layer components {
+  /*
+   * 整页外壳。页面本身不做入场动画 —— 切工具是硬切，入场感由内容自己的
+   * 级联落位（.tool-cascade）负责；整页再淡一次只会让内容发虚，
+   * 而且淡入的那一瞬工作区是空的，看着像闪了一下。
+   */
   .app-scene {
-    animation: scene-enter 320ms cubic-bezier(0.22, 1, 0.36, 1);
     overflow: clip;
     transform-origin: center center;
   }
@@ -968,37 +518,6 @@ html.dark ::-webkit-scrollbar-thumb:hover {
    */
   .tool-cascade > * {
     animation: tool-card-land 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
-  }
-
-  /*
-   * 页面级竖滑转场（工具 ↔ 工具、工具中心 ↔ 工作台）。
-   *
-   * 三个关键点，少一个就会「抖」或「空」：
-   *
-   * 1. 新页面的位移方向跟着切换方向变 —— 往下切内容从下方推上来，往上切从上方
-   *    压下来。方向写死在 CSS 里会有一半情况是反的，看着比硬切还别扭。
-   *    调用方通过外围容器的 data-dir 传 up / down。
-   *
-   * 2. 进场只动 transform + opacity，全程 GPU 合成，不触发重排。
-   *
-   * 3. 旧页面走的是和进场同一条路径的反向（由 d 决定），所以两次切换的头尾
-   *    能接上：上一段动画结束时新页面的位置，正好是下一段动画里旧页面的起点。
-   */
-  .fe-slide-in {
-    animation: fe-slide-in-down 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
-  }
-
-  .fe-slide-out {
-    animation: fe-slide-out-down 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
-  }
-
-  /* 方向取反：向上切 */
-  [data-dir='up'] .fe-slide-in {
-    animation-name: fe-slide-in-up;
-  }
-
-  [data-dir='up'] .fe-slide-out {
-    animation-name: fe-slide-out-up;
   }
 
 

@@ -14,8 +14,8 @@ import {
 /**
  * 画面缩放控件：`− 100% +`。
  *
- * 放在笔记页顶部那条里 —— 工具栏是纯图标按钮，塞一个百分比进去会破坏节奏。
- * 中间的百分比本身就是「复位」按钮：这个位置用户最自然会去点。
+ * 摆在笔记页编辑器自己的工具栏上 —— 缩放只作用于正文，放在应用顶栏会让人
+ * 以为整窗都在缩放。中间的百分比本身就是「复位」按钮：这个位置用户最自然会去点。
  */
 export default function EditorZoom() {
   const [zoom, setLocalZoom] = useState(getZoom)
@@ -26,7 +26,7 @@ export default function EditorZoom() {
   const atMax = zoom >= ZOOM_MAX
 
   return (
-    <div className="flex flex-shrink-0 items-center gap-0.5 rounded-lg border border-slate-200/70 bg-white/70 p-0.5 dark:border-dark-border dark:bg-dark-panel/60">
+    <div className="flex flex-shrink-0 items-center gap-0.5 rounded-lg border border-slate-200/70 bg-slate-100/80 p-0.5 dark:border-dark-border dark:bg-dark-hover">
       <Tooltip content={`缩小 (⌘-)`}>
         <button
           type="button"
@@ -44,7 +44,7 @@ export default function EditorZoom() {
           type="button"
           onClick={resetZoom}
           aria-label={`当前缩放 ${zoom}%，点击恢复 100%`}
-          className={`w-9 rounded-md py-0.5 text-center font-mono text-[10.5px] tabular-nums transition-colors hover:bg-slate-100 dark:hover:bg-dark-hover ${
+          className={`w-7 rounded-md py-0.5 text-center font-mono text-[10.5px] tabular-nums transition-colors hover:bg-slate-100 dark:hover:bg-dark-hover ${
             zoom === 100
               ? 'text-slate-400 dark:text-slate-500'
               : 'font-semibold text-brand-600 dark:text-brand-400'

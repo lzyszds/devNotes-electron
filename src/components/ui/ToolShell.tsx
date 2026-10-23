@@ -59,7 +59,7 @@ export const ToolBadge = forwardRef<HTMLElement, ToolBadgeProps>(
     ref,
   ) {
     const { box, dot: dotClass } = BADGE_TONES[tone];
-    const className = `inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full text-[11px] font-medium border transition ${box} ${extraClassName}`;
+    const className = `inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full text-[11px] font-medium border transition min-w-0 shrink-[6] ${box} ${extraClassName}`;
     const content = (
       <>
         {dot && (
@@ -69,7 +69,7 @@ export const ToolBadge = forwardRef<HTMLElement, ToolBadgeProps>(
             }`}
           />
         )}
-        <span>{children}</span>
+        <span className="truncate">{children}</span>
       </>
     );
 
@@ -144,8 +144,18 @@ export default function ToolShell({
   return (
     <div className="relative flex h-full min-h-0 bg-slate-50/60 dark:bg-dark-bg overflow-hidden text-slate-900 dark:text-slate-100">
       <div className="flex-1 flex flex-col min-w-0 min-h-0">
-        <header className="flex-wrap gap-3 px-4 py-3 md:px-6 md:py-3 bg-white dark:bg-dark-panel border-b border-slate-200/70 dark:border-dark-border flex items-center justify-between flex-shrink-0">
-          <div className="flex items-center gap-3.5 min-w-0">
+        <header
+          /*
+           * 顶栏高度固定：标题一换工具就换，标题块里的标题/徽章/说明文字一多，
+           * 原来靠 flex-wrap 换行，整条顶栏的高度跟着变 —— 切一次工具，下面的
+           * 内容区就往下挪一截（翻译页 117px、二进制工具 69px）。
+           * 现在宽屏锁死 68px（一行放得下标题 + 徽章 + 一行说明），
+           * 标题过长就截断，右侧操作区永远留在原位。
+           * 窄屏（手机）仍然允许换行，不然操作区会被挤没。
+           */
+          className="flex flex-wrap md:flex-nowrap h-auto md:h-[68px] gap-3 px-4 py-3 md:py-0 md:px-6 bg-white dark:bg-dark-panel border-b border-slate-200/70 dark:border-dark-border items-center justify-between flex-shrink-0 md:overflow-hidden"
+        >
+          <div className="flex items-center gap-3.5 min-w-0 flex-1">
             {/* 渐变 squircle 图标 + 品牌色光晕，内缘一道高光 */}
             <div
               className={`h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${
@@ -156,9 +166,9 @@ export default function ToolShell({
             >
               <Icon size={19} />
             </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-[17px] font-bold tracking-[-0.2px] text-slate-900 dark:text-white leading-none">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 min-w-0">
+                <h2 className="text-[17px] font-bold tracking-[-0.2px] text-slate-900 dark:text-white leading-none truncate">
                   {title}
                 </h2>
                 {badge}

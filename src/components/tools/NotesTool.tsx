@@ -3,11 +3,14 @@ import type { CSSProperties } from "react";
 import { useNotes } from "../../context/NotesContext";
 import CherryMarkdownEditor from "./CherryMarkdownEditor";
 import MilkdownMarkdownEditor from "./MilkdownMarkdownEditor";
-import EditorModeSwitch, {
-  persistEditorMode,
-  readEditorMode,
-  type EditorMode,
-} from "./EditorModeSwitch";
+import {
+  getEditorMode,
+  setEditorMode,
+  subscribeEditorMode,
+} from "../../utils/editorModeBus";
+import type { EditorMode } from "./EditorModeSwitch";
+import EditorModeSwitch from "./EditorModeSwitch";
+import EditorZoom from "./markdown/EditorZoom";
 import MarkdownStatusBar from "./markdown/MarkdownStatusBar";
 import AiReviewPanel from "./markdown/AiReviewPanel";
 import { applyAiReview } from "../../utils/aiReview";
@@ -27,7 +30,6 @@ import {
   type ReadingPosition,
 } from "../../utils/editorBus";
 import { useIsMobile } from "../../hooks/useIsMobile";
-import EditorZoom from "./markdown/EditorZoom";
 import {
   fitZoomFor,
   getZoom,
@@ -62,7 +64,6 @@ export default function NotesTool() {
     ready,
     activeNote,
     handleContentChange,
-    handleRename,
     handleSaveReadingBookmark,
     handleDeleteReadingBookmark,
     saveStatus,
@@ -71,89 +72,14 @@ export default function NotesTool() {
     saveNow,
   } = useNotes();
   const { showToast } = useToast();
-  const [mode, setMode] = useState<EditorMode>(readEditorMode);
+  const [mode, setMode] = useState<EditorMode>(getEditorMode);
+  useEffect(() => subscribeEditorMode(setMode), []);
+
   // 视图三态只有 Cherry 认，但状态放在这里 —— 底部状态栏要显示它
   const [viewMode, setViewMode] = useState<EditorViewMode>(readViewMode);
   const [warning, setWarning] = useState("");
   const [showBackToTop, setShowBackToTop] = useState(false);
-  /*
-   * 文档条上的标题就地编辑。
-   *
-   * 放在编辑区顶部这条工具栏里，而不是顶栏的面包屑 —— 顶栏是 app-region: drag
-   * 的无边框拖拽区，那片区域的指针事件被 Chromium 的非客户区命中测试接管，
-   * 在它内部放可点控件要跟拖拽区反复周旋。编辑区没有这些限制，点得动、选得中、
-   * 光标也正常。
-   */
-  const [editingTitle, setEditingTitle] = useState(false);
-  const titleRef = useRef<HTMLDivElement>(null);
 
-  /**
-   * contentEditable 的元素内容不受 React 管：它自己在 DOM 里被改，React 并不知道。
-   * 所以内容得手动同步 —— 这里在非编辑态把它写成当前标题（切文档、改名后都会走到），
-   * 编辑态则完全放手，让用户直接编辑 DOM，中途不插一脚，否则光标会被重置。
-   */
-  useEffect(() => {
-    const el = titleRef.current;
-    if (!el || editingTitle) return;
-    const text = activeNote?.title || "未命名文档";
-    if (el.textContent !== text) el.textContent = text;
-    /*
-      依赖里只需要 activeNote?.title，不能带 editingTitle。
-      带上它的话，提交那一刻会这样：setEditingTitle(false) → effect 重跑 →
-      此时 handleRename 的状态还没回流，activeNote.title 仍是旧值 →
-      刚改好的标题被 effect 打回旧名字。等状态真正更新时才该同步，
-      而那时这个 effect 会因为 title 变了自然再跑一次。
-    */
-  }, [activeNote?.title]);
-
-  /**
-   * 进入编辑态。
-   *
-   * 关键：在这里**同步**写好 contentEditable 并立刻聚焦，不等 React 渲染。
-   * 原因是浏览器的行为 —— 点击时浏览器先按元素当时的 contenteditable 值判断
-   * 「这里能不能放光标」，那会儿还是 false，光标根本进不去；等 React 把属性
-   * 更新成 true 已经晚了，用户看到的就是「点了没反应」。
-   * 直接操作 DOM 就没有这个时间差。
-   *
-   * 同理，React 的 diff 对 contenteditable 这类属性并不可靠（它比较的是
-   * 虚拟 DOM 上的值，而真实 DOM 已被我们改过），所以这件事整个交给 DOM 做。
-   */
-  const startTitleEdit = () => {
-    if (!activeNote) return;
-    const el = titleRef.current;
-    if (!el) return;
-    el.setAttribute("contenteditable", "true");
-    setEditingTitle(true);
-    el.focus();
-    // 全选：进来就能直接打字覆盖旧名
-    const range = document.createRange();
-    range.selectNodeContents(el);
-    const selection = window.getSelection();
-    selection?.removeAllRanges();
-    selection?.addRange(range);
-  };
-
-  // 换到别的文档时收掉编辑态，免得草稿落到新文档头上
-  useEffect(() => {
-    setEditingTitle(false);
-  }, [activeNote?.id]);
-
-  const commitTitleEdit = () => {
-    const note = activeNote;
-    const el = titleRef.current;
-    // 从 DOM 读回内容：contentEditable 的真值在元素里，不在 React state
-    const next = (el?.textContent || "").trim();
-    // 退出编辑态：和进入时对称，属性也是直接写 DOM
-    el?.removeAttribute("contenteditable");
-    setEditingTitle(false);
-    if (!note || !next || next === note.title) {
-      // 没改动或改空了：把 DOM 恢复成当前标题，别让界面停在一个没被采纳的值上
-      if (titleRef.current)
-        titleRef.current.textContent = note?.title || "未命名文档";
-      return;
-    }
-    handleRename(note.id, next);
-  };
   // 全屏由宿主统一实现，两个内核共用 —— Cherry 那边本质上只是加一个 fullscreen 类
   const [fullscreen, setFullscreen] = useState(false);
   /*
@@ -365,10 +291,6 @@ export default function NotesTool() {
     setWarning("");
   }, [activeNote?.id]);
 
-  const handleModeChange = (next: EditorMode) => {
-    setMode(next);
-    persistEditorMode(next);
-  };
 
   const handleViewModeChange = (next: EditorViewMode) => {
     setViewMode(next);
@@ -443,8 +365,7 @@ export default function NotesTool() {
   /*
    * 预览倍率按**预览层自己的宽度**算，不用 window.innerWidth：
    * 侧栏宽度变化、窗口缩放都会改变这个宽度，一个 ResizeObserver 全覆盖；
-   * 就算 fixed 被祖先的 transform 困住（.app-scene 的入场动画有 320ms 的窗口），
-   * 量到的也是该层实际的宽，倍率依然是对的 —— 只是那一瞬间没盖住侧栏而已。
+   * 量的就是该层实际的宽，倍率始终是对的。
    */
   useEffect(() => {
     if (!previewing) return;
@@ -480,6 +401,28 @@ export default function NotesTool() {
   }
 
   /*
+   * 笔记页自己的控件：编辑器内核切换 + 缩放。
+   *
+   * 这两件原来摆在应用顶栏，但顶栏是全局的 —— 放页面级的控件会让人以为
+   * 它们对所有工具都管用。挪到笔记页自己里面，控件和它作用的对象挨着，
+   * 换到别的工具时它们自然也一起消失。
+   *
+   * 内核切换放工具栏左端：右端紧挨着 Cherry 自己的视图三态（也有一个
+   * 「双栏」图标），两组开关并排会看花眼；内核切换用紧凑的图标形态也是这个原因。
+   *
+   * 缩放放状态栏右端（手机端状态栏不显示，就挂回工具栏右端）：
+   * 工具栏那一行横向已经排满，再塞控件就得横向滚动才看得见。
+   *
+   * 大纲没跟着搬：编辑器的工具栏右端本来就有一颗「大纲」，顶栏那颗是重复的，
+   * 删掉即可。
+   */
+  const toolbarLeading = (
+    <EditorModeSwitch value={mode} onChange={setEditorMode} compact />
+  )
+  const zoomControl = <EditorZoom />
+  const toolbarExtra = isMobile ? zoomControl : undefined;
+
+  /*
    * relative 与 fixed 必须互斥：Tailwind 的生成顺序是
    * .static → .fixed → .absolute → .relative → .sticky，
    * 两者同时挂在同一个元素上时 .relative 恒排在后面，全屏类名会被静默吃掉。
@@ -499,72 +442,7 @@ export default function NotesTool() {
           : "relative"
       }`}
     >
-      {/* 顶部文档条：左显示当前文档名（列表滚动后仍能确认在编辑哪一篇），右为内核切换。
-          预览态下它是「工具」，整条收掉；移动端标题已在顶栏、缩放靠手势，这条一并收掉 */}
-      {!previewing && !isMobile && (
-        <div className="relative z-40 flex-shrink-0 h-9 px-3 flex bg-white items-center justify-between gap-3 border-b border-slate-200/80 dark:border-dark-border dark:bg-dark-panel">
-          {/*
-            文档名。用 contentEditable 而不是 input —— 点进去是「这段文字本身变得可编辑」，
-            字号、字重、行高、占位都在原地不变，没有输入框边框与背景的跳变；
-            换成 input 的话，进出编辑态那一下整条工具栏的文字基线都会动一下。
-            它是编辑区顶部这条的工具，不参与正文排版，所以不会跑到 Markdown 内容里去。
-          */}
-          <div
-            ref={titleRef}
-            // contenteditable 由 startTitleEdit / commitTitleEdit 直接写 DOM，
-            // 不走 React（原因见 startTitleEdit 的说明）
-            suppressContentEditableWarning
-            spellCheck={false}
-            onClick={() => {
-              if (!editingTitle) startTitleEdit();
-            }}
-            onKeyDown={(e) => {
-              if (!editingTitle) return;
-              /*
-                中文/日文输入法选字时回车是「确认候选词」，不能当成提交 ——
-                否则打「笔记」两个字，刚敲完拼音按回车就被提交出去了。
-                isComposing 在组合期间为 true，只有组合结束后的回车才是真回车。
-              */
-              if (e.nativeEvent.isComposing) return;
-              if (e.key === "Enter") {
-                // 单行标题：回车即提交，不换行
-                e.preventDefault();
-                commitTitleEdit();
-              } else if (e.key === "Escape") {
-                e.preventDefault();
-                titleRef.current?.removeAttribute("contenteditable");
-                setEditingTitle(false);
-              }
-            }}
-            onBlur={() => {
-              if (editingTitle) commitTitleEdit();
-            }}
-            title={
-              editingTitle
-                ? undefined
-                : `${activeNote?.title || "未命名文档"}（点击重命名）`
-            }
-            className={`min-w-0 flex-1 truncate text-left text-[12px] font-semibold rounded p-1 px-2 -mx-1 outline-none transition-colors ${
-              editingTitle
-                ? "text-slate-900 dark:text-white"
-                : "cursor-text text-slate-500 hover:text-slate-800 dark:text-slate-400  dark:hover:text-slate-100"
-            }`}
-          ></div>
-          <div className="flex flex-shrink-0 items-center gap-2">
-            {/*
-              当前读到哪。两个内核都有这条阅读位置（走同一条总线），
-              不依赖目录胶囊是否存在 —— Cherry 没有胶囊，但进度照样该看得见。
-            */}
-            {livePosition && livePosition.percent > 0 && (
-              <span className="hidden max-w-[14rem] truncate text-[11px] text-slate-400 lg:inline dark:text-slate-500">
-                {livePosition.heading || "开头"} · {livePosition.percent}%
-              </span>
-            )}
-            <EditorZoom />
-            <EditorModeSwitch value={mode} onChange={handleModeChange} />
-          </div>
-        </div>
-      )}
+
 
       {/* 兼容性提醒条：只在切进所见即所得、且文档含 Cherry 专有语法时出现 */}
       {!previewing && warning && (
@@ -611,6 +489,8 @@ export default function NotesTool() {
             onTogglePreview={togglePreview}
             noteId={activeNote.id}
             backToTop={{ visible: showBackToTop, onClick: handleBackToTop }}
+            toolbarExtra={toolbarExtra}
+            toolbarLeading={toolbarLeading}
             className="h-full"
           />
         ) : (
@@ -634,6 +514,8 @@ export default function NotesTool() {
             isBookmarkStale={isBookmarkStale}
             onBookmarkBlock={handleBookmarkBlock}
             backToTop={{ visible: showBackToTop, onClick: handleBackToTop }}
+            toolbarExtra={toolbarExtra}
+            toolbarLeading={toolbarLeading}
             className="h-full"
           />
         )}
@@ -663,6 +545,7 @@ export default function NotesTool() {
           onJumpBookmark={() =>
             activeBookmark && handleJumpBookmark(activeBookmark)
           }
+          extra={zoomControl}
         />
       )}
 

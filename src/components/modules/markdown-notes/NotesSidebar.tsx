@@ -12,6 +12,7 @@ import {
   FolderOpen,
   FolderPlus,
   Inbox,
+  PanelLeftClose,
   Pencil,
   Plus,
   Search,
@@ -69,6 +70,8 @@ function getNotePreviewSnippet(content: string): string {
 interface NotesSidebarProps {
   /** 移动端从抽屉里选中文档后自动收起 */
   onAfterSelect?: () => void
+  /** 折叠侧边栏回调 */
+  onCollapse?: () => void
 }
 
 /**
@@ -84,7 +87,7 @@ const ALL_TAB = '__all__'
  * 从 DashboardLayout 抽出来独立成模块 —— 那块 JSX 原本和工具库列表挤在同一个
  * 条件分支里，加上文件夹与回收站之后已经不适合继续留在布局文件里。
  */
-export default function NotesSidebar({ onAfterSelect }: NotesSidebarProps) {
+export default function NotesSidebar({ onAfterSelect, onCollapse }: NotesSidebarProps) {
   const {
     notes,
     activeNote,
@@ -463,6 +466,18 @@ export default function NotesSidebar({ onAfterSelect }: NotesSidebarProps) {
                   </button>
                 </Tooltip>
               </>
+            )}
+            {onCollapse && (
+              <Tooltip content="折叠侧边栏 (⌘B)">
+                <button
+                  type="button"
+                  onClick={onCollapse}
+                  className="flex items-center justify-center p-1.5 bg-slate-100 dark:bg-dark-hover hover:bg-slate-200 dark:hover:bg-dark-border text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 rounded-lg transition-all"
+                  aria-label="折叠侧边栏"
+                >
+                  <PanelLeftClose className="w-3.5 h-3.5" />
+                </button>
+              </Tooltip>
             )}
           </div>
         </div>

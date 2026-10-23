@@ -46,9 +46,49 @@ export function persistEditorMode(mode: EditorMode): void {
 type EditorModeSwitchProps = {
   value: EditorMode
   onChange: (mode: EditorMode) => void
+  /**
+   * 紧凑模式：只留图标，不带文字。
+   *
+   * 摆在编辑器工具栏上时用这个 —— 工具栏横向空间紧张，而右端紧挨着 Cherry
+   * 自己的视图三态（也有一个「双栏」图标），两处都写「双栏」更容易看混。
+   */
+  compact?: boolean
 }
 
-export default function EditorModeSwitch({ value, onChange }: EditorModeSwitchProps) {
+export default function EditorModeSwitch({
+  value,
+  onChange,
+  compact = false,
+}: EditorModeSwitchProps) {
+  if (compact) {
+    return (
+      <div className="flex items-center rounded-lg border border-slate-200/70 bg-slate-100/80 p-0.5 dark:border-dark-border dark:bg-dark-hover">
+        {MODE_ITEMS.map((item) => {
+          const active = item.key === value
+          const Icon = item.icon
+          return (
+            <Tooltip key={item.key} content={`${item.label}：${item.hint}`}>
+              <button
+                type="button"
+                onClick={() => onChange(item.key)}
+                aria-pressed={active}
+                aria-label={item.label}
+                data-editor-mode={item.key}
+                className={`flex items-center justify-center rounded-md p-1 transition-colors ${
+                  active
+                    ? 'bg-white text-slate-900 shadow-2xs dark:bg-dark-panel dark:text-white'
+                    : 'text-slate-400 hover:bg-slate-200/70 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-dark-hover dark:hover:text-white'
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5" />
+              </button>
+            </Tooltip>
+          )
+        })}
+      </div>
+    )
+  }
+
   return (
     <div className="flex items-center bg-slate-100 dark:bg-dark-hover p-0.5 rounded-lg border border-slate-200/50 dark:border-dark-border text-[11px]">
       {MODE_ITEMS.map((item) => {

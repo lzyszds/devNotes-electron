@@ -56,7 +56,7 @@ const SECTIONS: SectionMeta[] = [
   {
     id: 'cloud-sync',
     label: '云同步',
-    hint: 'Cloudflare 备份与多设备同步',
+    hint: '私有服务器与多端数据同步',
     icon: Cloud,
   },
   {
