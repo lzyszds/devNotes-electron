@@ -2,9 +2,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import {
   PanelLeft,
   FolderTree,
-  ListTree,
   Search,
-  Download,
   BarChart3,
   Pencil,
   Settings,
@@ -32,7 +30,6 @@ import {
   getCachedRailToolIds,
   subscribeRailToolIds,
 } from "../../utils/sidebarLayout";
-import { requestOutline } from "../../utils/editorBus";
 import WindowControls from "./WindowControls";
 import ToolIcon from "../ui/ToolIcon";
 
@@ -124,7 +121,6 @@ export default function DashboardLayout({
   const {
     activeNote,
     handleRename: handleRenameNote,
-    handleExport: handleExportNote,
     folders,
     scope,
   } = useNotes();
@@ -311,11 +307,10 @@ export default function DashboardLayout({
           <button
             type="button"
             onClick={toggleFolderTree}
-            className={`w-7 h-7 rounded-md flex items-center justify-center transition-colors cursor-pointer ${
-              isFolderTreeOpen
-                ? "bg-black/[0.06] text-[#191918]"
-                : "text-[#787774] hover:text-[#191918] hover:bg-black/[0.04]"
-            }`}
+            className={`w-7 h-7 rounded-md flex items-center justify-center transition-colors cursor-pointer ${isFolderTreeOpen
+              ? "bg-black/[0.06] text-[#191918]"
+              : "text-[#787774] hover:text-[#191918] hover:bg-black/[0.04]"
+              }`}
             title={isFolderTreeOpen ? "收起二级目录 (⌥⌘D)" : "展开二级目录 (⌥⌘D)"}
           >
             <FolderTree className="w-3.5 h-3.5" />
@@ -378,31 +373,7 @@ export default function DashboardLayout({
             </kbd>
           </button>
 
-          {/* 笔记专属：目录大纲 */}
-          {isMarkdownActive && (
-            <Tooltip content="目录大纲">
-              <button
-                type="button"
-                onClick={() => requestOutline(true)}
-                className="w-7 h-7 rounded-md text-[#787774] hover:text-[#191918] hover:bg-black/[0.04] flex items-center justify-center transition-colors cursor-pointer"
-              >
-                <ListTree className="w-3.5 h-3.5" />
-              </button>
-            </Tooltip>
-          )}
 
-          {/* 笔记专属：导出 */}
-          {isMarkdownActive && activeNote && (
-            <Tooltip content="导出为 Markdown 文件">
-              <button
-                type="button"
-                onClick={() => void handleExportNote(activeNote)}
-                className="w-7 h-7 rounded-md text-[#787774] hover:text-[#191918] hover:bg-black/[0.04] flex items-center justify-center transition-colors cursor-pointer"
-              >
-                <Download className="w-3.5 h-3.5" />
-              </button>
-            </Tooltip>
-          )}
         </div>
       </header>
 
@@ -434,11 +405,10 @@ export default function DashboardLayout({
                       onOpenTool(toolId);
                       setIsSidebarOpen(true);
                     }}
-                    className={`relative w-full py-2 flex flex-col items-center justify-center rounded-xl transition-all cursor-pointer ${
-                      isActive
-                        ? "text-[#1C1C1C] font-semibold bg-black/[0.05]"
-                        : "text-[#787774] hover:text-[#191918] hover:bg-black/[0.03]"
-                    }`}
+                    className={`relative w-full py-2 flex flex-col items-center justify-center rounded-xl transition-all cursor-pointer ${isActive
+                      ? "text-[#1C1C1C] font-semibold bg-black/[0.05]"
+                      : "text-[#787774] hover:text-[#191918] hover:bg-black/[0.03]"
+                      }`}
                   >
                     {/* 选中项左侧内收的细微小胶囊指示器 */}
                     {isActive && (
@@ -502,9 +472,8 @@ export default function DashboardLayout({
         {/* ================= 2. 侧边栏容器（默认精炼三栏 w-72，按需展开二级目录树 w-52+w-72） ================= */}
         <div
           style={{ width: sidebarWidth }}
-          className={`flex-shrink-0 flex flex-row overflow-hidden transition-[width] duration-200 z-20 ${
-            isSidebarOpen ? "opacity-100" : "w-0 opacity-0 border-r-0"
-          }`}
+          className={`flex-shrink-0 flex flex-row overflow-hidden transition-[width] duration-200 z-20 ${isSidebarOpen ? "opacity-100" : "w-0 opacity-0 border-r-0"
+            }`}
         >
           {isMarkdownActive ? (
             <NotesSidebar
@@ -524,9 +493,8 @@ export default function DashboardLayout({
               {/* 二级工具分类栏 (按需展开 w-52) */}
               <aside
                 style={{ width: isFolderTreeOpen ? 208 : 0 }}
-                className={`bg-[#F3F3F1] border-r border-black/[0.06] flex flex-col h-full flex-shrink-0 transition-[width] duration-200 overflow-hidden ${
-                  isFolderTreeOpen ? "opacity-100" : "w-0 opacity-0 border-r-0"
-                }`}
+                className={`bg-[#F3F3F1] border-r border-black/[0.06] flex flex-col h-full flex-shrink-0 transition-[width] duration-200 overflow-hidden ${isFolderTreeOpen ? "opacity-100" : "w-0 opacity-0 border-r-0"
+                  }`}
               >
                 <div className="h-11 px-3 border-b border-black/[0.06] flex items-center justify-between flex-shrink-0">
                   <span className="font-bold text-xs text-[#191918] tracking-tight">
@@ -547,19 +515,17 @@ export default function DashboardLayout({
                         key={cat.id}
                         type="button"
                         onClick={() => setToolCategory(cat.id)}
-                        className={`w-full flex items-center justify-between px-2.5 py-1.5 transition-all text-xs font-medium cursor-pointer rounded-md ${
-                          isSelected
-                            ? "bg-black/[0.06] text-[#191918] font-bold"
-                            : "text-[#787774] hover:text-[#191918] hover:bg-black/[0.03]"
-                        }`}
+                        className={`w-full flex items-center justify-between px-2.5 py-1.5 transition-all text-xs font-medium cursor-pointer rounded-md ${isSelected
+                          ? "bg-black/[0.06] text-[#191918] font-bold"
+                          : "text-[#787774] hover:text-[#191918] hover:bg-black/[0.03]"
+                          }`}
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <span
-                            className={`w-4 h-4 rounded-full text-[10px] font-bold flex items-center justify-center flex-shrink-0 ${
-                              isSelected
-                                ? "bg-[#1C1C1C] text-white"
-                                : "bg-black/[0.06] text-[#191918]"
-                            }`}
+                            className={`w-4 h-4 rounded-full text-[10px] font-bold flex items-center justify-center flex-shrink-0 ${isSelected
+                              ? "bg-[#1C1C1C] text-white"
+                              : "bg-black/[0.06] text-[#191918]"
+                              }`}
                           >
                             {initialBadge}
                           </span>
@@ -580,11 +546,10 @@ export default function DashboardLayout({
                   <button
                     type="button"
                     onClick={toggleFolderTree}
-                    className={`w-7 h-7 rounded-md flex items-center justify-center transition-colors cursor-pointer shrink-0 ${
-                      isFolderTreeOpen
-                        ? "bg-[#EAEAE7] text-[#191918]"
-                        : "text-[#787774] hover:text-[#191918] hover:bg-[#EAEAE7]/60"
-                    }`}
+                    className={`w-7 h-7 rounded-md flex items-center justify-center transition-colors cursor-pointer shrink-0 ${isFolderTreeOpen
+                      ? "bg-[#EAEAE7] text-[#191918]"
+                      : "text-[#787774] hover:text-[#191918] hover:bg-[#EAEAE7]/60"
+                      }`}
                     title={isFolderTreeOpen ? "收起分类" : "展开分类"}
                   >
                     <FolderTree className="w-3.5 h-3.5" />
@@ -609,26 +574,23 @@ export default function DashboardLayout({
                       <div
                         key={tool.id}
                         onClick={() => onOpenTool(tool.id)}
-                        className={`group relative px-2.5 py-2 rounded-lg transition-all cursor-pointer flex items-center gap-2.5 ${
-                          isSelected
-                            ? "bg-white shadow-[0_1px_3px_rgba(0,0,0,0.05),0_1px_1px_rgba(0,0,0,0.02)] ring-1 ring-black/[0.08]"
-                            : "bg-transparent hover:bg-black/[0.035] text-[#191918]"
-                        }`}
+                        className={`group relative px-2.5 py-2 rounded-lg transition-all cursor-pointer flex items-center gap-2.5 ${isSelected
+                          ? "bg-white shadow-[0_1px_3px_rgba(0,0,0,0.05),0_1px_1px_rgba(0,0,0,0.02)] ring-1 ring-black/[0.08]"
+                          : "bg-transparent hover:bg-black/[0.035] text-[#191918]"
+                          }`}
                       >
                         <div
-                          className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 transition-colors ${
-                            isSelected
-                              ? "bg-[#1C1C1C] text-white"
-                              : "bg-black/[0.04] text-[#787774] group-hover:text-[#191918]"
-                          }`}
+                          className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 transition-colors ${isSelected
+                            ? "bg-[#1C1C1C] text-white"
+                            : "bg-black/[0.04] text-[#787774] group-hover:text-[#191918]"
+                            }`}
                         >
                           <ToolIcon toolId={tool.id} className="w-3.5 h-3.5" />
                         </div>
                         <div className="min-w-0 flex-1">
                           <h4
-                            className={`text-xs truncate ${
-                              isSelected ? "font-semibold text-[#191918]" : "font-normal text-[#191918]"
-                            }`}
+                            className={`text-xs truncate ${isSelected ? "font-semibold text-[#191918]" : "font-normal text-[#191918]"
+                              }`}
                           >
                             {tool.name}
                           </h4>

@@ -1079,7 +1079,7 @@ export default function MilkdownMarkdownEditor({
           onDelete={(bookmark) => onDeleteBookmark?.(bookmark)}
         />
 
-        {/* 右侧悬浮大纲：折叠态是一条骨架胶囊，展开后是目录卡片 */}
+        {/* 右侧悬浮大纲与操作胶囊 */}
         <OutlineCapsule
           items={outlineItems}
           activeIndex={outlineActive}
@@ -1092,6 +1092,13 @@ export default function MilkdownMarkdownEditor({
           onJumpBookmark={onJumpBookmark}
           onDeleteBookmark={onDeleteBookmark}
           isBookmarkStale={isBookmarkStale}
+          searchOpen={searchOpen}
+          onToggleSearch={() => setSearchOpen((prev) => !prev)}
+          fullscreen={fullscreen}
+          onToggleFullscreen={onToggleFullscreen}
+          preview={preview}
+          onTogglePreview={onTogglePreview}
+          onExport={() => void handleExportRef.current()}
         />
 
         {/* 挂到编辑区内层容器上：Provider 用绝对定位放置，容器必须与编辑区同坐标系 */}

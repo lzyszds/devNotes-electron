@@ -1,5 +1,16 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
-import { ArrowUpToLine, Bookmark, PanelRight, Trash2, X } from 'lucide-react'
+import {
+  ArrowUpToLine,
+  Bookmark,
+  Download,
+  ListTree,
+  Maximize2,
+  Minimize2,
+  Presentation,
+  Search,
+  Trash2,
+  X,
+} from 'lucide-react'
 import Tooltip from '../../ui/Tooltip'
 import type { OutlineItem } from '../../../utils/milkdownOutline'
 import type { ReadingBookmark } from '../../../utils/notesStore'
@@ -23,6 +34,17 @@ export type OutlineCapsuleProps = {
   onDeleteBookmark?: (bookmark: ReadingBookmark) => void
   /** 判断某条书签是否还认得回正文（认不回则置灰并标注失效） */
   isBookmarkStale?: (bookmark: ReadingBookmark) => boolean
+  /** 右侧功能按钮：搜索 */
+  searchOpen?: boolean
+  onToggleSearch?: () => void
+  /** 右侧功能按钮：全屏 */
+  fullscreen?: boolean
+  onToggleFullscreen?: () => void
+  /** 右侧功能按钮：预览 */
+  preview?: boolean
+  onTogglePreview?: () => void
+  /** 右侧功能按钮：导出 */
+  onExport?: () => void
 }
 
 /** 折叠态每条骨架占的高度（含间距），用来把胶囊高度撑到刚好装下 */
@@ -52,6 +74,13 @@ export default function OutlineCapsule({
   onJumpBookmark,
   onDeleteBookmark,
   isBookmarkStale,
+  searchOpen,
+  onToggleSearch,
+  fullscreen,
+  onToggleFullscreen,
+  preview,
+  onTogglePreview,
+  onExport,
 }: OutlineCapsuleProps) {
   const wrapperRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLElement>(null)
@@ -106,8 +135,7 @@ export default function OutlineCapsule({
     return set
   }, [bookmarks])
 
-  // 没有标题就不占地方（空胶囊没有意义）
-  if (items.length === 0) return null
+  const hasOutline = items.length > 0
 
   /*
    * 胶囊高度按条目数撑开，并夹在上下限之间。
@@ -274,246 +302,322 @@ export default function OutlineCapsule({
       ref={wrapperRef}
       className="absolute inset-y-0 right-4 z-20 flex flex-col items-end justify-center gap-2 py-3 select-none"
     >
-      {/* ---------------------------------------------------------------- 胶囊本体 */}
-      <div
-        role={expanded ? undefined : 'button'}
-        title={expanded ? undefined : '点击展开大纲'}
-        onClick={() => {
-          if (!expanded) onExpandedChange(true)
-        }}
-        style={{ height: expanded ? undefined : capsuleHeight }}
-        className={`relative overflow-hidden border border-slate-200/80 bg-white/95 backdrop-blur-xl transition-[width,height,box-shadow,border-color,border-radius] duration-300 ease-[cubic-bezier(0.34,1.25,0.64,1)] dark:border-dark-border dark:bg-dark-panel/95 ${
-          expanded
-            ? 'h-[340px] max-h-full w-[212px] rounded-[16px] shadow-2xl ring-1 ring-brand-500/20'
-            : 'w-[30px] cursor-pointer rounded-[15px] shadow-sm hover:border-brand-500/40 hover:shadow-md'
-        }`}
-      >
-        {/* ------------------------------------------------ 折叠态：骨架细线 */}
-        {!expanded && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center py-1.5">
-            {items.map((item, index) => {
-              const active = index === activeIndex
-              const isTop = item.level <= 2
-              // 这一节挂着书签：骨架条端头点一颗小圆点，不展开也能看出「这儿记过」
-              const marked = bookmarkedHeadings.has(item.text.trim())
-              return (
-                <Tooltip
-                  key={`${item.pos}-${item.level}`}
-                  content={marked ? `${item.text}（有书签）` : item.text}
-                  // 侧向弹出：胶囊只有 30px 宽，浮在上方会盖住相邻的骨架条
-                  placement="right"
-                >
-                  <div
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      onPick(index)
-                    }}
-                    style={{ height: perItem }}
-                    className="group relative flex w-full cursor-pointer items-center justify-center"
-                  >
-                    <span
-                      className={`rounded-full transition-all duration-200 ease-[cubic-bezier(0.34,1.25,0.64,1)] ${
-                        active
-                          ? 'h-[3px] w-5 bg-brand-500 shadow-sm shadow-brand-500/40'
-                          : isTop
-                            ? 'h-[2px] w-3.5 bg-slate-300 group-hover:w-4 group-hover:bg-slate-400 dark:bg-slate-600 dark:group-hover:bg-slate-500'
-                            : 'h-[2px] w-2 bg-slate-300/70 group-hover:w-3 dark:bg-slate-600/70'
-                      }`}
-                    />
-                    {marked && (
-                      <span className="pointer-events-none absolute left-1 top-1/2 h-1 w-1 -translate-y-1/2 rounded-full bg-brand-500" />
-                    )}
-                  </div>
-                </Tooltip>
-              )
-            })}
-          </div>
-        )}
-
-        {/* ------------------------------------------------ 展开态：目录卡片 */}
-        {expanded && (
-          <div className="relative flex h-full w-full flex-col p-3 pb-2.5 pt-3.5">
-            {/* 顶部能量条 */}
-            <div className="absolute left-3 right-3 top-0 h-[2.5px] overflow-hidden rounded-full bg-slate-100 dark:bg-dark-hover">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-brand-400 to-brand-600 transition-[width] duration-150"
-                style={{ width: `${readPercent}%` }}
-              />
-            </div>
-
-            <div className="mb-2 flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
-                <span className="h-1.5 w-1.5 rounded-full bg-brand-500" />
-                目录脉络
-              </div>
-              <Tooltip content="收起大纲">
-                <button
-                  type="button"
-                  onClick={() => onExpandedChange(false)}
-                  className="rounded p-0.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-brand-600 dark:hover:bg-dark-hover dark:hover:text-brand-400"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </Tooltip>
-            </div>
-
-            {/*
-              滚动条留槽：条目多到要滚动时，5px 的滚动条会把列表内容挤窄，
-              底下那行「置顶」就会比上面的目录凸出来一截。留槽让它常驻，两边永远对齐。
-            */}
-            <nav
-              ref={listRef}
-              className="relative flex flex-1 flex-col gap-0.5 overflow-y-auto pr-0.5 [scrollbar-gutter:stable]"
-            >
-              <div
-                ref={pillRef}
-                className="pointer-events-none absolute left-0 right-0.5 z-0 h-[32px] rounded-lg border border-brand-500/20 bg-brand-500/10 opacity-0 shadow-sm transition-[top,height,opacity] duration-300 ease-[cubic-bezier(0.2,0.9,0.3,1.25)]"
-              />
+      {/* ---------------------------------------------------------------- 胶囊本体 (有大纲或展开时显示) */}
+      {(hasOutline || expanded) && (
+        <div
+          role={expanded ? undefined : 'button'}
+          title={expanded ? undefined : '点击展开大纲'}
+          onClick={() => {
+            if (!expanded) onExpandedChange(true)
+          }}
+          style={{ height: expanded ? undefined : capsuleHeight }}
+          className={`relative overflow-hidden border border-black/[0.08] bg-white/95 backdrop-blur-xl transition-[width,height,box-shadow,border-color,border-radius] duration-300 ease-[cubic-bezier(0.34,1.25,0.64,1)] ${
+            expanded
+              ? 'h-[340px] max-h-full w-[212px] rounded-[16px] shadow-2xl ring-1 ring-black/[0.06]'
+              : 'w-[30px] cursor-pointer rounded-[15px] shadow-sm hover:shadow-md'
+          }`}
+        >
+          {/* ------------------------------------------------ 折叠态：骨架细线 */}
+          {!expanded && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center py-1.5">
               {items.map((item, index) => {
                 const active = index === activeIndex
                 const isTop = item.level <= 2
+                // 这一节挂着书签：骨架条端头点一颗小圆点，不展开也能看出「这儿记过」
+                const marked = bookmarkedHeadings.has(item.text.trim())
                 return (
-                  <div
+                  <Tooltip
                     key={`${item.pos}-${item.level}`}
-                    data-index={index}
-                    onClick={() => onPick(index)}
-                    className={`relative z-10 flex cursor-pointer items-center gap-2 rounded-lg p-1.5 transition-colors duration-150 hover:text-brand-600 dark:hover:text-brand-400 ${
-                      active
-                        ? 'font-semibold text-brand-600 dark:text-brand-400'
-                        : isTop
-                          ? 'text-slate-700 dark:text-slate-200'
-                          : 'pl-5 text-[11.5px] text-slate-500 dark:text-slate-400'
-                    }`}
+                    content={marked ? `${item.text}（有书签）` : item.text}
+                    // 侧向弹出：胶囊只有 30px 宽，浮在上方会盖住相邻的骨架条
+                    placement="right"
                   >
-                    {isTop ? (
+                    <div
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        onPick(index)
+                      }}
+                      style={{ height: perItem }}
+                      className="group relative flex w-full cursor-pointer items-center justify-center"
+                    >
                       <span
-                        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded text-[10px] font-bold tabular-nums transition-all duration-150 ${
+                        className={`rounded-full transition-all duration-200 ease-[cubic-bezier(0.34,1.25,0.64,1)] ${
                           active
-                            ? 'bg-brand-600 text-white shadow-sm shadow-brand-500/40'
-                            : 'bg-slate-100 text-slate-400 dark:bg-dark-hover dark:text-slate-500'
+                            ? 'h-[3px] w-5 bg-[#1C1C1C] shadow-sm'
+                            : isTop
+                              ? 'h-[2px] w-3.5 bg-black/20 group-hover:w-4 group-hover:bg-black/40'
+                              : 'h-[2px] w-2 bg-black/15 group-hover:w-3'
                         }`}
-                      >
-                        {topLevelSeen[index] ? String(topLevelSeen[index]).padStart(2, '0') : ''}
-                      </span>
-                    ) : (
-                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-slate-300 dark:bg-slate-600" />
-                    )}
-                    <span className="truncate text-[12px] font-medium">{item.text}</span>
-                    {bookmarkedHeadings.has(item.text.trim()) && (
-                      <Bookmark className="h-2.5 w-2.5 shrink-0 fill-brand-500 text-brand-500" />
-                    )}
-                  </div>
+                      />
+                      {marked && (
+                        <span className="pointer-events-none absolute left-1 top-1/2 h-1 w-1 -translate-y-1/2 rounded-full bg-amber-500" />
+                      )}
+                    </div>
+                  </Tooltip>
                 )
               })}
-            </nav>
+            </div>
+          )}
 
-            {/*
-              书签区。卡片高度是固定的，所以这里上限压得比较死（最多约 3 条的位置）——
-              条目再多就在这一小块里自己滚，不去挤上面的目录。
-              没有书签时整块不出现，目录独占卡片。
-            */}
-            {bookmarks && bookmarks.length > 0 && (
-              <div className="mt-1.5 flex max-h-[40%] flex-shrink-0 flex-col border-t border-slate-100 pt-1.5 dark:border-dark-border">
-                <div className="mb-1 flex items-center justify-between pr-[7px] text-[10px] font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
-                  <span className="flex items-center gap-1">
-                    <Bookmark className="h-2.5 w-2.5 fill-current" />
-                    阅读书签
-                  </span>
-                  <span className="font-normal text-slate-400 dark:text-slate-500">
-                    {bookmarks.length}
-                  </span>
+          {/* ------------------------------------------------ 展开态：目录卡片 */}
+          {expanded && (
+            <div className="relative flex h-full w-full flex-col p-3 pb-2.5 pt-3.5">
+              {/* 顶部能量条 */}
+              <div className="absolute left-3 right-3 top-0 h-[2.5px] overflow-hidden rounded-full bg-black/[0.05]">
+                <div
+                  className="h-full rounded-full bg-[#1C1C1C] transition-[width] duration-150"
+                  style={{ width: `${readPercent}%` }}
+                />
+              </div>
+
+              <div className="mb-2 flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wider text-[#191918]">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#1C1C1C]" />
+                  目录脉络
                 </div>
+                <Tooltip content="收起大纲">
+                  <button
+                    type="button"
+                    onClick={() => onExpandedChange(false)}
+                    className="rounded p-0.5 text-[#787774] transition-colors hover:bg-black/[0.05] hover:text-[#191918] cursor-pointer"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </Tooltip>
+              </div>
 
-                <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto pr-0.5 [scrollbar-gutter:stable]">
-                  {bookmarks.map((bookmark) => {
-                    const stale = isBookmarkStale?.(bookmark) ?? false
+              {items.length === 0 ? (
+                <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
+                  <ListTree className="w-6 h-6 text-[#787774] opacity-40 mb-2" />
+                  <p className="text-xs text-[#787774]">当前正文暂无标题</p>
+                  <p className="text-[10px] text-[#787774]/70 mt-1">使用 # 标题自动生成脉络</p>
+                </div>
+              ) : (
+                <nav
+                  ref={listRef}
+                  className="relative flex flex-1 flex-col gap-0.5 overflow-y-auto pr-0.5 [scrollbar-gutter:stable]"
+                >
+                  <div
+                    ref={pillRef}
+                    className="pointer-events-none absolute left-0 right-0.5 z-0 h-[32px] rounded-lg border border-black/[0.06] bg-black/[0.04] opacity-0 shadow-sm transition-[top,height,opacity] duration-300 ease-[cubic-bezier(0.2,0.9,0.3,1.25)]"
+                  />
+                  {items.map((item, index) => {
+                    const active = index === activeIndex
+                    const isTop = item.level <= 2
                     return (
                       <div
-                        key={bookmark.id}
-                        className="group flex items-center gap-1 rounded-lg px-1.5 py-1 transition-colors hover:bg-brand-500/10"
+                        key={`${item.pos}-${item.level}`}
+                        data-index={index}
+                        onClick={() => onPick(index)}
+                        className={`relative z-10 flex cursor-pointer items-center gap-2 rounded-lg p-1.5 transition-colors duration-150 hover:bg-black/[0.035] ${
+                          active
+                            ? 'font-bold text-[#191918]'
+                            : isTop
+                              ? 'text-[#191918]'
+                              : 'pl-5 text-[11.5px] text-[#787774]'
+                        }`}
                       >
-                        <button
-                          type="button"
-                          disabled={stale}
-                          onClick={() => onJumpBookmark?.(bookmark)}
-                          title={
-                            stale
-                              ? '原标题已被修改或删除，无法定位'
-                              : `回到「${bookmark.heading}」${bookmark.note ? `：${bookmark.note}` : ''}`
-                          }
-                          className={`flex min-w-0 flex-1 flex-col items-start gap-px text-left ${
-                            stale ? 'cursor-default' : ''
-                          }`}
-                        >
+                        {isTop ? (
                           <span
-                            className={`w-full truncate text-[11.5px] font-medium ${
-                              stale
-                                ? 'text-slate-400 line-through dark:text-slate-500'
-                                : 'text-slate-700 group-hover:text-brand-600 dark:text-slate-200 dark:group-hover:text-brand-400'
+                            className={`flex h-4 w-4 shrink-0 items-center justify-center rounded text-[10px] font-bold tabular-nums transition-all duration-150 ${
+                              active
+                                ? 'bg-[#1C1C1C] text-white shadow-sm'
+                                : 'bg-black/[0.05] text-[#787774]'
                             }`}
                           >
-                            {bookmark.heading}
-                            {bookmark.percent > 0 && (
-                              <span className="ml-1 font-normal tabular-nums text-slate-400 dark:text-slate-500">
-                                {bookmark.percent}%
-                              </span>
-                            )}
+                            {topLevelSeen[index] ? String(topLevelSeen[index]).padStart(2, '0') : ''}
                           </span>
-                          {bookmark.note && (
-                            <span className="w-full truncate text-[10.5px] text-slate-400 dark:text-slate-500">
-                              {bookmark.note}
-                            </span>
-                          )}
-                        </button>
-                        <Tooltip content="删除这条书签" placement="left">
-                          <button
-                            type="button"
-                            aria-label="删除书签"
-                            onClick={() => onDeleteBookmark?.(bookmark)}
-                            className="flex-shrink-0 rounded p-0.5 text-slate-300 opacity-0 transition-all hover:bg-rose-500/10 hover:text-rose-500 group-hover:opacity-100 dark:text-slate-600"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </button>
-                        </Tooltip>
+                        ) : (
+                          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-black/20" />
+                        )}
+                        <span className="truncate text-[12px] font-medium">{item.text}</span>
+                        {bookmarkedHeadings.has(item.text.trim()) && (
+                          <Bookmark className="h-2.5 w-2.5 shrink-0 fill-amber-500 text-amber-500" />
+                        )}
                       </div>
                     )
                   })}
+                </nav>
+              )}
+
+              {/* 书签区 */}
+              {bookmarks && bookmarks.length > 0 && (
+                <div className="mt-1.5 flex max-h-[40%] flex-shrink-0 flex-col border-t border-black/[0.06] pt-1.5">
+                  <div className="mb-1 flex items-center justify-between pr-[7px] text-[10px] font-bold uppercase tracking-wider text-[#191918]">
+                    <span className="flex items-center gap-1">
+                      <Bookmark className="h-2.5 w-2.5 fill-current" />
+                      阅读书签
+                    </span>
+                    <span className="font-normal text-[#787774]">
+                      {bookmarks.length}
+                    </span>
+                  </div>
+
+                  <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto pr-0.5 [scrollbar-gutter:stable]">
+                    {bookmarks.map((bookmark) => {
+                      const stale = isBookmarkStale?.(bookmark) ?? false
+                      return (
+                        <div
+                          key={bookmark.id}
+                          className="group flex items-center gap-1 rounded-lg px-1.5 py-1 transition-colors hover:bg-black/[0.04]"
+                        >
+                          <button
+                            type="button"
+                            disabled={stale}
+                            onClick={() => onJumpBookmark?.(bookmark)}
+                            title={
+                              stale
+                                ? '原标题已被修改或删除，无法定位'
+                                : `回到「${bookmark.heading}」${bookmark.note ? `：${bookmark.note}` : ''}`
+                            }
+                            className={`flex min-w-0 flex-1 flex-col items-start gap-px text-left ${
+                              stale ? 'cursor-default' : ''
+                            }`}
+                          >
+                            <span
+                              className={`w-full truncate text-[11.5px] font-medium ${
+                                stale
+                                  ? 'text-[#787774]/50 line-through'
+                                  : 'text-[#191918]'
+                              }`}
+                            >
+                              {bookmark.heading}
+                              {bookmark.percent > 0 && (
+                                <span className="ml-1 font-normal tabular-nums text-[#787774]">
+                                  {bookmark.percent}%
+                                </span>
+                              )}
+                            </span>
+                            {bookmark.note && (
+                              <span className="w-full truncate text-[10.5px] text-[#787774]">
+                                {bookmark.note}
+                              </span>
+                            )}
+                          </button>
+                          <Tooltip content="删除这条书签" placement="left">
+                            <button
+                              type="button"
+                              aria-label="删除书签"
+                              onClick={() => onDeleteBookmark?.(bookmark)}
+                              className="flex-shrink-0 rounded p-0.5 text-[#787774]/40 opacity-0 transition-all hover:bg-rose-50 hover:text-rose-600 group-hover:opacity-100 cursor-pointer"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </Tooltip>
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
+              )}
+
+              {/* 右侧内边距与 nav 对齐：0.5 的自身留白 + 5px 的滚动条留槽 */}
+              <div className="mt-1.5 flex items-center justify-between border-t border-black/[0.06] pt-1.5 pr-[7px] text-[10.5px] text-[#787774]">
+                <span>已读 {readPercent}%</span>
+                <button
+                  type="button"
+                  onClick={onScrollTop}
+                  className="flex items-center gap-1 transition-colors hover:text-[#191918] cursor-pointer"
+                >
+                  <ArrowUpToLine className="h-3 w-3" />
+                  置顶
+                </button>
               </div>
-            )}
-
-            {/* 右侧内边距与 nav 对齐：0.5 的自身留白 + 5px 的滚动条留槽 */}
-            <div className="mt-1.5 flex items-center justify-between border-t border-slate-100 pt-1.5 pr-[7px] text-[10.5px] text-slate-400 dark:border-dark-border dark:text-slate-500">
-              <span>已读 {readPercent}%</span>
-              <button
-                type="button"
-                onClick={onScrollTop}
-                className="flex items-center gap-1 transition-colors hover:text-brand-600 dark:hover:text-brand-400"
-              >
-                <ArrowUpToLine className="h-3 w-3" />
-                置顶
-              </button>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
-      {/* ---------------------------------------------------------------- 迷你底座 */}
-      <div
-        className={`w-[30px] flex-col gap-[3px] rounded-[11px] border border-slate-200/80 bg-white/95 p-[3px] shadow-sm backdrop-blur-xl transition-all duration-200 dark:border-dark-border dark:bg-dark-panel/95 ${
-          expanded ? 'hidden md:flex pointer-events-none -translate-y-2 scale-75 opacity-0' : 'flex'
-        }`}
-      >
-        <Tooltip content="展开大纲目录" placement="right">
+      {/* ---------------------------------------------------------------- 迷你悬浮功能操作胶囊 */}
+      <div className="w-[32px] flex flex-col items-center gap-1 p-1 rounded-xl border border-black/[0.08] bg-white/95 shadow-[0_2px_8px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] backdrop-blur-md select-none">
+        {/* 大纲开关 */}
+        <Tooltip content={expanded ? "收起目录大纲" : "目录大纲"} placement="right">
           <button
             type="button"
-            aria-label="展开目录"
-            onClick={() => onExpandedChange(true)}
-            className="flex h-6 w-6 items-center justify-center rounded-[7px] text-slate-400 transition-all duration-150 hover:scale-105 hover:bg-brand-500/10 hover:text-brand-600 dark:hover:text-brand-400"
+            aria-label="目录大纲"
+            onClick={() => onExpandedChange(!expanded)}
+            className={`flex h-6 w-6 items-center justify-center rounded-lg transition-colors cursor-pointer ${
+              expanded
+                ? "bg-[#1C1C1C] text-white"
+                : "text-[#787774] hover:bg-black/[0.05] hover:text-[#191918]"
+            }`}
           >
-            <PanelRight className="h-3.5 w-3.5" />
+            <ListTree className="h-3.5 w-3.5" />
           </button>
         </Tooltip>
+
+        <span className="w-4 h-px bg-black/[0.06] my-0.5" />
+
+        {/* 搜索替换 */}
+        {onToggleSearch && (
+          <Tooltip content="搜索替换 (⌘F)" placement="right">
+            <button
+              type="button"
+              aria-label="搜索替换"
+              onClick={onToggleSearch}
+              className={`flex h-6 w-6 items-center justify-center rounded-lg transition-colors cursor-pointer ${
+                searchOpen
+                  ? "bg-[#1C1C1C] text-white"
+                  : "text-[#787774] hover:bg-black/[0.05] hover:text-[#191918]"
+              }`}
+            >
+              <Search className="h-3.5 w-3.5" />
+            </button>
+          </Tooltip>
+        )}
+
+        {/* 全屏编辑 */}
+        {onToggleFullscreen && (
+          <Tooltip content={fullscreen ? "退出全屏 (F11)" : "全屏沉浸 (F11)"} placement="right">
+            <button
+              type="button"
+              aria-label="全屏"
+              onClick={onToggleFullscreen}
+              className={`flex h-6 w-6 items-center justify-center rounded-lg transition-colors cursor-pointer ${
+                fullscreen
+                  ? "bg-[#1C1C1C] text-white"
+                  : "text-[#787774] hover:bg-black/[0.05] hover:text-[#191918]"
+              }`}
+            >
+              {fullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+            </button>
+          </Tooltip>
+        )}
+
+        {/* 预览阅读 */}
+        {onTogglePreview && (
+          <Tooltip content="预览阅读" placement="right">
+            <button
+              type="button"
+              aria-label="预览阅读"
+              onClick={onTogglePreview}
+              className={`flex h-6 w-6 items-center justify-center rounded-lg transition-colors cursor-pointer ${
+                preview
+                  ? "bg-[#1C1C1C] text-white"
+                  : "text-[#787774] hover:bg-black/[0.05] hover:text-[#191918]"
+              }`}
+            >
+              <Presentation className="h-3.5 w-3.5" />
+            </button>
+          </Tooltip>
+        )}
+
+        {/* 导出 */}
+        {onExport && (
+          <>
+            <span className="w-4 h-px bg-black/[0.06] my-0.5" />
+            <Tooltip content="导出为 Markdown" placement="right">
+              <button
+                type="button"
+                aria-label="导出"
+                onClick={onExport}
+                className="flex h-6 w-6 items-center justify-center rounded-lg text-[#787774] hover:bg-black/[0.05] hover:text-[#191918] transition-colors cursor-pointer"
+              >
+                <Download className="h-3.5 w-3.5" />
+              </button>
+            </Tooltip>
+          </>
+        )}
       </div>
     </div>
   )

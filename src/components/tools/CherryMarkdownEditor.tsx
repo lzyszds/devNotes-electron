@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useId, useMemo, useRef } from 'react'
 import type { MouseEvent as ReactMouseEvent } from 'react'
 import type { ReactNode } from 'react'
+import { Download, ListTree, Maximize2, Presentation, Search } from 'lucide-react'
 import Cherry from 'cherry-markdown'
 import 'cherry-markdown/dist/cherry-markdown.css'
+import Tooltip from '../ui/Tooltip'
 import { useNotes } from '../../context/NotesContext'
 import { attachDomTooltips } from '../ui/domTooltip'
 import { useEditorContextMenu } from '../../hooks/useEditorContextMenu'
@@ -617,6 +619,82 @@ export default function CherryMarkdownEditor({
       )}
       <div className="relative min-h-0 flex-1 max-md:order-1">
         <div id={containerId} ref={mountRef} className="h-full w-full" />
+
+        {/* 右侧悬浮操作胶囊 */}
+        <div className="absolute inset-y-0 right-4 z-20 flex flex-col items-end justify-center py-3 select-none pointer-events-none">
+          <div className="w-[32px] flex flex-col items-center gap-1 p-1 rounded-xl border border-black/[0.08] bg-white/95 shadow-[0_2px_8px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] backdrop-blur-md pointer-events-auto">
+            {/* 大纲 */}
+            <Tooltip content="目录大纲" placement="right">
+              <button
+                type="button"
+                aria-label="目录大纲"
+                onClick={toggleOutline}
+                className="flex h-6 w-6 items-center justify-center rounded-lg text-[#787774] hover:bg-black/[0.05] hover:text-[#191918] transition-colors cursor-pointer"
+              >
+                <ListTree className="h-3.5 w-3.5" />
+              </button>
+            </Tooltip>
+
+            <span className="w-4 h-px bg-black/[0.06] my-0.5" />
+
+            {/* 搜索 */}
+            {onOpenSearch && (
+              <Tooltip content="搜索替换 (⌘F)" placement="right">
+                <button
+                  type="button"
+                  aria-label="搜索替换"
+                  onClick={onOpenSearch}
+                  className="flex h-6 w-6 items-center justify-center rounded-lg text-[#787774] hover:bg-black/[0.05] hover:text-[#191918] transition-colors cursor-pointer"
+                >
+                  <Search className="h-3.5 w-3.5" />
+                </button>
+              </Tooltip>
+            )}
+
+            {/* 全屏 */}
+            {onToggleFullscreen && (
+              <Tooltip content="全屏沉浸 (F11)" placement="right">
+                <button
+                  type="button"
+                  aria-label="全屏"
+                  onClick={onToggleFullscreen}
+                  className="flex h-6 w-6 items-center justify-center rounded-lg text-[#787774] hover:bg-black/[0.05] hover:text-[#191918] transition-colors cursor-pointer"
+                >
+                  <Maximize2 className="h-3.5 w-3.5" />
+                </button>
+              </Tooltip>
+            )}
+
+            {/* 预览 */}
+            {onTogglePreview && (
+              <Tooltip content="预览阅读" placement="right">
+                <button
+                  type="button"
+                  aria-label="预览阅读"
+                  onClick={onTogglePreview}
+                  className={`flex h-6 w-6 items-center justify-center rounded-lg transition-colors cursor-pointer ${
+                    preview ? "bg-[#1C1C1C] text-white" : "text-[#787774] hover:bg-black/[0.05] hover:text-[#191918]"
+                  }`}
+                >
+                  <Presentation className="h-3.5 w-3.5" />
+                </button>
+              </Tooltip>
+            )}
+
+            {/* 导出 */}
+            <span className="w-4 h-px bg-black/[0.06] my-0.5" />
+            <Tooltip content="导出" placement="right">
+              <button
+                type="button"
+                aria-label="导出"
+                onClick={() => handleCommand({ id: 'export', label: '导出', icon: Download, group: 6 }, document.body)}
+                className="flex h-6 w-6 items-center justify-center rounded-lg text-[#787774] hover:bg-black/[0.05] hover:text-[#191918] transition-colors cursor-pointer"
+              >
+                <Download className="h-3.5 w-3.5" />
+              </button>
+            </Tooltip>
+          </div>
+        </div>
       </div>
     </div>
   )

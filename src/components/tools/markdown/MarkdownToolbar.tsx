@@ -29,23 +29,18 @@ export type MarkdownToolbarProps = {
   trailing?: ReactNode
   /**
    * 左端插槽：宿主页面自己的控件（编辑器内核切换）。
-   *
-   * 放左端而不是右端有两个原因：
-   *   - 右端紧挨着编辑器自己的视图三态，两组「双栏/预览」样式的开关并排会看花眼
-   *   - 手机上工具栏在底部且要横向滚动，左端是默认就能看到的位置
    */
   leading?: ReactNode
   /**
    * 最右端插槽：笔记页自己的控件（缩放）。
-   * 与 trailing 分开是因为 trailing 属于编辑器自身（Cherry 的视图三态），
-   * extra 属于宿主页面 —— 两者挨着但不是一伙的，视觉上用一条竖线隔开。
    */
   extra?: ReactNode
   /**
-   * 「返回顶部」。由宿主给状态（滚离顶部才显示）与回调，
-   * 工具栏只负责摆在最右端 —— 放最右是有意的：它出现/消失时不会推挤左边的按钮。
+   * 「返回顶部」。由宿主给状态（滚离顶部才显示）与回调
    */
   backToTop?: { visible: boolean; onClick: () => void }
+  /** 是否隐藏右侧辅助命令（已下移至右侧大纲胶囊下），默认为 true */
+  hideRightCommands?: boolean
 }
 
 /** 工具栏上的一个渲染单元：一颗平铺按钮，或一个分组折叠菜单 */
@@ -54,14 +49,7 @@ type ToolbarEntry =
   | { kind: 'menu'; id: string; group: number; menu: MarkdownMenuSpec }
 
 /**
- * 自绘工具栏。Cherry 与 Milkdown 共用同一个组件，因此两种内核下这一行的
- * 高度、按钮尺寸、hover、分隔线、图标大小完全一致。
- *
- * 结构分两层：
- *   - 高频项（加粗/斜体/列表/链接…）平铺，保持一次点击就能执行
- *   - 同类能力（行内样式、结构插入）折进分组菜单，横向不至于滚不到头
- * 两者的相对位置由 group 决定：命令与菜单一起按 group 稳定排序，
- * 同组内命令在前、菜单在后，所以「格式」正好落在行内格式那组之后。
+ * 自绘工具栏。采用胶囊岛（Floating Capsule）设计，左边距对齐正文大标题。
  */
 export default function MarkdownToolbar({
   engine,
@@ -72,6 +60,7 @@ export default function MarkdownToolbar({
   leading,
   extra,
   backToTop,
+  hideRightCommands = true,
 }: MarkdownToolbarProps) {
   const commands = commandsFor(engine)
   const menus = menusFor(engine)
@@ -88,7 +77,7 @@ export default function MarkdownToolbar({
             command: item,
           })
         ),
-      // 菜单都挂左端（group ≤ 5），右端保持「大纲/搜索/全屏/预览/导出」那一排
+      // 菜单都挂左端（group ≤ 5）
       ...(right ? [] : menus).map(
         (item): ToolbarEntry => ({
           kind: 'menu',
@@ -100,12 +89,12 @@ export default function MarkdownToolbar({
     ].sort((a, b) => a.group - b.group)
 
   const left = buildSide(false)
-  const right = buildSide(true)
+  const right = hideRightCommands ? [] : buildSide(true)
 
-  // 只在同侧、且跨组的地方放分隔线，避免右端第一颗前面挂一条
+  // 只在同侧、且跨组的地方放分隔线
   const divider = (previous: ToolbarEntry | undefined, entry: ToolbarEntry) =>
     previous !== undefined && previous.group !== entry.group ? (
-      <span className="mx-1 h-3.5 w-px flex-shrink-0 bg-slate-200 dark:bg-dark-border" />
+      <span className="mx-1 h-3.5 w-px flex-shrink-0 bg-black/[0.08]" />
     ) : null
 
   const renderEntry = (entry: ToolbarEntry, previous: ToolbarEntry | undefined) => {
@@ -149,10 +138,10 @@ export default function MarkdownToolbar({
             aria-label={command.label}
             aria-pressed={active || undefined}
             onClick={(event) => onCommand(command, event.currentTarget)}
-            className={`flex-shrink-0 rounded-lg p-1.5 transition-colors disabled:pointer-events-none disabled:opacity-35 ${
+            className={`flex-shrink-0 rounded-lg p-1.5 transition-colors cursor-pointer disabled:pointer-events-none disabled:opacity-35 ${
               active
-                ? 'bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300'
-                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-dark-hover dark:hover:text-white'
+                ? 'bg-black/[0.08] text-[#191918] font-bold'
+                : 'text-[#787774] hover:bg-black/[0.04] hover:text-[#191918]'
             }`}
           >
             <Icon className="h-3.5 w-3.5" />
@@ -163,62 +152,53 @@ export default function MarkdownToolbar({
   }
 
   return (
-    /*
-     * relative z-40：块手柄是 position: fixed + z-index 30，挂在编辑区里浮在光标行左侧，
-     * 光标落在首行时会顶到工具栏这一带把它盖住。工具栏本身是静态定位、没有层级，
-     * 压不住它 —— 这里显式抬到 40 并建立层叠上下文，配着不透明的底色把手柄挡住。
-     * 40 仍低于浮条（80）与 Tooltip（90），光标附近的浮层照常浮在最上面。
-     *
-     * 注意：z-40 同时建立了层叠上下文，工具栏内的 absolute 子元素都会被压在这一层里。
-     * 分组菜单因此走 createPortal + position: fixed 挂到 body 下（见 ToolbarMenu），
-     * 否则既会被 overflow-x-auto 裁掉，又会被浮条盖住。
-     */
-    <div className="relative z-40 flex h-10 flex-shrink-0 flex-nowrap items-center gap-0.5 overflow-x-auto scrollbar-hide border-b max-md:border-b-0 max-md:border-t border-slate-200/80 bg-white px-2 dark:border-dark-border dark:bg-dark-panel">
-      {/*
-        「返回顶部」放在最左端，不是最右端、也不是左端组的末尾。
-        工具栏在手机上横向溢出（内容近 800px、视口 390px），只有最左端在默认
-        滚动位置下一定可见 —— 放到别处都要横向滚动才看得到，等于失效。
-        滚动回顶部时用 invisible 占位而不是卸载：否则它会推着后面所有按钮左右跳。
-      */}
-      {backToTop && (
-        <Tooltip content="返回顶部">
-          <button
-            type="button"
-            onClick={backToTop.onClick}
-            aria-label="返回顶部"
-            className={`mr-1 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-brand-600 dark:hover:bg-dark-hover dark:hover:text-brand-400 ${
-              backToTop.visible ? '' : 'invisible'
-            }`}
-          >
-            <ArrowUpToLine className="h-3.5 w-3.5" />
-          </button>
-        </Tooltip>
-      )}
+    <div className="relative z-40 flex flex-shrink-0 items-center overflow-x-auto scrollbar-hide px-3 md:px-12 py-2 select-none max-md:p-0 max-md:border-t max-md:border-black/[0.06] max-md:bg-white">
+      <div className="inline-flex items-center gap-0.5 px-2 py-1 rounded-xl bg-white/95 backdrop-blur-md border border-black/[0.08] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_1px_rgba(0,0,0,0.02)] max-md:w-full max-md:rounded-none max-md:border-0 max-md:shadow-none max-md:bg-transparent max-md:px-2 max-md:h-10">
+        {backToTop && (
+          <Tooltip content="返回顶部">
+            <button
+              type="button"
+              onClick={backToTop.onClick}
+              aria-label="返回顶部"
+              className={`mr-1 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-[#787774] transition-colors hover:bg-black/[0.04] hover:text-[#191918] cursor-pointer ${
+                backToTop.visible ? '' : 'invisible'
+              }`}
+            >
+              <ArrowUpToLine className="h-3.5 w-3.5" />
+            </button>
+          </Tooltip>
+        )}
 
-      {leading && (
-        <>
-          {/* 宿主控件放左端：与右端 Cherry 的视图三态隔开，避免两组开关并排看花眼 */}
-          <span className="mr-1 flex flex-shrink-0 items-center">{leading}</span>
-          <span className="mx-1 h-3.5 w-px flex-shrink-0 bg-slate-200 dark:bg-dark-border" />
-        </>
-      )}
+        {leading && (
+          <>
+            <span className="mr-0.5 flex flex-shrink-0 items-center">{leading}</span>
+            <span className="mx-1 h-3.5 w-px flex-shrink-0 bg-black/[0.08]" />
+          </>
+        )}
 
-      {left.map((entry, index) => renderEntry(entry, left[index - 1]))}
+        {left.map((entry, index) => renderEntry(entry, left[index - 1]))}
 
-      {/* 把右端那一组顶到另一端 */}
-      <span className="min-w-2 flex-1" />
+        {right.length > 0 && (
+          <>
+            <span className="min-w-2 flex-1" />
+            {right.map((entry, index) => renderEntry(entry, right[index - 1]))}
+          </>
+        )}
 
-      {right.map((entry, index) => renderEntry(entry, right[index - 1]))}
+        {trailing && (
+          <>
+            <span className="mx-1 h-3.5 w-px flex-shrink-0 bg-black/[0.08]" />
+            <span className="flex flex-shrink-0 items-center">{trailing}</span>
+          </>
+        )}
 
-      {trailing && <span className="ml-1.5 flex flex-shrink-0 items-center">{trailing}</span>}
-
-      {extra && (
-        <>
-          {/* 宿主控件与编辑器控件分开：一条竖线说清「这边不是编辑器的东西」 */}
-          <span className="mx-1.5 h-3.5 w-px flex-shrink-0 bg-slate-200 dark:bg-dark-border" />
-          <span className="flex flex-shrink-0 items-center gap-1.5">{extra}</span>
-        </>
-      )}
+        {extra && (
+          <>
+            <span className="mx-1 h-3.5 w-px flex-shrink-0 bg-black/[0.08]" />
+            <span className="flex flex-shrink-0 items-center gap-1.5">{extra}</span>
+          </>
+        )}
+      </div>
     </div>
   )
 }
