@@ -4,11 +4,12 @@ import { fetchModels, type ModelInfo } from '../../utils/fetchModels'
 import {
   AI_PRESETS,
   AI_RECOMMENDED_PRESET_ID,
-  DEFAULT_AI_CHANNEL,
   chatCompletion,
   findAiPreset,
+  getCachedAiChannel,
   loadAiChannel,
   saveAiChannel,
+  switchAiChannel,
   type AiChannelConfig,
 } from '../../utils/aiChannel'
 import { useToast } from '../ui/Toast'
@@ -20,10 +21,11 @@ const INPUT_CLASS =
 
 const LABEL_CLASS = 'block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5'
 
-/** 全局设置 · AI 渠道：项目里所有 AI 功能共用的服务商与模型配置 */
+/** 全局设置 · AI 渠道：各服务商独立保存各自的 API Key 与模型配置，绝不共用 */
 export default function AiChannelPanel() {
   const { showToast } = useToast()
-  const [form, setForm] = useState<AiChannelConfig>(DEFAULT_AI_CHANNEL)
+  // 优先从内存缓存中同步获取，首帧即是最新数据，告别异步二次加载与跳变
+  const [form, setForm] = useState<AiChannelConfig>(() => getCachedAiChannel())
   const [showKey, setShowKey] = useState(false)
   const [isTesting, setIsTesting] = useState(false)
   const [modelOptions, setModelOptions] = useState<ModelInfo[]>([])
@@ -36,15 +38,43 @@ export default function AiChannelPanel() {
   } | null>(null)
 
   useEffect(() => {
-    loadAiChannel().then(setForm)
+    // 异步校验一次最新配置，若有变动则平滑对齐
+    loadAiChannel().then((latest) => {
+      setForm((prev) => (JSON.stringify(prev) === JSON.stringify(latest) ? prev : latest))
+    })
   }, [])
 
+  const activeChannelId = form.activeChannel || findAiPreset(form.baseUrl)?.id || 'custom'
+  const activePreset = AI_PRESETS.find((p) => p.id === activeChannelId)
+
   const patch = (next: Partial<AiChannelConfig>) => {
-    setForm((prev) => ({ ...prev, ...next }))
+    setForm((prev) => {
+      const activeId = prev.activeChannel || activeChannelId
+      const updatedChannels = {
+        ...(prev.channels || {}),
+        [activeId]: {
+          ...(prev.channels?.[activeId] || {}),
+          baseUrl: next.baseUrl !== undefined ? next.baseUrl : prev.baseUrl,
+          apiKey: next.apiKey !== undefined ? next.apiKey : prev.apiKey,
+          model: next.model !== undefined ? next.model : prev.model,
+        },
+      }
+      return {
+        ...prev,
+        ...next,
+        channels: updatedChannels,
+      }
+    })
     setTestResult(null)
   }
 
-  const activePreset = findAiPreset(form.baseUrl)
+  const handleSelectChannel = (channelId: string) => {
+    setModelOptions([])
+    setFetchModelsError('')
+    setTestResult(null)
+    const nextConfig = switchAiChannel(form, channelId)
+    setForm(nextConfig)
+  }
 
   const modelSelectOptions = useMemo(() => {
     const options = modelOptions.map((m) => ({ value: m.id, label: m.label }))
@@ -73,8 +103,7 @@ export default function AiChannelPanel() {
     setTestResult(null)
     const outcome = await chatCompletion(
       [{ role: 'user', content: '请只回复两个字：你好' }],
-      // 推理模型（NVIDIA NIM 的 nemotron / step / glm 等）要先跑一大段思考才出
-      // 正式回答，16 个 token 连思考都跑不完就被截断。给足预算，慢一点但测得准。
+      // 给足预算，慢一点但测得准
       { temperature: 0, maxTokens: 1024 },
       { baseUrl: form.baseUrl, apiKey: form.apiKey, model: form.model },
     )
@@ -88,31 +117,30 @@ export default function AiChannelPanel() {
 
   const handleSave = async () => {
     await saveAiChannel(form)
-    showToast('AI 渠道已保存')
+    showToast('AI 渠道已保存（各服务商独立配置已持久化）')
   }
 
   return (
     <div className="space-y-4">
       <div>
-        <label className={LABEL_CLASS}>服务商</label>
+        <div className="flex items-center justify-between mb-1.5">
+          <label className={LABEL_CLASS}>服务商渠道</label>
+          <span className="text-[10px] text-slate-400">各渠道拥有专属独立 Key 与模型，切换不丢失</span>
+        </div>
         <div className="flex flex-wrap gap-1.5">
           {AI_PRESETS.map((preset) => {
-            const active = activePreset?.id === preset.id
+            const active = activeChannelId === preset.id
             const recommended = preset.id === AI_RECOMMENDED_PRESET_ID
+            const hasSavedKey = Boolean(form.channels?.[preset.id]?.apiKey?.trim())
             return (
               <button
                 key={preset.id}
                 type="button"
-                onClick={() => {
-                  const model = preset.models.includes(form.model) ? form.model : preset.models[0] ?? ''
-                  setModelOptions([])
-                  setFetchModelsError('')
-                  patch({ baseUrl: preset.baseUrl, model })
-                }}
+                onClick={() => handleSelectChannel(preset.id)}
                 title={preset.note ?? preset.baseUrl}
-                className={`px-2.5 h-7 rounded-lg text-[11px] font-medium border transition-colors inline-flex items-center gap-1 ${
+                className={`px-2.5 h-7 rounded-lg text-[11px] font-medium border transition-colors inline-flex items-center gap-1.5 ${
                   active
-                    ? 'border-brand-200 bg-brand-50 text-brand-700 dark:border-brand-500/40 dark:bg-brand-500/10 dark:text-brand-300'
+                    ? 'border-brand-300 bg-brand-50 text-brand-700 dark:border-brand-500/50 dark:bg-brand-500/15 dark:text-brand-300 shadow-2xs'
                     : 'border-slate-200 dark:border-dark-border text-slate-600 dark:text-slate-300 hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-dark-hover'
                 }`}
               >
@@ -120,23 +148,28 @@ export default function AiChannelPanel() {
                 {recommended && (
                   <span className="text-[9px] font-semibold text-emerald-600 dark:text-emerald-400">推荐</span>
                 )}
+                {hasSavedKey && (
+                  <span
+                    className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"
+                    title="已配置该渠道独立 API Key"
+                  />
+                )}
               </button>
             )
           })}
           <button
             type="button"
-            onClick={() => {
-              setModelOptions([])
-              setFetchModelsError('')
-              patch({ baseUrl: '', model: '' })
-            }}
-            className={`px-2.5 h-7 rounded-lg text-[11px] font-medium border transition-colors ${
-              !activePreset
-                ? 'border-brand-200 bg-brand-50 text-brand-700 dark:border-brand-500/40 dark:bg-brand-500/10 dark:text-brand-300'
+            onClick={() => handleSelectChannel('custom')}
+            className={`px-2.5 h-7 rounded-lg text-[11px] font-medium border transition-colors inline-flex items-center gap-1.5 ${
+              activeChannelId === 'custom'
+                ? 'border-brand-300 bg-brand-50 text-brand-700 dark:border-brand-500/50 dark:bg-brand-500/15 dark:text-brand-300 shadow-2xs'
                 : 'border-slate-200 dark:border-dark-border text-slate-600 dark:text-slate-300 hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-dark-hover'
             }`}
           >
             自定义
+            {Boolean(form.channels?.custom?.apiKey?.trim()) && (
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" title="已配置自定义 Key" />
+            )}
           </button>
         </div>
         {activePreset?.note && (
@@ -162,7 +195,12 @@ export default function AiChannelPanel() {
       </div>
 
       <div>
-        <label className={LABEL_CLASS}>API Key</label>
+        <div className="flex items-center justify-between mb-1">
+          <label className={LABEL_CLASS}>API Key</label>
+          <span className="text-[10px] text-brand-600 dark:text-brand-400 font-medium">
+            {activePreset ? `${activePreset.label} 专属独立密钥` : '自定义渠道独立密钥'}
+          </span>
+        </div>
         <div className="relative">
           <input
             type={showKey ? 'text' : 'password'}

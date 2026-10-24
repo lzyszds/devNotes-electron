@@ -9,11 +9,26 @@
 import { PROVIDER_PRESETS, type ProviderPreset } from './translateConfig'
 import { translateFetch } from './translateFetch'
 
-export interface AiChannelConfig {
-  /** 含版本段的 Base URL，如 https://api.deepseek.com/v1；可以不带版本段 */
+export interface AiChannelItem {
   baseUrl: string
   apiKey: string
   model: string
+}
+
+export interface AiChannelConfig {
+  /** 当前生效的 Base URL（向下兼容各业务调用点） */
+  baseUrl: string
+  /** 当前生效的 API Key */
+  apiKey: string
+  /** 当前生效的模型 */
+  model: string
+  /** 当前选中的渠道/服务商 ID，例如 'deepseek' | 'siliconflow' | 'openai' | 'custom' */
+  activeChannel?: string
+  /**
+   * 各渠道服务商独立的 API Key、Model 与 BaseURL 字典：
+   * 彻底杜绝所有渠道共用同一个 key 的问题，切换服务商时自动载入该服务商的专属独立凭据
+   */
+  channels?: Record<string, Partial<AiChannelItem>>
 }
 
 export const AI_CHANNEL_STORAGE_KEY = 'ai-channel-config'
@@ -22,10 +37,12 @@ export const DEFAULT_AI_CHANNEL: AiChannelConfig = {
   baseUrl: '',
   apiKey: '',
   model: '',
+  activeChannel: 'nvidia',
+  channels: {},
 }
 
 /** 首次接入的推荐服务商（价格低、中文能力好、接口兼容 OpenAI） */
-export const AI_RECOMMENDED_PRESET_ID = 'deepseek'
+export const AI_RECOMMENDED_PRESET_ID = 'nvidia'
 
 export const AI_PRESETS: ProviderPreset[] = PROVIDER_PRESETS
 
@@ -35,10 +52,82 @@ export function findAiPreset(baseUrl: string): ProviderPreset | undefined {
 }
 
 export function mergeAiChannel(partial?: Partial<AiChannelConfig> | null): AiChannelConfig {
+  const baseUrl = typeof partial?.baseUrl === 'string' ? partial.baseUrl : DEFAULT_AI_CHANNEL.baseUrl
+  const apiKey = typeof partial?.apiKey === 'string' ? partial.apiKey : DEFAULT_AI_CHANNEL.apiKey
+  const model = typeof partial?.model === 'string' ? partial.model : DEFAULT_AI_CHANNEL.model
+
+  const channels: Record<string, Partial<AiChannelItem>> = {
+    ...(partial?.channels || {}),
+  }
+
+  // 推断初始激活渠道
+  let activeChannel = partial?.activeChannel
+  if (!activeChannel) {
+    const matched = findAiPreset(baseUrl)
+    activeChannel = matched ? matched.id : (baseUrl ? 'custom' : AI_RECOMMENDED_PRESET_ID)
+  }
+
+  // 保证当前激活渠道在 channels 里有记录
+  if (activeChannel && !channels[activeChannel]) {
+    channels[activeChannel] = { baseUrl, apiKey, model }
+  } else if (activeChannel && channels[activeChannel]) {
+    if (!channels[activeChannel].apiKey && apiKey) {
+      channels[activeChannel].apiKey = apiKey
+    }
+  }
+
   return {
-    baseUrl: typeof partial?.baseUrl === 'string' ? partial.baseUrl : DEFAULT_AI_CHANNEL.baseUrl,
-    apiKey: typeof partial?.apiKey === 'string' ? partial.apiKey : DEFAULT_AI_CHANNEL.apiKey,
-    model: typeof partial?.model === 'string' ? partial.model : DEFAULT_AI_CHANNEL.model,
+    baseUrl,
+    apiKey,
+    model,
+    activeChannel,
+    channels,
+  }
+}
+
+/**
+ * 切换 AI 渠道/服务商，自动恢复该渠道此前独立保存的 API Key 与 Model，
+ * 绝不同渠道共用混淆。
+ */
+export function switchAiChannel(
+  currentConfig: AiChannelConfig,
+  targetChannelId: string
+): AiChannelConfig {
+  const currentId = currentConfig.activeChannel || AI_RECOMMENDED_PRESET_ID
+  const channels: Record<string, Partial<AiChannelItem>> = {
+    ...(currentConfig.channels || {}),
+  }
+
+  // 先把当前渠道正在输入/使用的值保存进独立字典
+  channels[currentId] = {
+    baseUrl: currentConfig.baseUrl.trim(),
+    apiKey: currentConfig.apiKey.trim(),
+    model: currentConfig.model.trim(),
+  }
+
+  const targetSaved = channels[targetChannelId]
+  const preset = AI_PRESETS.find((p) => p.id === targetChannelId)
+
+  let nextBaseUrl = ''
+  let nextApiKey = ''
+  let nextModel = ''
+
+  if (targetChannelId === 'custom') {
+    nextBaseUrl = targetSaved?.baseUrl || ''
+    nextApiKey = targetSaved?.apiKey || ''
+    nextModel = targetSaved?.model || ''
+  } else if (preset) {
+    nextBaseUrl = targetSaved?.baseUrl || preset.baseUrl
+    nextApiKey = targetSaved?.apiKey || ''
+    nextModel = targetSaved?.model || preset.models[0] || ''
+  }
+
+  return {
+    baseUrl: nextBaseUrl,
+    apiKey: nextApiKey,
+    model: nextModel,
+    activeChannel: targetChannelId,
+    channels,
   }
 }
 
@@ -95,10 +184,24 @@ export async function loadAiChannel(): Promise<AiChannelConfig> {
 }
 
 export async function saveAiChannel(config: AiChannelConfig): Promise<AiChannelConfig> {
+  const activeChannel = config.activeChannel || AI_RECOMMENDED_PRESET_ID
+  const channels: Record<string, Partial<AiChannelItem>> = {
+    ...(config.channels || {}),
+  }
+
+  // 同步写进当前渠道专属字典
+  channels[activeChannel] = {
+    baseUrl: config.baseUrl.trim(),
+    apiKey: config.apiKey.trim(),
+    model: config.model.trim(),
+  }
+
   const next: AiChannelConfig = {
     baseUrl: config.baseUrl.trim(),
     apiKey: config.apiKey.trim(),
     model: config.model.trim(),
+    activeChannel,
+    channels,
   }
 
   publish(next)

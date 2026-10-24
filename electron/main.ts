@@ -551,8 +551,9 @@ function persistClipboardHistory(): void {
 /**
  * 开始采集。
  *
- * 用户明确要求「全存本地、不进云」—— 所以 CLIPBOARD_HISTORY_KEY 绝不能出现在
- * cloudflareSync 的设置白名单里。那里是白名单制，不加就不会上云。
+ * 剪贴板历史已接入云同步，但遵循严格约束：
+ * 上云时图片数据（imageDataUrl）一律丢弃，并在云端标记为【图片】，
+ * 保证服务器硬盘 0 压力，同时让文本与代码片段能在多端跨设备流转。
  */
 function startClipboardCapture(): void {
   loadClipboardHistory()
@@ -1257,6 +1258,12 @@ function setupIpc() {
 
   ipcMain.handle('store-set', (_, key: string, value: any) => {
     store.set(key, value)
+    if (key === CLIPBOARD_HISTORY_KEY && Array.isArray(value)) {
+      clipboardEntries = value
+      if (clipboardWindow && !clipboardWindow.isDestroyed()) {
+        clipboardWindow.webContents.send('clipboard:changed', clipboardEntries)
+      }
+    }
   })
 
   ipcMain.handle('store-delete', (_, key: string) => {

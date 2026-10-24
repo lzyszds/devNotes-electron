@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Bot, Cloud, Keyboard, Languages, Loader2, PanelLeft, Settings2, Volume2, X } from 'lucide-react'
 import type { ComponentType } from 'react'
 import { useNotes } from '../../context/NotesContext'
@@ -95,6 +95,19 @@ export default function SettingsModal({
   const { cfConfig, cfSyncStatus } = useNotes()
   // 面板退出动画 160ms，遮罩 150ms，取长者
   const { mounted, state } = usePresence(open, 160)
+
+  // 记录已访问过的分类面板，实现懒加载 + Keep-Alive 保活：
+  // 首次访问时才挂载，切走时仅 CSS hidden 隐藏，避免每次切换分类组件被卸载导致反复读盘加载数据与清空状态
+  const [visitedSections, setVisitedSections] = useState<Set<SettingsSection>>(() => new Set([section]))
+
+  useEffect(() => {
+    setVisitedSections((prev) => {
+      if (prev.has(section)) return prev
+      const next = new Set(prev)
+      next.add(section)
+      return next
+    })
+  }, [section])
 
   useEffect(() => {
     if (!open) return
@@ -194,19 +207,45 @@ export default function SettingsModal({
           </nav>
 
           <div className="flex-1 overflow-y-auto p-4 md:p-5 min-w-0">
-            {section === 'general' && (
-              <GeneralPanel
-                theme={theme}
-                onSelectTheme={onSelectTheme}
-                onResetSidebarWidth={onResetSidebarWidth}
-              />
+            {visitedSections.has('general') && (
+              <div className={section === 'general' ? 'block' : 'hidden'}>
+                <GeneralPanel
+                  theme={theme}
+                  onSelectTheme={onSelectTheme}
+                  onResetSidebarWidth={onResetSidebarWidth}
+                />
+              </div>
             )}
-            {section === 'interface' && <InterfacePanel />}
-            {section === 'shortcuts' && <ShortcutSettingsPanel />}
-            {section === 'cloud-sync' && <CloudflareSyncPanel />}
-            {section === 'ai-channel' && <AiChannelPanel />}
-            {section === 'translate-api' && <TranslateApiPanel />}
-            {section === 'speech' && <SpeechPanel />}
+            {visitedSections.has('interface') && (
+              <div className={section === 'interface' ? 'block' : 'hidden'}>
+                <InterfacePanel />
+              </div>
+            )}
+            {visitedSections.has('shortcuts') && (
+              <div className={section === 'shortcuts' ? 'block' : 'hidden'}>
+                <ShortcutSettingsPanel />
+              </div>
+            )}
+            {visitedSections.has('cloud-sync') && (
+              <div className={section === 'cloud-sync' ? 'block' : 'hidden'}>
+                <CloudflareSyncPanel />
+              </div>
+            )}
+            {visitedSections.has('ai-channel') && (
+              <div className={section === 'ai-channel' ? 'block' : 'hidden'}>
+                <AiChannelPanel />
+              </div>
+            )}
+            {visitedSections.has('translate-api') && (
+              <div className={section === 'translate-api' ? 'block' : 'hidden'}>
+                <TranslateApiPanel />
+              </div>
+            )}
+            {visitedSections.has('speech') && (
+              <div className={section === 'speech' ? 'block' : 'hidden'}>
+                <SpeechPanel />
+              </div>
+            )}
           </div>
         </div>
       </div>

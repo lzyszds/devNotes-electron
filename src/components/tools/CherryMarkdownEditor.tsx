@@ -28,6 +28,7 @@ import {
   measureCherryReading,
   revealCherryOutlineItem,
 } from '../../utils/cherryOutline'
+import { uploadSyncImage } from '../../utils/cloudflareSync'
 
 type CherryInstance = InstanceType<typeof Cherry>
 
@@ -291,10 +292,19 @@ export default function CherryMarkdownEditor({
       },
       fileUpload: async (file: File, callback: (url: string, params?: Record<string, unknown>) => void) => {
         try {
+          // 优先上传至云端服务器，获取干净轻量的公网 URL，杜绝庞大 Base64 塞满 Markdown
+          const uploadRes = await uploadSyncImage(file, file.name)
+          if (uploadRes.ok && uploadRes.url) {
+            callback(uploadRes.url, { name: file.name, isShadow: true })
+            return
+          }
+          // 未开启云同步或上传未成功时，降级为 Data URL 保证本地即时可用
           const url = await fileToDataUrl(file)
           callback(url, { name: file.name })
         } catch (error) {
-          console.error('笔记附件上传失败:', error)
+          console.error('笔记附件云端上传失败，降级本地存储:', error)
+          const url = await fileToDataUrl(file)
+          callback(url, { name: file.name })
         }
       },
       callback: {

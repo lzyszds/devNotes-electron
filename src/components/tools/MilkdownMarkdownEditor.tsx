@@ -95,6 +95,7 @@ import {
   toggleUnderline,
 } from './markdown/milkdownCommands'
 import { SNIPPETS } from '../../utils/markdownSnippets'
+import { uploadSyncImage } from '../../utils/cloudflareSync'
 import type { MarkdownCommand } from './markdown/toolbarSpec'
 import type { ToolbarItemState } from './markdown/MarkdownToolbar'
 
@@ -201,6 +202,15 @@ const taskListClickPlugin = $prose(
       },
     })
 )
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
 
 /**
  * 所见即所得内核(Milkdown)。
@@ -446,9 +456,47 @@ export default function MilkdownMarkdownEditor({
       .config((ctx) => {
         ctx.set(rootCtx, root)
         ctx.set(defaultValueCtx, latestValueRef.current)
-        // 挂一个自有类名,换肤时不用去猜 ProseMirror 的内部结构
+        // 挂一个自有类名,换肤时不用去猜 ProseMirror 的内部结构，同时接管剪贴板/拖拽图片上传
         ctx.set(editorViewOptionsCtx, {
           attributes: { class: 'milkdown-content' },
+          handlePaste: (_view, event) => {
+            const files = event.clipboardData?.files
+            if (files && files.length > 0) {
+              const imageFile = Array.from(files).find((f) => f.type.startsWith('image/'))
+              if (imageFile) {
+                void (async () => {
+                  try {
+                    const res = await uploadSyncImage(imageFile, imageFile.name)
+                    const url = res.ok && res.url ? res.url : await fileToDataUrl(imageFile)
+                    insertMilkdownImage(editorRef.current, url, imageFile.name)
+                  } catch (err) {
+                    console.error('Milkdown 图片上传/插入失败:', err)
+                  }
+                })()
+                return true
+              }
+            }
+            return false
+          },
+          handleDrop: (_view, event) => {
+            const files = event.dataTransfer?.files
+            if (files && files.length > 0) {
+              const imageFile = Array.from(files).find((f) => f.type.startsWith('image/'))
+              if (imageFile) {
+                void (async () => {
+                  try {
+                    const res = await uploadSyncImage(imageFile, imageFile.name)
+                    const url = res.ok && res.url ? res.url : await fileToDataUrl(imageFile)
+                    insertMilkdownImage(editorRef.current, url, imageFile.name)
+                  } catch (err) {
+                    console.error('Milkdown 图片上传/插入失败:', err)
+                  }
+                })()
+                return true
+              }
+            }
+            return false
+          },
         })
         // 代码块高亮走 shiki，parser 的形态与坑见 milkdownShiki.ts
         ctx.set(highlightPluginConfig.key, { parser: shikiParser })

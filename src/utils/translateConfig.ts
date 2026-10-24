@@ -28,6 +28,10 @@ export interface OpenAICompatibleConfig {
    * 默认用第一种，报错时换第二种。
    */
   thinkingParam?: ThinkingParamStyle;
+  /** 当前选中的预设渠道 ID */
+  activePreset?: string;
+  /** 各渠道服务商独立的 API Key 与 Model 字典，防止共用相互覆盖 */
+  presets?: Record<string, { baseUrl?: string; apiKey?: string; model?: string }>;
 }
 
 export type ThinkingParamStyle = "enable_thinking" | "chat_template_kwargs";
@@ -68,19 +72,21 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     label: "硅基流动",
     baseUrl: "https://api.siliconflow.cn/v1",
     models: [
-      "Qwen/Qwen3-30B-A3B-Instruct-2507",
+      "deepseek-ai/DeepSeek-V3",
+      "deepseek-ai/DeepSeek-R1",
       "Qwen/Qwen2.5-7B-Instruct",
       "Qwen/Qwen3.5-9B",
-      "deepseek-ai/DeepSeek-V3",
+      "Qwen/Qwen3-30B-A3B-Instruct-2507",
     ],
-    note: "Qwen3.5 系列默认开思考模式，翻译会很慢，建议打开下方「关闭思考模式」",
+    note: "国内聚合平台，Qwen3.5 系列默认开思考模式，翻译会很慢，建议打开下方「关闭思考模式」",
   },
   {
     id: "openai",
     label: "OpenAI",
     baseUrl: "https://api.openai.com/v1",
-    models: ["gpt-4o-mini", "gpt-4o"],
+    models: ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini"],
   },
+
   {
     id: "nvidia",
     label: "NVIDIA NIM",

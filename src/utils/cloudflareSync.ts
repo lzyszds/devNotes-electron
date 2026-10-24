@@ -8,6 +8,7 @@ import {
   type NotesState,
   type ReadingBookmark,
 } from './notesStore'
+import { compressImageToWebp } from './imageCompress'
 
 export type CloudflareSyncMode = 'worker' | 'kv'
 
@@ -46,20 +47,70 @@ export interface CloudflareSyncConfig {
   lastBackupTime?: number
 }
 
+export interface StructuredSettings {
+  /** 界面与外观主题 */
+  appearance?: {
+    theme?: string
+    codeTheme?: string
+  }
+  /** 编辑器偏好设置 */
+  editor?: {
+    mode?: string
+    split?: string
+    view?: string
+    zoom?: number
+    sidebarWidth?: number
+  }
+  /** 翻译模块配置 */
+  translate?: {
+    primaryLang?: string
+    apiConfig?: unknown
+    prefs?: unknown
+  }
+  /** 快捷键绑定 */
+  shortcuts?: {
+    bindings?: Record<string, string>
+  }
+  /** 工作台导航布局 */
+  workspace?: {
+    railToolIds?: string[]
+  }
+  /** 剪贴板历史（云端存储已脱敏：图片被丢弃，以【图片】占位，保护服务器硬盘） */
+  clipboard?: {
+    history?: unknown[]
+  }
+  /** 项目级 AI 渠道多服务商独立配置 */
+  aiChannel?: unknown
+  /** 各独立工具设置 */
+  tools?: {
+    speech?: unknown
+    jsonI18n?: unknown
+    jsonI18nProtectedTerms?: unknown
+  }
+  [key: string]: unknown
+}
+
+export interface SyncPayloadSummary {
+  noteCount: number
+  folderCount: number
+  trashedCount: number
+}
+
 export interface SyncPayload {
+  app?: string
   version: number
   updatedAt: number
+  updatedAtIso?: string
   deviceInfo: string
   encrypted: boolean
-  data: string // 若加密则为 base64 ciphertext；若未加密则为 JSON.stringify(NotesState)
+  summary?: SyncPayloadSummary
+  // 未加密时直接为 NotesState 对象；端到端加密开启时为密文字符串 (ciphertext)
+  data: NotesState | string
   /**
-   * 应用设置快照（翻译接口、快捷键、外观偏好等）。
-   *
-   * 跟笔记数据分开存：两者生命周期与合并策略完全不同 —— 笔记要按 id
-   * 双向合并，设置则是「整份覆盖、以最后写入的为准」，混在一起没法各自处理。
-   * 同样受 encrypted 保护：开启端到端加密时这里也是密文。
+   * 应用设置快照（结构化分组存储）。
+   * 未加密时直接为 StructuredSettings 对象；加密时为密文字符串。
    */
-  settings?: string
+  settings?: StructuredSettings | SettingsSnapshot | string
 }
 
 /**
@@ -72,6 +123,10 @@ export interface SyncPayload {
  * 改动这里时对着那些常量核一遍。
  */
 export const SYNCED_SETTING_KEYS = [
+  // 剪贴板历史（上传前自动剔除图片 Base64，用【图片】占位，防止撑爆云端）
+  'clipboard-history',
+  // 项目级 AI 渠道配置（各服务商独立配置字典）
+  'ai-channel-config',
   // 翻译与模型
   'translate-api-config',
   'text-translate-primary-lang',
@@ -131,12 +186,64 @@ export async function collectSettings(): Promise<SettingsSnapshot> {
         continue
       }
       const value = await api?.storeGet?.(key)
-      if (value !== undefined && value !== null) snapshot[key] = value
+      if (value !== undefined && value !== null) {
+        if (key === 'clipboard-history' && Array.isArray(value)) {
+          // 用户硬性要求：剪切板的图片不要同步，云端直接丢弃图片数据，用【图片】来表示
+          // 彻底剔除图片 base64/二进制数据，保护服务器硬盘空间，同时允许文本在多端同步
+          snapshot[key] = value.map((entry: any) => {
+            if (!entry || typeof entry !== 'object') return entry
+            if (entry.type === 'image' || entry.imageDataUrl) {
+              return {
+                id: entry.id,
+                type: 'text',
+                text: '【图片】',
+                at: entry.at || Date.now(),
+              }
+            }
+            return entry
+          })
+        } else {
+          snapshot[key] = value
+        }
+      }
     } catch {
       // 单项读失败不该拖垮整次同步，跳过即可
     }
   }
   return snapshot
+}
+
+/**
+ * 合并剪贴板历史：
+ * 1. 按 id 对齐去重；
+ * 2. 如果本地已有带真实 imageDataUrl 的图片记录，而云端是脱敏后的【图片】，必须保留本地真实图片；
+ * 3. 跨设备同步过来的新文本/记录正常加入；
+ * 4. 按采集时间倒序排列，最多保留 1000 条。
+ */
+function mergeClipboardHistory(localList: any[], remoteList: any[]): any[] {
+  const map = new Map<string, any>()
+  for (const item of localList) {
+    if (item && item.id) {
+      map.set(item.id, item)
+    }
+  }
+  for (const remoteItem of remoteList) {
+    if (!remoteItem || !remoteItem.id) continue
+    const localItem = map.get(remoteItem.id)
+    if (!localItem) {
+      map.set(remoteItem.id, remoteItem)
+    } else {
+      // 本地已有该条目：若本地有图片，远端是【图片】脱敏占位，保留本地图片数据
+      if (localItem.imageDataUrl && (!remoteItem.imageDataUrl || remoteItem.text === '【图片】')) {
+        // 保留本地真实图片
+      } else if ((remoteItem.at || 0) > (localItem.at || 0)) {
+        map.set(remoteItem.id, remoteItem)
+      }
+    }
+  }
+  return Array.from(map.values())
+    .sort((a, b) => (b.at || 0) - (a.at || 0))
+    .slice(0, 1000)
 }
 
 /**
@@ -155,6 +262,14 @@ export async function applySettings(snapshot: SettingsSnapshot): Promise<number>
       if (LOCAL_STORAGE_SETTING_KEYS.has(key)) {
         // localStorage 要求字符串；云端存的是当初读出来的原样，直接写回
         localStorage.setItem(key, String(snapshot[key]))
+      } else if (key === 'clipboard-history' && Array.isArray(snapshot[key])) {
+        // 剪贴板历史采用安全合并，防止冲掉本地未脱敏的真实图片
+        const localCurrent = (await api?.storeGet?.(key)) || []
+        const merged = mergeClipboardHistory(
+          Array.isArray(localCurrent) ? localCurrent : [],
+          snapshot[key] as any[]
+        )
+        await api?.storeSet?.(key, merged)
       } else {
         await api?.storeSet?.(key, snapshot[key])
       }
@@ -183,6 +298,133 @@ export async function applySettings(snapshot: SettingsSnapshot): Promise<number>
   }
 
   return applied
+}
+
+/** 将本地扁平键值 map 打包为结构化对象，便于云端存储与后台查阅 */
+export function packStructuredSettings(flat: SettingsSnapshot): StructuredSettings {
+  const result: StructuredSettings = {}
+
+  if (flat['fehelper-theme'] !== undefined || flat['fehelper-code-theme'] !== undefined) {
+    result.appearance = {
+      theme: flat['fehelper-theme'] as string | undefined,
+      codeTheme: flat['fehelper-code-theme'] as string | undefined,
+    }
+  }
+
+  if (
+    flat['fehelper-editor-mode'] !== undefined ||
+    flat['fehelper-editor-split'] !== undefined ||
+    flat['fehelper-editor-view'] !== undefined ||
+    flat['fehelper-editor-zoom'] !== undefined ||
+    flat['fehelper-sidebar-width'] !== undefined
+  ) {
+    result.editor = {
+      mode: flat['fehelper-editor-mode'] as string | undefined,
+      split: flat['fehelper-editor-split'] as string | undefined,
+      view: flat['fehelper-editor-view'] as string | undefined,
+      zoom: flat['fehelper-editor-zoom'] !== undefined ? Number(flat['fehelper-editor-zoom']) : undefined,
+      sidebarWidth: flat['fehelper-sidebar-width'] !== undefined ? Number(flat['fehelper-sidebar-width']) : undefined,
+    }
+  }
+
+  if (
+    flat['text-translate-primary-lang'] !== undefined ||
+    flat['translate-api-config'] !== undefined ||
+    flat['text-translate-prefs'] !== undefined
+  ) {
+    result.translate = {
+      primaryLang: flat['text-translate-primary-lang'] as string | undefined,
+      apiConfig: flat['translate-api-config'],
+      prefs: flat['text-translate-prefs'],
+    }
+  }
+
+  if (flat['shortcut-bindings'] !== undefined) {
+    result.shortcuts = {
+      bindings: flat['shortcut-bindings'] as Record<string, string>,
+    }
+  }
+
+  if (flat['rail-tool-ids'] !== undefined) {
+    result.workspace = {
+      railToolIds: flat['rail-tool-ids'] as string[],
+    }
+  }
+
+  if (flat['clipboard-history'] !== undefined) {
+    result.clipboard = {
+      history: flat['clipboard-history'] as unknown[],
+    }
+  }
+
+  if (flat['ai-channel-config'] !== undefined) {
+    result.aiChannel = flat['ai-channel-config']
+  }
+
+  if (
+    flat['fehelper-speech-settings'] !== undefined ||
+    flat['json-i18n-settings'] !== undefined ||
+    flat['json-i18n-protected-terms'] !== undefined
+  ) {
+    result.tools = {
+      speech: flat['fehelper-speech-settings'],
+      jsonI18n: flat['json-i18n-settings'],
+      jsonI18nProtectedTerms: flat['json-i18n-protected-terms'],
+    }
+  }
+
+  return result
+}
+
+/** 将结构化对象解包还原为本地扁平键值 map（双向兼容老版本与新版本） */
+export function unpackStructuredSettings(settings: any): SettingsSnapshot {
+  if (!settings || typeof settings !== 'object') return {}
+
+  const flat: SettingsSnapshot = {}
+
+  // 1. 兼容老版本直接保存的平铺键
+  for (const k of SYNCED_SETTING_KEYS) {
+    if (k in settings && settings[k] !== undefined) {
+      flat[k] = settings[k]
+    }
+  }
+
+  // 2. 解包新版本的分类结构
+  if (settings.appearance && typeof settings.appearance === 'object') {
+    if (settings.appearance.theme !== undefined) flat['fehelper-theme'] = settings.appearance.theme
+    if (settings.appearance.codeTheme !== undefined) flat['fehelper-code-theme'] = settings.appearance.codeTheme
+  }
+  if (settings.editor && typeof settings.editor === 'object') {
+    if (settings.editor.mode !== undefined) flat['fehelper-editor-mode'] = settings.editor.mode
+    if (settings.editor.split !== undefined) flat['fehelper-editor-split'] = settings.editor.split
+    if (settings.editor.view !== undefined) flat['fehelper-editor-view'] = settings.editor.view
+    if (settings.editor.zoom !== undefined) flat['fehelper-editor-zoom'] = settings.editor.zoom
+    if (settings.editor.sidebarWidth !== undefined) flat['fehelper-sidebar-width'] = settings.editor.sidebarWidth
+  }
+  if (settings.translate && typeof settings.translate === 'object') {
+    if (settings.translate.primaryLang !== undefined) flat['text-translate-primary-lang'] = settings.translate.primaryLang
+    if (settings.translate.apiConfig !== undefined) flat['translate-api-config'] = settings.translate.apiConfig
+    if (settings.translate.prefs !== undefined) flat['text-translate-prefs'] = settings.translate.prefs
+  }
+  if (settings.shortcuts && typeof settings.shortcuts === 'object') {
+    if (settings.shortcuts.bindings !== undefined) flat['shortcut-bindings'] = settings.shortcuts.bindings
+  }
+  if (settings.workspace && typeof settings.workspace === 'object') {
+    if (settings.workspace.railToolIds !== undefined) flat['rail-tool-ids'] = settings.workspace.railToolIds
+  }
+  if (settings.clipboard && typeof settings.clipboard === 'object') {
+    if (settings.clipboard.history !== undefined) flat['clipboard-history'] = settings.clipboard.history
+  }
+  if (settings.aiChannel !== undefined) {
+    flat['ai-channel-config'] = settings.aiChannel
+  }
+  if (settings.tools && typeof settings.tools === 'object') {
+    if (settings.tools.speech !== undefined) flat['fehelper-speech-settings'] = settings.tools.speech
+    if (settings.tools.jsonI18n !== undefined) flat['json-i18n-settings'] = settings.tools.jsonI18n
+    if (settings.tools.jsonI18nProtectedTerms !== undefined) flat['json-i18n-protected-terms'] = settings.tools.jsonI18nProtectedTerms
+  }
+
+  return flat
 }
 
 export interface SyncResult {
@@ -371,6 +613,7 @@ export const APP_SYNC_ID = 'notes'
 export function resolveSyncEndpoints(rawServerUrl: string, appId: string = APP_SYNC_ID): {
   healthUrl: string
   syncUrl: string
+  uploadUrl: string
 } {
   let base = (rawServerUrl || DEFAULT_SERVER_URL).trim().replace(/\/+$/, '')
   // 若传入带有末尾 /sync，先去除
@@ -383,11 +626,110 @@ export function resolveSyncEndpoints(rawServerUrl: string, appId: string = APP_S
     return {
       healthUrl: `${root}/health`,
       syncUrl: `${base}/sync`,
+      uploadUrl: `${base}/upload`,
     }
   }
   return {
     healthUrl: `${base}/health`,
     syncUrl: `${base}/${appId}/sync`,
+    uploadUrl: `${base}/${appId}/upload`,
+  }
+}
+
+/**
+ * 上传笔记图片/媒体附件至统一云端对象存储 (POST /:app/upload)。
+ *
+ * 关键优化策略（保护轻量云服务器磁盘）：
+ * 1. 客户端使用 Canvas 自动进行高质量 WebP 压缩，长边限制不超过 1920px（避免超清 Retina 截图/4K 巨图撑爆云服务器磁盘）；
+ * 2. 压缩率通常达 85%~95%（数 MB 截图压缩为 80~200KB），大幅节省网络上传与下载耗时；
+ * 3. 矢量图（SVG）自动跳过转换保留原始无损；
+ * 4. 压缩异常时优雅回退原始数据，保障用户输入不中断；
+ * 5. 优先使用当前配置的云同步凭据；若未配置或失败，返回错误以便调用方降级为 Data URL。
+ */
+export async function uploadSyncImage(
+  fileOrBase64: File | Blob | string,
+  filename?: string
+): Promise<{ ok: boolean; url?: string; error?: string }> {
+  try {
+    const config = await loadCloudflareConfig()
+    if (!config.enabled) {
+      return { ok: false, error: '未开启云端同步服务' }
+    }
+    const serverUrl = (config.workerUrl || DEFAULT_SERVER_URL).trim()
+    const token = (config.workerToken || '').trim()
+    if (!token || token.length < 8) {
+      return { ok: false, error: '未配置有效的同步凭据 (Token)' }
+    }
+
+    // 1. 客户端 WebP 压缩与格式转换（保护服务器磁盘，SVG 自动保留矢量）
+    let uploadBlob: Blob
+    let isSvg = false
+    const rawName = filename || (fileOrBase64 instanceof File ? fileOrBase64.name : `img_${Date.now()}`)
+    const baseName = rawName.replace(/\.[^.]+$/, '')
+
+    try {
+      const compressResult = await compressImageToWebp(fileOrBase64, {
+        maxEdge: 1920,
+        quality: 0.82,
+      })
+      uploadBlob = compressResult.blob
+      isSvg = compressResult.blob.type === 'image/svg+xml'
+    } catch (compressErr) {
+      console.warn('图片客户端 WebP 压缩跳过/失败，使用原始对象:', compressErr)
+      if (fileOrBase64 instanceof Blob) {
+        uploadBlob = fileOrBase64
+        isSvg = fileOrBase64.type === 'image/svg+xml'
+      } else if (typeof fileOrBase64 === 'string') {
+        const base64Data = fileOrBase64.includes(',') ? fileOrBase64.split(',')[1] : fileOrBase64
+        const mimeMatch = fileOrBase64.match(/^data:([^;]+);base64,/)
+        const mime = mimeMatch ? mimeMatch[1] : 'image/png'
+        const raw = atob(base64Data)
+        const u8 = new Uint8Array(raw.length)
+        for (let i = 0; i < raw.length; i++) {
+          u8[i] = raw.charCodeAt(i)
+        }
+        uploadBlob = new Blob([u8], { type: mime })
+        isSvg = mime === 'image/svg+xml'
+      } else {
+        return { ok: false, error: '不支持的文件类型' }
+      }
+    }
+
+    const finalExt = isSvg ? '.svg' : '.webp'
+    const finalFilename = `${baseName}${finalExt}`
+
+    const { uploadUrl } = resolveSyncEndpoints(serverUrl, APP_SYNC_ID)
+    const formData = new FormData()
+    formData.append('file', uploadBlob, finalFilename)
+
+    // FormData 上传走原生 fetch（Nginx CORS 已全量放行）
+    const fetchRes = await fetch(uploadUrl, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'X-App-Id': APP_SYNC_ID,
+        'x-sync-token': token,
+      },
+      body: formData,
+    })
+    const text = await fetchRes.text()
+    const res = {
+      ok: fetchRes.ok,
+      status: fetchRes.status,
+      text,
+    }
+
+    if (!res.ok) {
+      return { ok: false, error: `服务器上传失败 (HTTP ${res.status}): ${res.text.slice(0, 100)}` }
+    }
+
+    const json = JSON.parse(res.text)
+    if (json.ok && json.url) {
+      return { ok: true, url: json.url }
+    }
+    return { ok: false, error: json.error || '服务器未返回图片地址' }
+  } catch (err: any) {
+    return { ok: false, error: err?.message || '图片上传网络异常' }
   }
 }
 
@@ -484,28 +826,46 @@ export async function pushToCloudflare(
   config: CloudflareSyncConfig
 ): Promise<SyncResult> {
   try {
-    const rawJson = JSON.stringify(toSyncPayload(state))
+    const syncState = toSyncPayload(state)
     const isEncrypted = Boolean(config.enableE2EE && config.encryptionPassword)
-    const payloadData = isEncrypted
-      ? await encryptData(rawJson, config.encryptionPassword)
-      : rawJson
 
-    /*
-     * 设置与笔记用同一个 payload 同一份加密设置：分两次写会让「加密的笔记
-     * 配明文的密钥」这种组合出现 —— 而设置里恰好就存着 API Key。
-     */
-    const settingsJson = JSON.stringify(await collectSettings())
-    const settingsData = isEncrypted
-      ? await encryptData(settingsJson, config.encryptionPassword)
-      : settingsJson
+    // 收集本地设置并转换为分类结构
+    const rawSettings = await collectSettings()
+    const structuredSettings = packStructuredSettings(rawSettings)
+
+    // 统计摘要（方便在管理端一眼看清快照概况）
+    const aliveNotes = syncState.notes.filter((note) => !note.deletedAt)
+    const summary: SyncPayloadSummary = {
+      noteCount: aliveNotes.length,
+      folderCount: syncState.folders?.length || 0,
+      trashedCount: syncState.notes.length - aliveNotes.length,
+    }
+
+    // 仅在开启端到端加密时进行 AES 密文加密（密文为字符串）；
+    // 未加密时直接保持原生结构化对象，彻底杜绝反人类的字符串双重序列化
+    let payloadData: NotesState | string
+    let payloadSettings: StructuredSettings | string
+
+    if (isEncrypted) {
+      const rawJson = JSON.stringify(syncState)
+      const settingsJson = JSON.stringify(structuredSettings)
+      payloadData = await encryptData(rawJson, config.encryptionPassword)
+      payloadSettings = await encryptData(settingsJson, config.encryptionPassword)
+    } else {
+      payloadData = syncState
+      payloadSettings = structuredSettings
+    }
 
     const payload: SyncPayload = {
+      app: APP_SYNC_ID,
       version: 2,
       updatedAt: Date.now(),
+      updatedAtIso: new Date().toISOString(),
       deviceInfo: 'devNotes Desktop',
       encrypted: isEncrypted,
+      summary,
       data: payloadData,
-      settings: settingsData,
+      settings: payloadSettings,
     }
 
     const payloadStr = JSON.stringify(payload)
@@ -634,27 +994,40 @@ export async function pullFromCloudflare(config: CloudflareSyncConfig): Promise<
       throw new Error('云端返回的数据格式无法解析')
     }
 
-    let jsonString = payload.data
-
+    // 1. 解析笔记数据：全面兼容结构化对象、旧版未加密字符串、加密密文字符串
+    let remoteNotesState: NotesState
     if (payload.encrypted) {
       if (!config.encryptionPassword) {
         throw new Error('该备份已被端到端加密，请在设置中输入密码后重试解密拉取')
       }
-      jsonString = await decryptData(payload.data, config.encryptionPassword)
+      const decrypted = await decryptData(payload.data as string, config.encryptionPassword)
+      remoteNotesState = JSON.parse(decrypted)
+    } else if (typeof payload.data === 'string') {
+      remoteNotesState = JSON.parse(payload.data)
+    } else if (payload.data && typeof payload.data === 'object') {
+      remoteNotesState = payload.data as NotesState
+    } else {
+      throw new Error('备份文档数据为空或格式不正确')
     }
 
     // 远端可能是老版本客户端推的（没有 folders / deletedAt 这些字段），
     // 统一过一遍归一化再交给上层，否则缺字段会在侧栏渲染时炸掉
-    const remoteState = normalizeState(JSON.parse(jsonString))
+    const remoteState = normalizeState(remoteNotesState)
 
-    // 设置同理：老版本（version 1）没有这个字段，缺了就当没有，不影响笔记同步
+    // 2. 解析设置数据：全面兼容结构化对象、旧版平铺对象、字符串密文/JSON
     let remoteSettings: SettingsSnapshot | undefined
     if (payload.settings) {
       try {
-        const settingsJson = payload.encrypted
-          ? await decryptData(payload.settings, config.encryptionPassword)
-          : payload.settings
-        remoteSettings = JSON.parse(settingsJson) as SettingsSnapshot
+        let rawSettingsObj: any
+        if (payload.encrypted) {
+          const decrypted = await decryptData(payload.settings as string, config.encryptionPassword)
+          rawSettingsObj = JSON.parse(decrypted)
+        } else if (typeof payload.settings === 'string') {
+          rawSettingsObj = JSON.parse(payload.settings)
+        } else {
+          rawSettingsObj = payload.settings
+        }
+        remoteSettings = unpackStructuredSettings(rawSettingsObj)
       } catch {
         // 设置解不开不该让整次拉取失败 —— 笔记才是主体，设置是附带的
       }

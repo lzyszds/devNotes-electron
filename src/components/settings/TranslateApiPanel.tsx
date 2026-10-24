@@ -5,7 +5,7 @@ import { fetchModels, type ModelInfo } from '../../utils/fetchModels'
 import { useToast } from '../ui/Toast'
 import { NoteCard, Select, Switch, type SelectOption } from '../ui'
 import {
-  DEFAULT_TRANSLATE_CONFIG,
+  getCachedTranslateConfig,
   loadTranslateConfig,
   saveTranslateConfig,
   type TranslateApiConfig,
@@ -27,7 +27,8 @@ const PROVIDER_OPTIONS: { value: TranslateProvider; label: string }[] = [
 /** 全局设置 · AI 与翻译：在线翻译接口配置面板（自 TranslateApiSettingsModal 迁移而来） */
 export default function TranslateApiPanel() {
   const { showToast } = useToast()
-  const [formConfig, setFormConfig] = useState<TranslateApiConfig>(DEFAULT_TRANSLATE_CONFIG)
+  // 同步直读内存缓存，首帧即展现真实配置，避免空白闪屏与二次异步拉取
+  const [formConfig, setFormConfig] = useState<TranslateApiConfig>(() => getCachedTranslateConfig())
   const [showKey, setShowKey] = useState(false)
   const [isTesting, setIsTesting] = useState(false)
   /** 从 /models 拉到的可选模型，空数组表示还没拉过（退回手填） */
@@ -56,16 +57,83 @@ export default function TranslateApiPanel() {
     loadTranslateConfig().then(setFormConfig)
   }, [])
 
+  const activePresetId =
+    formConfig.openai.activePreset ||
+    PROVIDER_PRESETS.find((p) => p.baseUrl === formConfig.openai.baseUrl.trim())?.id ||
+    'custom'
+
   const patchOpenAI = (patch: Partial<TranslateApiConfig['openai']>) =>
-    setFormConfig((prev) => ({ ...prev, openai: { ...prev.openai, ...patch } }))
+    setFormConfig((prev) => {
+      const activeId = prev.openai.activePreset || activePresetId
+      const updatedPresets = {
+        ...(prev.openai.presets || {}),
+        [activeId]: {
+          ...(prev.openai.presets?.[activeId] || {}),
+          baseUrl: patch.baseUrl !== undefined ? patch.baseUrl : prev.openai.baseUrl,
+          apiKey: patch.apiKey !== undefined ? patch.apiKey : prev.openai.apiKey,
+          model: patch.model !== undefined ? patch.model : prev.openai.model,
+        },
+      }
+      return {
+        ...prev,
+        openai: {
+          ...prev.openai,
+          ...patch,
+          presets: updatedPresets,
+        },
+      }
+    })
+
+  const handleSelectPreset = (presetId: string) => {
+    setModelOptions([])
+    setFetchModelsError('')
+    setTestResult(null)
+
+    const currentId = formConfig.openai.activePreset || activePresetId
+    const presets = { ...(formConfig.openai.presets || {}) }
+
+    // 先存下当前正在编辑的值
+    presets[currentId] = {
+      baseUrl: formConfig.openai.baseUrl.trim(),
+      apiKey: formConfig.openai.apiKey.trim(),
+      model: formConfig.openai.model.trim(),
+    }
+
+    const targetSaved = presets[presetId]
+    const preset = PROVIDER_PRESETS.find((p) => p.id === presetId)
+
+    let nextBaseUrl = ''
+    let nextApiKey = ''
+    let nextModel = ''
+
+    if (presetId === 'custom') {
+      nextBaseUrl = targetSaved?.baseUrl || ''
+      nextApiKey = targetSaved?.apiKey || ''
+      nextModel = targetSaved?.model || ''
+    } else if (preset) {
+      nextBaseUrl = targetSaved?.baseUrl || preset.baseUrl
+      nextApiKey = targetSaved?.apiKey || ''
+      nextModel = targetSaved?.model || preset.models[0] || ''
+    }
+
+    setFormConfig((prev) => ({
+      ...prev,
+      openai: {
+        ...prev.openai,
+        baseUrl: nextBaseUrl,
+        apiKey: nextApiKey,
+        model: nextModel,
+        activePreset: presetId,
+        presets,
+      },
+    }))
+  }
 
   const patchLibre = (patch: Partial<TranslateApiConfig['libretranslate']>) =>
     setFormConfig((prev) => ({ ...prev, libretranslate: { ...prev.libretranslate, ...patch } }))
 
-  /** 当前 Base URL 命中的预设，用于高亮与提示 */
-  const activePreset = PROVIDER_PRESETS.find(
-    (p) => p.baseUrl === formConfig.openai.baseUrl.trim(),
-  )
+  /** 当前命中的预设，用于提示 */
+  const activePreset = PROVIDER_PRESETS.find((p) => p.id === activePresetId)
 
   /**
    * 模型下拉的选项。
@@ -164,6 +232,60 @@ export default function TranslateApiPanel() {
 
       {formConfig.provider === 'openai' ? (
         <div className="space-y-4">
+          {/* 服务商预设：一键填好 Base URL 与推荐模型，且每个预设独立保存 API Key */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className={LABEL_CLASS}>服务商预设</label>
+              <span className="text-[10px] text-slate-400">各服务商独立保存各自 Key，切换不覆盖</span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {PROVIDER_PRESETS.map((preset) => {
+                const active = activePresetId === preset.id
+                const hasSavedKey = Boolean(formConfig.openai.presets?.[preset.id]?.apiKey?.trim())
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => handleSelectPreset(preset.id)}
+                    title={preset.note ?? preset.baseUrl}
+                    className={`px-2.5 h-7 rounded-lg text-[11px] font-medium border transition-colors inline-flex items-center gap-1.5 ${
+                      active
+                        ? 'border-brand-300 bg-brand-50 text-brand-700 dark:border-brand-500/50 dark:bg-brand-500/15 dark:text-brand-300 shadow-2xs'
+                        : 'border-slate-200 dark:border-dark-border text-slate-600 dark:text-slate-300 hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-dark-hover'
+                    }`}
+                  >
+                    {preset.label}
+                    {hasSavedKey && (
+                      <span
+                        className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"
+                        title="已配置该服务商独立 API Key"
+                      />
+                    )}
+                  </button>
+                )
+              })}
+              <button
+                type="button"
+                onClick={() => handleSelectPreset('custom')}
+                className={`px-2.5 h-7 rounded-lg text-[11px] font-medium border transition-colors inline-flex items-center gap-1.5 ${
+                  activePresetId === 'custom'
+                    ? 'border-brand-300 bg-brand-50 text-brand-700 dark:border-brand-500/50 dark:bg-brand-500/15 dark:text-brand-300 shadow-2xs'
+                    : 'border-slate-200 dark:border-dark-border text-slate-600 dark:text-slate-300 hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-dark-hover'
+                }`}
+              >
+                自定义
+                {Boolean(formConfig.openai.presets?.custom?.apiKey?.trim()) && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" title="已配置自定义 Key" />
+                )}
+              </button>
+            </div>
+            {activePreset?.note && (
+              <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1.5">
+                {activePreset.note}
+              </p>
+            )}
+          </div>
+
           <div>
             <label className={LABEL_CLASS}>Base URL</label>
             <input
@@ -179,7 +301,12 @@ export default function TranslateApiPanel() {
           </div>
 
           <div>
-            <label className={LABEL_CLASS}>API Key</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className={LABEL_CLASS}>API Key</label>
+              <span className="text-[10px] text-brand-600 dark:text-brand-400 font-medium">
+                {activePreset ? `${activePreset.label} 专属独立密钥` : '自定义渠道独立密钥'}
+              </span>
+            </div>
             <div className="relative">
               <input
                 type={showKey ? 'text' : 'password'}
@@ -198,42 +325,6 @@ export default function TranslateApiPanel() {
                 </button>
               </Tooltip>
             </div>
-          </div>
-
-          {/* 服务商预设：一键填好 Base URL 与推荐模型，省得翻文档 */}
-          <div>
-            <label className={LABEL_CLASS}>服务商预设</label>
-            <div className="flex flex-wrap gap-1.5">
-              {PROVIDER_PRESETS.map((preset) => {
-                const active = formConfig.openai.baseUrl.trim() === preset.baseUrl
-                return (
-                  <button
-                    key={preset.id}
-                    type="button"
-                    onClick={() =>
-                      patchOpenAI({
-                        baseUrl: preset.baseUrl,
-                        // 只在模型为空时填默认值，别把用户手填的覆盖掉
-                        model: formConfig.openai.model.trim() || preset.models[0] || '',
-                      })
-                    }
-                    title={preset.note ?? preset.baseUrl}
-                    className={`px-2.5 h-7 rounded-lg text-[11px] font-medium border transition-colors ${
-                      active
-                        ? 'border-brand-200 bg-brand-50 text-brand-700 dark:border-brand-500/40 dark:bg-brand-500/10 dark:text-brand-300'
-                        : 'border-slate-200 dark:border-dark-border text-slate-600 dark:text-slate-300 hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-dark-hover'
-                    }`}
-                  >
-                    {preset.label}
-                  </button>
-                )
-              })}
-            </div>
-            {activePreset?.note && (
-              <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1.5">
-                {activePreset.note}
-              </p>
-            )}
           </div>
 
           <div>
