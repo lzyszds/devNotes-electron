@@ -609,14 +609,22 @@ export default function DashboardLayout({
                       <div
                         key={tool.id}
                         onClick={() => onOpenTool(tool.id)}
-                        className={`group relative px-2.5 py-2 rounded-lg transition-all cursor-pointer ${
+                        className={`group relative px-2.5 py-2 rounded-lg transition-all cursor-pointer flex items-center gap-2.5 ${
                           isSelected
                             ? "bg-white shadow-[0_1px_3px_rgba(0,0,0,0.05),0_1px_1px_rgba(0,0,0,0.02)] ring-1 ring-black/[0.08]"
                             : "bg-transparent hover:bg-black/[0.035] text-[#191918]"
                         }`}
                       >
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <span className="w-1.5 h-1.5 rounded-full flex-shrink-0 bg-[#22C55E]" />
+                        <div
+                          className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 transition-colors ${
+                            isSelected
+                              ? "bg-[#1C1C1C] text-white"
+                              : "bg-black/[0.04] text-[#787774] group-hover:text-[#191918]"
+                          }`}
+                        >
+                          <ToolIcon toolId={tool.id} className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
                           <h4
                             className={`text-xs truncate ${
                               isSelected ? "font-semibold text-[#191918]" : "font-normal text-[#191918]"
@@ -624,10 +632,10 @@ export default function DashboardLayout({
                           >
                             {tool.name}
                           </h4>
+                          <p className="text-[11px] line-clamp-1 mt-0.5 text-[#787774]">
+                            {tool.description}
+                          </p>
                         </div>
-                        <p className="text-[11px] line-clamp-1 mt-1 text-[#787774] pl-3">
-                          {tool.description}
-                        </p>
                       </div>
                     );
                   })}

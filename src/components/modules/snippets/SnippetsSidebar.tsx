@@ -190,7 +190,6 @@ function SnippetListRow({
   const [starred, setStarred] = useState(Boolean(item.starred))
   const selectedId = useSelectedSnippetId()
   const isActive = selectedId === item.id
-  const dotColor = starred ? '#EC4899' : '#22C55E'
 
   return (
     <SnippetListContextMenu
@@ -212,31 +211,24 @@ function SnippetListRow({
         }`}
       >
         <div className="flex items-center justify-between gap-1.5 min-w-0">
-          <div className="flex items-center gap-1.5 min-w-0 flex-1">
-            <span
-              style={{ backgroundColor: dotColor }}
-              className="w-1.5 h-1.5 rounded-full shrink-0"
-              title="状态小圆点"
-            />
-            <span
-              className={`text-xs truncate ${
-                isActive ? 'font-semibold text-[#191918]' : 'font-normal text-[#191918]'
-              }`}
-            >
-              {item.title || '未命名片段'}
-            </span>
-          </div>
+          <span
+            className={`text-xs truncate flex-1 min-w-0 ${
+              isActive ? 'font-semibold text-[#191918]' : 'font-normal text-[#191918]'
+            }`}
+          >
+            {item.title || '未命名片段'}
+          </span>
           {starred && (
             <Star className="w-2.5 h-2.5 shrink-0 text-amber-500 fill-amber-500" />
           )}
         </div>
 
-        <p className="font-mono text-[11px] truncate leading-relaxed text-[#787774] mt-1 pl-3">
+        <p className="font-mono text-[11px] truncate leading-relaxed text-[#787774] mt-0.5">
           {item.code.split('\n')[0] || '空代码片段'}
         </p>
 
         {item.tags.length > 0 && (
-          <div className="flex gap-1 mt-1.5 pl-3 flex-wrap">
+          <div className="flex gap-1 mt-1.5 flex-wrap">
             {item.tags.slice(0, 3).map((tag) => (
               <span
                 key={tag}

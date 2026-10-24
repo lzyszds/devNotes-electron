@@ -64,24 +64,6 @@ function getNotePreviewSnippet(content: string): string {
   return clean.slice(0, 50) || '暂无内容'
 }
 
-/**
- * 判断卡片右上角 8px 状态圆点颜色：
- * - 收藏星标：#EC4899 粉
- * - 今日修改：#F97316 橙
- * - 常规已同步：#22C55E 绿
- */
-function getStatusDotColor(note: NoteItem): string {
-  if (note.bookmarked) return '#EC4899'
-  const date = new Date(note.updatedAt)
-  const now = new Date()
-  const isToday =
-    date.getFullYear() === now.getFullYear() &&
-    date.getMonth() === now.getMonth() &&
-    date.getDate() === now.getDate()
-  if (isToday) return '#F97316'
-  return '#22C55E'
-}
-
 interface NotesSidebarProps {
   onAfterSelect?: () => void
   onCollapse?: () => void
@@ -678,7 +660,6 @@ export default function NotesSidebar({
           {filteredNotes.map((note) => {
             const isActive = note.id === activeNote?.id && scope.type !== 'trash'
             const inTrash = scope.type === 'trash'
-            const statusDotColor = getStatusDotColor(note)
 
             return (
               <div
@@ -698,15 +679,9 @@ export default function NotesSidebar({
                     : 'bg-transparent hover:bg-black/[0.035] text-[#191918]'
                 }`}
               >
-                {/* 第一行：状态点 + 标题 + 时间/星标 */}
+                {/* 第一行：标题 + 右侧时间/星标 */}
                 <div className="flex items-center justify-between gap-1.5 min-w-0">
-                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                    {/* 微型小圆点，平滑内嵌 */}
-                    <span
-                      style={{ backgroundColor: statusDotColor }}
-                      className="w-1.5 h-1.5 rounded-full shrink-0"
-                      title="状态指示点"
-                    />
+                  <div className="min-w-0 flex-1">
                     {renamingNoteId === note.id ? (
                       <input
                         ref={renameInputRef}
@@ -725,7 +700,7 @@ export default function NotesSidebar({
                           }
                         }}
                         onBlur={commitRenameNote}
-                        className="flex-1 min-w-0 h-5 px-1 text-xs bg-white text-[#191918] border border-black/20 rounded outline-none"
+                        className="w-full h-5 px-1 text-xs bg-white text-[#191918] border border-black/20 rounded outline-none"
                       />
                     ) : (
                       <h4
@@ -754,7 +729,7 @@ export default function NotesSidebar({
                 </div>
 
                 {/* 第二行：正文摘要单行平滑展示 */}
-                <p className="text-[11px] line-clamp-1 leading-relaxed mt-1 text-[#787774] pl-3">
+                <p className="text-[11px] line-clamp-1 leading-relaxed mt-0.5 text-[#787774]">
                   {getNotePreviewSnippet(note.content)}
                 </p>
               </div>
