@@ -1421,12 +1421,12 @@ html.dark .milkdown-notes-editor .milkdown-content {
  * 8 位 hex 与 var 两行叠加也只是徒增变数，这里退回最稳的形式。
  */
 ::selection {
-  background-color: rgba(56, 189, 248, 0.42);
+  background-color: rgba(186, 186, 186, 0.42);
   color: inherit;
 }
 
 html.dark ::selection {
-  background-color: rgba(56, 189, 248, 0.3);
+  background-color: rgba(255, 255, 255, 0.3);
   color: inherit;
 }
 
@@ -1434,7 +1434,7 @@ html.dark ::selection {
 .milkdown-content ::selection,
 .milkdown-notes-editor ::selection,
 .cherry-notes-editor ::selection {
-  background-color: rgba(56, 189, 248, 0.42);
+  background-color: rgba(186, 186, 186, 0.42);
   color: inherit;
 }
 

@@ -159,6 +159,7 @@ export default function OutlineCapsule({
 
   // 移动端：底部 sheet，由顶栏的「大纲」按钮驱动
   if (isMobile) {
+    if (!hasOutline) return null
     return (
       <>
         {expanded && (
@@ -302,8 +303,8 @@ export default function OutlineCapsule({
       ref={wrapperRef}
       className="absolute inset-y-0 right-4 z-20 flex flex-col items-end justify-center gap-2 py-3 select-none"
     >
-      {/* ---------------------------------------------------------------- 胶囊本体 (有大纲或展开时显示) */}
-      {(hasOutline || expanded) && (
+      {/* ---------------------------------------------------------------- 胶囊本体 (有大纲时才显示) */}
+      {hasOutline && (
         <div
           role={expanded ? undefined : 'button'}
           title={expanded ? undefined : '点击展开大纲'}
@@ -530,23 +531,27 @@ export default function OutlineCapsule({
 
       {/* ---------------------------------------------------------------- 迷你悬浮功能操作胶囊 */}
       <div className="w-[32px] flex flex-col items-center gap-1 p-1 rounded-xl border border-black/[0.08] bg-white/95 shadow-[0_2px_8px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] backdrop-blur-md select-none">
-        {/* 大纲开关 */}
-        <Tooltip content={expanded ? "收起目录大纲" : "目录大纲"} placement="right">
-          <button
-            type="button"
-            aria-label="目录大纲"
-            onClick={() => onExpandedChange(!expanded)}
-            className={`flex h-6 w-6 items-center justify-center rounded-lg transition-colors cursor-pointer ${
-              expanded
-                ? "bg-[#1C1C1C] text-white"
-                : "text-[#787774] hover:bg-black/[0.05] hover:text-[#191918]"
-            }`}
-          >
-            <ListTree className="h-3.5 w-3.5" />
-          </button>
-        </Tooltip>
+        {/* 大纲开关：当前笔记有目录时才显示 */}
+        {hasOutline && (
+          <>
+            <Tooltip content={expanded ? "收起目录大纲" : "目录大纲"} placement="right">
+              <button
+                type="button"
+                aria-label="目录大纲"
+                onClick={() => onExpandedChange(!expanded)}
+                className={`flex h-6 w-6 items-center justify-center rounded-lg transition-colors cursor-pointer ${
+                  expanded
+                    ? "bg-[#1C1C1C] text-white"
+                    : "text-[#787774] hover:bg-black/[0.05] hover:text-[#191918]"
+                }`}
+              >
+                <ListTree className="h-3.5 w-3.5" />
+              </button>
+            </Tooltip>
 
-        <span className="w-4 h-px bg-black/[0.06] my-0.5" />
+            <span className="w-4 h-px bg-black/[0.06] my-0.5" />
+          </>
+        )}
 
         {/* 搜索替换 */}
         {onToggleSearch && (
