@@ -10,6 +10,7 @@ import {
   FileText,
   FolderClosed,
   FolderOpen,
+  FolderTree,
   Inbox,
   Pencil,
   Plus,
@@ -84,11 +85,21 @@ function getStatusDotColor(note: NoteItem): string {
 interface NotesSidebarProps {
   onAfterSelect?: () => void
   onCollapse?: () => void
+  isFolderTreeOpen?: boolean
+  onToggleFolderTree?: () => void
 }
 
 const ALL_TAB = '__all__'
 
-export default function NotesSidebar({ onAfterSelect, onCollapse: _onCollapse }: NotesSidebarProps) {
+export default function NotesSidebar({
+  onAfterSelect,
+  onCollapse: _onCollapse,
+  isFolderTreeOpen: externalFolderTreeOpen,
+  onToggleFolderTree: externalToggleFolderTree,
+}: NotesSidebarProps) {
+  const [internalTreeOpen, setInternalTreeOpen] = useState(false)
+  const isFolderTreeOpen = externalFolderTreeOpen !== undefined ? externalFolderTreeOpen : internalTreeOpen
+  const toggleFolderTree = externalToggleFolderTree || (() => setInternalTreeOpen((prev) => !prev))
   const {
     notes,
     activeNote,
@@ -360,8 +371,13 @@ export default function NotesSidebar({ onAfterSelect, onCollapse: _onCollapse }:
 
   return (
     <div className="flex flex-row h-full w-full select-none overflow-hidden">
-      {/* ================= 第 2 栏：分类目录栏 (w-52 = 208px) ================= */}
-      <aside className="w-52 bg-[#F3F3F1] border-r border-[#E6E6E3] flex flex-col h-full flex-shrink-0">
+      {/* ================= 第 2 栏：分类目录栏 (w-52 = 208px，按需展开) ================= */}
+      <aside
+        style={{ width: isFolderTreeOpen ? 208 : 0 }}
+        className={`bg-[#F3F3F1] border-r border-[#E6E6E3] flex flex-col h-full flex-shrink-0 transition-[width] duration-200 overflow-hidden ${
+          isFolderTreeOpen ? 'opacity-100' : 'w-0 opacity-0 border-r-0'
+        }`}
+      >
         {/* 顶部：48px 对齐，左侧粗体标题，右侧炭黑新建胶囊按钮 */}
         <div className="h-12 px-3 border-b border-[#E6E6E3] flex items-center justify-between flex-shrink-0">
           <span className="font-bold text-sm text-[#191918] tracking-tight">知识库</span>
@@ -402,27 +418,23 @@ export default function NotesSidebar({ onAfterSelect, onCollapse: _onCollapse }:
                   e.stopPropagation()
                   settleDrag(null)
                 }}
-                className={`w-full flex items-center justify-between px-2.5 py-1.5 transition-all text-xs font-medium ${
+                className={`w-full flex items-center justify-between px-2.5 py-1.5 transition-all text-xs font-medium cursor-pointer ${
                   isSelected
-                    ? 'bg-[#1C1C1C] text-white rounded-full shadow-2xs'
-                    : 'text-[#191918] hover:bg-[#EAEAE7] rounded-lg'
+                    ? 'bg-[#EAEAE7] text-[#191918] font-bold rounded-lg shadow-2xs'
+                    : 'text-[#787774] hover:text-[#191918] hover:bg-[#EAEAE7]/60 rounded-lg'
                 }`}
               >
                 <div className="flex items-center gap-2 min-w-0">
                   <span
                     className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center flex-shrink-0 ${
-                      isSelected ? 'bg-white text-[#1C1C1C]' : 'bg-[#1C1C1C] text-white'
+                      isSelected ? 'bg-[#1C1C1C] text-white' : 'bg-[#EAEAE7] text-[#191918]'
                     }`}
                   >
                     全
                   </span>
                   <span className="truncate">全部文档</span>
                 </div>
-                <span
-                  className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full ${
-                    isSelected ? 'text-[#D4D4D0]' : 'text-[#787774]'
-                  }`}
-                >
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full text-[#787774]">
                   {notes.length}
                 </span>
               </button>
@@ -436,27 +448,23 @@ export default function NotesSidebar({ onAfterSelect, onCollapse: _onCollapse }:
               <button
                 type="button"
                 onClick={() => setScope({ type: 'bookmarks' })}
-                className={`w-full flex items-center justify-between px-2.5 py-1.5 transition-all text-xs font-medium ${
+                className={`w-full flex items-center justify-between px-2.5 py-1.5 transition-all text-xs font-medium cursor-pointer ${
                   isSelected
-                    ? 'bg-[#1C1C1C] text-white rounded-full shadow-2xs'
-                    : 'text-[#191918] hover:bg-[#EAEAE7] rounded-lg'
+                    ? 'bg-[#EAEAE7] text-[#191918] font-bold rounded-lg shadow-2xs'
+                    : 'text-[#787774] hover:text-[#191918] hover:bg-[#EAEAE7]/60 rounded-lg'
                 }`}
               >
                 <div className="flex items-center gap-2 min-w-0">
                   <span
                     className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center flex-shrink-0 ${
-                      isSelected ? 'bg-white text-[#1C1C1C]' : 'bg-[#1C1C1C] text-white'
+                      isSelected ? 'bg-[#1C1C1C] text-white' : 'bg-[#EAEAE7] text-[#191918]'
                     }`}
                   >
                     星
                   </span>
                   <span className="truncate">收藏标星</span>
                 </div>
-                <span
-                  className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full ${
-                    isSelected ? 'text-[#D4D4D0]' : 'text-[#787774]'
-                  }`}
-                >
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full text-[#787774]">
                   {bookmarkedCount}
                 </span>
               </button>
@@ -543,29 +551,25 @@ export default function NotesSidebar({ onAfterSelect, onCollapse: _onCollapse }:
                     },
                   ])
                 }
-                className={`w-full flex items-center justify-between px-2.5 py-1.5 transition-all text-xs font-medium ${
+                className={`w-full flex items-center justify-between px-2.5 py-1.5 transition-all text-xs font-medium cursor-pointer ${
                   dropFolderId === folder.id
-                    ? 'ring-1 ring-[#1C1C1C] bg-white text-[#191918] rounded-full'
+                    ? 'ring-1 ring-[#1C1C1C] bg-white text-[#191918] rounded-lg'
                     : isSelected
-                    ? 'bg-[#1C1C1C] text-white rounded-full shadow-2xs'
-                    : 'text-[#191918] hover:bg-[#EAEAE7] rounded-lg'
+                    ? 'bg-[#EAEAE7] text-[#191918] font-bold rounded-lg shadow-2xs'
+                    : 'text-[#787774] hover:text-[#191918] hover:bg-[#EAEAE7]/60 rounded-lg'
                 }`}
               >
                 <div className="flex items-center gap-2 min-w-0">
                   <span
                     className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center flex-shrink-0 ${
-                      isSelected ? 'bg-white text-[#1C1C1C]' : 'bg-[#1C1C1C] text-white'
+                      isSelected ? 'bg-[#1C1C1C] text-white' : 'bg-[#EAEAE7] text-[#191918]'
                     }`}
                   >
                     {initialBadge}
                   </span>
                   <span className="truncate">{folder.name}</span>
                 </div>
-                <span
-                  className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full ${
-                    isSelected ? 'text-[#D4D4D0]' : 'text-[#787774]'
-                  }`}
-                >
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full text-[#787774]">
                   {folderCount}
                 </span>
               </button>
@@ -582,27 +586,23 @@ export default function NotesSidebar({ onAfterSelect, onCollapse: _onCollapse }:
                   onClick={() =>
                     setScope(scope.type === 'trash' ? { type: 'all' } : { type: 'trash' })
                   }
-                  className={`w-full flex items-center justify-between px-2.5 py-1.5 transition-all text-xs font-medium ${
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 transition-all text-xs font-medium cursor-pointer ${
                     isSelected
-                      ? 'bg-[#1C1C1C] text-white rounded-full shadow-2xs'
-                      : 'text-[#191918] hover:bg-[#EAEAE7] rounded-lg'
+                      ? 'bg-[#EAEAE7] text-[#191918] font-bold rounded-lg shadow-2xs'
+                      : 'text-[#787774] hover:text-[#191918] hover:bg-[#EAEAE7]/60 rounded-lg'
                   }`}
                 >
                   <div className="flex items-center gap-2 min-w-0">
                     <span
                       className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center flex-shrink-0 ${
-                        isSelected ? 'bg-white text-[#1C1C1C]' : 'bg-[#1C1C1C] text-white'
+                        isSelected ? 'bg-[#1C1C1C] text-white' : 'bg-[#EAEAE7] text-[#191918]'
                       }`}
                     >
                       垃
                     </span>
                     <span className="truncate">回收站</span>
                   </div>
-                  <span
-                    className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full ${
-                      isSelected ? 'text-[#D4D4D0]' : 'text-[#787774]'
-                    }`}
-                  >
+                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full text-[#787774]">
                     {trashed.length}
                   </span>
                 </button>
@@ -613,23 +613,36 @@ export default function NotesSidebar({ onAfterSelect, onCollapse: _onCollapse }:
       </aside>
 
       {/* ================= 第 3 栏：记录列表栏 (w-72 = 288px) ================= */}
-      <section className="w-72 bg-[#F9F9F8] border-r border-[#E6E6E3] flex flex-col h-full flex-shrink-0">
-        {/* 顶部：白底细边框搜索框 + 炭黑 +新增 按钮 */}
-        <div className="h-12 px-3 border-b border-[#E6E6E3] flex items-center gap-2 flex-shrink-0">
+      <section className="w-72 bg-[#F9F9F8] border-r border-black/[0.06] flex flex-col h-full flex-shrink-0">
+        {/* 顶部：目录展开按钮 + 现代极简微型搜索框 + 炭黑 +新增 按钮 */}
+        <div className="h-11 px-2.5 border-b border-black/[0.06] flex items-center gap-1.5 flex-shrink-0">
+          <button
+            type="button"
+            onClick={toggleFolderTree}
+            className={`w-7 h-7 rounded-md flex items-center justify-center transition-colors cursor-pointer shrink-0 ${
+              isFolderTreeOpen
+                ? 'bg-[#EAEAE7] text-[#191918]'
+                : 'text-[#787774] hover:text-[#191918] hover:bg-[#EAEAE7]/60'
+            }`}
+            title={isFolderTreeOpen ? '收起分类目录' : '展开分类目录'}
+          >
+            <FolderTree className="w-3.5 h-3.5" />
+          </button>
+
           <div className="relative flex-1 flex items-center">
-            <Search className="w-3.5 h-3.5 text-[#787774] absolute left-2.5 pointer-events-none" />
+            <Search className="w-3 h-3 text-[#9A9996] absolute left-2 pointer-events-none" />
             <input
               type="text"
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
               placeholder="搜索文档..."
-              className="w-full pl-8 pr-6 h-8 text-xs bg-white border border-[#E6E6E3] rounded-lg outline-none text-[#191918] placeholder-[#787774] focus:border-[#1C1C1C] transition-colors"
+              className="w-full pl-6 pr-5 h-7 text-xs bg-black/[0.035] hover:bg-black/[0.05] focus:bg-white rounded-md outline-none text-[#191918] placeholder-[#9A9996] focus:ring-1 focus:ring-black/[0.12] transition-all border-none"
             />
             {keyword && (
               <button
                 type="button"
                 onClick={() => setKeyword('')}
-                className="absolute right-2 text-[#787774] hover:text-[#191918]"
+                className="absolute right-1.5 text-[#9A9996] hover:text-[#191918]"
                 title="清空"
               >
                 <X className="w-3 h-3" />
@@ -640,18 +653,18 @@ export default function NotesSidebar({ onAfterSelect, onCollapse: _onCollapse }:
             <button
               type="button"
               onClick={() => handleCreate(scope.type === 'folder' ? scope.folderId : null)}
-              className="h-8 px-2.5 bg-[#1C1C1C] hover:bg-neutral-800 text-white rounded-lg text-xs font-medium flex items-center gap-1 flex-shrink-0 transition-colors shadow-2xs cursor-pointer"
+              className="h-7 px-2.5 bg-[#1C1C1C] hover:bg-neutral-800 text-white rounded-md text-xs font-medium flex items-center gap-1 flex-shrink-0 transition-colors cursor-pointer shadow-2xs"
               title="新建文档 (⌘N)"
             >
-              <Plus className="w-3.5 h-3.5" />
+              <Plus className="w-3 h-3" />
               <span>新增</span>
             </button>
           )}
         </div>
 
-        {/* 记录列表流 */}
+        {/* 记录列表流：现代原生卡片清单 */}
         <div
-          className="flex-1 overflow-y-auto p-2.5 space-y-2"
+          className="flex-1 overflow-y-auto p-1.5 space-y-1"
           onDragOver={(e) => {
             if (!draggingNoteId || scope.type !== 'all') return
             e.preventDefault()
@@ -677,80 +690,73 @@ export default function NotesSidebar({ onAfterSelect, onCollapse: _onCollapse }:
                 onContextMenu={(e) =>
                   inTrash ? openTrashMenu(e, note) : openNoteMenu(e, note)
                 }
-                className={`group relative p-3 rounded-xl transition-all ${
+                className={`group relative px-2.5 py-2 rounded-lg transition-all ${
                   inTrash ? 'cursor-default' : 'cursor-pointer'
                 } ${draggingNoteId === note.id ? 'opacity-30' : ''} ${
                   isActive
-                    ? 'bg-[#1C1C1C] text-white shadow-2xs'
-                    : 'bg-transparent hover:bg-[#F3F3F1] text-[#191918]'
+                    ? 'bg-white shadow-[0_1px_3px_rgba(0,0,0,0.05),0_1px_1px_rgba(0,0,0,0.02)] ring-1 ring-black/[0.08]'
+                    : 'bg-transparent hover:bg-black/[0.035] text-[#191918]'
                 }`}
               >
-                {/* 右上角 8px 状态小圆点（#22C55E 绿 / #F97316 橙 / #EC4899 粉） */}
-                <span
-                  style={{ backgroundColor: statusDotColor }}
-                  className="absolute top-3 right-3 w-2 h-2 rounded-full flex-shrink-0 ring-2 ring-white/50"
-                  title="状态指示点"
-                />
-
-                {/* 标题与时间 */}
-                <div className="flex items-center justify-between gap-2 pr-4 mb-1">
-                  {renamingNoteId === note.id ? (
-                    <input
-                      ref={renameInputRef}
-                      value={renameDraft}
-                      maxLength={80}
-                      onClick={(e) => e.stopPropagation()}
-                      onFocus={(e) => e.currentTarget.select()}
-                      onChange={(e) => setRenameDraft(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault()
-                          commitRenameNote()
-                        } else if (e.key === 'Escape') {
-                          e.preventDefault()
-                          setRenamingNoteId(null)
-                        }
-                      }}
-                      onBlur={commitRenameNote}
-                      className="flex-1 min-w-0 h-6 px-1.5 text-xs bg-white text-[#191918] border border-[#1C1C1C] rounded outline-none"
+                {/* 第一行：状态点 + 标题 + 时间/星标 */}
+                <div className="flex items-center justify-between gap-1.5 min-w-0">
+                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                    {/* 微型小圆点，平滑内嵌 */}
+                    <span
+                      style={{ backgroundColor: statusDotColor }}
+                      className="w-1.5 h-1.5 rounded-full shrink-0"
+                      title="状态指示点"
                     />
-                  ) : (
-                    <h4
-                      onDoubleClick={(e) => {
-                        e.stopPropagation()
-                        if (!inTrash) startRenameNote(note.id, note.title)
-                      }}
-                      className={`flex-1 min-w-0 truncate text-xs font-semibold ${
-                        isActive ? 'text-white' : 'text-[#191918]'
-                      }`}
-                    >
-                      {note.title || '未命名笔记'}
-                    </h4>
-                  )}
+                    {renamingNoteId === note.id ? (
+                      <input
+                        ref={renameInputRef}
+                        value={renameDraft}
+                        maxLength={80}
+                        onClick={(e) => e.stopPropagation()}
+                        onFocus={(e) => e.currentTarget.select()}
+                        onChange={(e) => setRenameDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            commitRenameNote()
+                          } else if (e.key === 'Escape') {
+                            e.preventDefault()
+                            setRenamingNoteId(null)
+                          }
+                        }}
+                        onBlur={commitRenameNote}
+                        className="flex-1 min-w-0 h-5 px-1 text-xs bg-white text-[#191918] border border-black/20 rounded outline-none"
+                      />
+                    ) : (
+                      <h4
+                        onDoubleClick={(e) => {
+                          e.stopPropagation()
+                          if (!inTrash) startRenameNote(note.id, note.title)
+                        }}
+                        className={`truncate text-xs ${
+                          isActive ? 'font-semibold text-[#191918]' : 'font-normal text-[#191918]'
+                        }`}
+                      >
+                        {note.title || '未命名笔记'}
+                      </h4>
+                    )}
+                  </div>
+
+                  {/* 右侧微型时间与标星 */}
+                  <div className="flex items-center gap-1 shrink-0 text-[10px] font-mono text-[#8A8987]">
+                    <span>
+                      {formatNoteTime(inTrash ? note.deletedAt || note.updatedAt : note.updatedAt)}
+                    </span>
+                    {note.bookmarked && !inTrash && (
+                      <Star className="w-2.5 h-2.5 text-amber-500 fill-amber-500 shrink-0" />
+                    )}
+                  </div>
                 </div>
 
-                {/* 描述与摘要：选中时强制使用 #D4D4D0 */}
-                <p
-                  className={`text-[11px] line-clamp-1 leading-relaxed mt-0.5 ${
-                    isActive ? 'text-[#D4D4D0]' : 'text-[#787774]'
-                  }`}
-                >
+                {/* 第二行：正文摘要单行平滑展示 */}
+                <p className="text-[11px] line-clamp-1 leading-relaxed mt-1 text-[#787774] pl-3">
                   {getNotePreviewSnippet(note.content)}
                 </p>
-
-                {/* 底部信息条：时间 */}
-                <div className="flex items-center justify-between mt-2 pt-1 border-t border-transparent text-[10px] font-mono">
-                  <span className={isActive ? 'text-[#D4D4D0]' : 'text-[#787774]'}>
-                    {formatNoteTime(inTrash ? note.deletedAt || note.updatedAt : note.updatedAt)}
-                  </span>
-                  {note.bookmarked && !inTrash && (
-                    <Star
-                      className={`w-2.5 h-2.5 ${
-                        isActive ? 'text-[#D4D4D0] fill-[#D4D4D0]' : 'text-amber-500 fill-amber-500'
-                      }`}
-                    />
-                  )}
-                </div>
               </div>
             )
           })}

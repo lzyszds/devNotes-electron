@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Plus, Search, Star, Tags, X } from 'lucide-react'
+import { FolderTree, Plus, Search, Star, Tags, X } from 'lucide-react'
 import { ToolEmpty } from '../../ui'
 import { useSnippets, filterSnippets, type Snippet } from './useSnippets'
 import SnippetListContextMenu from './SnippetListContextMenu'
@@ -7,14 +7,24 @@ import SnippetListContextMenu from './SnippetListContextMenu'
 interface SnippetsSidebarProps {
   onAfterSelect?: () => void
   onCollapse?: () => void
+  isFolderTreeOpen?: boolean
+  onToggleFolderTree?: () => void
 }
 
 export default function SnippetsSidebar({
   onAfterSelect,
+  isFolderTreeOpen: externalFolderTreeOpen,
+  onToggleFolderTree: externalToggleFolderTree,
 }: SnippetsSidebarProps) {
   const { snippets, loaded, allTags } = useSnippets()
   const [keyword, setKeyword] = useState('')
   const [activeTag, setActiveTag] = useState('全部')
+
+  const [internalTreeOpen, setInternalTreeOpen] = useState(false)
+  const isFolderTreeOpen =
+    externalFolderTreeOpen !== undefined ? externalFolderTreeOpen : internalTreeOpen
+  const toggleFolderTree =
+    externalToggleFolderTree || (() => setInternalTreeOpen((prev) => !prev))
 
   const filtered = useMemo(
     () => filterSnippets(snippets, keyword, activeTag),
@@ -23,8 +33,13 @@ export default function SnippetsSidebar({
 
   return (
     <div className="flex flex-row h-full w-full select-none overflow-hidden">
-      {/* ================= 第 2 栏：标签分类栏 (w-52 = 208px) ================= */}
-      <aside className="w-52 bg-[#F3F3F1] border-r border-[#E6E6E3] flex flex-col h-full flex-shrink-0">
+      {/* ================= 第 2 栏：标签分类栏 (w-52 = 208px，按需展开) ================= */}
+      <aside
+        style={{ width: isFolderTreeOpen ? 208 : 0 }}
+        className={`bg-[#F3F3F1] border-r border-[#E6E6E3] flex flex-col h-full flex-shrink-0 transition-[width] duration-200 overflow-hidden ${
+          isFolderTreeOpen ? 'opacity-100' : 'w-0 opacity-0 border-r-0'
+        }`}
+      >
         <div className="h-12 px-3 border-b border-[#E6E6E3] flex items-center justify-between flex-shrink-0">
           <span className="font-bold text-sm text-[#191918] tracking-tight">代码片段</span>
           <button
@@ -49,9 +64,10 @@ export default function SnippetsSidebar({
 
           {allTags.map((tag) => {
             const isSelected = activeTag === tag
-            const count = tag === '全部' 
-              ? snippets.length 
-              : snippets.filter((s) => s.tags.includes(tag)).length
+            const count =
+              tag === '全部'
+                ? snippets.length
+                : snippets.filter((s) => s.tags.includes(tag)).length
             const initialBadge = tag.trim().slice(0, 1) || '标'
 
             return (
@@ -59,27 +75,23 @@ export default function SnippetsSidebar({
                 key={tag}
                 type="button"
                 onClick={() => setActiveTag(tag)}
-                className={`w-full flex items-center justify-between px-2.5 py-1.5 transition-all text-xs font-medium ${
+                className={`w-full flex items-center justify-between px-2.5 py-1.5 transition-all text-xs font-medium cursor-pointer ${
                   isSelected
-                    ? 'bg-[#1C1C1C] text-white rounded-full shadow-2xs'
-                    : 'text-[#191918] hover:bg-[#EAEAE7] rounded-lg'
+                    ? 'bg-[#EAEAE7] text-[#191918] font-bold rounded-lg shadow-2xs'
+                    : 'text-[#787774] hover:text-[#191918] hover:bg-[#EAEAE7]/60 rounded-lg'
                 }`}
               >
                 <div className="flex items-center gap-2 min-w-0">
                   <span
                     className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center flex-shrink-0 ${
-                      isSelected ? 'bg-white text-[#1C1C1C]' : 'bg-[#1C1C1C] text-white'
+                      isSelected ? 'bg-[#1C1C1C] text-white' : 'bg-[#EAEAE7] text-[#191918]'
                     }`}
                   >
                     {initialBadge}
                   </span>
                   <span className="truncate">{tag}</span>
                 </div>
-                <span
-                  className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full ${
-                    isSelected ? 'text-[#D4D4D0]' : 'text-[#787774]'
-                  }`}
-                >
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full text-[#787774]">
                   {count}
                 </span>
               </button>
@@ -89,22 +101,35 @@ export default function SnippetsSidebar({
       </aside>
 
       {/* ================= 第 3 栏：片段记录列表栏 (w-72 = 288px) ================= */}
-      <section className="w-72 bg-[#F9F9F8] border-r border-[#E6E6E3] flex flex-col h-full flex-shrink-0">
-        <div className="h-12 px-3 border-b border-[#E6E6E3] flex items-center gap-2 flex-shrink-0">
+      <section className="w-72 bg-[#F9F9F8] border-r border-black/[0.06] flex flex-col h-full flex-shrink-0">
+        <div className="h-11 px-2.5 border-b border-black/[0.06] flex items-center gap-1.5 flex-shrink-0">
+          <button
+            type="button"
+            onClick={toggleFolderTree}
+            className={`w-7 h-7 rounded-md flex items-center justify-center transition-colors cursor-pointer shrink-0 ${
+              isFolderTreeOpen
+                ? 'bg-[#EAEAE7] text-[#191918]'
+                : 'text-[#787774] hover:text-[#191918] hover:bg-[#EAEAE7]/60'
+            }`}
+            title={isFolderTreeOpen ? '收起标签分类' : '展开标签分类'}
+          >
+            <FolderTree className="w-3.5 h-3.5" />
+          </button>
+
           <div className="relative flex-1 flex items-center">
-            <Search className="w-3.5 h-3.5 text-[#787774] absolute left-2.5 pointer-events-none" />
+            <Search className="w-3 h-3 text-[#9A9996] absolute left-2 pointer-events-none" />
             <input
               type="text"
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
               placeholder="搜标题、正文或标签…"
-              className="w-full pl-8 pr-6 h-8 text-xs bg-white border border-[#E6E6E3] rounded-lg outline-none text-[#191918] placeholder-[#787774] focus:border-[#1C1C1C] transition-colors"
+              className="w-full pl-6 pr-5 h-7 text-xs bg-black/[0.035] hover:bg-black/[0.05] focus:bg-white rounded-md outline-none text-[#191918] placeholder-[#9A9996] focus:ring-1 focus:ring-black/[0.12] transition-all border-none"
             />
             {keyword && (
               <button
                 type="button"
                 onClick={() => setKeyword('')}
-                className="absolute right-2 text-[#787774] hover:text-[#191918]"
+                className="absolute right-1.5 text-[#9A9996] hover:text-[#191918]"
                 title="清空"
               >
                 <X className="w-3 h-3" />
@@ -116,15 +141,15 @@ export default function SnippetsSidebar({
             onClick={() => {
               window.dispatchEvent(new CustomEvent('snippets:new'))
             }}
-            className="h-8 px-2.5 bg-[#1C1C1C] hover:bg-neutral-800 text-white rounded-lg text-xs font-medium flex items-center gap-1 flex-shrink-0 transition-colors shadow-2xs cursor-pointer"
+            className="h-7 px-2.5 bg-[#1C1C1C] hover:bg-neutral-800 text-white rounded-md text-xs font-medium flex items-center gap-1 flex-shrink-0 transition-colors shadow-2xs cursor-pointer"
             title="新增片段"
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="w-3 h-3" />
             <span>新增</span>
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-2.5 space-y-2">
+        <div className="flex-1 overflow-y-auto p-1.5 space-y-1">
           {!loaded ? (
             <p className="text-xs text-[#787774] p-4 text-center">正在载入…</p>
           ) : !filtered.length ? (
@@ -180,52 +205,42 @@ function SnippetListRow({
           window.dispatchEvent(new CustomEvent('snippets:select', { detail: item.id }))
           onAfterSelect?.()
         }}
-        className={`group relative p-3 rounded-xl transition-all cursor-pointer ${
+        className={`group relative px-2.5 py-2 rounded-lg transition-all cursor-pointer ${
           isActive
-            ? 'bg-[#1C1C1C] text-white shadow-2xs'
-            : 'bg-transparent hover:bg-[#F3F3F1] text-[#191918]'
+            ? 'bg-white shadow-[0_1px_3px_rgba(0,0,0,0.05),0_1px_1px_rgba(0,0,0,0.02)] ring-1 ring-black/[0.08]'
+            : 'bg-transparent hover:bg-black/[0.035] text-[#191918]'
         }`}
       >
-        {/* 8px 状态小圆点 */}
-        <span
-          style={{ backgroundColor: dotColor }}
-          className="absolute top-3 right-3 w-2 h-2 rounded-full flex-shrink-0 ring-2 ring-white/50"
-          title="状态小圆点"
-        />
-
-        <div className="flex items-center justify-between gap-1.5 pr-4 mb-1">
-          <span
-            className={`text-xs font-semibold truncate ${
-              isActive ? 'text-white' : 'text-[#191918]'
-            }`}
-          >
-            {item.title || '未命名片段'}
-          </span>
-          {starred && (
-            <Star
-              className={`w-2.5 h-2.5 shrink-0 ${
-                isActive ? 'text-[#D4D4D0] fill-[#D4D4D0]' : 'text-amber-500 fill-amber-500'
-              }`}
+        <div className="flex items-center justify-between gap-1.5 min-w-0">
+          <div className="flex items-center gap-1.5 min-w-0 flex-1">
+            <span
+              style={{ backgroundColor: dotColor }}
+              className="w-1.5 h-1.5 rounded-full shrink-0"
+              title="状态小圆点"
             />
+            <span
+              className={`text-xs truncate ${
+                isActive ? 'font-semibold text-[#191918]' : 'font-normal text-[#191918]'
+              }`}
+            >
+              {item.title || '未命名片段'}
+            </span>
+          </div>
+          {starred && (
+            <Star className="w-2.5 h-2.5 shrink-0 text-amber-500 fill-amber-500" />
           )}
         </div>
 
-        <p
-          className={`font-mono text-[11px] truncate leading-relaxed ${
-            isActive ? 'text-[#D4D4D0]' : 'text-[#787774]'
-          }`}
-        >
+        <p className="font-mono text-[11px] truncate leading-relaxed text-[#787774] mt-1 pl-3">
           {item.code.split('\n')[0] || '空代码片段'}
         </p>
 
         {item.tags.length > 0 && (
-          <div className="flex gap-1 mt-2 flex-wrap">
+          <div className="flex gap-1 mt-1.5 pl-3 flex-wrap">
             {item.tags.slice(0, 3).map((tag) => (
               <span
                 key={tag}
-                className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                  isActive ? 'bg-neutral-800 text-[#D4D4D0]' : 'bg-[#EAEAE7] text-[#787774]'
-                }`}
+                className="text-[10px] px-1.5 py-0.5 rounded-md bg-black/[0.04] text-[#787774]"
               >
                 {tag}
               </span>
@@ -238,26 +253,32 @@ function SnippetListRow({
 }
 
 let selectedId: string | null = null
-const selectionListeners = new Set<(id: string | null) => void>()
-
-export function setSelectedSnippetId(id: string | null) {
-  selectedId = id
-  selectionListeners.forEach((listener) => listener(id))
-}
+const listeners = new Set<(id: string | null) => void>()
 
 export function getSelectedSnippetId(): string | null {
   return selectedId
 }
 
-export function subscribeSelectedSnippet(listener: (id: string | null) => void): () => void {
-  selectionListeners.add(listener)
-  return () => {
-    selectionListeners.delete(listener)
-  }
+export function setSelectedSnippetId(id: string | null): void {
+  selectedId = id
+  listeners.forEach((fn) => fn(selectedId))
+  window.dispatchEvent(new CustomEvent('snippets:select', { detail: id }))
 }
 
-function useSelectedSnippetId(): string | null {
-  const [value, setValue] = useState(selectedId)
-  useEffect(() => subscribeSelectedSnippet(setValue), [])
-  return value
+function useSelectedSnippetId() {
+  const [id, setId] = useState<string | null>(selectedId)
+  useEffect(() => {
+    listeners.add(setId)
+    return () => {
+      listeners.delete(setId)
+    }
+  }, [])
+  return id
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('snippets:select', ((e: CustomEvent<string>) => {
+    selectedId = e.detail
+    listeners.forEach((fn) => fn(selectedId))
+  }) as EventListener)
 }
