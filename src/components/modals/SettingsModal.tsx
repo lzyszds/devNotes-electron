@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Bot, Cloud, Keyboard, Languages, Loader2, PanelLeft, Settings2, Volume2, X } from 'lucide-react'
+import { Bot, Cloud, Keyboard, Languages, PanelLeft, Settings2, Volume2, X } from 'lucide-react'
 import type { ComponentType } from 'react'
 import { useNotes } from '../../context/NotesContext'
 import { usePresence } from '../../hooks/usePresence'
@@ -11,7 +11,6 @@ import AiChannelPanel from '../settings/AiChannelPanel'
 import SpeechPanel from '../settings/SpeechPanel'
 import InterfacePanel from '../settings/InterfacePanel'
 import Tooltip from '../ui/Tooltip'
-import type { ThemeId } from '../../utils/theme'
 
 export type SettingsSection =
   | 'general'
@@ -27,8 +26,6 @@ export interface SettingsModalProps {
   section: SettingsSection
   onSectionChange: (section: SettingsSection) => void
   onClose: () => void
-  theme: ThemeId
-  onSelectTheme: (id: ThemeId) => void
   onResetSidebarWidth: () => void
 }
 
@@ -40,7 +37,7 @@ interface SectionMeta {
 }
 
 const SECTIONS: SectionMeta[] = [
-  { id: 'general', label: '通用', hint: '外观主题与关于信息', icon: Settings2 },
+  { id: 'general', label: '通用', hint: '笔记保存与关于信息', icon: Settings2 },
   {
     id: 'interface',
     label: '界面',
@@ -79,58 +76,53 @@ const SECTIONS: SectionMeta[] = [
   },
 ]
 
-/**
- * 全局设置弹窗：顶栏各个分散的功能入口（云同步 / 翻译接口 / 外观）统一收拢到这里，
- * 左侧分类导航 + 右侧面板，切换分类不关闭弹窗。
- */
 export default function SettingsModal({
   open,
   section,
   onSectionChange,
   onClose,
-  theme,
-  onSelectTheme,
   onResetSidebarWidth,
 }: SettingsModalProps) {
-  const { cfConfig, cfSyncStatus } = useNotes()
-  // 面板退出动画 160ms，遮罩 150ms，取长者
-  const { mounted, state } = usePresence(open, 160)
+  const { mounted, state } = usePresence(open, 180)
+  const { notes } = useNotes()
 
-  // 记录已访问过的分类面板，实现懒加载 + Keep-Alive 保活：
-  // 首次访问时才挂载，切走时仅 CSS hidden 隐藏，避免每次切换分类组件被卸载导致反复读盘加载数据与清空状态
-  const [visitedSections, setVisitedSections] = useState<Set<SettingsSection>>(() => new Set([section]))
+  // 记录已经访问过的 section 集合
+  const [visitedSections, setVisitedSections] = useState<Set<SettingsSection>>(
+    () => new Set<SettingsSection>([section])
+  )
 
   useEffect(() => {
-    setVisitedSections((prev) => {
-      if (prev.has(section)) return prev
-      const next = new Set(prev)
-      next.add(section)
-      return next
-    })
-  }, [section])
+    if (open) {
+      setVisitedSections((prev) => {
+        if (prev.has(section)) return prev
+        const next = new Set(prev)
+        next.add(section)
+        return next
+      })
+    }
+  }, [open, section])
 
   useEffect(() => {
     if (!open) return
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        onClose()
+      }
     }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
   }, [open, onClose])
 
   if (!mounted) return null
 
-  // 云同步分类上的角标：同步中显示转圈，已接入显示常驻小圆点
-  const cloudBadge =
-    cfSyncStatus === 'syncing' ? (
-      <Loader2 className="w-3 h-3 animate-spin text-orange-500" />
-    ) : cfConfig.enabled ? (
-      <span
-        className={`w-1.5 h-1.5 rounded-full ${
-          cfSyncStatus === 'error' ? 'bg-rose-500' : 'bg-emerald-500'
-        }`}
-      />
-    ) : null
+  const activeMeta = SECTIONS.find((s) => s.id === section) ?? SECTIONS[0]
+
+  const cloudBadge = (
+    <span className="ml-auto flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-[#EAEAE7] text-[#787774]">
+      {notes.length} 篇
+    </span>
+  )
 
   return (
     <div
@@ -138,37 +130,35 @@ export default function SettingsModal({
         if (e.target === e.currentTarget) onClose()
       }}
       data-state={state}
-      className="fe-fade fixed inset-0 bg-slate-900/50 dark:bg-black/70 backdrop-blur-xs z-[60] flex items-center justify-center p-2 md:p-4"
+      className="fe-fade fixed inset-0 z-[60] flex items-center justify-center p-3 md:p-6 bg-black/40 backdrop-blur-2xs select-none"
     >
       <div
         data-state={state}
-        className="fe-modal w-full max-w-3xl h-[88vh] md:h-[80vh] max-h-[720px] bg-white dark:bg-dark-panel rounded-2xl shadow-2xl border border-slate-200/80 dark:border-dark-border overflow-hidden flex flex-col"
+        className="fe-modal w-full max-w-4xl h-[92vh] max-h-[720px] bg-white rounded-2xl shadow-2xl border border-[#E6E6E3] flex flex-col overflow-hidden"
       >
-        {/* 头部 */}
-        <div className="p-3 md:p-4 border-b border-slate-100 dark:border-dark-border flex items-center justify-between bg-slate-50/50 dark:bg-dark-sidebar/40 flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-slate-600 to-slate-800 dark:from-slate-500 dark:to-slate-700 flex items-center justify-center text-white shadow-md shadow-slate-500/20">
-              <Settings2 className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">设置</h3>
-              <p className="hidden md:block text-xs text-slate-400">全局功能与外观偏好</p>
-            </div>
+        {/* 顶部标题栏 */}
+        <div className="h-12 border-b border-[#E6E6E3] bg-[#F3F3F1] px-4 md:px-6 flex items-center justify-between flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-sm text-[#191918]">系统设置</span>
+            <span className="text-[#E6E6E3]">/</span>
+            <span className="text-xs text-[#787774] font-medium">{activeMeta.label}</span>
           </div>
 
-          <Tooltip content="关闭设置">
+          <Tooltip content="关闭设置（Esc）">
             <button
+              type="button"
               onClick={onClose}
-              className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-dark-hover rounded-lg transition-colors"
+              className="w-7 h-7 rounded-full bg-white hover:bg-[#EAEAE7] border border-[#E6E6E3] flex items-center justify-center text-[#787774] hover:text-[#191918] transition-colors cursor-pointer"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
             </button>
           </Tooltip>
         </div>
 
-        {/* 主体：左侧分类导航 + 右侧面板 */}
-        <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-          <nav className="w-full md:w-[176px] flex-shrink-0 border-b md:border-b-0 md:border-r border-slate-100 dark:border-dark-border bg-slate-50/50 dark:bg-dark-sidebar/40 p-2 flex md:block gap-1 md:gap-0 md:space-y-1 overflow-x-auto md:overflow-y-auto scrollbar-hide">
+        {/* 主体分栏 */}
+        <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0 bg-white">
+          {/* 左侧分类导航 */}
+          <nav className="w-full md:w-56 bg-[#F3F3F1] border-b md:border-b-0 md:border-r border-[#E6E6E3] p-2.5 flex md:flex-col gap-1 overflow-x-auto md:overflow-y-auto flex-shrink-0">
             {SECTIONS.map((item) => {
               const active = section === item.id
               const Icon = item.icon
@@ -177,28 +167,32 @@ export default function SettingsModal({
                   key={item.id}
                   type="button"
                   onClick={() => onSectionChange(item.id)}
-                  className={`flex-shrink-0 md:w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left whitespace-nowrap transition-colors ${
+                  className={`flex-shrink-0 md:w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left whitespace-nowrap transition-all cursor-pointer ${
                     active
-                      ? 'bg-white dark:bg-dark-panel shadow-2xs border border-slate-200/80 dark:border-dark-border'
-                      : 'border border-transparent hover:bg-white/60 dark:hover:bg-dark-hover/60'
+                      ? 'bg-[#1C1C1C] text-white shadow-xs'
+                      : 'text-[#191918] hover:bg-[#EAEAE7]'
                   }`}
                 >
                   <Icon
                     className={`w-4 h-4 flex-shrink-0 ${
-                      active ? 'text-brand-600 dark:text-brand-400' : 'text-slate-400'
+                      active ? 'text-white' : 'text-[#787774]'
                     }`}
                   />
                   <span className="flex-1 min-w-0">
                     <span
                       className={`block text-xs truncate ${
-                        active
-                          ? 'font-bold text-slate-900 dark:text-white'
-                          : 'font-medium text-slate-600 dark:text-slate-300'
+                        active ? 'font-bold text-white' : 'font-medium text-[#191918]'
                       }`}
                     >
                       {item.label}
                     </span>
-                    <span className="hidden md:block text-[10px] text-slate-400 truncate">{item.hint}</span>
+                    <span
+                      className={`hidden md:block text-[10px] truncate ${
+                        active ? 'text-[#D4D4D0]' : 'text-[#787774]'
+                      }`}
+                    >
+                      {item.hint}
+                    </span>
                   </span>
                   {item.id === 'cloud-sync' && cloudBadge}
                 </button>
@@ -206,14 +200,11 @@ export default function SettingsModal({
             })}
           </nav>
 
-          <div className="flex-1 overflow-y-auto p-4 md:p-5 min-w-0">
+          {/* 右侧面板内容 */}
+          <div className="flex-1 overflow-y-auto p-4 md:p-6 min-w-0 bg-[#FFFFFF]">
             {visitedSections.has('general') && (
               <div className={section === 'general' ? 'block' : 'hidden'}>
-                <GeneralPanel
-                  theme={theme}
-                  onSelectTheme={onSelectTheme}
-                  onResetSidebarWidth={onResetSidebarWidth}
-                />
+                <GeneralPanel onResetSidebarWidth={onResetSidebarWidth} />
               </div>
             )}
             {visitedSections.has('interface') && (

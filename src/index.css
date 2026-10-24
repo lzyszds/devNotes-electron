@@ -53,151 +53,57 @@
   --fe-mono-font: 'JetBrains Mono', 'Fira Code', 'SF Mono', Menlo, Consolas, 'Liberation Mono',
     monospace;
 
-  /* ================= 默认浅色品牌色 (Logo 青蓝) ================= */
-  --brand-50-rgb: 239 250 251;
-  --brand-100-rgb: 219 243 245;
-  --brand-200-rgb: 182 230 236;
-  --brand-300-rgb: 143 215 224;
-  --brand-400-rgb: 111 202 216;
-  --brand-500-rgb: 80 189 207;
-  --brand-600-rgb: 33 131 151;
-  --brand-700-rgb: 22 99 116;
-  --brand-800-rgb: 16 76 91;
-  --brand-900-rgb: 13 57 69;
-  --brand-950-rgb: 8 39 48;
+  /* ================= 默认暖灰炭黑品牌色 (Notion 极简暖灰阶风格) ================= */
+  --brand-50-rgb: 243 243 241;
+  --brand-100-rgb: 234 234 231;
+  --brand-200-rgb: 212 212 208;
+  --brand-300-rgb: 168 168 162;
+  --brand-400-rgb: 120 119 116;
+  --brand-500-rgb: 46 46 46;
+  --brand-600-rgb: 28 28 28;
+  --brand-700-rgb: 22 22 22;
+  --brand-800-rgb: 18 18 18;
+  --brand-900-rgb: 12 12 12;
+  --brand-950-rgb: 0 0 0;
 
   /*
-   * 笔记正文最大宽度。所见即所得（.milkdown-content）与双栏（.cherry-previewer 子块）
-   * 共用这一个旋钮，避免两处魔数各改各的。
+   * 笔记正文最大宽度。遵循 Notion 极简大留白排版 (max-w-3xl = 48rem = 768px)
    */
-  --fe-read-max-width: 80rem;
+  --fe-read-max-width: 48rem;
 
-  /* 默认深色表面备用值 (对应东京暗夜) */
-  --theme-dark-bg-rgb: 22 22 30;
-  --theme-dark-panel-rgb: 26 27 38;
-  --theme-dark-sidebar-rgb: 19 20 28;
-  --theme-dark-border-rgb: 41 46 66;
-  --theme-dark-hover-rgb: 35 40 59;
+  /* 默认深色表面备用值 (对应极简炭黑) */
+  --theme-dark-bg-rgb: 25 25 25;
+  --theme-dark-panel-rgb: 32 32 32;
+  --theme-dark-sidebar-rgb: 20 20 20;
+  --theme-dark-border-rgb: 46 46 46;
+  --theme-dark-hover-rgb: 41 41 41;
+}
+
+/* Notion 极简表格与复选框规范 */
+.notion-table, table {
+  border-collapse: collapse;
+}
+.notion-table th, table th {
+  background-color: #FBFBFA;
+  border: 1px solid #E6E6E3;
+  color: #191918;
+  font-weight: 600;
+  padding: 6px 12px;
+}
+.notion-table td, table td {
+  border: 1px solid #EAEAE7;
+  color: #191918;
+  padding: 6px 12px;
+}
+input[type="checkbox"] {
+  accent-color: #1C1C1C;
 }
 
 html.dark {
   color-scheme: dark;
 }
 
-/* ================= 精选 4 套主题 CSS 变量详细定义 ================= */
-
-/* 1. 东京暗夜 (Tokyo Night) - 霓虹夜蓝紫极客 */
-html[data-theme='tokyo-night'] {
-  --brand-50-rgb: 240 244 255;
-  --brand-100-rgb: 223 232 255;
-  --brand-200-rgb: 197 214 255;
-  --brand-300-rgb: 158 188 255;
-  --brand-400-rgb: 122 162 247;
-  --brand-500-rgb: 97 137 232;
-  --brand-600-rgb: 70 111 212;
-  --brand-700-rgb: 52 87 181;
-  --brand-800-rgb: 46 71 147;
-  --brand-900-rgb: 42 62 117;
-  --brand-950-rgb: 26 37 72;
-
-  --theme-dark-bg-rgb: 22 22 30;
-  --theme-dark-panel-rgb: 26 27 38;
-  --theme-dark-sidebar-rgb: 19 20 28;
-  --theme-dark-border-rgb: 41 46 66;
-  --theme-dark-hover-rgb: 35 40 59;
-}
-html[data-theme='tokyo-night'].dark body {
-  background-color: #16161e;
-  color: #c0caf5;
-}
-
-/* 2. 暗夜流光 (One Dark Pro) - Atom 经典深空蓝灰与天青 */
-html[data-theme='one-dark'] {
-  --brand-50-rgb: 239 246 255;
-  --brand-100-rgb: 219 234 254;
-  --brand-200-rgb: 191 219 254;
-  --brand-300-rgb: 147 197 253;
-  --brand-400-rgb: 97 175 239;
-  --brand-500-rgb: 59 150 229;
-  --brand-600-rgb: 37 99 235;
-  --brand-700-rgb: 29 78 216;
-  --brand-800-rgb: 30 64 175;
-  --brand-900-rgb: 30 58 138;
-  --brand-950-rgb: 23 37 84;
-
-  --theme-dark-bg-rgb: 33 37 43;
-  --theme-dark-panel-rgb: 40 44 52;
-  --theme-dark-sidebar-rgb: 27 29 35;
-  --theme-dark-border-rgb: 53 59 69;
-  --theme-dark-hover-rgb: 47 52 62;
-}
-html[data-theme='one-dark'].dark body {
-  background-color: #21252b;
-  color: #abb2bf;
-}
-
-/* 3. 北欧初雪 (Nordic Snow) - 冰川冷灰理性底 */
-html[data-theme='nordic-snow'] {
-  --brand-50-rgb: 248 250 252;
-  --brand-100-rgb: 241 245 249;
-  --brand-200-rgb: 226 232 240;
-  --brand-300-rgb: 203 213 225;
-  --brand-400-rgb: 148 163 184;
-  --brand-500-rgb: 100 116 139;
-  --brand-600-rgb: 71 85 105;
-  --brand-700-rgb: 51 65 85;
-  --brand-800-rgb: 30 41 59;
-  --brand-900-rgb: 15 23 42;
-  --brand-950-rgb: 2 6 23;
-}
-html[data-theme='nordic-snow']:not(.dark) body {
-  background-color: #f8fafc;
-  color: #0f172a;
-}
-html[data-theme='nordic-snow']:not(.dark) .bg-white {
-  background-color: #ffffff;
-}
-html[data-theme='nordic-snow']:not(.dark) .bg-slate-50 {
-  background-color: #f1f5f9;
-}
-html[data-theme='nordic-snow']:not(.dark) :is(.border-slate-200, .border-slate-200\/80, .border-slate-200\/70, .border-slate-200\/60) {
-  border-color: #cbd5e1;
-}
-html[data-theme='nordic-snow']:not(.dark) :is(.hover\:bg-slate-100:hover, .hover\:bg-slate-50:hover) {
-  background-color: #e2e8f0;
-}
-
-/* 4. 碧海晴空 (Ocean Breeze) - 海盐天蓝开朗底 */
-html[data-theme='ocean'] {
-  --brand-50-rgb: 240 247 255;
-  --brand-100-rgb: 224 239 254;
-  --brand-200-rgb: 186 224 253;
-  --brand-300-rgb: 124 196 250;
-  --brand-400-rgb: 54 166 244;
-  --brand-500-rgb: 12 142 233;
-  --brand-600-rgb: 1 112 197;
-  --brand-700-rgb: 2 89 159;
-  --brand-800-rgb: 6 75 131;
-  --brand-900-rgb: 10 64 110;
-  --brand-950-rgb: 7 41 73;
-}
-html[data-theme='ocean']:not(.dark) body {
-  background-color: #f1f7fd;
-  color: #102a43;
-}
-html[data-theme='ocean']:not(.dark) .bg-white {
-  background-color: #fbfdff;
-}
-html[data-theme='ocean']:not(.dark) .bg-slate-50 {
-  background-color: #e3f0fc;
-}
-html[data-theme='ocean']:not(.dark) :is(.border-slate-200, .border-slate-200\/80, .border-slate-200\/70, .border-slate-200\/60) {
-  border-color: #cce2f7;
-}
-html[data-theme='ocean']:not(.dark) :is(.hover\:bg-slate-100:hover, .hover\:bg-slate-50:hover) {
-  background-color: #d8eafb;
-}
-
+/* ================= 唯一的 Notion 极简暖灰阶主题 ================= */
 html,
 body,
 #root {
@@ -205,25 +111,13 @@ body,
   width: 100%;
   height: 100vh;
   overflow: hidden;
-}
-
-/* 主题切换瞬间同步锁：杜绝侧边栏/编辑器/顶栏因 transition 导致的变色不同步 */
-.disable-transitions,
-.disable-transitions *,
-.disable-transitions *::before,
-.disable-transitions *::after {
-  transition: none !important;
-  animation-duration: 0s !important;
+  background-color: #FFFFFF;
+  color: #191918;
 }
 
 body {
-  background-color: #ffffff;
-  color: #1e293b;
-}
-
-html.dark body {
-  background-color: #16161e;
-  color: #c0caf5;
+  background-color: #FFFFFF;
+  color: #191918;
 }
 
 button,
@@ -1726,12 +1620,13 @@ html.dark
 }
 
 :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) h1 {
-  font-size: 1.85em;
+  font-size: 30px;
   font-weight: 700;
-  line-height: 1.28;
+  line-height: 1.25;
   letter-spacing: -0.025em;
   margin-top: 0;
-  margin-bottom: 0.7em;
+  margin-bottom: 0.8em;
+  color: #191918;
 }
 
 :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) h2 {

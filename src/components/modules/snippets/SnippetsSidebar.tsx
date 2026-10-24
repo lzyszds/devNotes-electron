@@ -1,26 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
-import { PanelLeftClose, Plus, Search, Star, Tags } from 'lucide-react'
-import { META, ToolEmpty, pillClass } from '../../ui'
-import Tooltip from '../../ui/Tooltip'
+import { Plus, Search, Star, Tags, X } from 'lucide-react'
+import { ToolEmpty } from '../../ui'
 import { useSnippets, filterSnippets, type Snippet } from './useSnippets'
 import SnippetListContextMenu from './SnippetListContextMenu'
 
-/**
- * 代码片段模块的二级侧边栏。
- *
- * 和 Markdown 笔记模块一个待遇：左侧留一块常驻的导航，能搜、能按标签筛、
- * 能一眼看到哪些是收藏的，选中的那条在主区展开。片段往往有几十条，
- * 没有这层列表就只能靠主区里的搜索框反复查。
- */
+interface SnippetsSidebarProps {
+  onAfterSelect?: () => void
+  onCollapse?: () => void
+}
+
 export default function SnippetsSidebar({
   onAfterSelect,
-  onCollapse,
-}: {
-  /** 移动端抽屉里选中后要关掉抽屉 */
-  onAfterSelect?: () => void
-  /** 折叠侧边栏回调 */
-  onCollapse?: () => void
-}) {
+}: SnippetsSidebarProps) {
   const { snippets, loaded, allTags } = useSnippets()
   const [keyword, setKeyword] = useState('')
   const [activeTag, setActiveTag] = useState('全部')
@@ -31,105 +22,138 @@ export default function SnippetsSidebar({
   )
 
   return (
-    <div className="flex flex-col h-full min-h-0">
-      <div className="p-2.5 border-b border-slate-100 dark:border-dark-border space-y-2.5 shrink-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-xs font-bold text-slate-700 dark:text-slate-200 tracking-tight">
-              片段库
-            </span>
-            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-slate-100 dark:bg-dark-hover text-slate-500 dark:text-slate-400">
-              {filtered.length} / {snippets.length}
+    <div className="flex flex-row h-full w-full select-none overflow-hidden">
+      {/* ================= 第 2 栏：标签分类栏 (w-52 = 208px) ================= */}
+      <aside className="w-52 bg-[#F3F3F1] border-r border-[#E6E6E3] flex flex-col h-full flex-shrink-0">
+        <div className="h-12 px-3 border-b border-[#E6E6E3] flex items-center justify-between flex-shrink-0">
+          <span className="font-bold text-sm text-[#191918] tracking-tight">代码片段</span>
+          <button
+            type="button"
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent('snippets:new'))
+            }}
+            className="flex items-center gap-1 bg-[#1C1C1C] hover:bg-neutral-800 text-white rounded-full px-2.5 py-1 text-xs font-medium cursor-pointer transition-colors shadow-2xs"
+            title="新建代码片段"
+          >
+            <Plus className="w-3 h-3" />
+            <span>新建</span>
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-2 py-3 space-y-1">
+          <div className="pb-1 px-1">
+            <span className="text-[10px] font-semibold text-[#787774] tracking-wider uppercase">
+              标签分类
             </span>
           </div>
-          {onCollapse && (
-            <Tooltip content="折叠侧边栏 (⌘B)">
+
+          {allTags.map((tag) => {
+            const isSelected = activeTag === tag
+            const count = tag === '全部' 
+              ? snippets.length 
+              : snippets.filter((s) => s.tags.includes(tag)).length
+            const initialBadge = tag.trim().slice(0, 1) || '标'
+
+            return (
+              <button
+                key={tag}
+                type="button"
+                onClick={() => setActiveTag(tag)}
+                className={`w-full flex items-center justify-between px-2.5 py-1.5 transition-all text-xs font-medium ${
+                  isSelected
+                    ? 'bg-[#1C1C1C] text-white rounded-full shadow-2xs'
+                    : 'text-[#191918] hover:bg-[#EAEAE7] rounded-lg'
+                }`}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span
+                    className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center flex-shrink-0 ${
+                      isSelected ? 'bg-white text-[#1C1C1C]' : 'bg-[#1C1C1C] text-white'
+                    }`}
+                  >
+                    {initialBadge}
+                  </span>
+                  <span className="truncate">{tag}</span>
+                </div>
+                <span
+                  className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full ${
+                    isSelected ? 'text-[#D4D4D0]' : 'text-[#787774]'
+                  }`}
+                >
+                  {count}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </aside>
+
+      {/* ================= 第 3 栏：片段记录列表栏 (w-72 = 288px) ================= */}
+      <section className="w-72 bg-[#F9F9F8] border-r border-[#E6E6E3] flex flex-col h-full flex-shrink-0">
+        <div className="h-12 px-3 border-b border-[#E6E6E3] flex items-center gap-2 flex-shrink-0">
+          <div className="relative flex-1 flex items-center">
+            <Search className="w-3.5 h-3.5 text-[#787774] absolute left-2.5 pointer-events-none" />
+            <input
+              type="text"
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              placeholder="搜标题、正文或标签…"
+              className="w-full pl-8 pr-6 h-8 text-xs bg-white border border-[#E6E6E3] rounded-lg outline-none text-[#191918] placeholder-[#787774] focus:border-[#1C1C1C] transition-colors"
+            />
+            {keyword && (
               <button
                 type="button"
-                onClick={onCollapse}
-                className="flex items-center justify-center p-1 bg-slate-100 dark:bg-dark-hover hover:bg-slate-200 dark:hover:bg-dark-border text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 rounded-lg transition-all"
-                aria-label="折叠侧边栏"
+                onClick={() => setKeyword('')}
+                className="absolute right-2 text-[#787774] hover:text-[#191918]"
+                title="清空"
               >
-                <PanelLeftClose className="w-3.5 h-3.5" />
+                <X className="w-3 h-3" />
               </button>
-            </Tooltip>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent('snippets:new'))
+            }}
+            className="h-8 px-2.5 bg-[#1C1C1C] hover:bg-neutral-800 text-white rounded-lg text-xs font-medium flex items-center gap-1 flex-shrink-0 transition-colors shadow-2xs cursor-pointer"
+            title="新增片段"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>新增</span>
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-2.5 space-y-2">
+          {!loaded ? (
+            <p className="text-xs text-[#787774] p-4 text-center">正在载入…</p>
+          ) : !filtered.length ? (
+            <div className="h-48 flex flex-col items-center justify-center text-center px-4 text-xs text-[#787774]">
+              <ToolEmpty
+                icon={Tags}
+                title={snippets.length ? '没有匹配的片段' : '还没有片段'}
+                hint={
+                  snippets.length
+                    ? '换个关键词，或切到「全部」标签'
+                    : '点右上角「新增」收藏第一条命令'
+                }
+              />
+            </div>
+          ) : (
+            filtered.map((item) => (
+              <SnippetListRow
+                key={item.id}
+                item={item}
+                onAfterSelect={onAfterSelect}
+              />
+            ))
           )}
         </div>
-
-        <div className="relative flex items-center">
-          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 pointer-events-none" />
-          <input
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-            placeholder="搜标题、正文或标签…"
-            className="w-full pl-8 pr-7 h-7 text-xs bg-slate-50 dark:bg-dark-sidebar border border-slate-200 dark:border-dark-border rounded-lg outline-none focus:border-brand-500 transition-colors text-slate-800 dark:text-slate-200 placeholder-slate-400"
-          />
-          {keyword && (
-            <button
-              onClick={() => setKeyword('')}
-              className="absolute right-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs"
-              title="清空"
-            >
-              ×
-            </button>
-          )}
-        </div>
-
-        <div className="flex gap-1 overflow-x-auto scrollbar-hide pb-0.5">
-          {allTags.map((tag) => (
-            <button key={tag} onClick={() => setActiveTag(tag)} className={pillClass(activeTag === tag)}>
-              {tag}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="flex-1 min-h-0 overflow-y-auto p-2 space-y-1">
-        {!loaded ? (
-          <p className={`${META} px-2 py-4`}>正在载入…</p>
-        ) : !filtered.length ? (
-          <ToolEmpty
-            icon={Tags}
-            title={snippets.length ? '没有匹配的片段' : '还没有片段'}
-            hint={
-              snippets.length
-                ? '换个关键词，或切到「全部」标签'
-                : '点右上角「新建片段」收藏第一条命令'
-            }
-          />
-        ) : (
-          filtered.map((item) => (
-            <SnippetListRow
-              key={item.id}
-              item={item}
-              onAfterSelect={onAfterSelect}
-            />
-          ))
-        )}
-      </div>
-
-      <div className="p-2 border-t border-slate-100 dark:border-dark-border shrink-0">
-        <button
-          onClick={() => {
-            // 侧栏只负责「点名要新建」，真正的编辑面板归主区管
-            window.dispatchEvent(new CustomEvent('snippets:new'))
-          }}
-          className="w-full flex items-center justify-center gap-1.5 h-8 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:border-brand-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
-        >
-          <Plus size={14} />
-          <span>新建片段</span>
-        </button>
-      </div>
+      </section>
     </div>
   )
 }
 
-/**
- * 列表里的一行。
- *
- * 侧栏与主区共享「当前选中项」的方式是 URL 无关的一条自定义事件 ——
- * 选中动作会广播出去，主区的 SnippetsTool 监听后切到对应片段。
- */
 function SnippetListRow({
   item,
   onAfterSelect,
@@ -141,6 +165,7 @@ function SnippetListRow({
   const [starred, setStarred] = useState(Boolean(item.starred))
   const selectedId = useSelectedSnippetId()
   const isActive = selectedId === item.id
+  const dotColor = starred ? '#EC4899' : '#22C55E'
 
   return (
     <SnippetListContextMenu
@@ -155,40 +180,52 @@ function SnippetListRow({
           window.dispatchEvent(new CustomEvent('snippets:select', { detail: item.id }))
           onAfterSelect?.()
         }}
-        className={`group p-2.5 rounded-xl border cursor-pointer transition-colors ${
+        className={`group relative p-3 rounded-xl transition-all cursor-pointer ${
           isActive
-            ? 'bg-brand-50/70 dark:bg-brand-500/10 border-brand-100 dark:border-brand-500/20'
-            : 'border-transparent hover:bg-slate-50 dark:hover:bg-dark-hover/60'
+            ? 'bg-[#1C1C1C] text-white shadow-2xs'
+            : 'bg-transparent hover:bg-[#F3F3F1] text-[#191918]'
         }`}
       >
-        <div className="flex items-start gap-1.5">
-          {item.starred && (
-            <Star size={12} className="text-amber-500 fill-amber-500 shrink-0 mt-0.5" />
-          )}
-          <span className="text-xs font-semibold text-slate-800 dark:text-slate-100 line-clamp-2 min-w-0 flex-1">
-            {item.title || '未命名片段'}
-          </span>
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              setStarred((prev) => !prev)
-              void toggleStar(item.id)
-            }}
-            title={starred ? '取消收藏' : '收藏置顶'}
-            className={`shrink-0 transition-opacity ${
-              starred ? 'text-amber-500' : 'text-slate-300 opacity-0 group-hover:opacity-100'
+        {/* 8px 状态小圆点 */}
+        <span
+          style={{ backgroundColor: dotColor }}
+          className="absolute top-3 right-3 w-2 h-2 rounded-full flex-shrink-0 ring-2 ring-white/50"
+          title="状态小圆点"
+        />
+
+        <div className="flex items-center justify-between gap-1.5 pr-4 mb-1">
+          <span
+            className={`text-xs font-semibold truncate ${
+              isActive ? 'text-white' : 'text-[#191918]'
             }`}
           >
-            <Star size={12} className={starred ? 'fill-current' : ''} />
-          </button>
+            {item.title || '未命名片段'}
+          </span>
+          {starred && (
+            <Star
+              className={`w-2.5 h-2.5 shrink-0 ${
+                isActive ? 'text-[#D4D4D0] fill-[#D4D4D0]' : 'text-amber-500 fill-amber-500'
+              }`}
+            />
+          )}
         </div>
-        <p className={`${META} font-mono mt-1 truncate`}>{item.code.split('\n')[0]}</p>
+
+        <p
+          className={`font-mono text-[11px] truncate leading-relaxed ${
+            isActive ? 'text-[#D4D4D0]' : 'text-[#787774]'
+          }`}
+        >
+          {item.code.split('\n')[0] || '空代码片段'}
+        </p>
+
         {item.tags.length > 0 && (
-          <div className="flex gap-1 mt-1.5 flex-wrap">
+          <div className="flex gap-1 mt-2 flex-wrap">
             {item.tags.slice(0, 3).map((tag) => (
               <span
                 key={tag}
-                className="text-[10px] px-1.5 rounded bg-slate-100 dark:bg-dark-hover text-slate-500 dark:text-slate-400"
+                className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                  isActive ? 'bg-neutral-800 text-[#D4D4D0]' : 'bg-[#EAEAE7] text-[#787774]'
+                }`}
               >
                 {tag}
               </span>
@@ -200,14 +237,6 @@ function SnippetListRow({
   )
 }
 
-/**
- * 当前选中的片段 id。
- *
- * 侧边栏与主区是两棵互不相识的组件树（侧栏挂在 DashboardLayout 下，
- * 主区在 ToolPage 里），选中状态没法靠 props 传。这里用一个模块级的
- * 值 + 订阅 —— 和 useSnippets 里那套是同样的思路，规模上够用，
- * 不值得为它再引一层 context。
- */
 let selectedId: string | null = null
 const selectionListeners = new Set<(id: string | null) => void>()
 

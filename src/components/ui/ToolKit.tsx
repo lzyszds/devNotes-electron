@@ -1,60 +1,58 @@
 import type { ComponentType, ReactNode } from 'react'
 
 /*
- * 工具页的公共零件。
- *
- * 全站工具共用同一套表面、标题条、按钮和状态样式，避免每个工具各写一份
- * 近似但不一致的类名 —— 改动只在这里发生，各工具只负责往里放内容。
+ * 工具页的公共零件：OpenNotas / Notion 极简暖灰阶规范。
+ * 全站工具共用同一套表面、标题条、按钮和状态样式。
  */
 
 type IconComponent = ComponentType<{ size?: number | string; className?: string }>
 
 /* ---------------- 表面与文本 ---------------- */
 
-/** 卡片容器：白底 + 极淡描边 + 双层柔和投影 */
+/** 卡片容器：纯白底 + 1px #E6E6E3 细边框 + 极简微投影 */
 export const CARD =
-  'bg-white dark:bg-dark-panel rounded-[14px] border border-slate-200/70 dark:border-dark-border shadow-[0_1px_3px_rgba(0,0,0,0.03),0_6px_16px_-4px_rgba(0,0,0,0.03)] flex flex-col min-h-0'
+  'bg-white rounded-xl border border-[#E6E6E3] shadow-xs flex flex-col min-h-0'
 
-/** 卡片标题条：浅灰工作条，左侧粗体标题 + 彩色小标签，右侧胶囊操作 */
+/** 卡片标题条：浅米灰工作条，左侧粗体标题 + 标签，右侧操作 */
 const CARD_HEAD =
-  'flex items-center justify-between gap-2 px-3.5 h-[42px] rounded-t-[14px] shrink-0 border-b border-slate-200/60 dark:border-dark-border bg-slate-50/70 dark:bg-dark-hover/30'
+  'flex items-center justify-between gap-2 px-3.5 h-[40px] rounded-t-xl shrink-0 border-b border-[#E6E6E3] bg-[#FBFBFA]'
 
 /** 卡片底栏 */
 const CARD_FOOT =
-  'flex items-center justify-between gap-3 px-3.5 h-8 rounded-b-[14px] shrink-0 border-t border-slate-200/60 dark:border-dark-border bg-slate-50/70 dark:bg-dark-hover/30 text-[10px] font-medium text-slate-500 dark:text-slate-400 tabular-nums'
+  'flex items-center justify-between gap-3 px-3.5 h-8 rounded-b-xl shrink-0 border-t border-[#E6E6E3] bg-[#FBFBFA] text-[10px] font-medium text-[#787774] tabular-nums'
 
 /** 卡片正文区的内边距 */
-export const CARD_BODY = 'flex-1 min-h-0 p-4 flex flex-col'
+export const CARD_BODY = 'flex-1 min-h-0 p-4 flex flex-col bg-white'
 
 /** 正文文本域：卡片内部直接铺满的无边框输入 */
 export const BODY_TEXTAREA =
-  'w-full flex-1 bg-transparent resize-none outline-none font-mono text-[13px] leading-6 text-slate-800 dark:text-slate-100 placeholder:text-slate-300 dark:placeholder:text-slate-600 disabled:cursor-not-allowed'
+  'w-full flex-1 bg-transparent resize-none outline-none font-mono text-[13px] leading-6 text-[#191918] placeholder:text-[#787774]/50 disabled:cursor-not-allowed'
 
 /** 只读结果区 */
 export const BODY_OUTPUT =
-  'flex-1 min-h-0 overflow-y-auto select-text whitespace-pre-wrap break-words font-mono text-[13px] leading-6 text-slate-800 dark:text-slate-100'
+  'flex-1 min-h-0 overflow-y-auto select-text whitespace-pre-wrap break-words font-mono text-[13px] leading-6 text-[#191918]'
 
 /** 卡片内的次要说明文字 */
-export const META = 'text-[11px] text-slate-400 dark:text-slate-500'
+export const META = 'text-[11px] text-[#787774]'
 
 /** 等宽数值（字符数、计数等） */
-export const META_MONO = 'font-mono text-[11px] text-slate-400 dark:text-slate-500'
+export const META_MONO = 'font-mono text-[11px] text-[#787774]'
 
 /** 卡内小标题（分组用） */
 export const SECTION_LABEL =
-  'text-[11px] font-semibold text-slate-500 dark:text-slate-400'
+  'text-[11px] font-semibold text-[#787774]'
 
 /* ---------------- 按钮 ---------------- */
 
 export const BTN = {
   primary:
-    'inline-flex items-center justify-center gap-2 h-8 px-4 rounded-lg bg-brand-600 text-[13px] font-semibold text-white shadow-sm shadow-brand-600/20 transition-all duration-150 hover:bg-brand-700 active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none whitespace-nowrap',
+    'inline-flex items-center justify-center gap-2 h-8 px-4 rounded-lg bg-[#1C1C1C] text-[13px] font-semibold text-white transition-all duration-150 hover:bg-neutral-800 active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none whitespace-nowrap shadow-xs cursor-pointer',
   secondary:
-    'inline-flex items-center justify-center gap-1.5 h-8 px-3.5 rounded-[10px] border border-slate-200 dark:border-dark-border bg-white dark:bg-dark-panel text-xs font-semibold text-slate-600 dark:text-slate-300 transition-all duration-150 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none dark:hover:border-slate-600 dark:hover:bg-dark-hover dark:hover:text-white whitespace-nowrap',
+    'inline-flex items-center justify-center gap-1.5 h-8 px-3.5 rounded-lg border border-[#E6E6E3] bg-white text-xs font-semibold text-[#191918] transition-all duration-150 hover:bg-[#F3F3F1] active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none whitespace-nowrap cursor-pointer',
   ghost:
-    'inline-flex items-center justify-center gap-1.5 h-8 px-3 rounded-[10px] text-xs font-semibold text-slate-500 dark:text-slate-400 transition-all duration-150 hover:bg-slate-100 hover:text-slate-800 active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none dark:hover:bg-dark-hover dark:hover:text-slate-200 whitespace-nowrap',
+    'inline-flex items-center justify-center gap-1.5 h-8 px-3 rounded-lg text-xs font-semibold text-[#787774] transition-all duration-150 hover:bg-[#F3F3F1] hover:text-[#191918] active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none whitespace-nowrap cursor-pointer',
   danger:
-    'inline-flex items-center justify-center gap-1.5 h-8 px-3.5 rounded-[10px] border border-rose-200 dark:border-rose-500/30 bg-white dark:bg-dark-panel text-xs font-semibold text-rose-600 dark:text-rose-400 transition-all duration-150 hover:bg-rose-50 active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none dark:hover:bg-rose-500/10 whitespace-nowrap',
+    'inline-flex items-center justify-center gap-1.5 h-8 px-3.5 rounded-lg border border-rose-200 bg-white text-xs font-semibold text-rose-600 transition-all duration-150 hover:bg-rose-50 active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none whitespace-nowrap cursor-pointer',
 } as const
 
 export type ButtonVariant = keyof typeof BTN
@@ -65,30 +63,26 @@ export function buttonClass(variant: ButtonVariant, extra = '') {
 
 /** 顶栏「当前正在查看」类按钮的选中态 */
 export const BTN_ACTIVE =
-  'ring-2 ring-brand-500/15 border-brand-200 text-brand-600 dark:border-brand-500/40 dark:text-brand-400'
+  'border-[#1C1C1C] bg-[#1C1C1C] text-white'
 
 /* ---------------- 图标按钮 ---------------- */
 
 const ICON_TONES = {
   neutral:
-    'text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-dark-hover dark:hover:text-slate-200',
+    'text-[#787774] hover:bg-[#F3F3F1] hover:text-[#191918]',
   brand:
-    'text-slate-400 hover:bg-brand-50 hover:text-brand-600 dark:text-slate-500 dark:hover:bg-brand-500/10 dark:hover:text-brand-400',
+    'text-[#191918] hover:bg-[#F3F3F1] hover:text-[#1C1C1C]',
   danger:
-    'text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:text-slate-500 dark:hover:bg-rose-500/10 dark:hover:text-rose-400',
-  /*
-   * 成功态是「有底色」的，和上面三个不同 —— 它只在动作完成的那一瞬挂上
-   * （如复制按钮变对勾），需要一眼看出「这按钮刚被按过」，光换图标颜色不够。
-   */
+    'text-rose-500 hover:bg-rose-50 hover:text-rose-600',
   emerald:
-    'text-emerald-600 bg-emerald-50 hover:bg-emerald-100 dark:text-emerald-400 dark:bg-emerald-500/15 dark:hover:bg-emerald-500/20',
+    'text-[#22C55E] bg-emerald-50 hover:bg-emerald-100',
 } as const
 
 export type IconTone = keyof typeof ICON_TONES
 
 /** 卡片标题条上的小图标按钮（复制、清空、下载…） */
 export function iconButtonClass(tone: IconTone = 'neutral', extra = '') {
-  return `inline-flex items-center justify-center h-7 w-7 rounded-lg transition-colors disabled:opacity-40 disabled:pointer-events-none ${ICON_TONES[tone]} ${extra}`
+  return `inline-flex items-center justify-center h-7 w-7 rounded-lg transition-colors disabled:opacity-40 disabled:pointer-events-none cursor-pointer ${ICON_TONES[tone]} ${extra}`
 }
 
 /* ---------------- 分段控件 ---------------- */
@@ -106,7 +100,7 @@ interface SegmentedProps<T extends string> {
   className?: string
 }
 
-/** 分段控件：白胶囊滑块，用于「文本 / 树形」这类互斥切换 */
+/** 分段控件：白底与炭黑选中胶囊 */
 export function Segmented<T extends string>({
   value,
   options,
@@ -115,7 +109,7 @@ export function Segmented<T extends string>({
 }: SegmentedProps<T>) {
   return (
     <div
-      className={`inline-flex items-center gap-0.5 p-0.5 rounded-[10px] bg-slate-100 dark:bg-dark-hover ${className}`}
+      className={`inline-flex items-center gap-0.5 p-0.5 rounded-lg bg-[#F3F3F1] border border-[#E6E6E3] ${className}`}
     >
       {options.map((option) => {
         const active = option.value === value
@@ -125,10 +119,10 @@ export function Segmented<T extends string>({
             key={option.value}
             type="button"
             onClick={() => onChange(option.value)}
-            className={`inline-flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-[11px] font-semibold transition-all ${
+            className={`inline-flex items-center gap-1.5 h-6 px-2.5 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
               active
-                ? 'bg-white text-brand-600 shadow-[0_1px_2px_rgba(15,23,42,0.06)] dark:bg-dark-panel dark:text-brand-400'
-                : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+                ? 'bg-[#1C1C1C] text-white shadow-2xs'
+                : 'text-[#787774] hover:text-[#191918]'
             }`}
           >
             {Icon && <Icon size={12} />}
@@ -143,35 +137,30 @@ export function Segmented<T extends string>({
 /* ---------------- 语言/筛选用胶囊 ---------------- */
 
 export function pillClass(active: boolean, extra = '') {
-  return `inline-flex items-center gap-1 h-7 px-2.5 rounded-lg text-[11px] transition-colors shrink-0 ${
+  return `inline-flex items-center gap-1 h-7 px-2.5 rounded-lg text-[11px] transition-colors shrink-0 cursor-pointer ${
     active
-      ? 'font-semibold border border-brand-200/70 bg-brand-50 text-brand-700 dark:border-brand-500/30 dark:bg-brand-500/10 dark:text-brand-300'
-      : 'border border-transparent font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-dark-hover dark:hover:text-slate-200'
+      ? 'font-semibold bg-[#1C1C1C] text-white shadow-2xs'
+      : 'font-medium text-[#787774] hover:bg-[#F3F3F1] hover:text-[#191918]'
   } ${extra}`
 }
 
 /* ---------------- 小标签 ---------------- */
 
-/** 撞色小标签（绿「有效」、灰「3 词条」这类），挂在卡片标题旁 */
 const TAG_TONES = {
-  brand:
-    'bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400',
-  emerald:
-    'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400',
-  amber: 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400',
-  slate: 'bg-slate-200/60 text-slate-600 dark:bg-dark-hover dark:text-slate-400',
+  brand: 'bg-[#1C1C1C] text-white',
+  emerald: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+  amber: 'bg-amber-50 text-amber-700 border border-amber-200',
+  slate: 'bg-[#F3F3F1] text-[#787774] border border-[#E6E6E3]',
 } as const
 
 export type TagTone = keyof typeof TAG_TONES
 
-/** 卡片标题旁的小彩色标签（UTF-8 / 3 项 / 就绪 这类） */
 export function ToolTag({
   tone = 'slate',
   className = '',
   children,
 }: {
   tone?: TagTone
-  /** 追加类名。用于挂 fe-pop 这类一次性反馈动画 */
   className?: string
   children: ReactNode
 }) {
@@ -193,18 +182,17 @@ interface ToolEmptyProps {
   className?: string
 }
 
-/** 空状态：圆底淡图标 + 一句说明 */
 export function ToolEmpty({ icon: Icon, title, hint, className = '' }: ToolEmptyProps) {
   return (
     <div
       className={`flex flex-col items-center justify-center gap-3 px-6 py-10 text-center ${className}`}
     >
-      <span className="w-14 h-14 rounded-full border-2 border-slate-200/80 dark:border-dark-border border-dashed flex items-center justify-center text-slate-300 dark:text-slate-600">
-        <Icon size={24} />
+      <span className="w-12 h-12 rounded-full border border-dashed border-[#E6E6E3] bg-[#F3F3F1] flex items-center justify-center text-[#787774]">
+        <Icon size={20} />
       </span>
-      <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{title}</p>
+      <p className="text-xs font-semibold text-[#191918]">{title}</p>
       {hint && (
-        <p className="text-[11px] text-slate-400 dark:text-slate-600 max-w-[280px] break-words">
+        <p className="text-[11px] text-[#787774] max-w-[280px] break-words">
           {hint}
         </p>
       )}
@@ -215,10 +203,9 @@ export function ToolEmpty({ icon: Icon, title, hint, className = '' }: ToolEmpty
 /* ---------------- 提示条 ---------------- */
 
 const NOTICE_TONES = {
-  error:
-    'border-rose-200/70 bg-rose-50/60 text-rose-700 dark:border-rose-500/25 dark:bg-rose-500/10 dark:text-rose-300',
-  warn: 'border-amber-200/70 bg-amber-50/60 text-amber-700 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300',
-  info: 'border-slate-200/70 bg-slate-50 text-slate-600 dark:border-dark-border dark:bg-dark-hover/40 dark:text-slate-300',
+  error: 'border-rose-200 bg-rose-50 text-rose-700',
+  warn: 'border-amber-200 bg-amber-50 text-amber-700',
+  info: 'border-[#E6E6E3] bg-[#F3F3F1] text-[#191918]',
 } as const
 
 export type NoticeTone = keyof typeof NOTICE_TONES
@@ -230,7 +217,6 @@ interface ToolNoticeProps {
   className?: string
 }
 
-/** 页面级提示条（错误、告警、说明） */
 export function ToolNotice({ tone = 'info', icon: Icon, children, className = '' }: ToolNoticeProps) {
   return (
     <div
@@ -247,22 +233,20 @@ export function ToolNotice({ tone = 'info', icon: Icon, children, className = ''
 interface ToolCardProps {
   children: ReactNode
   className?: string
-  /** 是否让卡片在栅格里撑满高度（默认撑满） */
   fill?: boolean
 }
 
 export function ToolCard({ children, className = '', fill = true }: ToolCardProps) {
-  return <div className={`${CARD} ${fill ? '' : 'flex-none'} ${className}`}>{children}</div>
+  return <div className={`${CARD} ${fill ? 'flex-1' : ''} ${className}`}>{children}</div>
 }
 
 interface ToolCardHeaderProps {
   title: ReactNode
-  icon?: IconComponent
-  /** 标题右侧带底色的补充说明（如 UTF-8、来源引擎） */
+  icon?: ComponentType<{ size?: number | string; className?: string }>
   sublabel?: ReactNode
-  /** 标题右侧的次要信息（渲染成彩色小标签） */
   meta?: ReactNode
-  /** 标题条最右侧的操作区 */
+  tag?: ReactNode
+  badge?: ReactNode
   actions?: ReactNode
   className?: string
 }
@@ -272,26 +256,22 @@ export function ToolCardHeader({
   icon: Icon,
   sublabel,
   meta,
+  tag,
+  badge,
   actions,
   className = '',
 }: ToolCardHeaderProps) {
   return (
     <div className={`${CARD_HEAD} ${className}`}>
       <div className="flex items-center gap-2 min-w-0">
-        {Icon && <Icon size={14} className="text-brand-500 dark:text-brand-400 shrink-0" />}
-        <span className="text-[13px] font-bold text-slate-900 dark:text-white truncate shrink-0">
+        {Icon && <Icon size={14} className="text-[#787774] shrink-0" />}
+        <span className="text-xs font-bold text-[#191918] truncate flex items-center gap-1.5">
           {title}
+          {sublabel && <span className="text-[10px] text-[#787774] font-normal font-mono">{sublabel}</span>}
         </span>
-        {sublabel && (
-          <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500 truncate">
-            {sublabel}
-          </span>
-        )}
-        {meta && (
-          <span className="inline-flex items-center h-[18px] px-1.5 rounded-md bg-slate-200/50 dark:bg-dark-hover text-[10px] font-medium text-slate-500 dark:text-slate-400 tabular-nums truncate">
-            {meta}
-          </span>
-        )}
+        {meta && <span className="text-[11px] text-[#787774] font-normal truncate">{meta}</span>}
+        {tag}
+        {badge}
       </div>
       {actions && <div className="flex items-center gap-1 shrink-0">{actions}</div>}
     </div>
@@ -310,21 +290,18 @@ export function ToolCardFooter({ children, className = '' }: ToolCardFooterProps
 /* ---------------- 底部动作条 ---------------- */
 
 interface ToolActionBarProps {
-  /** 左侧说明文字或开关 */
   info?: ReactNode
-  /** 右侧按钮组 */
   children: ReactNode
   className?: string
 }
 
-/** 页面底部的动作托架（Dock）：左侧遥测说明、右侧渐变主按钮 */
 export function ToolActionBar({ info, children, className = '' }: ToolActionBarProps) {
   return (
     <div
-      className={`bg-white dark:bg-dark-panel rounded-[10px] border border-slate-200/70 dark:border-dark-border shadow-[0_1px_3px_rgba(0,0,0,0.03),0_6px_16px_-4px_rgba(0,0,0,0.03)] px-4 py-2 min-h-[48px] flex items-center justify-between gap-x-3 gap-y-2 flex-wrap shrink-0 ${className}`}
+      className={`bg-white rounded-xl border border-[#E6E6E3] shadow-xs px-4 py-2 min-h-[44px] flex items-center justify-between gap-x-3 gap-y-2 flex-wrap shrink-0 ${className}`}
     >
       {info && (
-        <div className="text-[11px] text-slate-500 dark:text-slate-400 min-w-0 flex items-center gap-2.5">
+        <div className="text-[11px] text-[#787774] min-w-0 flex items-center gap-2.5">
           {info}
         </div>
       )}
@@ -342,19 +319,18 @@ interface StatTileProps {
 }
 
 const STAT_TONES = {
-  neutral: 'text-slate-500 dark:text-slate-400',
-  emerald: 'text-emerald-600 dark:text-emerald-400',
-  rose: 'text-rose-600 dark:text-rose-400',
-  amber: 'text-amber-600 dark:text-amber-400',
-  brand: 'text-brand-600 dark:text-brand-400',
+  neutral: 'text-[#787774]',
+  emerald: 'text-[#22C55E]',
+  rose: 'text-rose-600',
+  amber: 'text-amber-600',
+  brand: 'text-[#191918]',
 } as const
 
-/** 数值统计格 */
 export function StatTile({ label, value, tone = 'neutral' }: StatTileProps) {
   return (
-    <div className="bg-white dark:bg-dark-panel rounded-xl border border-slate-200/70 dark:border-dark-border px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+    <div className="bg-white rounded-xl border border-[#E6E6E3] px-4 py-3 shadow-2xs">
       <p className={`text-[11px] font-medium mb-0.5 ${STAT_TONES[tone]}`}>{label}</p>
-      <p className="text-xl font-bold text-slate-800 dark:text-white tabular-nums leading-tight">
+      <p className="text-xl font-bold text-[#191918] tabular-nums leading-tight">
         {value}
       </p>
     </div>

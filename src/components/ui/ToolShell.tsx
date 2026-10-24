@@ -8,22 +8,25 @@ type IconComponent = ComponentType<{
 
 export type ToolBadgeTone = "brand" | "emerald" | "amber" | "rose";
 
+/* 
+ * 状态徽章：Notion 极简暖灰阶风格，去霓虹感，仅保留微彩色小圆点 
+ */
 const BADGE_TONES: Record<ToolBadgeTone, { box: string; dot: string }> = {
   brand: {
-    box: "border-brand-200/70 bg-brand-50 text-brand-700 dark:border-brand-500/25 dark:bg-brand-500/10 dark:text-brand-300",
-    dot: "bg-brand-500",
+    box: "border-[#E6E6E3] bg-[#F3F3F1] text-[#191918]",
+    dot: "bg-[#1C1C1C]",
   },
   emerald: {
-    box: "border-emerald-200/70 bg-emerald-50 text-emerald-700 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300",
-    dot: "bg-emerald-500",
+    box: "border-[#E6E6E3] bg-[#F3F3F1] text-[#191918]",
+    dot: "bg-[#22C55E]",
   },
   amber: {
-    box: "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300",
-    dot: "bg-amber-500",
+    box: "border-[#E6E6E3] bg-[#F3F3F1] text-[#191918]",
+    dot: "bg-[#F97316]",
   },
   rose: {
-    box: "border-rose-200/70 bg-rose-50 text-rose-600 dark:border-rose-500/25 dark:bg-rose-500/10 dark:text-rose-300",
-    dot: "bg-rose-500",
+    box: "border-[#E6E6E3] bg-[#F3F3F1] text-[#191918]",
+    dot: "bg-[#EC4899]",
   },
 };
 
@@ -79,7 +82,7 @@ export const ToolBadge = forwardRef<HTMLElement, ToolBadgeProps>(
           ref={ref as Ref<HTMLButtonElement>}
           type="button"
           onClick={onClick}
-          className={`${className} hover:brightness-[0.98]`}
+          className={`${className} hover:bg-[#EAEAE7] cursor-pointer`}
         >
           {content}
         </button>
@@ -124,9 +127,7 @@ export interface ToolShellProps {
 
 /**
  * 工具页统一外壳：顶栏（图标 + 标题 + 状态徽章 + 右侧操作）+ 内容区。
- *
- * 所有工具共用这一套骨架，改版式只动这里。内容区的间距、底色、
- * 深色变体也都在这里定，各工具只管往里放自己的卡片。
+ * 遵循 Notion 极简暖灰阶桌面工作台规范。
  */
 export default function ToolShell({
   icon: Icon,
@@ -142,39 +143,36 @@ export default function ToolShell({
   children,
 }: ToolShellProps) {
   return (
-    <div className="relative flex h-full min-h-0 bg-slate-50/60 dark:bg-dark-bg overflow-hidden text-slate-900 dark:text-slate-100">
+    <div className="relative flex h-full min-h-0 bg-[#FFFFFF] overflow-hidden text-[#191918]">
       <div className="flex-1 flex flex-col min-w-0 min-h-0">
         <header
           /*
-           * 顶栏高度固定：标题一换工具就换，标题块里的标题/徽章/说明文字一多，
-           * 原来靠 flex-wrap 换行，整条顶栏的高度跟着变 —— 切一次工具，下面的
-           * 内容区就往下挪一截（翻译页 117px、二进制工具 69px）。
-           * 现在宽屏锁死 68px（一行放得下标题 + 徽章 + 一行说明），
-           * 标题过长就截断，右侧操作区永远留在原位。
-           * 窄屏（手机）仍然允许换行，不然操作区会被挤没。
+           * 顶栏高度固定 68px（保持 AGENTS.md 约束）：
+           * 宽屏锁死 68px，标题过长截断，窄屏允许换行。
+           * 底色为纯白，底边框为 1px solid #E6E6E3。
            */
-          className="flex flex-wrap md:flex-nowrap h-auto md:h-[68px] gap-3 px-4 py-3 md:py-0 md:px-6 bg-white dark:bg-dark-panel border-b border-slate-200/70 dark:border-dark-border items-center justify-between flex-shrink-0 md:overflow-hidden"
+          className="flex flex-wrap md:flex-nowrap h-auto md:h-[68px] gap-3 px-4 py-3 md:py-0 md:px-6 bg-[#FFFFFF] border-b border-[#E6E6E3] items-center justify-between flex-shrink-0 md:overflow-hidden"
         >
-          <div className="flex items-center gap-3.5 min-w-0 flex-1">
-            {/* 渐变 squircle 图标 + 品牌色光晕，内缘一道高光 */}
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            {/* 炭黑圆角图标，移除彩光 */}
             <div
-              className={`h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${
+              className={`h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors ${
                 iconTone === "brand"
-                  ? "bg-brand-600 text-white shadow-md shadow-brand-500/25 inset-highlight"
-                  : "bg-slate-200 text-slate-500 dark:bg-dark-hover dark:text-slate-500"
+                  ? "bg-[#1C1C1C] text-white"
+                  : "bg-[#F3F3F1] text-[#787774] border border-[#E6E6E3]"
               }`}
             >
-              <Icon size={19} />
+              <Icon size={17} />
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 min-w-0">
-                <h2 className="text-[17px] font-bold tracking-[-0.2px] text-slate-900 dark:text-white leading-none truncate">
+                <h2 className="text-[16px] font-bold tracking-[-0.2px] text-[#191918] leading-none truncate">
                   {title}
                 </h2>
                 {badge}
               </div>
               {subtitle && (
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 truncate">
+                <p className="text-xs text-[#787774] mt-1 truncate">
                   {subtitle}
                 </p>
               )}
@@ -189,8 +187,8 @@ export default function ToolShell({
         </header>
 
         {rail && (
-          <div className="px-4 md:px-6 py-3 shrink-0 bg-white dark:bg-dark-panel">
-            <div className="bg-white dark:bg-dark-panel border border-slate-200/70 dark:border-dark-border rounded-[10px] shadow-[0_1px_3px_rgba(0,0,0,0.03),0_6px_16px_-4px_rgba(0,0,0,0.03)] px-3 py-2 flex items-center justify-between gap-3 flex-wrap">
+          <div className="px-4 md:px-6 py-2.5 shrink-0 bg-[#F9F9F8] border-b border-[#E6E6E3]">
+            <div className="bg-[#FFFFFF] border border-[#E6E6E3] rounded-lg px-3 py-1.5 flex items-center justify-between gap-3 flex-wrap">
               {rail}
             </div>
           </div>
@@ -198,7 +196,7 @@ export default function ToolShell({
 
         {scroll ? (
           <div
-            className={`flex-1 min-h-0 overflow-y-auto p-3 flex flex-col gap-3.5 ${contentClassName}`}
+            className={`flex-1 min-h-0 overflow-y-auto p-4 flex flex-col gap-4 bg-[#FFFFFF] ${contentClassName}`}
           >
             {children}
           </div>

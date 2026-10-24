@@ -10,13 +10,10 @@ import {
   FileText,
   FolderClosed,
   FolderOpen,
-  FolderPlus,
   Inbox,
-  PanelLeftClose,
   Pencil,
   Plus,
   Search,
-  Sparkles,
   Star,
   Trash2,
   X,
@@ -24,7 +21,6 @@ import {
 import { useNotes } from '../../../context/NotesContext'
 import { useToast } from '../../ui/Toast'
 import { useContextMenu } from '../../ui/ContextMenu'
-import Tooltip from '../../ui/Tooltip'
 import type { NoteItem } from '../../../utils/notesStore'
 
 /** 侧栏时间戳：今天给时分，昨天给「昨天」，今年给月日，更早给年月日 */
@@ -64,30 +60,35 @@ function getNotePreviewSnippet(content: string): string {
     .replace(/^[#>-]+\s+/gm, '')
     .replace(/[*_`~]/g, '')
     .trim()
-  return clean.slice(0, 60) || '暂无内容'
+  return clean.slice(0, 50) || '暂无内容'
+}
+
+/**
+ * 判断卡片右上角 8px 状态圆点颜色：
+ * - 收藏星标：#EC4899 粉
+ * - 今日修改：#F97316 橙
+ * - 常规已同步：#22C55E 绿
+ */
+function getStatusDotColor(note: NoteItem): string {
+  if (note.bookmarked) return '#EC4899'
+  const date = new Date(note.updatedAt)
+  const now = new Date()
+  const isToday =
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate()
+  if (isToday) return '#F97316'
+  return '#22C55E'
 }
 
 interface NotesSidebarProps {
-  /** 移动端从抽屉里选中文档后自动收起 */
   onAfterSelect?: () => void
-  /** 折叠侧边栏回调 */
   onCollapse?: () => void
 }
 
-/**
- * 「全部」页签在拖拽落点里的占位 id。
- * 不能直接用 null —— settleDrag 用 null 表示「没有落点」，
- * 拖到「全部」上松手要能表达出「落点就是移出未分类」这个明确意图。
- */
 const ALL_TAB = '__all__'
 
-/**
- * Markdown 知识库的二级侧边栏：文件夹横条 + 文档列表 + 回收站入口。
- *
- * 从 DashboardLayout 抽出来独立成模块 —— 那块 JSX 原本和工具库列表挤在同一个
- * 条件分支里，加上文件夹与回收站之后已经不适合继续留在布局文件里。
- */
-export default function NotesSidebar({ onAfterSelect, onCollapse }: NotesSidebarProps) {
+export default function NotesSidebar({ onAfterSelect, onCollapse: _onCollapse }: NotesSidebarProps) {
   const {
     notes,
     activeNote,
@@ -111,7 +112,6 @@ export default function NotesSidebar({ onAfterSelect, onCollapse }: NotesSidebar
     handleRestore,
     handleEmptyTrash,
     handleExport,
-    handleOpenSampleNote,
   } = useNotes()
 
   const { showToast } = useToast()
@@ -121,9 +121,7 @@ export default function NotesSidebar({ onAfterSelect, onCollapse }: NotesSidebar
   const [renameDraft, setRenameDraft] = useState('')
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null)
   const [folderDraft, setFolderDraft] = useState('')
-  /** 正在被拖拽的文档 id（原生 DnD 的 dataTransfer 读不到数据，只能自己记） */
   const [draggingNoteId, setDraggingNoteId] = useState<string | null>(null)
-  /** 当前鼠标悬停在哪个文件夹上 —— 高亮它，并在松手时作为落点 */
   const [dropFolderId, setDropFolderId] = useState<string | null>(null)
   const renameInputRef = useRef<HTMLInputElement>(null)
 
@@ -131,7 +129,6 @@ export default function NotesSidebar({ onAfterSelect, onCollapse }: NotesSidebar
     if (renamingNoteId) renameInputRef.current?.focus()
   }, [renamingNoteId])
 
-  // 切走范围时把编辑态收干净，免得回来时还挂着一个输入框
   useEffect(() => {
     setRenamingNoteId(null)
     setRenamingFolderId(null)
@@ -166,12 +163,7 @@ export default function NotesSidebar({ onAfterSelect, onCollapse }: NotesSidebar
     if (id && next) handleRenameFolder(id, next)
   }
 
-  /** 右键菜单：普通文档（全部 / 文件夹视图下） */
   const openNoteMenu = (e: ReactMouseEvent, note: NoteItem) => {
-    /*
-     * 「移动到」收成子菜单，不再把每个文件夹平铺在顶层 ——
-     * 文件夹一多，右键菜单会被撑成一长条，找「复制标题」得往下翻半天。
-     */
     const moveTargets = [
       ...(note.folderId
         ? [
@@ -220,8 +212,6 @@ export default function NotesSidebar({ onAfterSelect, onCollapse }: NotesSidebar
           showToast(note.bookmarked ? '已移除书签' : '已加入书签')
         },
       },
-      /* 没有文件夹时连「移动到」都不给 —— 没有可去的地方，
-         唯一的动作「移出到未分类」对未分类文档也没有意义 */
       ...(moveTargets.length > 0
         ? [
             {
@@ -267,7 +257,6 @@ export default function NotesSidebar({ onAfterSelect, onCollapse }: NotesSidebar
     ])
   }
 
-  /** 右键菜单：回收站里的文档，动作完全不同 */
   const openTrashMenu = (e: ReactMouseEvent, note: NoteItem) => {
     openContextMenu(e, [
       {
@@ -320,24 +309,7 @@ export default function NotesSidebar({ onAfterSelect, onCollapse }: NotesSidebar
     }
   }
 
-  /** 文件夹 id → 名字，用于回收站里标注原属文件夹 */
-  const folderNameOf = (folderId: string): string | undefined =>
-    folders.find((folder) => folder.id === folderId)?.name
-
-  /*
-   * 拖拽归类：列表项拖起，文件夹横条接收，列表空白处 = 移出到未分类。
-   *
-   * 用原生 HTML5 DnD 而不是手动 mousedown 追踪 —— 编辑器那边的块拖拽之所以自绘，
-   * 是因为手柄按下必须 preventDefault 保住焦点与选区；侧栏列表没有这个约束，
-   * 原生拖拽自带拖影与跨元素 hover，代码也更少。
-   *
-   * 落点与"是否已处理"都记在 ref 里，不依赖 state：
-   * drop / dragLeave / dragEnd 三者的触发顺序在不同浏览器、不同松手位置上并不一致，
-   * 而 setState 要下一次渲染才生效，闭包里读到的会是旧值 —— 之前正是这样导致
-   * 「拖到文件夹上松手」时 dragLeave 先把落点清掉、dragEnd 读到 null 而静默失败。
-   */
   const dropFolderIdRef = useRef<string | null>(null)
-  /** 一次拖拽只允许结算一次，避免 drop 与 dragEnd 各动一次 */
   const dragHandledRef = useRef(false)
 
   const handleDragStart = (event: ReactDragEvent, note: NoteItem) => {
@@ -345,33 +317,24 @@ export default function NotesSidebar({ onAfterSelect, onCollapse }: NotesSidebar
     dropFolderIdRef.current = null
     setDraggingNoteId(note.id)
     event.dataTransfer.effectAllowed = 'move'
-    // 必须给 dataTransfer 设点东西，否则部分环境下拖拽根本不会启动
     event.dataTransfer.setData('text/plain', note.id)
   }
 
-  /** 结算一次拖拽：folderId 为 null 表示落到空白处（移出到未分类） */
   const settleDrag = (rawFolderId: string | null) => {
     if (dragHandledRef.current) return
-    // 「全部」占位与「没有落点」在调用侧都是没有归属，落点本身由两者区分：
-    // 落在「全部」页签上 = 明确的移出意图，落在真正的空白处不触发 drop
     const folderId = rawFolderId === ALL_TAB ? null : rawFolderId
-    /*
-     * 标位放在 finally：这一次拖拽已经被消费掉了，无论往下走哪条早退路径，
-     * 都不能让浏览器稍后补发的 dragEnd 再拿同一份落点结算第二次。
-     */
     try {
       const noteId = draggingNoteId
       if (!noteId) return
 
       const note = notes.find((item) => item.id === noteId)
       if (!note) return
-      // 拖回它原本就在的文件夹 / 本来就在未分类又丢到空白处，都没必要写一次盘
       if ((note.folderId ?? null) === folderId) return
 
       handleMoveToFolder(note.id, folderId)
       showToast(
         folderId
-          ? `已将「${note.title || '未命名笔记'}」移入「${folderNameOf(folderId) || '文件夹'}」`
+          ? `已将「${note.title || '未命名笔记'}」移入文件夹`
           : '已移出到未分类'
       )
     } finally {
@@ -383,452 +346,446 @@ export default function NotesSidebar({ onAfterSelect, onCollapse }: NotesSidebar
   }
 
   const handleDragEnd = () => {
-    // 已经由 drop 结算过就什么都不做（settleDrag 内部早退）；
-    // 否则（落在窗口外、或没有触发 drop 的位置）用最后一次记录的落点兜底
     settleDrag(dropFolderIdRef.current)
   }
 
   const newFolder = () => {
     const id = handleCreateFolder()
-    // 建完立刻进入改名态，省一次右键
     startRenameFolder(id, `新建文件夹 ${folders.length + 1}`)
     showToast('已新建文件夹')
   }
 
-  return (
-    <>
-      {/* ============ 顶部：标题 + 视图级动作 ============ */}
-      <div className="p-3 border-b border-slate-100 dark:border-dark-border space-y-2.5">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5 min-w-0">
-            {/* 标题固定不随页签变 —— 位置感由下面的页签自己表达，
-                这里再跟着改一次就成了「进入文件夹」那套层级语义 */}
-            <span className="text-xs font-bold text-slate-700 dark:text-slate-200 tracking-tight truncate">
-              {scope.type === 'trash' ? '回收站' : '知识库文档'}
-            </span>
-            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-slate-100 dark:bg-dark-hover text-slate-500 dark:text-slate-400 flex-shrink-0">
-              {scope.type === 'trash' ? trashed.length : filteredNotes.length}
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            {/* 回收站图标常驻：在回收站视图里点它回「全部」，这就是出口本身。
-                之前把它放在底部当普通条目，进了回收站就只剩列表、没有回头路 */}
-            <Tooltip
-              content={scope.type === 'trash' ? '返回全部文档' : '回收站'}
-            >
-              <button
-                // 就地开关：在回收站里点它回「全部」，在外面点它进回收站。
-                // 这样一颗图标既是入口也是出口 —— 之前只当入口用，
-                // 进去之后整个侧栏没有任何回头的路径
-                onClick={() =>
-                  setScope(scope.type === 'trash' ? { type: 'all' } : { type: 'trash' })
-                }
-                className={`relative flex items-center justify-center p-1.5 rounded-lg transition-all ${
-                  scope.type === 'trash'
-                    ? 'bg-brand-600 text-white shadow-xs hover:bg-brand-700 dark:bg-brand-500'
-                    : 'bg-slate-100 dark:bg-dark-hover hover:bg-slate-200 dark:hover:bg-dark-border text-slate-600 dark:text-slate-300'
-                }`}
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                {/* 有内容才点，一个小圆点，不占额外宽度 */}
-                {trashed.length > 0 && scope.type !== 'trash' && (
-                  <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-rose-500" />
-                )}
-              </button>
-            </Tooltip>
+  // 统计各分类数目
+  const bookmarkedCount = notes.filter((n) => n.bookmarked).length
 
-            {/* 回收站视图下其余动作全部收起 —— 在那儿只能还原或删除 */}
-            {scope.type !== 'trash' && (
-              <>
-                <Tooltip content="新建文件夹">
-                  <button
-                    onClick={newFolder}
-                    className="flex items-center justify-center p-1.5 bg-slate-100 dark:bg-dark-hover hover:bg-slate-200 dark:hover:bg-dark-border text-slate-600 dark:text-slate-300 rounded-lg transition-all"
-                  >
-                    <FolderPlus className="w-3.5 h-3.5" />
-                  </button>
-                </Tooltip>
-                <Tooltip content="打开或新建「全特性与工具支持全景样板」">
-                  <button
-                    onClick={handleOpenSampleNote}
-                    className="flex items-center justify-center p-1.5 bg-slate-100 dark:bg-dark-hover hover:bg-slate-200 dark:hover:bg-dark-border text-slate-600 dark:text-slate-300 rounded-lg transition-all"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                  </button>
-                </Tooltip>
-                <Tooltip content="新建文档 (⌘N)">
-                  <button
-                    onClick={() => handleCreate(scope.type === 'folder' ? scope.folderId : null)}
-                    className="flex items-center gap-1 px-2.5 py-1 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-medium transition-all shadow-xs"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>新建</span>
-                  </button>
-                </Tooltip>
-              </>
-            )}
-            {onCollapse && (
-              <Tooltip content="折叠侧边栏 (⌘B)">
-                <button
-                  type="button"
-                  onClick={onCollapse}
-                  className="flex items-center justify-center p-1.5 bg-slate-100 dark:bg-dark-hover hover:bg-slate-200 dark:hover:bg-dark-border text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 rounded-lg transition-all"
-                  aria-label="折叠侧边栏"
-                >
-                  <PanelLeftClose className="w-3.5 h-3.5" />
-                </button>
-              </Tooltip>
-            )}
-          </div>
+  return (
+    <div className="flex flex-row h-full w-full select-none overflow-hidden">
+      {/* ================= 第 2 栏：分类目录栏 (w-52 = 208px) ================= */}
+      <aside className="w-52 bg-[#F3F3F1] border-r border-[#E6E6E3] flex flex-col h-full flex-shrink-0">
+        {/* 顶部：48px 对齐，左侧粗体标题，右侧炭黑新建胶囊按钮 */}
+        <div className="h-12 px-3 border-b border-[#E6E6E3] flex items-center justify-between flex-shrink-0">
+          <span className="font-bold text-sm text-[#191918] tracking-tight">知识库</span>
+          <button
+            type="button"
+            onClick={newFolder}
+            className="flex items-center gap-1 bg-[#1C1C1C] hover:bg-neutral-800 text-white rounded-full px-2.5 py-1 text-xs font-medium cursor-pointer transition-colors shadow-2xs"
+            title="新建分类文件夹"
+          >
+            <Plus className="w-3 h-3" />
+            <span>新建</span>
+          </button>
         </div>
 
-        <div className="relative flex items-center">
-          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          <input
-            type="text"
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-            placeholder={scope.type === 'trash' ? '在回收站中过滤...' : '过滤文档...'}
-            className="w-full pl-8 pr-7 h-7 text-xs bg-slate-50 dark:bg-dark-sidebar border border-slate-200 dark:border-dark-border rounded-lg outline-none focus:border-brand-500 dark:focus:border-brand-500 transition-all text-slate-800 dark:text-slate-200 placeholder-slate-400"
-          />
-          {keyword && (
+        {/* 分类项垂直列表 */}
+        <div className="flex-1 overflow-y-auto px-2 py-3 space-y-1">
+          {/* 1. 全部文档 */}
+          {(() => {
+            const isSelected = scope.type === 'all'
+            return (
+              <button
+                type="button"
+                onClick={() => setScope({ type: 'all' })}
+                onDragOver={(e) => {
+                  if (!draggingNoteId) return
+                  e.preventDefault()
+                  e.dataTransfer.dropEffect = 'move'
+                  dropFolderIdRef.current = ALL_TAB
+                  setDropFolderId(ALL_TAB)
+                }}
+                onDragLeave={(e) => {
+                  if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                    setDropFolderId(null)
+                  }
+                }}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  settleDrag(null)
+                }}
+                className={`w-full flex items-center justify-between px-2.5 py-1.5 transition-all text-xs font-medium ${
+                  isSelected
+                    ? 'bg-[#1C1C1C] text-white rounded-full shadow-2xs'
+                    : 'text-[#191918] hover:bg-[#EAEAE7] rounded-lg'
+                }`}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span
+                    className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center flex-shrink-0 ${
+                      isSelected ? 'bg-white text-[#1C1C1C]' : 'bg-[#1C1C1C] text-white'
+                    }`}
+                  >
+                    全
+                  </span>
+                  <span className="truncate">全部文档</span>
+                </div>
+                <span
+                  className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full ${
+                    isSelected ? 'text-[#D4D4D0]' : 'text-[#787774]'
+                  }`}
+                >
+                  {notes.length}
+                </span>
+              </button>
+            )
+          })()}
+
+          {/* 2. 收藏文档 */}
+          {(() => {
+            const isSelected = scope.type === 'bookmarks'
+            return (
+              <button
+                type="button"
+                onClick={() => setScope({ type: 'bookmarks' })}
+                className={`w-full flex items-center justify-between px-2.5 py-1.5 transition-all text-xs font-medium ${
+                  isSelected
+                    ? 'bg-[#1C1C1C] text-white rounded-full shadow-2xs'
+                    : 'text-[#191918] hover:bg-[#EAEAE7] rounded-lg'
+                }`}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span
+                    className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center flex-shrink-0 ${
+                      isSelected ? 'bg-white text-[#1C1C1C]' : 'bg-[#1C1C1C] text-white'
+                    }`}
+                  >
+                    星
+                  </span>
+                  <span className="truncate">收藏标星</span>
+                </div>
+                <span
+                  className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full ${
+                    isSelected ? 'text-[#D4D4D0]' : 'text-[#787774]'
+                  }`}
+                >
+                  {bookmarkedCount}
+                </span>
+              </button>
+            )
+          })()}
+
+          {/* 4. 自定义文件夹列表 */}
+          <div className="pt-2 pb-1 px-1">
+            <span className="text-[10px] font-semibold text-[#787774] tracking-wider uppercase">
+              分类目录
+            </span>
+          </div>
+
+          {folders.map((folder) => {
+            const isSelected = scope.type === 'folder' && scope.folderId === folder.id
+            const folderCount = notes.filter((n) => n.folderId === folder.id).length
+            const initialBadge = folder.name.trim().slice(0, 1) || '目'
+
+            return renamingFolderId === folder.id ? (
+              <input
+                key={folder.id}
+                autoFocus
+                value={folderDraft}
+                maxLength={40}
+                onChange={(e) => setFolderDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    commitRenameFolder()
+                  } else if (e.key === 'Escape') {
+                    e.preventDefault()
+                    setRenamingFolderId(null)
+                  }
+                }}
+                onBlur={commitRenameFolder}
+                className="w-full h-7 px-2.5 text-xs bg-white border border-[#1C1C1C] rounded-lg outline-none text-[#191918]"
+              />
+            ) : (
+              <button
+                key={folder.id}
+                type="button"
+                onClick={() => setScope({ type: 'folder', folderId: folder.id })}
+                onDoubleClick={() => startRenameFolder(folder.id, folder.name)}
+                onDragOver={(e) => {
+                  if (!draggingNoteId) return
+                  e.preventDefault()
+                  e.dataTransfer.dropEffect = 'move'
+                  dropFolderIdRef.current = folder.id
+                  if (dropFolderId !== folder.id) setDropFolderId(folder.id)
+                }}
+                onDragLeave={(e) => {
+                  if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                    setDropFolderId(null)
+                  }
+                }}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  settleDrag(folder.id)
+                }}
+                onContextMenu={(e) =>
+                  openContextMenu(e, [
+                    {
+                      id: `folder-rename-${folder.id}`,
+                      label: '重命名文件夹',
+                      icon: <Pencil className="w-3.5 h-3.5" />,
+                      onSelect: () => startRenameFolder(folder.id, folder.name),
+                    },
+                    {
+                      id: `folder-delete-${folder.id}`,
+                      label: '删除文件夹',
+                      icon: <Trash2 className="w-3.5 h-3.5" />,
+                      danger: true,
+                      onSelect: () => {
+                        if (
+                          !window.confirm(
+                            `删除文件夹「${folder.name}」？其中的文档会回到「未分类」，不会被删除。`
+                          )
+                        )
+                          return
+                        handleDeleteFolder(folder.id)
+                        showToast('文件夹已删除，文档已回到未分类')
+                      },
+                    },
+                  ])
+                }
+                className={`w-full flex items-center justify-between px-2.5 py-1.5 transition-all text-xs font-medium ${
+                  dropFolderId === folder.id
+                    ? 'ring-1 ring-[#1C1C1C] bg-white text-[#191918] rounded-full'
+                    : isSelected
+                    ? 'bg-[#1C1C1C] text-white rounded-full shadow-2xs'
+                    : 'text-[#191918] hover:bg-[#EAEAE7] rounded-lg'
+                }`}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span
+                    className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center flex-shrink-0 ${
+                      isSelected ? 'bg-white text-[#1C1C1C]' : 'bg-[#1C1C1C] text-white'
+                    }`}
+                  >
+                    {initialBadge}
+                  </span>
+                  <span className="truncate">{folder.name}</span>
+                </div>
+                <span
+                  className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full ${
+                    isSelected ? 'text-[#D4D4D0]' : 'text-[#787774]'
+                  }`}
+                >
+                  {folderCount}
+                </span>
+              </button>
+            )
+          })}
+
+          {/* 5. 回收站 */}
+          {(() => {
+            const isSelected = scope.type === 'trash'
+            return (
+              <div className="pt-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setScope(scope.type === 'trash' ? { type: 'all' } : { type: 'trash' })
+                  }
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 transition-all text-xs font-medium ${
+                    isSelected
+                      ? 'bg-[#1C1C1C] text-white rounded-full shadow-2xs'
+                      : 'text-[#191918] hover:bg-[#EAEAE7] rounded-lg'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span
+                      className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center flex-shrink-0 ${
+                        isSelected ? 'bg-white text-[#1C1C1C]' : 'bg-[#1C1C1C] text-white'
+                      }`}
+                    >
+                      垃
+                    </span>
+                    <span className="truncate">回收站</span>
+                  </div>
+                  <span
+                    className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full ${
+                      isSelected ? 'text-[#D4D4D0]' : 'text-[#787774]'
+                    }`}
+                  >
+                    {trashed.length}
+                  </span>
+                </button>
+              </div>
+            )
+          })()}
+        </div>
+      </aside>
+
+      {/* ================= 第 3 栏：记录列表栏 (w-72 = 288px) ================= */}
+      <section className="w-72 bg-[#F9F9F8] border-r border-[#E6E6E3] flex flex-col h-full flex-shrink-0">
+        {/* 顶部：白底细边框搜索框 + 炭黑 +新增 按钮 */}
+        <div className="h-12 px-3 border-b border-[#E6E6E3] flex items-center gap-2 flex-shrink-0">
+          <div className="relative flex-1 flex items-center">
+            <Search className="w-3.5 h-3.5 text-[#787774] absolute left-2.5 pointer-events-none" />
+            <input
+              type="text"
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              placeholder="搜索文档..."
+              className="w-full pl-8 pr-6 h-8 text-xs bg-white border border-[#E6E6E3] rounded-lg outline-none text-[#191918] placeholder-[#787774] focus:border-[#1C1C1C] transition-colors"
+            />
+            {keyword && (
+              <button
+                type="button"
+                onClick={() => setKeyword('')}
+                className="absolute right-2 text-[#787774] hover:text-[#191918]"
+                title="清空"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+          {scope.type !== 'trash' && (
             <button
-              onClick={() => setKeyword('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              title="清空"
+              type="button"
+              onClick={() => handleCreate(scope.type === 'folder' ? scope.folderId : null)}
+              className="h-8 px-2.5 bg-[#1C1C1C] hover:bg-neutral-800 text-white rounded-lg text-xs font-medium flex items-center gap-1 flex-shrink-0 transition-colors shadow-2xs cursor-pointer"
+              title="新建文档 (⌘N)"
             >
-              <X className="w-3 h-3" />
+              <Plus className="w-3.5 h-3.5" />
+              <span>新增</span>
             </button>
           )}
         </div>
 
-        {/*
-          知识库页签：全部 / 各文件夹。回收站是另一种视图，不给它页签。
+        {/* 记录列表流 */}
+        <div
+          className="flex-1 overflow-y-auto p-2.5 space-y-2"
+          onDragOver={(e) => {
+            if (!draggingNoteId || scope.type !== 'all') return
+            e.preventDefault()
+            e.dataTransfer.dropEffect = 'move'
+          }}
+          onDrop={(e) => {
+            e.preventDefault()
+            settleDrag(null)
+          }}
+        >
+          {filteredNotes.map((note) => {
+            const isActive = note.id === activeNote?.id && scope.type !== 'trash'
+            const inTrash = scope.type === 'trash'
+            const statusDotColor = getStatusDotColor(note)
 
-          它**始终显示**（不再只在「全部」时露出）—— 点文件夹页签只是把下面的列表
-          换成该文件夹的内容，位置感由这里的高亮表达，而不是进入另一层。
-          横向滚动不换行、隐藏滚动条；同时是拖拽的放置目标。
-        */}
-        {scope.type !== 'trash' && (
-          <div className="flex gap-1 overflow-x-auto scrollbar-hide py-0.5">
-            {/* 「全部」固定占首位；它同时也是「移出到未分类」的落点 */}
-            <button
-              onClick={() => setScope({ type: 'all' })}
-              onDragOver={(e) => {
-                if (!draggingNoteId) return
-                e.preventDefault()
-                e.dataTransfer.dropEffect = 'move'
-                dropFolderIdRef.current = ALL_TAB
-                setDropFolderId(ALL_TAB)
-              }}
-              onDragLeave={(e) => {
-                if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                  setDropFolderId(null)
+            return (
+              <div
+                key={note.id}
+                draggable={!inTrash}
+                onDragStart={(e) => handleDragStart(e, note)}
+                onDragEnd={handleDragEnd}
+                onClick={() => (inTrash ? undefined : selectNote(note.id))}
+                onContextMenu={(e) =>
+                  inTrash ? openTrashMenu(e, note) : openNoteMenu(e, note)
                 }
-              }}
-              onDrop={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                settleDrag(null)
-              }}
-              title="全部文档（把文档拖到这里可移出文件夹）"
-              aria-current={scope.type === 'all' ? 'page' : undefined}
-              className={`flex-shrink-0 whitespace-nowrap rounded-lg px-2.5 py-1 text-[11px] font-medium transition-all ${
-                dropFolderId === ALL_TAB
-                  ? 'bg-brand-50 text-brand-700 ring-1 ring-brand-500 dark:bg-brand-500/20 dark:text-brand-300 dark:ring-brand-400'
-                  : scope.type === 'all'
-                    ? 'bg-brand-600 text-white shadow-xs dark:bg-brand-500'
-                    : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-dark-hover dark:hover:text-slate-200'
-              }`}
-            >
-              全部
-            </button>
-
-            {/* 书签：跨文件夹的一个视图，与「全部」同级，所以排在文件夹之前。
-                书签是文档自身的属性，没有文件夹那种「归属」含义，
-                因此它不做拖拽落点 —— 拖到它上面没有合理的语义 */}
-            <button
-              onClick={() => setScope({ type: 'bookmarks' })}
-              title="只看已加书签的文档"
-              aria-current={scope.type === 'bookmarks' ? 'page' : undefined}
-              className={`flex flex-shrink-0 items-center gap-1 whitespace-nowrap rounded-lg px-2.5 py-1 text-[11px] font-medium transition-all ${
-                scope.type === 'bookmarks'
-                  ? 'bg-brand-600 text-white shadow-xs dark:bg-brand-500'
-                  : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-dark-hover dark:hover:text-slate-200'
-              }`}
-            >
-              <Star className="w-3 h-3" />
-              书签
-            </button>
-            {folders.map((folder) => {
-              // 点它只换列表内容，不改变「我在哪一层」—— 所以选中态必须是实心的
-              const isCurrent = scope.type === 'folder' && scope.folderId === folder.id
-              return renamingFolderId === folder.id ? (
-                <input
-                  key={folder.id}
-                  autoFocus
-                  value={folderDraft}
-                  maxLength={40}
-                  onChange={(e) => setFolderDraft(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      commitRenameFolder()
-                    } else if (e.key === 'Escape') {
-                      e.preventDefault()
-                      setRenamingFolderId(null)
-                    }
-                  }}
-                  onBlur={commitRenameFolder}
-                  className="w-24 h-6 px-2 text-[11px] bg-white dark:bg-dark-sidebar border border-brand-500 rounded-lg outline-none text-slate-900 dark:text-white flex-shrink-0"
+                className={`group relative p-3 rounded-xl transition-all ${
+                  inTrash ? 'cursor-default' : 'cursor-pointer'
+                } ${draggingNoteId === note.id ? 'opacity-30' : ''} ${
+                  isActive
+                    ? 'bg-[#1C1C1C] text-white shadow-2xs'
+                    : 'bg-transparent hover:bg-[#F3F3F1] text-[#191918]'
+                }`}
+              >
+                {/* 右上角 8px 状态小圆点（#22C55E 绿 / #F97316 橙 / #EC4899 粉） */}
+                <span
+                  style={{ backgroundColor: statusDotColor }}
+                  className="absolute top-3 right-3 w-2 h-2 rounded-full flex-shrink-0 ring-2 ring-white/50"
+                  title="状态指示点"
                 />
-              ) : (
-                <button
-                  key={folder.id}
-                  onClick={() => setScope({ type: 'folder', folderId: folder.id })}
-                  onDoubleClick={() => startRenameFolder(folder.id, folder.name)}
-                  onDragOver={(e) => {
-                    // 不接受拖拽时浏览器不触发 drop，高亮也就无从谈起
-                    if (!draggingNoteId) return
-                    e.preventDefault()
-                    e.dataTransfer.dropEffect = 'move'
-                    dropFolderIdRef.current = folder.id
-                    if (dropFolderId !== folder.id) setDropFolderId(folder.id)
-                  }}
-                  onDragLeave={(e) => {
-                    /*
-                     * 只把高亮（state）清掉，**不动** dropFolderIdRef：
-                     * 松手前光标移出 chip 也会走到这里，落点信息得留到 dragEnd 用。
-                     */
-                    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                      setDropFolderId(null)
-                    }
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    settleDrag(folder.id)
-                  }}
-                  onContextMenu={(e) =>
-                    openContextMenu(e, [
-                      {
-                        id: `folder-rename-${folder.id}`,
-                        label: '重命名文件夹',
-                        icon: <Pencil className="w-3.5 h-3.5" />,
-                        onSelect: () => startRenameFolder(folder.id, folder.name),
-                      },
-                      {
-                        id: `folder-delete-${folder.id}`,
-                        label: '删除文件夹',
-                        icon: <Trash2 className="w-3.5 h-3.5" />,
-                        danger: true,
-                        onSelect: () => {
-                          if (
-                            !window.confirm(
-                              `删除文件夹「${folder.name}」？其中的文档会回到「未分类」，不会被删除。`
-                            )
-                          )
-                            return
-                          handleDeleteFolder(folder.id)
-                          showToast('文件夹已删除，文档已回到未分类')
-                        },
-                      },
-                    ])
-                  }
-                  title={`${folder.name}（双击重命名，可把文档拖进来）`}
-                  aria-current={isCurrent ? 'page' : undefined}
-                  className={`flex flex-shrink-0 items-center gap-1 whitespace-nowrap rounded-lg px-2.5 py-1 text-[11px] font-medium transition-all ${
-                    dropFolderId === folder.id
-                      ? 'bg-brand-50 text-brand-700 ring-1 ring-brand-500 dark:bg-brand-500/20 dark:text-brand-300 dark:ring-brand-400'
-                      : isCurrent
-                        ? 'bg-brand-600 text-white shadow-xs dark:bg-brand-500'
-                        : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-dark-hover dark:hover:text-slate-200'
+
+                {/* 标题与时间 */}
+                <div className="flex items-center justify-between gap-2 pr-4 mb-1">
+                  {renamingNoteId === note.id ? (
+                    <input
+                      ref={renameInputRef}
+                      value={renameDraft}
+                      maxLength={80}
+                      onClick={(e) => e.stopPropagation()}
+                      onFocus={(e) => e.currentTarget.select()}
+                      onChange={(e) => setRenameDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          commitRenameNote()
+                        } else if (e.key === 'Escape') {
+                          e.preventDefault()
+                          setRenamingNoteId(null)
+                        }
+                      }}
+                      onBlur={commitRenameNote}
+                      className="flex-1 min-w-0 h-6 px-1.5 text-xs bg-white text-[#191918] border border-[#1C1C1C] rounded outline-none"
+                    />
+                  ) : (
+                    <h4
+                      onDoubleClick={(e) => {
+                        e.stopPropagation()
+                        if (!inTrash) startRenameNote(note.id, note.title)
+                      }}
+                      className={`flex-1 min-w-0 truncate text-xs font-semibold ${
+                        isActive ? 'text-white' : 'text-[#191918]'
+                      }`}
+                    >
+                      {note.title || '未命名笔记'}
+                    </h4>
+                  )}
+                </div>
+
+                {/* 描述与摘要：选中时强制使用 #D4D4D0 */}
+                <p
+                  className={`text-[11px] line-clamp-1 leading-relaxed mt-0.5 ${
+                    isActive ? 'text-[#D4D4D0]' : 'text-[#787774]'
                   }`}
                 >
-                  <FolderClosed className="w-3 h-3" />
-                  <span className="max-w-[88px] truncate">{folder.name}</span>
-                </button>
-              )
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* ============ 文档列表流 ============ */}
-      {/* 空白处可拖回来 = 移出当前文件夹。回收站里的文档不参与拖拽 */}
-      <div
-        className="flex-1 overflow-y-auto p-2 space-y-1.5"
-        onDragOver={(e) => {
-          /*
-           * 只有「全部文档」视图接受拖到空白处 —— 那是「移出到未分类」的唯一入口。
-           * 文件夹视图里不 preventDefault，浏览器就不会给 drop 光标，
-           * 用户能直接看出这里放不下；否则松手会静默无事发生（文档本来就在该文件夹里，
-           * settleDrag 会因归属未变而早退），比不接受更让人困惑。
-           */
-          if (!draggingNoteId || scope.type !== 'all') return
-          e.preventDefault()
-          e.dataTransfer.dropEffect = 'move'
-        }}
-        onDrop={(e) => {
-          e.preventDefault()
-          settleDrag(null)
-        }}
-      >
-        {filteredNotes.map((note) => {
-          const isActive = note.id === activeNote?.id && scope.type !== 'trash'
-          const inTrash = scope.type === 'trash'
-          return (
-            <div
-              key={note.id}
-              // 回收站与「全部文档」视图下都能拖：后者用于拖进文件夹
-              draggable={!inTrash}
-              onDragStart={(e) => handleDragStart(e, note)}
-              onDragEnd={handleDragEnd}
-              onClick={() => (inTrash ? undefined : selectNote(note.id))}
-              onContextMenu={(e) =>
-                inTrash ? openTrashMenu(e, note) : openNoteMenu(e, note)
-              }
-              className={`group relative px-3 py-2.5 rounded-xl transition-colors ${
-                inTrash ? 'cursor-default' : 'cursor-pointer'
-              } ${
-                draggingNoteId === note.id ? 'opacity-40' : ''
-              } ${
-                isActive
-                  ? 'bg-brand-500/10 dark:bg-brand-500/15 text-slate-900 dark:text-white'
-                  : 'hover:bg-slate-100/80 dark:hover:bg-dark-hover/70 text-slate-700 dark:text-slate-300'
-              }`}
-            >
-              {isActive && (
-                <span className="absolute left-0 top-2 bottom-2 w-[3.5px] bg-brand-600 dark:bg-brand-400 rounded-r" />
-              )}
-
-              <div className="flex items-center justify-between gap-1.5 mb-1">
-                {/* 书签星标常驻在标题左侧，不占 hover 才出现的位 */}
-                {note.bookmarked && !inTrash && (
-                  <Star className="w-3 h-3 flex-shrink-0 text-amber-500 fill-amber-500" />
-                )}
-                {renamingNoteId === note.id ? (
-                  <input
-                    ref={renameInputRef}
-                    value={renameDraft}
-                    maxLength={80}
-                    placeholder="输入文档名称"
-                    onClick={(e) => e.stopPropagation()}
-                    onFocus={(e) => e.currentTarget.select()}
-                    onChange={(e) => setRenameDraft(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault()
-                        commitRenameNote()
-                      } else if (e.key === 'Escape') {
-                        e.preventDefault()
-                        setRenamingNoteId(null)
-                      }
-                    }}
-                    onBlur={commitRenameNote}
-                    className="flex-1 min-w-0 h-6 px-1.5 text-[13.5px] leading-none bg-white dark:bg-dark-sidebar border border-brand-500 rounded outline-none text-slate-900 dark:text-white"
-                  />
-                ) : (
-                  <h4
-                    onDoubleClick={(e) => {
-                      e.stopPropagation()
-                      if (!inTrash) startRenameNote(note.id, note.title)
-                    }}
-                    title={
-                      inTrash
-                        ? `${note.title || '未命名笔记'}（右键可还原）`
-                        : `${note.title || '未命名笔记'}（双击重命名）`
-                    }
-                    className={`flex-1 min-w-0 truncate text-[13.5px] leading-snug ${
-                      isActive
-                        ? 'font-bold text-slate-900 dark:text-white'
-                        : 'font-medium text-slate-800 dark:text-slate-200'
-                    }`}
-                  >
-                    {note.title || '未命名笔记'}
-                  </h4>
-                )}
-                <span className="text-[11px] text-slate-400 dark:text-slate-500 font-mono shrink-0 select-none">
-                  {formatNoteTime(inTrash ? note.deletedAt || note.updatedAt : note.updatedAt)}
-                </span>
-              </div>
-
-              <p className="text-xs text-slate-400 dark:text-slate-500 line-clamp-1 leading-snug">
-                {getNotePreviewSnippet(note.content)}
-              </p>
-
-              {/* 回收站里标出原属文件夹：还原后会回到那儿，用户需要知道。
-                  文件夹若已被删除，也要说清楚，而不是让标注整条消失 */}
-              {inTrash && note.folderId && (
-                <span className="mt-1 inline-flex items-center gap-1 text-[10px] text-slate-400 dark:text-slate-500">
-                  <FolderClosed className="w-2.5 h-2.5" />
-                  {folderNameOf(note.folderId)
-                    ? `原属 ${folderNameOf(note.folderId)}`
-                    : '原属文件夹已删除'}
-                </span>
-              )}
-            </div>
-          )
-        })}
-
-        {filteredNotes.length === 0 && (
-          <div className="h-40 flex flex-col items-center justify-center text-center px-4 text-xs text-slate-400">
-            {scope.type === 'trash' ? (
-              <Archive className="w-8 h-8 text-slate-300 dark:text-slate-600 mb-2 stroke-[1.5]" />
-            ) : scope.type === 'bookmarks' ? (
-              <Star className="w-8 h-8 text-slate-300 dark:text-slate-600 mb-2 stroke-[1.5]" />
-            ) : (
-              <FileText className="w-8 h-8 text-slate-300 dark:text-slate-600 mb-2 stroke-[1.5]" />
-            )}
-            {keyword ? (
-              <>
-                <p className="font-medium text-slate-500 dark:text-slate-400">无匹配文档</p>
-                <p className="text-[11px] text-slate-400 mt-0.5">尝试使用其他关键词搜索</p>
-              </>
-            ) : scope.type === 'trash' ? (
-              <>
-                <p className="font-medium text-slate-500 dark:text-slate-400">回收站是空的</p>
-                <p className="text-[11px] text-slate-400 mt-0.5">删除的文档会先到这里</p>
-              </>
-            ) : scope.type === 'bookmarks' ? (
-              <>
-                <p className="font-medium text-slate-500 dark:text-slate-400">还没有书签</p>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  右键文档「加入书签」，或按 ⌘⇧B
+                  {getNotePreviewSnippet(note.content)}
                 </p>
-              </>
-            ) : scope.type === 'folder' ? (
-              <>
-                <p className="font-medium text-slate-500 dark:text-slate-400">这个文件夹还是空的</p>
-                <p className="text-[11px] text-slate-400 mt-0.5">把文档拖到上方页签即可归类</p>
-              </>
-            ) : (
-              <>
-                <p className="font-medium text-slate-500 dark:text-slate-400">暂无知识库文档</p>
-                <p className="text-[11px] text-slate-400 mt-0.5">点击右上角「新建」开启记录</p>
-              </>
-            )}
+
+                {/* 底部信息条：时间 */}
+                <div className="flex items-center justify-between mt-2 pt-1 border-t border-transparent text-[10px] font-mono">
+                  <span className={isActive ? 'text-[#D4D4D0]' : 'text-[#787774]'}>
+                    {formatNoteTime(inTrash ? note.deletedAt || note.updatedAt : note.updatedAt)}
+                  </span>
+                  {note.bookmarked && !inTrash && (
+                    <Star
+                      className={`w-2.5 h-2.5 ${
+                        isActive ? 'text-[#D4D4D0] fill-[#D4D4D0]' : 'text-amber-500 fill-amber-500'
+                      }`}
+                    />
+                  )}
+                </div>
+              </div>
+            )
+          })}
+
+          {filteredNotes.length === 0 && (
+            <div className="h-48 flex flex-col items-center justify-center text-center px-4 text-xs text-[#787774]">
+              {scope.type === 'trash' ? (
+                <Archive className="w-8 h-8 text-[#D4D4D0] mb-2 stroke-[1.5]" />
+              ) : scope.type === 'bookmarks' ? (
+                <Star className="w-8 h-8 text-[#D4D4D0] mb-2 stroke-[1.5]" />
+              ) : (
+                <FileText className="w-8 h-8 text-[#D4D4D0] mb-2 stroke-[1.5]" />
+              )}
+              <p className="font-medium text-[#191918]">暂无相关文档</p>
+              <p className="text-[11px] text-[#787774] mt-0.5">
+                {keyword ? '尝试不同关键词' : '点击右上角「新增」开始编写'}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* 回收站清空按钮 */}
+        {scope.type === 'trash' && (
+          <div className="p-2.5 border-t border-[#E6E6E3] bg-[#F9F9F8]">
+            <button
+              type="button"
+              onClick={emptyTrash}
+              disabled={trashed.length === 0}
+              className="w-full py-1.5 px-3 rounded-lg text-xs font-medium text-rose-600 bg-rose-50 hover:bg-rose-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              清空回收站 ({trashed.length})
+            </button>
           </div>
         )}
-      </div>
-
-      {/*
-        回收站在回收站视图里才露出「清空」动作条。
-        入口本身已经移到顶部工具行（那颗垃圾桶图标），这里只留清空按钮，
-        不再放一行常驻条目 —— 底部原来是回收站 + 本机备份两行，压着列表高度。
-      */}
-      {scope.type === 'trash' && (
-        <div className="flex-shrink-0 border-t border-slate-100 dark:border-dark-border p-2">
-          <button
-            onClick={emptyTrash}
-            disabled={trashed.length === 0}
-            className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 hover:bg-rose-100 dark:hover:bg-rose-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            清空回收站
-          </button>
-        </div>
-      )}
-    </>
+      </section>
+    </div>
   )
 }

@@ -8,6 +8,18 @@ export default {
   theme: {
     extend: {
       colors: {
+        warm: {
+          sidebar: '#F3F3F1',
+          list: '#F9F9F8',
+          canvas: '#FFFFFF',
+          border: '#E6E6E3',
+          borderSubtle: '#EAEAE7',
+          tableHeader: '#FBFBFA',
+          text: '#191918',
+          muted: '#787774',
+          cardSub: '#D4D4D0',
+          charcoal: '#1C1C1C',
+        },
         /*
          * 主色 brand 色板：通过 CSS 变量动态驱动，支持 10 套主题随时换肤，
          * 并支持 Tailwind v3 的透明度修饰符（如 bg-brand-500/20）。

@@ -66,7 +66,7 @@ export default function MarkdownStatusBar({
   const saveClickable = saveStatus === 'unsaved' && Boolean(onSave)
 
   return (
-    <div className="relative z-40 flex h-7 flex-shrink-0 items-center justify-between gap-3 border-t border-slate-200/80 bg-gray-50 px-3 font-mono text-[11px] text-slate-400 dark:border-dark-border dark:bg-dark-hover/30 dark:text-slate-500">
+    <div className="relative z-40 flex h-9 flex-shrink-0 items-center justify-between gap-3 border-t border-[#E6E6E3] bg-[#FFFFFF] px-4 font-mono text-[11px] text-[#787774]">
       <div className="group relative flex min-w-0 items-center gap-2">
         {saveClickable ? (
           <button

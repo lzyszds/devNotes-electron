@@ -6,64 +6,34 @@ import { TranslateProvider } from './context/TranslateContext'
 import { ContextMenuProvider } from './components/ui/ContextMenu'
 import { ToastProvider } from './components/ui/Toast'
 import { requestOcr } from './utils/ocrBus'
-import {
-  getCachedTheme,
-  getOppositeTheme,
-  isDarkTheme,
-  saveTheme,
-  type ThemeId,
-} from './utils/theme'
 
 export type ViewMode = 'dashboard' | 'stats'
 
 function App() {
   const [viewMode, setViewMode] = useState<ViewMode>('dashboard')
   const [activeTabId, setActiveTabId] = useState<string>('markdown-notes')
-  const [theme, setTheme] = useState<ThemeId>(() => getCachedTheme())
 
   const [usageStats, setUsageStats] = useState<Record<string, number>>(() => {
     const saved = localStorage.getItem('fehelper-usage-stats')
     return saved ? JSON.parse(saved) : {}
   })
 
-  // 同步主题到 documentElement：
-  // 换肤瞬间添加 disable-transitions 锁，确保所有 DOM 节点在同一物理帧完成颜色切换，杜绝目录延迟
+  // 固化全局唯一的 Notion 极简暖灰阶工作台，彻底移除 dark 与多主题切换
   useEffect(() => {
     const root = document.documentElement
-    root.classList.add('disable-transitions')
-    root.setAttribute('data-theme', theme)
-    if (isDarkTheme(theme)) {
-      root.classList.add('dark')
-    } else {
-      root.classList.remove('dark')
+    root.classList.remove('dark')
+    root.setAttribute('data-theme', 'notion-warm')
+    try {
+      localStorage.removeItem('fehelper-theme')
+    } catch {
+      // ignore
     }
-    saveTheme(theme)
-
-    const raf = requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        root.classList.remove('disable-transitions')
-      })
-    })
-    return () => cancelAnimationFrame(raf)
-  }, [theme])
-
-  // ⌘D：在同色系的对偶主题之间来回切（浅色 ↔ 深色）
-  const toggleTheme = () => {
-    setTheme((prev) => getOppositeTheme(prev))
-  }
-
-  const selectTheme = (next: ThemeId) => setTheme(next)
+  }, [])
 
   useEffect(() => {
     localStorage.setItem('fehelper-usage-stats', JSON.stringify(usageStats))
   }, [usageStats])
 
-  /**
-   * 主进程要求切工具页 —— 全局快捷键唤起窗口后会发这个请求。
-   *
-   * 依赖里带 openTool 会让每次渲染都重建订阅，所以这里用 ref 转一道：
-   * 订阅只建一次，回调里读最新的 openTool。移动端没有这个接口，跳过即可。
-   */
   const openToolRef = useRef<(toolId: string) => void>(() => {})
   useEffect(() => {
     const api = window.electronAPI
@@ -71,12 +41,6 @@ function App() {
     return api.onToolOpenRequest((toolId) => openToolRef.current(toolId))
   }, [])
 
-  /**
-   * 截图框选完成 → 切到翻译页并把图片广播出去。
-   *
-   * 先切页再广播：翻译页得先挂载、订阅上总线，才收得到这个请求。
-   * 用 setTimeout 让出一帧给挂载，比在翻译页里缓冲未读消息简单。
-   */
   useEffect(() => {
     const api = window.electronAPI
     if (!api?.onCaptureOcrRequest) return
@@ -87,7 +51,6 @@ function App() {
   }, [])
 
   const openTool = (toolId: string) => {
-    // 增加使用计数
     setUsageStats((prev) => ({
       ...prev,
       [toolId]: (prev[toolId] || 0) + 1,
@@ -97,13 +60,11 @@ function App() {
     setViewMode('dashboard')
   }
 
-  // 让订阅回调始终拿到最新的 openTool（它每次渲染都是新函数）
   openToolRef.current = openTool
 
   const navigateToDashboard = () => setViewMode('dashboard')
   const navigateToStats = () => setViewMode('stats')
 
-  // 外部打开 md 文件导入成功后,切回 Markdown 笔记页并选中
   const navigateToNotes = () => {
     setActiveTabId('markdown-notes')
     setViewMode('dashboard')
@@ -113,8 +74,6 @@ function App() {
     <ToastProvider>
       <ContextMenuProvider>
         <NotesProvider onFileOpenNavigate={navigateToNotes}>
-          {/* 文本翻译是独立模块：语言偏好、输入输出、历史放在自己的 Provider 里，
-              翻译页与它的专属二级侧边栏共用同一份状态 */}
           <TranslateProvider>
             {viewMode === 'stats' && (
               <Stats usageStats={usageStats} onBack={navigateToDashboard} />
@@ -125,9 +84,6 @@ function App() {
                 activeTabId={activeTabId || 'markdown-notes'}
                 onOpenTool={openTool}
                 onOpenStats={navigateToStats}
-                theme={theme}
-                onToggleTheme={toggleTheme}
-                onSelectTheme={selectTheme}
               />
             )}
           </TranslateProvider>
