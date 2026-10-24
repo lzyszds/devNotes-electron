@@ -4,6 +4,7 @@ import type { HttpResult, PingEvent, TcpResult } from './netProbe'
 import type { LocalInterface, PublicIpResult } from './netInfo'
 import type { HashProgress, HashResult } from './hashFile'
 import type { UpdateStatus } from './updater'
+import type { SystemHardwareInfo, AppProcessMemory } from './systemInfo'
 
 // Expose API to renderer process
 contextBridge.exposeInMainWorld('electronAPI', {
@@ -66,6 +67,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   portsCommon: (): Promise<number[]> => ipcRenderer.invoke('ports-common'),
   portsInspect: (ports: number[]) => ipcRenderer.invoke('ports-inspect', ports),
   portsKill: (pid: number) => ipcRenderer.invoke('ports-kill', pid),
+
+  /* 电脑硬件配置与实时进程内存检测 */
+  systemInfo: (): Promise<SystemHardwareInfo> => ipcRenderer.invoke('system-info'),
+  systemProcessList: (): Promise<AppProcessMemory[]> => ipcRenderer.invoke('system-process-list'),
+  systemKillProcess: (pid: number): Promise<{ ok: boolean; pid: number; error?: string }> =>
+    ipcRenderer.invoke('system-kill-process', pid),
   
   // Notifications
   showNotification: (title: string, body: string, options?: { focusMainWindow?: boolean }) =>
@@ -375,6 +382,11 @@ declare global {
       portsCommon: () => Promise<number[]>
       portsInspect: (ports: number[]) => Promise<PortInspectResult[]>
       portsKill: (pid: number) => Promise<{ ok: boolean; pid: number; error?: string }>
+
+      /** 电脑硬件配置与实时进程内存检测 */
+      systemInfo: () => Promise<SystemHardwareInfo>
+      systemProcessList: () => Promise<AppProcessMemory[]>
+      systemKillProcess: (pid: number) => Promise<{ ok: boolean; pid: number; error?: string }>
     }
   }
 }

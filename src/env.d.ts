@@ -219,6 +219,11 @@ interface Window {
     portsCommon?: () => Promise<number[]>
     portsInspect?: (ports: number[]) => Promise<PortInspectResult[]>
     portsKill?: (pid: number) => Promise<{ ok: boolean; pid: number; error?: string }>
+
+    /* 电脑配置与内存检测 */
+    systemInfo?: () => Promise<import('./types/system').SystemHardwareInfo>
+    systemProcessList?: () => Promise<import('./types/system').AppProcessMemory[]>
+    systemKillProcess?: (pid: number) => Promise<{ ok: boolean; pid: number; error?: string }>
   }
 }
 

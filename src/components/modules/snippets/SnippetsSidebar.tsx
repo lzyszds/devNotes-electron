@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { FolderTree, Plus, Search, Star, Tags, X } from 'lucide-react'
+import { Plus, Search, Star, Tags, X } from 'lucide-react'
 import { ToolEmpty } from '../../ui'
 import { useSnippets, filterSnippets, type Snippet } from './useSnippets'
 import SnippetListContextMenu from './SnippetListContextMenu'
@@ -14,17 +14,14 @@ interface SnippetsSidebarProps {
 export default function SnippetsSidebar({
   onAfterSelect,
   isFolderTreeOpen: externalFolderTreeOpen,
-  onToggleFolderTree: externalToggleFolderTree,
 }: SnippetsSidebarProps) {
   const { snippets, loaded, allTags } = useSnippets()
   const [keyword, setKeyword] = useState('')
   const [activeTag, setActiveTag] = useState('全部')
 
-  const [internalTreeOpen, setInternalTreeOpen] = useState(false)
+  const [internalTreeOpen] = useState(false)
   const isFolderTreeOpen =
     externalFolderTreeOpen !== undefined ? externalFolderTreeOpen : internalTreeOpen
-  const toggleFolderTree =
-    externalToggleFolderTree || (() => setInternalTreeOpen((prev) => !prev))
 
   const filtered = useMemo(
     () => filterSnippets(snippets, keyword, activeTag),
@@ -36,9 +33,8 @@ export default function SnippetsSidebar({
       {/* ================= 第 2 栏：标签分类栏 (w-52 = 208px，按需展开) ================= */}
       <aside
         style={{ width: isFolderTreeOpen ? 208 : 0 }}
-        className={`bg-[#F3F3F1] border-r border-[#E6E6E3] flex flex-col h-full flex-shrink-0 transition-[width] duration-200 overflow-hidden ${
-          isFolderTreeOpen ? 'opacity-100' : 'w-0 opacity-0 border-r-0'
-        }`}
+        className={`bg-[#F3F3F1] border-r border-[#E6E6E3] flex flex-col h-full flex-shrink-0 transition-[width] duration-200 overflow-hidden ${isFolderTreeOpen ? 'opacity-100' : 'w-0 opacity-0 border-r-0'
+          }`}
       >
         <div className="h-12 px-3 border-b border-[#E6E6E3] flex items-center justify-between flex-shrink-0">
           <span className="font-bold text-sm text-[#191918] tracking-tight">代码片段</span>
@@ -75,17 +71,15 @@ export default function SnippetsSidebar({
                 key={tag}
                 type="button"
                 onClick={() => setActiveTag(tag)}
-                className={`w-full flex items-center justify-between px-2.5 py-1.5 transition-all text-xs font-medium cursor-pointer ${
-                  isSelected
-                    ? 'bg-[#EAEAE7] text-[#191918] font-bold rounded-lg shadow-2xs'
-                    : 'text-[#787774] hover:text-[#191918] hover:bg-[#EAEAE7]/60 rounded-lg'
-                }`}
+                className={`w-full flex items-center justify-between px-2.5 py-1.5 transition-all text-xs font-medium cursor-pointer ${isSelected
+                  ? 'bg-[#EAEAE7] text-[#191918] font-bold rounded-lg shadow-2xs'
+                  : 'text-[#787774] hover:text-[#191918] hover:bg-[#EAEAE7]/60 rounded-lg'
+                  }`}
               >
                 <div className="flex items-center gap-2 min-w-0">
                   <span
-                    className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center flex-shrink-0 ${
-                      isSelected ? 'bg-[#1C1C1C] text-white' : 'bg-[#EAEAE7] text-[#191918]'
-                    }`}
+                    className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center flex-shrink-0 ${isSelected ? 'bg-[#1C1C1C] text-white' : 'bg-[#EAEAE7] text-[#191918]'
+                      }`}
                   >
                     {initialBadge}
                   </span>
@@ -102,20 +96,7 @@ export default function SnippetsSidebar({
 
       {/* ================= 第 3 栏：片段记录列表栏 (w-72 = 288px) ================= */}
       <section className="w-72 bg-[#F9F9F8] border-r border-black/[0.06] flex flex-col h-full flex-shrink-0">
-        <div className="h-11 px-2.5 border-b border-black/[0.06] flex items-center gap-1.5 flex-shrink-0">
-          <button
-            type="button"
-            onClick={toggleFolderTree}
-            className={`w-7 h-7 rounded-md flex items-center justify-center transition-colors cursor-pointer shrink-0 ${
-              isFolderTreeOpen
-                ? 'bg-[#EAEAE7] text-[#191918]'
-                : 'text-[#787774] hover:text-[#191918] hover:bg-[#EAEAE7]/60'
-            }`}
-            title={isFolderTreeOpen ? '收起标签分类' : '展开标签分类'}
-          >
-            <FolderTree className="w-3.5 h-3.5" />
-          </button>
-
+        <div className="h-11 px-2.5 flex items-center gap-1.5 flex-shrink-0">
           <div className="relative flex-1 flex items-center">
             <Search className="w-3 h-3 text-[#9A9996] absolute left-2 pointer-events-none" />
             <input
@@ -204,17 +185,15 @@ function SnippetListRow({
           window.dispatchEvent(new CustomEvent('snippets:select', { detail: item.id }))
           onAfterSelect?.()
         }}
-        className={`group relative px-2.5 py-2 rounded-lg transition-all cursor-pointer ${
-          isActive
-            ? 'bg-white shadow-[0_1px_3px_rgba(0,0,0,0.05),0_1px_1px_rgba(0,0,0,0.02)] ring-1 ring-black/[0.08]'
-            : 'bg-transparent hover:bg-black/[0.035] text-[#191918]'
-        }`}
+        className={`group relative px-2.5 py-2 rounded-lg transition-all cursor-pointer ${isActive
+          ? 'bg-white shadow-[0_1px_3px_rgba(0,0,0,0.05),0_1px_1px_rgba(0,0,0,0.02)] ring-1 ring-black/[0.08]'
+          : 'bg-transparent hover:bg-black/[0.035] text-[#191918]'
+          }`}
       >
         <div className="flex items-center justify-between gap-1.5 min-w-0">
           <span
-            className={`text-xs truncate flex-1 min-w-0 ${
-              isActive ? 'font-semibold text-[#191918]' : 'font-normal text-[#191918]'
-            }`}
+            className={`text-xs truncate flex-1 min-w-0 ${isActive ? 'font-semibold text-[#191918]' : 'font-normal text-[#191918]'
+              }`}
           >
             {item.title || '未命名片段'}
           </span>

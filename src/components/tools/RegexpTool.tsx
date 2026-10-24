@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { handleTextareaKeyDown } from '../../utils/textareaIndent'
 import { ArrowRight, Binary, Code2, Filter, History, ListTree, Search, Trash2, TriangleAlert } from 'lucide-react'
 import { useToolHistory } from '../../hooks/useToolHistory'
 import { useHistoryContextMenu } from '../../hooks/useHistoryContextMenu'
@@ -400,6 +401,7 @@ export default function RegexpTool() {
               <textarea
                 value={testText}
                 onChange={(e) => setTestText(e.target.value)}
+                onKeyDown={(e) => handleTextareaKeyDown(e, setTestText)}
                 placeholder="在此输入需要进行正则匹配测试的长文本…"
                 className={BODY_TEXTAREA}
               />

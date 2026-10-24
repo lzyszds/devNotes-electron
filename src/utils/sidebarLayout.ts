@@ -115,7 +115,7 @@ export async function saveRailToolIds(ids: string[]): Promise<string[]> {
   } catch {
     // 隐私模式等写不进去，不影响本次会话
   }
-  await window.electronAPI?.storeSet(RAIL_TOOLS_STORAGE_KEY, next).catch(() => {})
+  await window.electronAPI?.storeSet(RAIL_TOOLS_STORAGE_KEY, next).catch(() => { })
   listeners.forEach((listener) => listener(next))
   return next
 }

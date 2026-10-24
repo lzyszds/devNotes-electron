@@ -66,7 +66,7 @@ export default function MarkdownStatusBar({
   const saveClickable = saveStatus === 'unsaved' && Boolean(onSave)
 
   return (
-    <div className="relative z-40 flex h-9 flex-shrink-0 items-center justify-between gap-3 border-t border-[#E6E6E3] bg-[#FFFFFF] px-4 font-mono text-[11px] text-[#787774]">
+    <div className="relative z-40 flex h-9 flex-shrink-0 items-center justify-between gap-3 bg-[#FFFFFF] px-4 font-mono text-[11px] text-[#787774]">
       <div className="group relative flex min-w-0 items-center gap-2">
         {saveClickable ? (
           <button
@@ -131,11 +131,10 @@ export default function MarkdownStatusBar({
                   ? '原标题已被修改或删除，无法定位'
                   : `回到「${bookmark.heading}」${bookmark.note ? `：${bookmark.note}` : ''}`
               }
-              className={`flex max-w-[16rem] items-center gap-1 rounded px-1 py-0.5 transition-colors ${
-                bookmarkStale
-                  ? 'cursor-default text-slate-400 dark:text-slate-500'
-                  : 'text-brand-600 hover:bg-brand-500/10 dark:text-brand-400 dark:hover:bg-brand-500/15'
-              }`}
+              className={`flex max-w-[16rem] items-center gap-1 rounded px-1 py-0.5 transition-colors ${bookmarkStale
+                ? 'cursor-default text-slate-400 dark:text-slate-500'
+                : 'text-brand-600 hover:bg-brand-500/10 dark:text-brand-400 dark:hover:bg-brand-500/15'
+                }`}
             >
               <Bookmark className={`h-3 w-3 flex-shrink-0 ${bookmarkStale ? '' : 'fill-current'}`} />
               <span className="truncate">

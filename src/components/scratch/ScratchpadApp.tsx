@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { handleTextareaKeyDown } from '../../utils/textareaIndent'
 import { Check, Copy, Eraser, Minus, Pin, PinOff, X } from 'lucide-react'
 import Tooltip from '../ui/Tooltip'
 import { copyText } from '../../utils/clipboard'
@@ -222,6 +223,7 @@ export default function ScratchpadApp() {
             ref={textareaRef}
             value={text}
             onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => handleTextareaKeyDown(e, setText)}
             spellCheck={false}
             placeholder={EMPTY_HINT}
             className="w-full h-full resize-none outline-none bg-transparent px-4 py-3 font-mono text-[13px] leading-6 text-slate-800 dark:text-slate-100 placeholder:text-slate-300 dark:placeholder:text-slate-600"

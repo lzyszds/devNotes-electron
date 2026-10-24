@@ -544,7 +544,14 @@ async function readFromElectron(): Promise<NotesState | null> {
   }
 }
 
-function readFromLocalStorage(): NotesState | null {
+/**
+ * 同步读 localStorage 的那份笔记数据，不需要 IPC。
+ *
+ * 供 NotesContext 启动时「快速预热」用：先同步拿到上一次的数据立即渲染，
+ * 让用户看到笔记列表，再异步等 electron-store 返回后做差量校正。
+ * 这样页面不再「白着」等 IPC 一个来回。
+ */
+export function readNotesStateFromLocalStorage(): NotesState | null {
   try {
     const raw = localStorage.getItem(LEGACY_LOCAL_KEY)
     if (!raw) return null
@@ -581,30 +588,28 @@ function stateFreshness(state: NotesState): number {
 
 export async function loadNotesState(): Promise<NotesState> {
   const fromElectron = await readFromElectron()
-  const fromLocal = readFromLocalStorage()
+  const fromLocal = readNotesStateFromLocalStorage()
 
   // 两份都有时挑新的：localStorage 是同步写的，异步 store 被打断时它反而更新。
-  // 老数据两边都没有 savedAt、新旧也无从判断时信 electron-store（历史行为），
-  // 读完之后落一次盘把 savedAt 盖上，下次就有明确依据了
+  // 读到新数据后如果需要纠正另一份，在后台异步落盘，不要 await 阻塞启动流程
   if (fromElectron && fromLocal) {
     if (stateFreshness(fromLocal) > stateFreshness(fromElectron)) {
-      await saveNotesState(fromLocal)
+      void saveNotesState(fromLocal)
       return fromLocal
     }
-    await saveNotesState(fromElectron)
     return fromElectron
   }
 
   if (fromElectron) return fromElectron
 
   if (fromLocal) {
-    await saveNotesState(fromLocal)
+    void saveNotesState(fromLocal)
     return fromLocal
   }
 
   const note = createEmptyNote()
   const initial = { notes: [note], folders: [], activeId: note.id }
-  await saveNotesState(initial)
+  void saveNotesState(initial)
   return initial
 }
 

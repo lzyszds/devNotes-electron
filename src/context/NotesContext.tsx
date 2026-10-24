@@ -12,6 +12,7 @@ import {
   createFolder,
   deriveTitleFromMarkdown,
   loadNotesState,
+  readNotesStateFromLocalStorage,
   saveNotesState,
   saveNotesStateSync,
   type NotesSaveResult,
@@ -153,11 +154,14 @@ interface NotesProviderProps {
 }
 
 export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderProps) {
-  const [ready, setReady] = useState(false)
-  const [notes, setNotes] = useState<NoteItem[]>([])
+  // 首屏快速预热：先同步读出 localStorage 缓存，让 UI 在第 0 帧就能渲染列表和菜单栏
+  const [cachedState] = useState<NotesState | null>(() => readNotesStateFromLocalStorage())
+
+  const [ready, setReady] = useState(() => cachedState !== null)
+  const [notes, setNotes] = useState<NoteItem[]>(() => cachedState?.notes ?? [])
   // 含墓碑的完整列表（合并与持久化需要它），对外暴露的是过滤后的 folders
-  const [allFolders, setAllFolders] = useState<FolderItem[]>([])
-  const [activeId, setActiveId] = useState<string | null>(null)
+  const [allFolders, setAllFolders] = useState<FolderItem[]>(() => cachedState?.folders ?? [])
+  const [activeId, setActiveId] = useState<string | null>(() => cachedState?.activeId ?? null)
   const [keyword, setKeyword] = useState('')
   const [scope, setScope] = useState<NoteScope>({ type: 'all' })
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved')
@@ -188,7 +192,7 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
 
   const saveTimerRef = useRef<number | null>(null)
   const cfAutoSyncTimerRef = useRef<number | null>(null)
-  const stateRef = useRef<NotesState>({ notes: [], folders: [], activeId: null })
+  const stateRef = useRef<NotesState>(cachedState || { notes: [], folders: [], activeId: null })
   const insertHandlerRef = useRef<((prefix: string, suffix?: string) => void) | null>(null)
   const onFileOpenNavigateRef = useRef<(() => void) | undefined>(undefined)
   const importExternalFileRef = useRef<(file: OpenFilePayload) => void>(() => {})
@@ -273,28 +277,42 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      const state = await loadNotesState()
+      /*
+       * 4 个读盘操作完全独立，改成并行：
+       * 之前串行等待约 200–500ms（每次 electron-store IPC 一个来回），
+       * 并行后总时长降为最慢那次的单次耗时。
+       */
+      const [state, saveSettings, storedSnapshots, cfg] = await Promise.all([
+        loadNotesState(),
+        loadNotesSaveSettings(),
+        loadBackupSnapshots(),
+        loadCloudflareConfig(),
+      ])
       if (cancelled) return
-      setNotes(state.notes)
-      setAllFolders(state.folders)
-      setActiveId(state.activeId)
-      stateRef.current = state
+
+      // 笔记数据：若与预热数据有差量再做更新，避免无意义的二次整树重渲染
+      const current = stateRef.current
+      if (
+        !current.notes.length ||
+        state.notes.length !== current.notes.length ||
+        state.activeId !== current.activeId ||
+        state.folders.length !== current.folders.length
+      ) {
+        setNotes(state.notes)
+        setAllFolders(state.folders)
+        setActiveId(state.activeId)
+        stateRef.current = state
+      }
       setReady(true)
 
-      // 保存策略（是否自动保存、间隔多久）—— 与笔记数据分开存，互不影响
-      const saveSettings = await loadNotesSaveSettings()
-      if (cancelled) return
+      // 保存策略
       notesSaveRef.current = saveSettings
       setNotesSave(saveSettings)
 
-      // 载入历史快照
-      const storedSnapshots = await loadBackupSnapshots()
-      if (cancelled) return
+      // 历史快照
       setSnapshots(storedSnapshots)
 
-      // 载入 Cloudflare 同步配置
-      const cfg = await loadCloudflareConfig()
-      if (cancelled) return
+      // Cloudflare 同步配置
       setCfConfig(cfg)
 
       // 启动时自动同步拉取
@@ -783,9 +801,29 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
   const handleSelect = useCallback(
     (id: string) => {
       if (id === activeId) return
-      updateState((prev) => ({ ...prev, activeId: id }), true)
+
+      /*
+       * 切笔记不同步写整份 state —— 之前 immediate=true 意味着每次点笔记
+       * 都要序列化全量 notes 并走 electron-store IPC，笔记量大时延迟明显。
+       *
+       * 新方案：
+       *   1. 若有未落盘的编辑内容，先发起一次写盘（异步，不等它完成）
+       *   2. 只在内存里更新 activeId，UI 立刻响应
+       *   3. 同步写一份轻量 localStorage 备份（只有 id 字符串，不序列化笔记内容），
+       *      供应用崩溃时下次启动恢复上一次打开的文档
+       */
+      if (pendingSaveRef.current) {
+        void writeState(stateRef.current)
+      }
+      stateRef.current = { ...stateRef.current, activeId: id }
+      setActiveId(id)
+      try {
+        localStorage.setItem('devnotes-active-id', id)
+      } catch {
+        // ignore
+      }
     },
-    [activeId, updateState]
+    [activeId, writeState]
   )
 
   /**

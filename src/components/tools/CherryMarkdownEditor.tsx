@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useId, useMemo, useRef } from 'react'
-import type { MouseEvent as ReactMouseEvent } from 'react'
-import type { ReactNode } from 'react'
-import { Download, ListTree, Maximize2, Presentation, Search } from 'lucide-react'
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef } from 'react'
+import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react'
+import { ArrowUpToLine, Download, ListTree, Maximize2, Presentation, Search } from 'lucide-react'
 import Cherry from 'cherry-markdown'
 import 'cherry-markdown/dist/cherry-markdown.css'
 import Tooltip from '../ui/Tooltip'
@@ -232,6 +231,21 @@ export default function CherryMarkdownEditor({
           placeholder: '输入文本或「/」开始编辑',
         },
       },
+      previewer: {
+        enablePreviewerBubble: false,
+        lazyLoadImg: {
+          // 全部图片纳入懒加载管控
+          noLoadImgNum: 0,
+          // 初始只预加载视口内前 2 张图片，绝不一次性全部加载
+          autoLoadImgNum: 2,
+          // 并发加载控制在 2 张以内，防止堵塞网络和主线程
+          maxNumPerTime: 2,
+          beforeLoadOneImgCallback: (img: HTMLImageElement) => {
+            img.loading = 'lazy'
+            img.decoding = 'async'
+          },
+        },
+      },
       engine: {
         syntax: {
           panel: {
@@ -443,11 +457,10 @@ export default function CherryMarkdownEditor({
       frame = requestAnimationFrame(measure)
     }
 
-    measure()
-    const timer = window.setTimeout(measure, 0)
+    // 不在切笔记的同一次同步宏任务中立即测量，避免 getBoundingClientRect 触发 Forced Synchronous Layout
+    frame = requestAnimationFrame(measure)
     root.addEventListener('scroll', onScroll, true)
     return () => {
-      window.clearTimeout(timer)
       root.removeEventListener('scroll', onScroll, true)
       if (frame) cancelAnimationFrame(frame)
     }
@@ -526,29 +539,66 @@ export default function CherryMarkdownEditor({
    * 那条路，永远不触发整篇替换。
    */
   const lastRevisionRef = useRef(contentRevision)
+  const currentNoteIdRef = useRef(noteId)
   // 构造 effect 只在挂载时跑一次，闭包里拿得到的是首渲染的 revision ——
   // 补同步要用「此刻最新」的那个，所以另存一份
   const contentRevisionRef = useRef(contentRevision)
   contentRevisionRef.current = contentRevision
-  useEffect(() => {
+
+  /*
+   * 切换笔记或外部正文回流：
+   * 1. 切换笔记（noteId 变了）：复用已挂载的 Cherry 实例，原地 setMarkdown 切换正文，
+   *    避免销毁并重建整个 CodeMirror + 插件体系。
+   *    必须在 useLayoutEffect（Paint 前）执行，确保新正文与高亮在同一渲染帧内同步呈现，
+   *    杜绝「先点中卡片、过了一帧甚至几十毫秒正文才跳变」的视觉延迟。
+   * 2. 同一笔记下外部正文推进（contentRevision 变了）：整篇替换。
+   */
+  useLayoutEffect(() => {
     const cherry = cherryRef.current
     if (!cherry) return
-    if (contentRevision === lastRevisionRef.current) return
+
+    const isNoteSwitched = noteId && currentNoteIdRef.current !== noteId
+    const isRevisionChanged = contentRevision !== lastRevisionRef.current
+
+    if (!isNoteSwitched && !isRevisionChanged) return
+
+    currentNoteIdRef.current = noteId
     lastRevisionRef.current = contentRevision
-    // 外部换进来的正文与编辑器里现有的一致时不必重写
-    if (value === lastEmittedRef.current) return
+
+    // 外部换进来的正文与编辑器里现有的一致且非切笔记时不必重写
+    if (!isNoteSwitched && value === lastEmittedRef.current) return
 
     suppressChangeRef.current = true
     lastEmittedRef.current = value
+    latestValueRef.current = value
+
     try {
       cherry.setMarkdown(value, false)
+      if (isNoteSwitched) {
+        // 切笔记后复位光标与滚动到文档顶部
+        try {
+          const view = (cherry as any)?.editor?.editor
+          view?.dispatch?.({ selection: { anchor: 0, head: 0 } })
+          const previewer = cherry.previewer?.getDomContainer?.()
+          if (previewer) {
+            previewer.scrollTop = 0
+            // 确保切进包含多图的笔记时，所有图片都异步解码并且视口外懒加载
+            previewer.querySelectorAll('img').forEach((img: HTMLImageElement) => {
+              img.loading = 'lazy'
+              img.decoding = 'async'
+            })
+          }
+        } catch {
+          // ignore
+        }
+      }
     } finally {
       // 给渲染一帧时间，避免把程序写入当作用户编辑
       requestAnimationFrame(() => {
         suppressChangeRef.current = false
       })
     }
-  }, [contentRevision, value])
+  }, [noteId, contentRevision, value])
 
   /**
    * 工具栏命令派发。
@@ -623,6 +673,27 @@ export default function CherryMarkdownEditor({
         {/* 右侧悬浮操作胶囊 */}
         <div className="absolute inset-y-0 right-4 z-20 flex flex-col items-end justify-center py-3 select-none pointer-events-none">
           <div className="w-[32px] flex flex-col items-center gap-1 p-1 rounded-xl border border-black/[0.08] bg-white/95 shadow-[0_2px_8px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] backdrop-blur-md pointer-events-auto">
+            {/* 返回顶部 */}
+            {backToTop && (
+              <>
+                <Tooltip content="返回顶部" placement="right">
+                  <button
+                    type="button"
+                    aria-label="返回顶部"
+                    onClick={backToTop.onClick}
+                    className={`flex h-6 w-6 items-center justify-center rounded-lg transition-colors cursor-pointer ${
+                      backToTop.visible
+                        ? 'text-[#191918] hover:bg-black/[0.08]'
+                        : 'text-[#787774]/50 hover:bg-black/[0.05] hover:text-[#191918]'
+                    }`}
+                  >
+                    <ArrowUpToLine className="h-3.5 w-3.5" />
+                  </button>
+                </Tooltip>
+                <span className="w-4 h-px bg-black/[0.06] my-0.5" />
+              </>
+            )}
+
             {/* 大纲 */}
             <Tooltip content="目录大纲" placement="right">
               <button

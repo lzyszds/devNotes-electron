@@ -62,7 +62,7 @@ export default function DataConvertTool() {
       subtitle="JSON、YAML、TOML、CSV、.env、URL Query 之间互相转换"
       badge={<ToolBadge tone={result.error ? 'amber' : 'emerald'}>{result.error ? '解析失败' : '已转换'}</ToolBadge>}
     >
-      <div className="flex flex-col gap-3.5">
+      <div className="flex flex-col gap-3.5 h-full">
         {/* 格式选择 */}
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200/70 bg-white px-3.5 py-2.5 dark:border-dark-border dark:bg-dark-panel">
           <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">从</span>
@@ -96,7 +96,7 @@ export default function DataConvertTool() {
           {from.toUpperCase()}：{HINTS[from]} · {to.toUpperCase()}：{HINTS[to]}
         </p>
 
-        <div className="tool-cascade grid grid-cols-1 gap-3.5 xl:grid-cols-2">
+        <div className="tool-cascade grid grid-cols-1 h-full gap-3.5 xl:grid-cols-2">
           <ToolCard>
             <ToolCardHeader title="输入" meta={input ? `${input.length} 字符` : undefined} />
             <CodeEditor value={input} onChange={setInput} placeholder={`在这里粘贴 ${from.toUpperCase()} 内容…`} />

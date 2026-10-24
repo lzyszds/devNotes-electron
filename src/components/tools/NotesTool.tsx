@@ -477,7 +477,6 @@ export default function NotesTool() {
       >
         {mode === "cherry" ? (
           <CherryMarkdownEditor
-            key={activeNote.id}
             value={activeNote.content}
             contentRevision={contentRevision}
             onChange={handleContentChange}

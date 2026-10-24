@@ -11,7 +11,7 @@ type IconComponent = ComponentType<{ size?: number | string; className?: string 
 
 /** 卡片容器：纯白底 + 1px #E6E6E3 细边框 + 极简微投影 */
 export const CARD =
-  'bg-white rounded-xl border border-[#E6E6E3] shadow-xs flex flex-col min-h-0'
+  'bg-white rounded-xl border border-[#E6E6E3] shadow-xs flex flex-col'
 
 /** 卡片标题条：浅米灰工作条，左侧粗体标题 + 标签，右侧操作 */
 const CARD_HEAD =
@@ -119,11 +119,10 @@ export function Segmented<T extends string>({
             key={option.value}
             type="button"
             onClick={() => onChange(option.value)}
-            className={`inline-flex items-center gap-1.5 h-6 px-2.5 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
-              active
-                ? 'bg-[#1C1C1C] text-white shadow-2xs'
-                : 'text-[#787774] hover:text-[#191918]'
-            }`}
+            className={`inline-flex items-center gap-1.5 h-6 px-2.5 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${active
+              ? 'bg-[#1C1C1C] text-white shadow-2xs'
+              : 'text-[#787774] hover:text-[#191918]'
+              }`}
           >
             {Icon && <Icon size={12} />}
             {option.label}
@@ -137,11 +136,10 @@ export function Segmented<T extends string>({
 /* ---------------- 语言/筛选用胶囊 ---------------- */
 
 export function pillClass(active: boolean, extra = '') {
-  return `inline-flex items-center gap-1 h-7 px-2.5 rounded-lg text-[11px] transition-colors shrink-0 cursor-pointer ${
-    active
-      ? 'font-semibold bg-[#1C1C1C] text-white shadow-2xs'
-      : 'font-medium text-[#787774] hover:bg-[#F3F3F1] hover:text-[#191918]'
-  } ${extra}`
+  return `inline-flex items-center gap-1 h-7 px-2.5 rounded-lg text-[11px] transition-colors shrink-0 cursor-pointer ${active
+    ? 'font-semibold bg-[#1C1C1C] text-white shadow-2xs'
+    : 'font-medium text-[#787774] hover:bg-[#F3F3F1] hover:text-[#191918]'
+    } ${extra}`
 }
 
 /* ---------------- 小标签 ---------------- */

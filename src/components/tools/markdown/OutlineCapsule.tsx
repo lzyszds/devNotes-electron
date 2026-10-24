@@ -531,6 +531,24 @@ export default function OutlineCapsule({
 
       {/* ---------------------------------------------------------------- 迷你悬浮功能操作胶囊 */}
       <div className="w-[32px] flex flex-col items-center gap-1 p-1 rounded-xl border border-black/[0.08] bg-white/95 shadow-[0_2px_8px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] backdrop-blur-md select-none">
+        {/* 返回顶部 */}
+        <Tooltip content="返回顶部" placement="right">
+          <button
+            type="button"
+            aria-label="返回顶部"
+            onClick={onScrollTop}
+            className={`flex h-6 w-6 items-center justify-center rounded-lg transition-colors cursor-pointer ${
+              readPercent > 0
+                ? "text-[#191918] hover:bg-black/[0.08]"
+                : "text-[#787774]/50 hover:bg-black/[0.05] hover:text-[#191918]"
+            }`}
+          >
+            <ArrowUpToLine className="h-3.5 w-3.5" />
+          </button>
+        </Tooltip>
+
+        <span className="w-4 h-px bg-black/[0.06] my-0.5" />
+
         {/* 大纲开关：当前笔记有目录时才显示 */}
         {hasOutline && (
           <>

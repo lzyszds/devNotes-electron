@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import type { DragEvent as ReactDragEvent, MouseEvent as ReactMouseEvent } from 'react'
 import {
   Archive,
@@ -10,7 +10,6 @@ import {
   FileText,
   FolderClosed,
   FolderOpen,
-  FolderTree,
   Inbox,
   Pencil,
   Plus,
@@ -64,6 +63,127 @@ function getNotePreviewSnippet(content: string): string {
   return clean.slice(0, 50) || '暂无内容'
 }
 
+/** 摘要全局缓存，避免每次切换笔记时对所有几十篇笔记全文重复执行密集正则 */
+const snippetCache = new Map<string, string>()
+function getCachedNoteSnippet(id: string, content: string, updatedAt?: number): string {
+  const key = `${id}:${updatedAt || 0}`
+  const cached = snippetCache.get(key)
+  if (cached !== undefined) return cached
+  const res = getNotePreviewSnippet(content)
+  if (snippetCache.size > 500) snippetCache.clear()
+  snippetCache.set(key, res)
+  return res
+}
+
+interface NoteCardItemProps {
+  note: NoteItem
+  isActive: boolean
+  inTrash: boolean
+  isDragging: boolean
+  isRenaming: boolean
+  renameDraft: string
+  renameInputRef: React.RefObject<HTMLInputElement>
+  onSelect: (id: string) => void
+  onContextMenu: (e: ReactMouseEvent, note: NoteItem) => void
+  onDragStart: (e: ReactDragEvent, note: NoteItem) => void
+  onDragEnd: () => void
+  onStartRename: (id: string, title: string) => void
+  onRenameChange: (val: string) => void
+  onRenameCommit: () => void
+  onRenameCancel: () => void
+}
+
+/** 独立 Memo 卡片组件：切笔记时仅旧活跃卡片和新活跃卡片重绘，其余数十个卡片零 diff 零计算 */
+const NoteCardItem = memo(function NoteCardItem({
+  note,
+  isActive,
+  inTrash,
+  isDragging,
+  isRenaming,
+  renameDraft,
+  renameInputRef,
+  onSelect,
+  onContextMenu,
+  onDragStart,
+  onDragEnd,
+  onStartRename,
+  onRenameChange,
+  onRenameCommit,
+  onRenameCancel,
+}: NoteCardItemProps) {
+  const snippet = getCachedNoteSnippet(note.id, note.content, note.updatedAt)
+  const timeStr = formatNoteTime(inTrash ? note.deletedAt || note.updatedAt : note.updatedAt)
+
+  return (
+    <div
+      draggable={!inTrash}
+      onDragStart={(e) => onDragStart(e, note)}
+      onDragEnd={onDragEnd}
+      onClick={() => (inTrash ? undefined : onSelect(note.id))}
+      onContextMenu={(e) => onContextMenu(e, note)}
+      className={`group relative px-2.5 py-2 rounded-lg transition-all ${
+        inTrash ? 'cursor-default' : 'cursor-pointer'
+      } ${isDragging ? 'opacity-30' : ''} ${
+        isActive
+          ? 'bg-white shadow-[0_1px_3px_rgba(0,0,0,0.05),0_1px_1px_rgba(0,0,0,0.02)] ring-1 ring-black/[0.08]'
+          : 'bg-transparent hover:bg-black/[0.035] text-[#191918]'
+      }`}
+    >
+      {/* 第一行：标题 + 右侧时间/星标 */}
+      <div className="flex items-center justify-between gap-1.5 min-w-0">
+        <div className="min-w-0 flex-1">
+          {isRenaming ? (
+            <input
+              ref={renameInputRef}
+              value={renameDraft}
+              maxLength={80}
+              onClick={(e) => e.stopPropagation()}
+              onFocus={(e) => e.currentTarget.select()}
+              onChange={(e) => onRenameChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  onRenameCommit()
+                } else if (e.key === 'Escape') {
+                  e.preventDefault()
+                  onRenameCancel()
+                }
+              }}
+              onBlur={onRenameCommit}
+              className="w-full h-5 px-1 text-xs bg-white text-[#191918] border border-black/20 rounded outline-none"
+            />
+          ) : (
+            <h4
+              onDoubleClick={(e) => {
+                e.stopPropagation()
+                if (!inTrash) onStartRename(note.id, note.title)
+              }}
+              className={`truncate text-xs ${
+                isActive ? 'font-semibold text-[#191918]' : 'font-normal text-[#191918]'
+              }`}
+            >
+              {note.title || '未命名笔记'}
+            </h4>
+          )}
+        </div>
+
+        {/* 右侧微型时间与标星 */}
+        <div className="flex items-center gap-1 shrink-0 text-[10px] font-mono text-[#8A8987]">
+          <span>{timeStr}</span>
+          {note.bookmarked && !inTrash && (
+            <Star className="w-2.5 h-2.5 text-amber-500 fill-amber-500 shrink-0" />
+          )}
+        </div>
+      </div>
+
+      {/* 第二行：正文摘要单行平滑展示 */}
+      <p className="text-[11px] line-clamp-1 leading-relaxed mt-0.5 text-[#787774]">
+        {snippet}
+      </p>
+    </div>
+  )
+})
+
 interface NotesSidebarProps {
   onAfterSelect?: () => void
   onCollapse?: () => void
@@ -77,11 +197,10 @@ export default function NotesSidebar({
   onAfterSelect,
   onCollapse: _onCollapse,
   isFolderTreeOpen: externalFolderTreeOpen,
-  onToggleFolderTree: externalToggleFolderTree,
+  onToggleFolderTree: _externalToggleFolderTree,
 }: NotesSidebarProps) {
-  const [internalTreeOpen, setInternalTreeOpen] = useState(false)
+  const [internalTreeOpen] = useState(false)
   const isFolderTreeOpen = externalFolderTreeOpen !== undefined ? externalFolderTreeOpen : internalTreeOpen
-  const toggleFolderTree = externalToggleFolderTree || (() => setInternalTreeOpen((prev) => !prev))
   const {
     notes,
     activeNote,
@@ -117,6 +236,19 @@ export default function NotesSidebar({
   const [draggingNoteId, setDraggingNoteId] = useState<string | null>(null)
   const [dropFolderId, setDropFolderId] = useState<string | null>(null)
   const renameInputRef = useRef<HTMLInputElement>(null)
+  /*
+   * 搜索框本地状态与防抖：
+   *
+   * keyword（全局）和 localKeyword（输入框显示値）分开。
+   * 用户打字时只更新 localKeyword，200ms 停止打字后才把値写入全局
+   * keyword 触发 filteredNotes 重算。
+   * 这样避免每次 keystroke 对所有笔记正文做 toLowerCase+includes 全量扫描。
+   */
+  const [localKeyword, setLocalKeyword] = useState(keyword)
+  useEffect(() => {
+    const timer = setTimeout(() => setKeyword(localKeyword), 200)
+    return () => clearTimeout(timer)
+  }, [localKeyword, setKeyword])
 
   useEffect(() => {
     if (renamingNoteId) renameInputRef.current?.focus()
@@ -127,10 +259,13 @@ export default function NotesSidebar({
     setRenamingFolderId(null)
   }, [scope])
 
-  const selectNote = (id: string) => {
-    handleSelect(id)
-    onAfterSelect?.()
-  }
+  const selectNote = useCallback(
+    (id: string) => {
+      handleSelect(id)
+      onAfterSelect?.()
+    },
+    [handleSelect, onAfterSelect]
+  )
 
   const startRenameNote = (id: string, title: string) => {
     setRenamingNoteId(id)
@@ -400,8 +535,8 @@ export default function NotesSidebar({
                   settleDrag(null)
                 }}
                 className={`w-full flex items-center justify-between px-2.5 py-1.5 transition-all text-xs font-medium cursor-pointer ${isSelected
-                    ? 'bg-[#EAEAE7] text-[#191918] font-bold rounded-lg shadow-2xs'
-                    : 'text-[#787774] hover:text-[#191918] hover:bg-[#EAEAE7]/60 rounded-lg'
+                  ? 'bg-[#EAEAE7] text-[#191918] font-bold rounded-lg shadow-2xs'
+                  : 'text-[#787774] hover:text-[#191918] hover:bg-[#EAEAE7]/60 rounded-lg'
                   }`}
               >
                 <div className="flex items-center gap-2 min-w-0">
@@ -428,8 +563,8 @@ export default function NotesSidebar({
                 type="button"
                 onClick={() => setScope({ type: 'bookmarks' })}
                 className={`w-full flex items-center justify-between px-2.5 py-1.5 transition-all text-xs font-medium cursor-pointer ${isSelected
-                    ? 'bg-[#EAEAE7] text-[#191918] font-bold rounded-lg shadow-2xs'
-                    : 'text-[#787774] hover:text-[#191918] hover:bg-[#EAEAE7]/60 rounded-lg'
+                  ? 'bg-[#EAEAE7] text-[#191918] font-bold rounded-lg shadow-2xs'
+                  : 'text-[#787774] hover:text-[#191918] hover:bg-[#EAEAE7]/60 rounded-lg'
                   }`}
               >
                 <div className="flex items-center gap-2 min-w-0">
@@ -529,10 +664,10 @@ export default function NotesSidebar({
                   ])
                 }
                 className={`w-full flex items-center justify-between px-2.5 py-1.5 transition-all text-xs font-medium cursor-pointer ${dropFolderId === folder.id
-                    ? 'ring-1 ring-[#1C1C1C] bg-white text-[#191918] rounded-lg'
-                    : isSelected
-                      ? 'bg-[#EAEAE7] text-[#191918] font-bold rounded-lg shadow-2xs'
-                      : 'text-[#787774] hover:text-[#191918] hover:bg-[#EAEAE7]/60 rounded-lg'
+                  ? 'ring-1 ring-[#1C1C1C] bg-white text-[#191918] rounded-lg'
+                  : isSelected
+                    ? 'bg-[#EAEAE7] text-[#191918] font-bold rounded-lg shadow-2xs'
+                    : 'text-[#787774] hover:text-[#191918] hover:bg-[#EAEAE7]/60 rounded-lg'
                   }`}
               >
                 <div className="flex items-center gap-2 min-w-0">
@@ -562,8 +697,8 @@ export default function NotesSidebar({
                     setScope(scope.type === 'trash' ? { type: 'all' } : { type: 'trash' })
                   }
                   className={`w-full flex items-center justify-between px-2.5 py-1.5 transition-all text-xs font-medium cursor-pointer ${isSelected
-                      ? 'bg-[#EAEAE7] text-[#191918] font-bold rounded-lg shadow-2xs'
-                      : 'text-[#787774] hover:text-[#191918] hover:bg-[#EAEAE7]/60 rounded-lg'
+                    ? 'bg-[#EAEAE7] text-[#191918] font-bold rounded-lg shadow-2xs'
+                    : 'text-[#787774] hover:text-[#191918] hover:bg-[#EAEAE7]/60 rounded-lg'
                     }`}
                 >
                   <div className="flex items-center gap-2 min-w-0">
@@ -589,31 +724,20 @@ export default function NotesSidebar({
       <section className="w-72 bg-[#F9F9F8] flex flex-col h-full flex-shrink-0">
         {/* 顶部：目录展开按钮 + 现代极简微型搜索框 + 炭黑 +新增 按钮 */}
         <div className="h-11 px-2.5 flex items-center gap-1.5 flex-shrink-0">
-          <button
-            type="button"
-            onClick={toggleFolderTree}
-            className={`w-7 h-7 rounded-md flex items-center justify-center transition-colors cursor-pointer shrink-0 ${isFolderTreeOpen
-                ? 'bg-[#EAEAE7] text-[#191918]'
-                : 'text-[#787774] hover:text-[#191918] hover:bg-[#EAEAE7]/60'
-              }`}
-            title={isFolderTreeOpen ? '收起分类目录' : '展开分类目录'}
-          >
-            <FolderTree className="w-3.5 h-3.5" />
-          </button>
 
           <div className="relative flex-1 flex items-center">
             <Search className="w-3 h-3 text-[#9A9996] absolute left-2 pointer-events-none" />
             <input
               type="text"
-              value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
+              value={localKeyword}
+              onChange={(e) => setLocalKeyword(e.target.value)}
               placeholder="搜索文档..."
               className="w-full pl-6 pr-5 h-7 text-xs bg-black/[0.035] hover:bg-black/[0.05] focus:bg-white rounded-md outline-none text-[#191918] placeholder-[#9A9996] focus:ring-1 focus:ring-black/[0.12] transition-all border-none"
             />
-            {keyword && (
+            {(keyword || localKeyword) && (
               <button
                 type="button"
-                onClick={() => setKeyword('')}
+                onClick={() => { setLocalKeyword(''); setKeyword('') }}
                 className="absolute right-1.5 text-[#9A9996] hover:text-[#191918]"
                 title="清空"
               >
@@ -652,74 +776,24 @@ export default function NotesSidebar({
             const inTrash = scope.type === 'trash'
 
             return (
-              <div
+              <NoteCardItem
                 key={note.id}
-                draggable={!inTrash}
-                onDragStart={(e) => handleDragStart(e, note)}
+                note={note}
+                isActive={isActive}
+                inTrash={inTrash}
+                isDragging={draggingNoteId === note.id}
+                isRenaming={renamingNoteId === note.id}
+                renameDraft={renameDraft}
+                renameInputRef={renameInputRef}
+                onSelect={selectNote}
+                onContextMenu={inTrash ? openTrashMenu : openNoteMenu}
+                onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
-                onClick={() => (inTrash ? undefined : selectNote(note.id))}
-                onContextMenu={(e) =>
-                  inTrash ? openTrashMenu(e, note) : openNoteMenu(e, note)
-                }
-                className={`group relative px-2.5 py-2 rounded-lg transition-all ${inTrash ? 'cursor-default' : 'cursor-pointer'
-                  } ${draggingNoteId === note.id ? 'opacity-30' : ''} ${isActive
-                    ? 'bg-white shadow-[0_1px_3px_rgba(0,0,0,0.05),0_1px_1px_rgba(0,0,0,0.02)] ring-1 ring-black/[0.08]'
-                    : 'bg-transparent hover:bg-black/[0.035] text-[#191918]'
-                  }`}
-              >
-                {/* 第一行：标题 + 右侧时间/星标 */}
-                <div className="flex items-center justify-between gap-1.5 min-w-0">
-                  <div className="min-w-0 flex-1">
-                    {renamingNoteId === note.id ? (
-                      <input
-                        ref={renameInputRef}
-                        value={renameDraft}
-                        maxLength={80}
-                        onClick={(e) => e.stopPropagation()}
-                        onFocus={(e) => e.currentTarget.select()}
-                        onChange={(e) => setRenameDraft(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault()
-                            commitRenameNote()
-                          } else if (e.key === 'Escape') {
-                            e.preventDefault()
-                            setRenamingNoteId(null)
-                          }
-                        }}
-                        onBlur={commitRenameNote}
-                        className="w-full h-5 px-1 text-xs bg-white text-[#191918] border border-black/20 rounded outline-none"
-                      />
-                    ) : (
-                      <h4
-                        onDoubleClick={(e) => {
-                          e.stopPropagation()
-                          if (!inTrash) startRenameNote(note.id, note.title)
-                        }}
-                        className={`truncate text-xs ${isActive ? 'font-semibold text-[#191918]' : 'font-normal text-[#191918]'
-                          }`}
-                      >
-                        {note.title || '未命名笔记'}
-                      </h4>
-                    )}
-                  </div>
-
-                  {/* 右侧微型时间与标星 */}
-                  <div className="flex items-center gap-1 shrink-0 text-[10px] font-mono text-[#8A8987]">
-                    <span>
-                      {formatNoteTime(inTrash ? note.deletedAt || note.updatedAt : note.updatedAt)}
-                    </span>
-                    {note.bookmarked && !inTrash && (
-                      <Star className="w-2.5 h-2.5 text-amber-500 fill-amber-500 shrink-0" />
-                    )}
-                  </div>
-                </div>
-
-                {/* 第二行：正文摘要单行平滑展示 */}
-                <p className="text-[11px] line-clamp-1 leading-relaxed mt-0.5 text-[#787774]">
-                  {getNotePreviewSnippet(note.content)}
-                </p>
-              </div>
+                onStartRename={startRenameNote}
+                onRenameChange={setRenameDraft}
+                onRenameCommit={commitRenameNote}
+                onRenameCancel={() => setRenamingNoteId(null)}
+              />
             )
           })}
 

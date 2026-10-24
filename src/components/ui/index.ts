@@ -37,3 +37,5 @@ export { default as CopyButton, CopyButtonPrimary, CopyImageButton } from './Cop
 export type { CopyButtonProps, CopyButtonPrimaryProps, CopyImageButtonProps } from './CopyButton'
 export { default as CountUp } from './CountUp'
 export type { CountUpProps } from './CountUp'
+export { handleTextareaKeyDown } from '../../utils/textareaIndent'
+export type { TextareaIndentOptions } from '../../utils/textareaIndent'

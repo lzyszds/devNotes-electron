@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { handleTextareaKeyDown } from '../../../utils/textareaIndent'
 import {
   Copy,
   Download,
@@ -394,7 +395,9 @@ function SnippetEditor({
                 if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
                   e.preventDefault()
                   onSubmit()
+                  return
                 }
+                handleTextareaKeyDown(e, (code) => onChange({ ...draft, code }))
               }}
               spellCheck={false}
               placeholder={'docker system prune -a -f\n\n# {{端口}} 之类的位置用占位符标出来'}

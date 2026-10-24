@@ -1,6 +1,5 @@
 import { Fragment } from 'react'
 import type { ReactNode } from 'react'
-import { ArrowUpToLine } from 'lucide-react'
 import Tooltip from '../../ui/Tooltip'
 import ToolbarMenu from './ToolbarMenu'
 import ToolbarMenuContent from './ToolbarMenus'
@@ -59,7 +58,6 @@ export default function MarkdownToolbar({
   trailing,
   leading,
   extra,
-  backToTop,
   hideRightCommands = true,
 }: MarkdownToolbarProps) {
   const commands = commandsFor(engine)
@@ -153,20 +151,6 @@ export default function MarkdownToolbar({
   return (
     <div className="relative z-40 flex flex-shrink-0 justify-center items-center overflow-x-auto scrollbar-hide px-3 md:px-12 py-2 select-none max-md:p-0 max-md:border-t max-md:border-black/[0.06] max-md:bg-white">
       <div className="inline-flex items-center gap-0.5 px-2 py-1 rounded-xl bg-white/95 backdrop-blur-md border border-black/[0.08] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_1px_rgba(0,0,0,0.02)] max-md:w-full max-md:rounded-none max-md:border-0 max-md:shadow-none max-md:bg-transparent max-md:px-2 max-md:h-10">
-        {backToTop && (
-          <Tooltip content="返回顶部">
-            <button
-              type="button"
-              onClick={backToTop.onClick}
-              aria-label="返回顶部"
-              className={`mr-1 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-[#787774] transition-colors hover:bg-black/[0.04] hover:text-[#191918] cursor-pointer ${backToTop.visible ? '' : 'invisible'
-                }`}
-            >
-              <ArrowUpToLine className="h-3.5 w-3.5" />
-            </button>
-          </Tooltip>
-        )}
-
         {leading && (
           <>
             <span className="mr-0.5 flex flex-shrink-0 items-center">{leading}</span>

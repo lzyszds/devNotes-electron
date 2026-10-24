@@ -109,14 +109,12 @@ const SettingToggle = ({
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
-      className={`relative mt-0.5 h-5 w-9 rounded-full transition shrink-0 ${
-        checked ? "bg-brand-600" : "bg-slate-200 dark:bg-dark-hover"
-      }`}
+      className={`relative mt-0.5 h-5 w-9 rounded-full transition shrink-0 ${checked ? "bg-brand-600" : "bg-slate-200 dark:bg-dark-hover"
+        }`}
     >
       <span
-        className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
-          checked ? "translate-x-4" : "translate-x-0"
-        }`}
+        className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-4" : "translate-x-0"
+          }`}
       />
     </button>
     <span>
@@ -202,24 +200,24 @@ const TreeNode = ({
         <div className="ml-4 border-l border-slate-100 dark:border-dark-border pl-4">
           {isArray
             ? (value as unknown[]).map((item, i) => (
-                <TreeNode
-                  key={i}
-                  value={item}
-                  path={`${path}[${i}]`}
-                  isLast={i === (value as unknown[]).length - 1}
-                />
-              ))
+              <TreeNode
+                key={i}
+                value={item}
+                path={`${path}[${i}]`}
+                isLast={i === (value as unknown[]).length - 1}
+              />
+            ))
             : Object.entries(value as Record<string, unknown>).map(
-                ([key, val], i, arr) => (
-                  <TreeNode
-                    key={key}
-                    value={val}
-                    label={key}
-                    path={path ? `${path}.${key}` : key}
-                    isLast={i === arr.length - 1}
-                  />
-                )
-              )}
+              ([key, val], i, arr) => (
+                <TreeNode
+                  key={key}
+                  value={val}
+                  label={key}
+                  path={path ? `${path}.${key}` : key}
+                  isLast={i === arr.length - 1}
+                />
+              )
+            )}
         </div>
       )}
       {isExpanded && (
@@ -263,13 +261,13 @@ export default function JsonI18nTool() {
     DEFAULT_TEXT_CONCURRENCY
   );
   const [langResults, setLangResults] = useState<Record<string, LangResultState>>({});
-    const [proxyMode, setProxyMode] = useState<ProxyMode>("system");
+  const [proxyMode, setProxyMode] = useState<ProxyMode>("system");
   const [proxyUrl, setProxyUrl] = useState("127.0.0.1:7890");
   const [proxyStatus, setProxyStatus] = useState("");
   const [testingProxy, setTestingProxy] = useState(false);
-    const [protectedTerms, setProtectedTerms] = useState<string[]>(DEFAULT_PROTECTED_TERMS);
+  const [protectedTerms, setProtectedTerms] = useState<string[]>(DEFAULT_PROTECTED_TERMS);
   const [newProtectedTerm, setNewProtectedTerm] = useState("");
-    const [settings, setSettings] = useState<JsonI18nSettings>(DEFAULT_SETTINGS);
+  const [settings, setSettings] = useState<JsonI18nSettings>(DEFAULT_SETTINGS);
   const resultsRef = useRef<HTMLDivElement>(null);
   /** 「暂停」标记：置 true 后不再派发新的翻译请求，在跑的批次自然收尾 */
   const stopRef = useRef(false);
@@ -451,7 +449,7 @@ export default function JsonI18nTool() {
     if (isProvider(translationApi) && !isProviderConfigured(translateConfig)) {
       setError(
         `尚未配置「${providerLabel(translationApi)}」接口。\n\n` +
-          "请点击上方「未配置，点此填写接口」按钮，或从顶栏进入「翻译接口」设置填写后重试。"
+        "请点击上方「未配置，点此填写接口」按钮，或从顶栏进入「翻译接口」设置填写后重试。"
       );
       return;
     }
@@ -548,7 +546,7 @@ export default function JsonI18nTool() {
           isProvider(translationApi) && providerError
             ? `「${providerLabel(translationApi)}」翻译失败。\n\n${providerError}`
             : "所有翻译 API 都未能返回有效结果。\n\n" +
-              "建议：配置代理后点击「测试 Google」，或切换到 MyMemory API。"
+            "建议：配置代理后点击「测试 Google」，或切换到 MyMemory API。"
         );
       } else {
         if (settings.autoSaveHistory) {
@@ -624,11 +622,10 @@ export default function JsonI18nTool() {
         <>
           <button
             onClick={() => setShowHistory(!showHistory)}
-            className={`tool-button-secondary h-8 ${
-              showHistory
-                ? "ring-2 ring-brand-500/20 border-brand-200 text-brand-600 dark:border-brand-500/40 dark:text-brand-400"
-                : ""
-            }`}
+            className={`tool-button-secondary h-8 ${showHistory
+              ? "ring-2 ring-brand-500/20 border-brand-200 text-brand-600 dark:border-brand-500/40 dark:text-brand-400"
+              : ""
+              }`}
           >
             <History size={15} />
             <span>历史</span>
@@ -671,7 +668,7 @@ export default function JsonI18nTool() {
       <div className="flex-1 flex flex-col min-h-0 relative">
         {/* Toolbar */}
         {/* 单行中控条：只留高频操作，其余全部收进设置弹窗 */}
-        <div className="px-4 md:px-6 pt-3 shrink-0">
+        <div className="p-3 shrink-0">
           {/* 不能用 overflow-hidden：语言下拉是 absolute top-full 挂在这里面的，裁掉就整块不可见。
               高度用 min-h-12 兜底，窄屏换行时容器自己变高，而不是把控件裁出白框外 */}
           <div className="bg-white dark:bg-dark-panel border border-slate-200/70 dark:border-dark-border rounded-[10px] shadow-[0_1px_3px_rgba(0,0,0,0.03),0_6px_16px_-4px_rgba(0,0,0,0.03)] px-3 min-h-12 py-1.5 flex items-center gap-2.5 flex-wrap">
@@ -686,11 +683,10 @@ export default function JsonI18nTool() {
                 <button
                   key={mode.id}
                   onClick={() => setTranslationMode(mode.id)}
-                  className={`${UI.segmentItem} ${
-                    translationMode === mode.id
-                      ? "bg-white dark:bg-dark-panel text-brand-600 dark:text-brand-400 shadow-[0_1px_2px_rgba(15,23,42,0.06)]"
-                      : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
-                  }`}
+                  className={`${UI.segmentItem} ${translationMode === mode.id
+                    ? "bg-white dark:bg-dark-panel text-brand-600 dark:text-brand-400 shadow-[0_1px_2px_rgba(15,23,42,0.06)]"
+                    : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+                    }`}
                 >
                   {mode.label}
                 </button>
@@ -734,11 +730,10 @@ export default function JsonI18nTool() {
                           setTargetLangs((prev) => prev.filter((c) => c !== lang.code));
                           setShowSourceDropdown(false);
                         }}
-                        className={`w-full text-left px-3 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-dark-hover ${
-                          sourceLang === lang.code
-                            ? "bg-brand-50 dark:bg-brand-500/15 text-brand-600 dark:text-brand-400 font-semibold"
-                            : ""
-                        }`}
+                        className={`w-full text-left px-3 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-dark-hover ${sourceLang === lang.code
+                          ? "bg-brand-50 dark:bg-brand-500/15 text-brand-600 dark:text-brand-400 font-semibold"
+                          : ""
+                          }`}
                       >
                         {lang.name}
                       </button>
@@ -785,18 +780,16 @@ export default function JsonI18nTool() {
                         <button
                           key={lang.code}
                           onClick={() => toggleTargetLang(lang.code)}
-                          className={`w-full text-left px-3 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-dark-hover flex items-center gap-2 ${
-                            selected
-                              ? "bg-brand-50 dark:bg-brand-500/15 text-brand-600 dark:text-brand-400"
-                              : ""
-                          }`}
+                          className={`w-full text-left px-3 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-dark-hover flex items-center gap-2 ${selected
+                            ? "bg-brand-50 dark:bg-brand-500/15 text-brand-600 dark:text-brand-400"
+                            : ""
+                            }`}
                         >
                           <span
-                            className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 ${
-                              selected
-                                ? "bg-brand-600 border-brand-600 text-white"
-                                : "border-slate-300 dark:border-dark-border"
-                            }`}
+                            className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 ${selected
+                              ? "bg-brand-600 border-brand-600 text-white"
+                              : "border-slate-300 dark:border-dark-border"
+                              }`}
                           >
                             {selected && <Check size={9} />}
                           </span>
@@ -896,152 +889,150 @@ export default function JsonI18nTool() {
             </ToolCard>
           </div>
         ) : view === "results" ? (
-        <div className="flex-1 min-h-0 overflow-hidden p-3">
-          <ToolCard className="h-full">
-            <ToolCardHeader
-              title="翻译结果"
-              meta={`${targetLangs.length} 种语言 · 共 ${totalTranslated} 条`}
-              actions={
-                <>
-                  <Tooltip content="回到编辑区">
+          <div className="flex-1 min-h-0 overflow-hidden p-3">
+            <ToolCard className="h-full">
+              <ToolCardHeader
+                title="翻译结果"
+                meta={`${targetLangs.length} 种语言 · 共 ${totalTranslated} 条`}
+                actions={
+                  <>
+                    <Tooltip content="回到编辑区">
+                      <button
+                        onClick={() => {
+                          setView("edit")
+                          setDetailLang(null)
+                        }}
+                        className={iconButtonClass("neutral")}
+                      >
+                        <Pencil size={15} />
+                      </button>
+                    </Tooltip>
+                    <Tooltip content="全部下载">
+                      <button onClick={downloadAll} className={iconButtonClass("brand")}>
+                        <Download size={15} />
+                      </button>
+                    </Tooltip>
+                  </>
+                }
+              />
+
+              <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-1.5 tool-cascade">
+                {targetLangs.map((lang) => {
+                  const result = langResults[lang];
+                  if (!result) return null;
+                  const pct = result.progress
+                    ? Math.round((result.progress.current / result.progress.total) * 100)
+                    : 100;
+                  const done = !result.translating;
+
+                  return (
                     <button
+                      key={lang}
                       onClick={() => {
-                        setView("edit")
-                        setDetailLang(null)
+                        if (!done || result.data == null) return;
+                        setDetailLang(lang);
+                        setView("detail");
                       }}
-                      className={iconButtonClass("neutral")}
-                    >
-                      <Pencil size={15} />
-                    </button>
-                  </Tooltip>
-                  <Tooltip content="全部下载">
-                    <button onClick={downloadAll} className={iconButtonClass("brand")}>
-                      <Download size={15} />
-                    </button>
-                  </Tooltip>
-                </>
-              }
-            />
-
-            <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-1.5 tool-cascade">
-              {targetLangs.map((lang) => {
-                const result = langResults[lang];
-                if (!result) return null;
-                const pct = result.progress
-                  ? Math.round((result.progress.current / result.progress.total) * 100)
-                  : 100;
-                const done = !result.translating;
-
-                return (
-                  <button
-                    key={lang}
-                    onClick={() => {
-                      if (!done || result.data == null) return;
-                      setDetailLang(lang);
-                      setView("detail");
-                    }}
-                    className={`w-full flex items-center gap-3 rounded-xl px-3.5 h-12 text-left transition-colors ${
-                      done && result.data != null
+                      className={`w-full flex items-center gap-3 rounded-xl px-3.5 h-12 text-left transition-colors ${done && result.data != null
                         ? "hover:bg-slate-50 dark:hover:bg-dark-hover cursor-pointer"
                         : "cursor-default"
-                    }`}
-                  >
-                    <span
-                      className={`w-2 h-2 rounded-full shrink-0 ${
-                        result.translating
+                        }`}
+                    >
+                      <span
+                        className={`w-2 h-2 rounded-full shrink-0 ${result.translating
                           ? "bg-brand-500 animate-pulse"
                           : result.translatedCount > 0
                             ? "bg-emerald-500"
                             : "bg-amber-500"
-                      }`}
-                    />
-                    <span className="text-[13px] font-semibold text-slate-900 dark:text-white w-20 shrink-0 truncate">
-                      {langName(lang)}
-                    </span>
-                    <span className="text-[11px] font-mono text-slate-400 shrink-0">{lang}</span>
-                    <div className="flex-1 min-w-0">
-                      {result.translating && result.progress ? (
-                        <div className="flex items-center gap-2 justify-end">
-                          <div className="w-24 h-1 bg-slate-100 dark:bg-dark-hover rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-brand-500 transition-all duration-200"
-                              style={{ width: `${pct}%` }}
-                            />
+                          }`}
+                      />
+                      <span className="text-[13px] font-semibold text-slate-900 dark:text-white w-20 shrink-0 truncate">
+                        {langName(lang)}
+                      </span>
+                      <span className="text-[11px] font-mono text-slate-400 shrink-0">{lang}</span>
+                      <div className="flex-1 min-w-0">
+                        {result.translating && result.progress ? (
+                          <div className="flex items-center gap-2 justify-end">
+                            <div className="w-24 h-1 bg-slate-100 dark:bg-dark-hover rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-brand-500 transition-all duration-200"
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                            <span className="text-[11px] font-mono text-slate-400 shrink-0">
+                              {pct}%
+                            </span>
                           </div>
-                          <span className="text-[11px] font-mono text-slate-400 shrink-0">
-                            {pct}%
+                        ) : (
+                          <span className="text-[11px] text-slate-400 dark:text-slate-500 truncate block text-right">
+                            {result.translatedCount}/{result.totalCount} 条
+                            {result.apiUsed ? ` · ${result.apiUsed}` : ""}
                           </span>
-                        </div>
-                      ) : (
-                        <span className="text-[11px] text-slate-400 dark:text-slate-500 truncate block text-right">
-                          {result.translatedCount}/{result.totalCount} 条
-                          {result.apiUsed ? ` · ${result.apiUsed}` : ""}
-                        </span>
+                        )}
+                      </div>
+                      {done && result.data != null && (
+                        <ChevronRight size={14} className="text-slate-300 dark:text-slate-600 shrink-0" />
                       )}
-                    </div>
-                    {done && result.data != null && (
-                      <ChevronRight size={14} className="text-slate-300 dark:text-slate-600 shrink-0" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </ToolCard>
-        </div>
-        ) : (
-        <div className="flex-1 min-h-0 overflow-hidden p-3">
-          <ToolCard className="h-full">
-            <ToolCardHeader
-              title={detailLang ? langName(detailLang) : ""}
-              sublabel={detailLang}
-              meta={
-                detailLang && langResults[detailLang]
-                  ? `${langResults[detailLang].translatedCount}/${langResults[detailLang].totalCount} 条`
-                  : undefined
-              }
-              actions={
-                <>
-                  <Tooltip content="返回结果列表">
-                    <button
-                      onClick={() => setView("results")}
-                      className={iconButtonClass("neutral")}
-                    >
-                      <ArrowLeft size={15} />
                     </button>
-                  </Tooltip>
-                  {detailLang && langResults[detailLang]?.data != null && (
-                    <>
-                      <Tooltip content="复制该语言结果">
-                        <button
-                          onClick={() => copyLangResult(detailLang)}
-                          className={iconButtonClass("brand")}
-                        >
-                          <Copy size={15} />
-                        </button>
-                      </Tooltip>
-                      <Tooltip content="下载该语言结果">
-                        <button
-                          onClick={() => downloadLangResult(detailLang)}
-                          className={iconButtonClass("brand")}
-                        >
-                          <Download size={15} />
-                        </button>
-                      </Tooltip>
-                    </>
-                  )}
-                </>
-              }
-            />
+                  );
+                })}
+              </div>
+            </ToolCard>
+          </div>
+        ) : (
+          <div className="flex-1 min-h-0 overflow-hidden p-3">
+            <ToolCard className="h-full">
+              <ToolCardHeader
+                title={detailLang ? langName(detailLang) : ""}
+                sublabel={detailLang}
+                meta={
+                  detailLang && langResults[detailLang]
+                    ? `${langResults[detailLang].translatedCount}/${langResults[detailLang].totalCount} 条`
+                    : undefined
+                }
+                actions={
+                  <>
+                    <Tooltip content="返回结果列表">
+                      <button
+                        onClick={() => setView("results")}
+                        className={iconButtonClass("neutral")}
+                      >
+                        <ArrowLeft size={15} />
+                      </button>
+                    </Tooltip>
+                    {detailLang && langResults[detailLang]?.data != null && (
+                      <>
+                        <Tooltip content="复制该语言结果">
+                          <button
+                            onClick={() => copyLangResult(detailLang)}
+                            className={iconButtonClass("brand")}
+                          >
+                            <Copy size={15} />
+                          </button>
+                        </Tooltip>
+                        <Tooltip content="下载该语言结果">
+                          <button
+                            onClick={() => downloadLangResult(detailLang)}
+                            className={iconButtonClass("brand")}
+                          >
+                            <Download size={15} />
+                          </button>
+                        </Tooltip>
+                      </>
+                    )}
+                  </>
+                }
+              />
 
-            <div className="flex-1 min-h-0 overflow-y-auto p-4">
-              {detailLang && langResults[detailLang]?.data != null ? (
-                <JsonTreeView data={langResults[detailLang].data} />
-              ) : (
-                <ToolEmpty icon={Languages} title="该语言暂无结果" />
-              )}
-            </div>
-          </ToolCard>
-        </div>
+              <div className="flex-1 min-h-0 overflow-y-auto p-4">
+                {detailLang && langResults[detailLang]?.data != null ? (
+                  <JsonTreeView data={langResults[detailLang].data} />
+                ) : (
+                  <ToolEmpty icon={Languages} title="该语言暂无结果" />
+                )}
+              </div>
+            </ToolCard>
+          </div>
         )}
         <div className="px-4 md:px-6 h-12 border-t border-slate-100 dark:border-dark-border bg-white dark:bg-dark-panel shrink-0 flex items-center justify-between gap-3">
           <div className="flex items-center gap-4 min-w-0">
@@ -1166,18 +1157,16 @@ export default function JsonI18nTool() {
                   return (
                     <div key={lang} className="flex items-center gap-2.5">
                       <span
-                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                          done ? "bg-emerald-500" : "bg-brand-500 animate-pulse"
-                        }`}
+                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${done ? "bg-emerald-500" : "bg-brand-500 animate-pulse"
+                          }`}
                       />
                       <span className="text-[12px] font-medium text-slate-700 dark:text-slate-200 w-16 shrink-0 truncate">
                         {langName(lang)}
                       </span>
                       <div className="flex-1 h-1 rounded-full bg-slate-100 dark:bg-dark-hover overflow-hidden">
                         <div
-                          className={`h-full rounded-full transition-[width] duration-300 ease-out ${
-                            done ? "bg-emerald-500" : "bg-brand-500"
-                          }`}
+                          className={`h-full rounded-full transition-[width] duration-300 ease-out ${done ? "bg-emerald-500" : "bg-brand-500"
+                            }`}
                           style={{ width: `${done ? 100 : Math.max(2, pct)}%` }}
                         />
                       </div>
@@ -1380,9 +1369,8 @@ export default function JsonI18nTool() {
                       <button
                         key={mode}
                         onClick={() => setProxyMode(mode)}
-                        className={`${UI.btn} ${
-                          proxyMode === mode ? "!border-brand-600 !bg-brand-600 !text-white" : ""
-                        }`}
+                        className={`${UI.btn} ${proxyMode === mode ? "!border-brand-600 !bg-brand-600 !text-white" : ""
+                          }`}
                       >
                         {mode === "system" ? "系统" : mode === "manual" ? "手动" : "直连"}
                       </button>
@@ -1409,11 +1397,10 @@ export default function JsonI18nTool() {
                     </button>
                     {proxyStatus && (
                       <span
-                        className={`text-[11px] font-medium ${
-                          proxyStatus.includes("成功")
-                            ? "text-emerald-600 dark:text-emerald-400"
-                            : "text-slate-400 dark:text-slate-500"
-                        }`}
+                        className={`text-[11px] font-medium ${proxyStatus.includes("成功")
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-slate-400 dark:text-slate-500"
+                          }`}
                       >
                         {proxyStatus}
                       </span>

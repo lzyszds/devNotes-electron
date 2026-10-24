@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { handleTextareaKeyDown } from '../../utils/textareaIndent'
 import type { ModeRequest } from '../../utils/toolModeRequest'
 import { ArrowDown, History, KeyRound, Search, Shuffle, TriangleAlert, X } from 'lucide-react'
 import { useToolHistory } from '../../hooks/useToolHistory'
@@ -73,23 +74,20 @@ function MethodTile({
       type="button"
       onClick={onClick}
       title={hint}
-      className={`flex items-center gap-2 rounded-lg border px-2.5 h-9 text-left transition-colors ${
-        active
+      className={`flex items-center gap-2 rounded-lg border px-2.5 h-9 text-left transition-colors ${active
           ? 'border-brand-200 bg-brand-50 dark:border-brand-500/40 dark:bg-brand-500/10'
           : 'border-slate-200 dark:border-dark-border hover:border-slate-300 hover:bg-slate-50 dark:hover:border-slate-600 dark:hover:bg-dark-hover'
-      }`}
+        }`}
     >
       <span
-        className={`text-[12px] font-semibold shrink-0 ${
-          active ? 'text-brand-700 dark:text-brand-300' : 'text-slate-700 dark:text-slate-200'
-        }`}
+        className={`text-[12px] font-semibold shrink-0 ${active ? 'text-brand-700 dark:text-brand-300' : 'text-slate-700 dark:text-slate-200'
+          }`}
       >
         {name}
       </span>
       <span
-        className={`ml-auto text-[10px] truncate ${
-          active ? 'text-brand-500' : 'text-slate-400 dark:text-slate-500'
-        }`}
+        className={`ml-auto text-[10px] truncate ${active ? 'text-brand-500' : 'text-slate-400 dark:text-slate-500'
+          }`}
       >
         {decode ? '← ' : '→ '}
         {hint}
@@ -238,334 +236,334 @@ export default function EncodeTool({
         subtitle="Base64 / Hex / 进制 / 摩斯码 / 古典密码 / AES 加解密，全部双向"
         // 左栅格给个最小高度，窄屏下面板不够高时整页还能滚动，不至于把卡片压扁
         contentClassName="min-h-0"
-      badge={
-        <ToolBadge tone="emerald" className="hidden sm:flex">
-          {isAes ? `AES-${aes.mode}` : currentType?.name ?? ''} · 就绪
-        </ToolBadge>
-      }
-      actions={
-        <button
-          onClick={() => setShowHistory(!showHistory)}
-          className={`tool-button-secondary h-8 ${
-            showHistory
-              ? 'ring-2 ring-brand-500/20 border-brand-200 text-brand-600 dark:border-brand-500/40 dark:text-brand-400'
-              : ''
-          }`}
-        >
-          <History size={15} />
-          <span>历史记录</span>
-        </button>
-      }
-      overlay={
-        <ToolHistoryOverlay
-          open={showHistory}
-          onClose={() => setShowHistory(false)}
-          title="历史文本片段"
-          items={history}
-          onClear={clearHistory}
-          onPick={(item) => {
-            setInput(item.data)
-            setShowHistory(false)
-          }}
-          onItemContextMenu={openHistoryMenu}
-        />
-      }
-    >
-      {error && (
-        <ToolNotice tone="error" icon={TriangleAlert}>
-          <p className="whitespace-pre-line">{error}</p>
-        </ToolNotice>
-      )}
-
-      {/* 说明当前方式的特性与局限，尤其是有损编码 */}
-      {!isAes && currentType?.hint && (
-        <ToolNotice tone={currentType.lossy ? 'warn' : 'info'}>
-          <span className="font-semibold">{currentType.name}：</span>
-          {currentType.hint}
-        </ToolNotice>
-      )}
-
-      <div className="h-full min-h-[420px] grid grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)] gap-4 items-stretch">
-        {/* ---------------- 左栏：全部转换方式，单列铺开 ---------------- */}
-        <ToolCard>
-          <ToolCardHeader
-            title="转换方式"
-            sublabel="METHOD"
-            // meta 自带一层灰底，这里只能传纯文本；再套 ToolTag 会双层叠色
-            meta={`${encoderTypes.length + 1} 种`}
+        badge={
+          <ToolBadge tone="emerald" className="hidden sm:flex">
+            {isAes ? `AES-${aes.mode}` : currentType?.name ?? ''} · 就绪
+          </ToolBadge>
+        }
+        actions={
+          <button
+            onClick={() => setShowHistory(!showHistory)}
+            className={`tool-button-secondary h-8 ${showHistory
+                ? 'ring-2 ring-brand-500/20 border-brand-200 text-brand-600 dark:border-brand-500/40 dark:text-brand-400'
+                : ''
+              }`}
+          >
+            <History size={15} />
+            <span>历史记录</span>
+          </button>
+        }
+        overlay={
+          <ToolHistoryOverlay
+            open={showHistory}
+            onClose={() => setShowHistory(false)}
+            title="历史文本片段"
+            items={history}
+            onClear={clearHistory}
+            onPick={(item) => {
+              setInput(item.data)
+              setShowHistory(false)
+            }}
+            onItemContextMenu={openHistoryMenu}
           />
+        }
+      >
+        {error && (
+          <ToolNotice tone="error" icon={TriangleAlert}>
+            <p className="whitespace-pre-line">{error}</p>
+          </ToolNotice>
+        )}
 
-          {/* 搜索框常驻：25 种方式靠翻滚动列表找太慢，打两个字就能收窄 */}
-          <div className="px-3 pt-3 shrink-0">
-            <div className="relative">
-              <Search
-                size={13}
-                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-              />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="搜索算法，如 sha / morse / 进制"
-                className="w-full h-8 pl-7 pr-7 rounded-lg border border-slate-200 dark:border-dark-border bg-white dark:bg-dark-panel text-[12px] text-slate-700 dark:text-slate-200 outline-none placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:border-brand-400"
-              />
-              {query && (
-                <button
-                  type="button"
-                  onClick={() => setQuery('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-                  title="清空搜索"
-                >
-                  <X size={13} />
-                </button>
-              )}
+        {/* 说明当前方式的特性与局限，尤其是有损编码 */}
+        {!isAes && currentType?.hint && (
+          <ToolNotice tone={currentType.lossy ? 'warn' : 'info'}>
+            <span className="font-semibold">{currentType.name}：</span>
+            {currentType.hint}
+          </ToolNotice>
+        )}
+
+        <div className="h-full min-h-[420px] grid grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)] gap-4 items-stretch">
+          {/* ---------------- 左栏：全部转换方式，单列铺开 ---------------- */}
+          <ToolCard>
+            <ToolCardHeader
+              title="转换方式"
+              sublabel="METHOD"
+              // meta 自带一层灰底，这里只能传纯文本；再套 ToolTag 会双层叠色
+              meta={`${encoderTypes.length + 1} 种`}
+            />
+
+            {/* 搜索框常驻：25 种方式靠翻滚动列表找太慢，打两个字就能收窄 */}
+            <div className="px-3 pt-3 shrink-0">
+              <div className="relative">
+                <Search
+                  size={13}
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                />
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="搜索算法，如 sha / morse / 进制"
+                  className="w-full h-8 pl-7 pr-7 rounded-lg border border-slate-200 dark:border-dark-border bg-white dark:bg-dark-panel text-[12px] text-slate-700 dark:text-slate-200 outline-none placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:border-brand-400"
+                />
+                {query && (
+                  <button
+                    type="button"
+                    onClick={() => setQuery('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                    title="清空搜索"
+                  >
+                    <X size={13} />
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
 
-          <div className="tool-cascade flex-1 min-h-0 overflow-y-auto p-3 flex flex-col gap-4">
-            {/* 有搜索词：单列结果，按 group 归类，每行自标方向 */}
-            {searching ? (
-              searchGroups.length === 0 ? (
-                <div className="px-1 py-6 text-center">
-                  <p className="text-[12px] text-slate-400 dark:text-slate-500">
-                    没有匹配「{query.trim()}」的算法
-                  </p>
-                </div>
+            <div className="tool-cascade flex-1 min-h-0 overflow-y-auto p-3 flex flex-col gap-4">
+              {/* 有搜索词：单列结果，按 group 归类，每行自标方向 */}
+              {searching ? (
+                searchGroups.length === 0 ? (
+                  <div className="px-1 py-6 text-center">
+                    <p className="text-[12px] text-slate-400 dark:text-slate-500">
+                      没有匹配「{query.trim()}」的算法
+                    </p>
+                  </div>
+                ) : (
+                  searchGroups.map(({ group, items }) => (
+                    <div key={group} className="flex flex-col gap-2">
+                      <div className="flex items-center justify-between px-1">
+                        <span className={SECTION_LABEL}>{group}</span>
+                        <span className={META}>{items.length}</span>
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        {items.flatMap((type) => [
+                          <MethodTile
+                            key={`${type.id}-encode`}
+                            name={type.name}
+                            hint={type.hint}
+                            active={activeType === type.id && direction === 'encode'}
+                            onClick={() => pick(type.id, 'encode')}
+                          />,
+                          <MethodTile
+                            key={`${type.id}-decode`}
+                            name={type.name}
+                            hint={type.lossy ? '有损，不能完全还原' : '还原为原文'}
+                            active={activeType === type.id && direction === 'decode'}
+                            decode
+                            onClick={() => pick(type.id, 'decode')}
+                          />,
+                        ])}
+                      </div>
+                    </div>
+                  ))
+                )
               ) : (
-                searchGroups.map(({ group, items }) => (
-                  <div key={group} className="flex flex-col gap-2">
+                <>
+                  <div className="flex flex-col gap-2">
                     <div className="flex items-center justify-between px-1">
-                      <span className={SECTION_LABEL}>{group}</span>
-                      <span className={META}>{items.length}</span>
+                      <span className={SECTION_LABEL}>编码</span>
+                      <span className={META}>ENCODE</span>
                     </div>
                     <div className="flex flex-col gap-1.5">
-                      {items.flatMap((type) => [
+                      {encoderTypes.map((type) => (
                         <MethodTile
-                          key={`${type.id}-encode`}
+                          key={type.id}
                           name={type.name}
                           hint={type.hint}
                           active={activeType === type.id && direction === 'encode'}
                           onClick={() => pick(type.id, 'encode')}
-                        />,
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between px-1">
+                      <span className={SECTION_LABEL}>解码</span>
+                      <span className={META}>DECODE</span>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      {encoderTypes.map((type) => (
                         <MethodTile
-                          key={`${type.id}-decode`}
+                          key={type.id}
                           name={type.name}
                           hint={type.lossy ? '有损，不能完全还原' : '还原为原文'}
                           active={activeType === type.id && direction === 'decode'}
                           decode
                           onClick={() => pick(type.id, 'decode')}
-                        />,
-                      ])}
+                        />
+                      ))}
                     </div>
                   </div>
-                ))
-              )
-            ) : (
-              <>
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center justify-between px-1">
-                    <span className={SECTION_LABEL}>编码</span>
-                    <span className={META}>ENCODE</span>
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    {encoderTypes.map((type) => (
-                      <MethodTile
-                        key={type.id}
-                        name={type.name}
-                        hint={type.hint}
-                        active={activeType === type.id && direction === 'encode'}
-                        onClick={() => pick(type.id, 'encode')}
-                      />
-                    ))}
-                  </div>
-                </div>
 
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center justify-between px-1">
-                    <span className={SECTION_LABEL}>解码</span>
-                    <span className={META}>DECODE</span>
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    {encoderTypes.map((type) => (
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between px-1">
+                      <span className={SECTION_LABEL}>加解密</span>
+                      <span className={META}>AES</span>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
                       <MethodTile
-                        key={type.id}
-                        name={type.name}
-                        hint={type.lossy ? '有损，不能完全还原' : '还原为原文'}
-                        active={activeType === type.id && direction === 'decode'}
+                        name="AES 加密"
+                        hint={`${aes.mode} · ${aes.keySize} 位`}
+                        active={isAes && direction === 'encode'}
+                        onClick={() => pick(AES_ID, 'encode')}
+                      />
+                      <MethodTile
+                        name="AES 解密"
+                        hint={`${aes.mode} · ${aes.keySize} 位`}
+                        active={isAes && direction === 'decode'}
                         decode
-                        onClick={() => pick(type.id, 'decode')}
+                        onClick={() => pick(AES_ID, 'decode')}
                       />
-                    ))}
+                    </div>
                   </div>
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center justify-between px-1">
-                    <span className={SECTION_LABEL}>加解密</span>
-                    <span className={META}>AES</span>
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <MethodTile
-                      name="AES 加密"
-                      hint={`${aes.mode} · ${aes.keySize} 位`}
-                      active={isAes && direction === 'encode'}
-                      onClick={() => pick(AES_ID, 'encode')}
-                    />
-                    <MethodTile
-                      name="AES 解密"
-                      hint={`${aes.mode} · ${aes.keySize} 位`}
-                      active={isAes && direction === 'decode'}
-                      decode
-                      onClick={() => pick(AES_ID, 'decode')}
-                    />
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* 底部按钮跟上面的滚动列表隔一道，免得像压在最后一格上 */}
-          <div className="p-3 border-t border-slate-200/60 dark:border-dark-border flex gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={() => run('encode')}
-              disabled={!canRun}
-              className={`${BTN.primary} flex-1`}
-            >
-              {running ? '处理中…' : '转换'}
-            </button>
-            <button
-              type="button"
-              onClick={clearAll}
-              disabled={!input && !output}
-              className={BTN.secondary}
-            >
-              清空
-            </button>
-          </div>
-        </ToolCard>
-
-        {/* ---------------- 右侧：输入 / 参数 / 结果，自上而下 ---------------- */}
-        <div className="flex flex-col gap-4 min-h-0 pr-2 overflow-y-scroll">
-          <ToolCard className="min-h-[150px]">
-            <ToolCardHeader
-              title={isAes ? '明文 / 密文' : '输入内容'}
-              sublabel="SOURCE"
-              // meta 自带一层灰底，这里只能传纯文本；再套 ToolTag 会双层叠色
-              meta={isAes ? 'IV:密文' : '纯文本'}
-            />
-            <div className="flex-1 min-h-0 p-4 flex flex-col">
-              <textarea
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder={
-                  isAes ? '加密时填明文；解密时贴入「IV:密文」' : '在这里输入需要转换的文本…'
-                }
-                className={BODY_TEXTAREA}
-              />
+                </>
+              )}
             </div>
-            <ToolCardFooter>
-              <span className="font-mono">{input.length} 字符</span>
-              <span className={META}>{isAes ? `AES-${aes.mode}` : currentType?.name}</span>
-            </ToolCardFooter>
+
+            {/* 底部按钮跟上面的滚动列表隔一道，免得像压在最后一格上 */}
+            <div className="p-3 border-t border-slate-200/60 dark:border-dark-border flex gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => run('encode')}
+                disabled={!canRun}
+                className={`${BTN.primary} flex-1`}
+              >
+                {running ? '处理中…' : '转换'}
+              </button>
+              <button
+                type="button"
+                onClick={clearAll}
+                disabled={!input && !output}
+                className={BTN.secondary}
+              >
+                清空
+              </button>
+            </div>
           </ToolCard>
 
-          {/* AES 参数：只有选了 AES 才出现，夹在输入与结果之间 */}
-          {isAes && (
-            <ToolCard fill={false}>
-              <ToolCardHeader title="AES 参数" icon={KeyRound} meta={`${aes.mode} · ${aes.keySize} 位`} />
-              <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="flex flex-col gap-2">
-                  <span className={SECTION_LABEL}>加密模式</span>
-                  <Select
-                    value={aes.mode}
-                    onChange={(mode) => setAes({ ...aes, mode })}
-                    options={AES_MODES.map((mode) => ({ value: mode, label: mode }))}
-                  />
-                  <p className={META}>
-                    {aes.mode === 'GCM' ? '带完整性校验，推荐' : '经典模式，无校验'}
-                  </p>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <span className={SECTION_LABEL}>密钥长度</span>
-                  <Select
-                    value={String(aes.keySize)}
-                    onChange={(value) => setAes({ ...aes, keySize: Number(value) as AesKeySize })}
-                    options={AES_KEY_SIZES.map((size) => ({ value: String(size), label: `${size} 位` }))}
-                  />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <span className={SECTION_LABEL}>密钥来源</span>
-                  <Segmented
-                    value={aes.keySource}
-                    onChange={(keySource: AesKeySource) => setAes({ ...aes, keySource })}
-                    options={[
-                      { value: 'hex' as const, label: '十六进制' },
-                      { value: 'passphrase' as const, label: '口令派生' },
-                    ]}
-                  />
-                </div>
+          {/* ---------------- 右侧：输入 / 参数 / 结果，自上而下 ---------------- */}
+          <div className="flex flex-col gap-4 min-h-0 overflow-y-scroll">
+            <ToolCard className="min-h-[150px]">
+              <ToolCardHeader
+                title={isAes ? '明文 / 密文' : '输入内容'}
+                sublabel="SOURCE"
+                // meta 自带一层灰底，这里只能传纯文本；再套 ToolTag 会双层叠色
+                meta={isAes ? 'IV:密文' : '纯文本'}
+              />
+              <div className="flex-1 min-h-0 p-4 flex flex-col">
+                <textarea
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => handleTextareaKeyDown(e, setInput)}
+                  placeholder={
+                    isAes ? '加密时填明文；解密时贴入「IV:密文」' : '在这里输入需要转换的文本…'
+                  }
+                  className={BODY_TEXTAREA}
+                />
+              </div>
+              <ToolCardFooter>
+                <span className="font-mono">{input.length} 字符</span>
+                <span className={META}>{isAes ? `AES-${aes.mode}` : currentType?.name}</span>
+              </ToolCardFooter>
+            </ToolCard>
 
-                <div className="md:col-span-3 flex flex-col gap-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className={SECTION_LABEL}>
-                      {aes.keySource === 'hex' ? '密钥（十六进制）' : '口令'}
-                    </span>
-                    {aes.keySource === 'hex' && (
-                      <button
-                        onClick={() => setAes({ ...aes, key: randomHexKey(aes.keySize) })}
-                        className="text-[11px] font-semibold text-brand-600 dark:text-brand-400 hover:underline"
-                      >
-                        随机生成一个
-                      </button>
+            {/* AES 参数：只有选了 AES 才出现，夹在输入与结果之间 */}
+            {isAes && (
+              <ToolCard fill={false}>
+                <ToolCardHeader title="AES 参数" icon={KeyRound} meta={`${aes.mode} · ${aes.keySize} 位`} />
+                <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="flex flex-col gap-2">
+                    <span className={SECTION_LABEL}>加密模式</span>
+                    <Select
+                      value={aes.mode}
+                      onChange={(mode) => setAes({ ...aes, mode })}
+                      options={AES_MODES.map((mode) => ({ value: mode, label: mode }))}
+                    />
+                    <p className={META}>
+                      {aes.mode === 'GCM' ? '带完整性校验，推荐' : '经典模式，无校验'}
+                    </p>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <span className={SECTION_LABEL}>密钥长度</span>
+                    <Select
+                      value={String(aes.keySize)}
+                      onChange={(value) => setAes({ ...aes, keySize: Number(value) as AesKeySize })}
+                      options={AES_KEY_SIZES.map((size) => ({ value: String(size), label: `${size} 位` }))}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <span className={SECTION_LABEL}>密钥来源</span>
+                    <Segmented
+                      value={aes.keySource}
+                      onChange={(keySource: AesKeySource) => setAes({ ...aes, keySource })}
+                      options={[
+                        { value: 'hex' as const, label: '十六进制' },
+                        { value: 'passphrase' as const, label: '口令派生' },
+                      ]}
+                    />
+                  </div>
+
+                  <div className="md:col-span-3 flex flex-col gap-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className={SECTION_LABEL}>
+                        {aes.keySource === 'hex' ? '密钥（十六进制）' : '口令'}
+                      </span>
+                      {aes.keySource === 'hex' && (
+                        <button
+                          onClick={() => setAes({ ...aes, key: randomHexKey(aes.keySize) })}
+                          className="text-[11px] font-semibold text-brand-600 dark:text-brand-400 hover:underline"
+                        >
+                          随机生成一个
+                        </button>
+                      )}
+                    </div>
+                    <textarea
+                      value={aes.key}
+                      onChange={(e) => setAes({ ...aes, key: e.target.value })}
+                      placeholder={
+                        aes.keySource === 'hex'
+                          ? `需要 ${aes.keySize / 4} 个十六进制字符`
+                          : '任意口令，会用 PBKDF2 派生密钥'
+                      }
+                      rows={2}
+                      className="w-full bg-slate-50/70 dark:bg-dark-hover/40 border border-slate-200/70 dark:border-dark-border rounded-lg px-3 py-2 resize-none outline-none font-mono text-[12px] leading-5 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:border-brand-400"
+                    />
+                    {aesKeyMissing && (
+                      <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                        {aes.keySource === 'hex' ? '还没填密钥' : '还没填口令'}，填了才能加密
+                      </p>
                     )}
                   </div>
-                  <textarea
-                    value={aes.key}
-                    onChange={(e) => setAes({ ...aes, key: e.target.value })}
-                    placeholder={
-                      aes.keySource === 'hex'
-                        ? `需要 ${aes.keySize / 4} 个十六进制字符`
-                        : '任意口令，会用 PBKDF2 派生密钥'
-                    }
-                    rows={2}
-                    className="w-full bg-slate-50/70 dark:bg-dark-hover/40 border border-slate-200/70 dark:border-dark-border rounded-lg px-3 py-2 resize-none outline-none font-mono text-[12px] leading-5 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:border-brand-400"
-                  />
-                  {aesKeyMissing && (
-                    <p className="text-[11px] text-amber-600 dark:text-amber-400">
-                      {aes.keySource === 'hex' ? '还没填密钥' : '还没填口令'}，填了才能加密
-                    </p>
+                </div>
+              </ToolCard>
+            )}
+
+            <ToolCard className="flex-1 min-h-[150px]">
+              <ToolCardHeader
+                title="解析结果"
+                sublabel="RESULT"
+                // meta 自带一层灰底，这里只能传纯文本；再套 ToolTag 会双层叠色
+                meta={isAes ? `AES-${aes.mode}` : currentType?.name}
+                actions={
+                  <CopyButton value={() => output} disabled={!output} />
+                }
+              />
+              <div className="flex-1 min-h-0 p-4 flex flex-col">
+                <div className={BODY_OUTPUT}>
+                  {output || (
+                    <span className="text-slate-300 dark:text-slate-600 not-italic">
+                      转换结果将在此呈现…
+                    </span>
                   )}
                 </div>
               </div>
+              <ToolCardFooter>
+                <span className="font-mono">{output.length} 字符</span>
+                <span className={META}>点左侧方式即出结果</span>
+              </ToolCardFooter>
             </ToolCard>
-          )}
-
-          <ToolCard className="flex-1 min-h-[150px]">
-            <ToolCardHeader
-              title="解析结果"
-              sublabel="RESULT"
-              // meta 自带一层灰底，这里只能传纯文本；再套 ToolTag 会双层叠色
-              meta={isAes ? `AES-${aes.mode}` : currentType?.name}
-              actions={
-                <CopyButton value={() => output} disabled={!output} />
-              }
-            />
-            <div className="flex-1 min-h-0 p-4 flex flex-col">
-              <div className={BODY_OUTPUT}>
-                {output || (
-                  <span className="text-slate-300 dark:text-slate-600 not-italic">
-                    转换结果将在此呈现…
-                  </span>
-                )}
-              </div>
-            </div>
-            <ToolCardFooter>
-              <span className="font-mono">{output.length} 字符</span>
-              <span className={META}>点左侧方式即出结果</span>
-            </ToolCardFooter>
-          </ToolCard>
+          </div>
         </div>
-      </div>
       </ToolShell>
 
       {/* 底部动作条：ToolShell 之外、外层 flex 里的兄弟节点，独占一条高度 */}

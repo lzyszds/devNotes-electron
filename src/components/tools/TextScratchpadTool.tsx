@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { handleTextareaKeyDown } from '../../utils/textareaIndent'
 import {
   Check,
   Copy,
@@ -177,6 +178,7 @@ export default function TextScratchpadTool() {
             <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => handleTextareaKeyDown(e, setText)}
               spellCheck={false}
               disabled={!loaded}
               placeholder={EMPTY_HINT}

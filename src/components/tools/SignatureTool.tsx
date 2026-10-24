@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { handleTextareaKeyDown } from '../../utils/textareaIndent'
 import { Check, File as FileIcon, KeyRound, ShieldCheck, ShieldX, TriangleAlert, X } from 'lucide-react'
 import {
   BODY_TEXTAREA,
@@ -377,6 +378,7 @@ export default function SignatureTool() {
                   <textarea
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
+                    onKeyDown={(e) => handleTextareaKeyDown(e, setMessage)}
                     placeholder={
                       isHmac
                         ? '要签名的内容。签名串常是 method + path + 时间戳 + body 拼起来的，原样贴进来'

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { handleTextareaKeyDown } from "../../utils/textareaIndent";
 import {
   AlertCircle,
   ArrowUpRight,
@@ -240,6 +241,7 @@ export default function WebsocketTool() {
               <textarea
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
+                onKeyDown={(e) => handleTextareaKeyDown(e, setMessage)}
                 placeholder="输入要发送的消息 (文本或 JSON 字符串)…"
                 disabled={!connected}
                 className={BODY_TEXTAREA}

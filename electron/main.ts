@@ -34,6 +34,7 @@ import { COMMON_PORTS, inspectPort, killProcess } from './ports'
 import { httpProbe, startPing, tcpProbe, validateHost, validatePort, type PingOptions } from './netProbe'
 import { listLocalInterfaces, queryPublicIp } from './netInfo'
 import { HASH_ALGORITHMS, hashFiles, type HashAlgorithm } from './hashFile'
+import { getSystemHardwareInfo, getProcessMemoryList } from './systemInfo'
 import { setupAutoUpdater } from './updater'
 import {
   MAX_ENTRIES,
@@ -1181,6 +1182,17 @@ function setupIpc() {
     return await killProcess(pid)
   })
 
+  ipcMain.handle('system-info', () => {
+    return getSystemHardwareInfo()
+  })
+
+  ipcMain.handle('system-process-list', async () => {
+    return await getProcessMemoryList()
+  })
+
+  ipcMain.handle('system-kill-process', async (_, pid: number) => {
+    return await killProcess(pid)
+  })
 
   ipcMain.handle('get-app-version', () => {
     return app.getVersion()

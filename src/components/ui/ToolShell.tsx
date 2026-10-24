@@ -67,9 +67,8 @@ export const ToolBadge = forwardRef<HTMLElement, ToolBadgeProps>(
       <>
         {dot && (
           <span
-            className={`w-1.5 h-1.5 rounded-full ${dotClass} ${
-              pulse ? "animate-pulse" : ""
-            }`}
+            className={`w-1.5 h-1.5 rounded-full ${dotClass} ${pulse ? "animate-pulse" : ""
+              }`}
           />
         )}
         <span className="truncate">{children}</span>
@@ -151,16 +150,15 @@ export default function ToolShell({
            * 宽屏锁死 68px，标题过长截断，窄屏允许换行。
            * 底色为纯白，底边框为 1px solid #E6E6E3。
            */
-          className="flex flex-wrap md:flex-nowrap h-auto md:h-[68px] gap-3 px-4 py-3 md:py-0 md:px-6 bg-[#FFFFFF] border-b border-[#E6E6E3] items-center justify-between flex-shrink-0 md:overflow-hidden"
+          className="flex flex-wrap md:flex-nowrap h-auto md:h-[68px] gap-3 px-4 py-3 md:py-0 md:px-6 bg-[#FFFFFF] items-center justify-between flex-shrink-0 md:overflow-hidden"
         >
           <div className="flex items-center gap-3 min-w-0 flex-1">
             {/* 炭黑圆角图标，移除彩光 */}
             <div
-              className={`h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors ${
-                iconTone === "brand"
+              className={`h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors ${iconTone === "brand"
                   ? "bg-[#1C1C1C] text-white"
                   : "bg-[#F3F3F1] text-[#787774] border border-[#E6E6E3]"
-              }`}
+                }`}
             >
               <Icon size={17} />
             </div>

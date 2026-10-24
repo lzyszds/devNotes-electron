@@ -1993,6 +1993,31 @@ html.dark :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .mil
   max-width: var(--fe-read-max-width);
   margin-left: auto;
   margin-right: auto;
+  /*
+   * 长文档性能关键：视口外元素自动跳过布局与绘制（Skip Layout & Paint）。
+   * 无论文档有 1000 个段落还是几十张图片，切入时只计算屏幕可见的开头几段，
+   * 彻底消除万字长文档切入时的丢帧与卡顿！
+   */
+  content-visibility: auto;
+  contain-intrinsic-size: 0 36px;
+}
+
+/* 重型块（代码块、表格、图片容器）预留更高占位，平滑滚动 */
+.cherry-notes-editor .cherry-previewer pre,
+.cherry-notes-editor .cherry-previewer table,
+.cherry-notes-editor .cherry-previewer figure,
+.cherry-notes-editor .cherry-previewer .cherry-image-container {
+  contain-intrinsic-size: 0 160px;
+}
+
+/* 图片性能加速：开启 GPU 独立合成层，解码不占死主线程，视口外图片跳过重排 */
+.cherry-notes-editor .cherry-previewer img,
+.milkdown-notes-editor .milkdown-content img {
+  content-visibility: auto;
+  contain-intrinsic-size: 300px 200px;
+  max-width: 100%;
+  height: auto;
+  transform: translateZ(0);
 }
 
 /* ==========================================================================

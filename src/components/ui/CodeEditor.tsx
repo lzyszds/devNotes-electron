@@ -1,4 +1,5 @@
 import { useMemo, type UIEvent } from 'react'
+import { handleTextareaKeyDown } from '../../utils/textareaIndent'
 
 /*
  * 带行号与 JSON 语法高亮的代码编辑区。
@@ -79,7 +80,7 @@ export default function CodeEditor({
   )
 
   /** 滚动只发生在外层容器上；这里仅用于派发自定义事件（当前无需处理） */
-  const noop = (_event: UIEvent<HTMLDivElement>) => {}
+  const noop = (_event: UIEvent<HTMLDivElement>) => { }
 
   const metrics = { lineHeight: LINE_HEIGHT } as const
 
@@ -93,7 +94,7 @@ export default function CodeEditor({
         <div className="flex w-max min-w-full min-h-full">
           {/* 行号槽：sticky 吸附左侧，横向滚动时保持可见 */}
           <div
-            className="sticky left-0 z-10 w-9 shrink-0 select-none rounded-l-[14px] overflow-hidden text-right font-mono text-[11px] pr-2 text-slate-300 dark:text-slate-600 border-r border-slate-100 dark:border-dark-border bg-slate-50 dark:bg-[#141821]"
+            className="sticky left-0 z-10 w-9 shrink-0 select-none rounded-[0_0_0_14px] overflow-hidden text-right font-mono text-[11px] pr-2 text-slate-300 dark:text-slate-600 bg-[#FBFBFA] dark:bg-[#141821]"
             style={metrics}
           >
             <div style={{ ...metrics, paddingTop: 12 }}>
@@ -119,13 +120,17 @@ export default function CodeEditor({
             <textarea
               value={value}
               onChange={(e) => onChange?.(e.target.value)}
+              onKeyDown={(e) => {
+                if (!readOnly && !disabled) {
+                  handleTextareaKeyDown(e, onChange)
+                }
+              }}
               readOnly={readOnly}
               disabled={disabled}
               spellCheck={false}
               wrap="off"
-              className={`${textLayer} select-text overflow-hidden text-transparent caret-slate-900 dark:caret-slate-100 selection:bg-brand-500/20 selection:text-transparent ${
-                disabled ? 'cursor-not-allowed' : ''
-              }`}
+              className={`${textLayer} select-text overflow-hidden text-transparent caret-slate-900 dark:caret-slate-100 selection:bg-brand-500/20 selection:text-transparent ${disabled ? 'cursor-not-allowed' : ''
+                }`}
               style={metrics}
             />
           </div>

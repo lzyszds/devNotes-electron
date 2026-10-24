@@ -23,6 +23,9 @@ import {
   Activity,
   Fingerprint,
   Shuffle,
+  Gauge,
+  Cpu,
+  PenTool,
   type LucideProps,
 } from 'lucide-react'
 
@@ -54,6 +57,9 @@ const ICON_MAP: Record<string, React.ComponentType<LucideProps>> = {
   'snippets': FileCode2,
   'port-killer': Network,
   'scratchpad': StickyNote,
+  'speed-test': Gauge,
+  'sys-inspector': Cpu,
+  "tool": PenTool
 }
 
 /**
