@@ -160,13 +160,13 @@ export default function NotesSidebar({
     const moveTargets = [
       ...(note.folderId
         ? [
-            {
-              id: 'note-move-out',
-              label: '移出到未分类',
-              icon: <Inbox className="w-3.5 h-3.5" />,
-              onSelect: () => handleMoveToFolder(note.id, null),
-            },
-          ]
+          {
+            id: 'note-move-out',
+            label: '移出到未分类',
+            icon: <Inbox className="w-3.5 h-3.5" />,
+            onSelect: () => handleMoveToFolder(note.id, null),
+          },
+        ]
         : []),
       ...folders
         .filter((folder) => folder.id !== note.folderId)
@@ -207,13 +207,13 @@ export default function NotesSidebar({
       },
       ...(moveTargets.length > 0
         ? [
-            {
-              id: 'note-move-to',
-              label: '移动到',
-              icon: <FolderClosed className="w-3.5 h-3.5" />,
-              children: moveTargets,
-            },
-          ]
+          {
+            id: 'note-move-to',
+            label: '移动到',
+            icon: <FolderClosed className="w-3.5 h-3.5" />,
+            children: moveTargets,
+          },
+        ]
         : []),
       { id: 'note-sep-1', separator: true },
       {
@@ -356,9 +356,8 @@ export default function NotesSidebar({
       {/* ================= 第 2 栏：分类目录栏 (w-52 = 208px，按需展开) ================= */}
       <aside
         style={{ width: isFolderTreeOpen ? 208 : 0 }}
-        className={`bg-[#F3F3F1] border-r border-[#E6E6E3] flex flex-col h-full flex-shrink-0 transition-[width] duration-200 overflow-hidden ${
-          isFolderTreeOpen ? 'opacity-100' : 'w-0 opacity-0 border-r-0'
-        }`}
+        className={`bg-[#F3F3F1] border-r border-[#E6E6E3] flex flex-col h-full flex-shrink-0 transition-[width] duration-200 overflow-hidden ${isFolderTreeOpen ? 'opacity-100' : 'w-0 opacity-0 border-r-0'
+          }`}
       >
         {/* 顶部：48px 对齐，左侧粗体标题，右侧炭黑新建胶囊按钮 */}
         <div className="h-12 px-3 border-b border-[#E6E6E3] flex items-center justify-between flex-shrink-0">
@@ -400,17 +399,15 @@ export default function NotesSidebar({
                   e.stopPropagation()
                   settleDrag(null)
                 }}
-                className={`w-full flex items-center justify-between px-2.5 py-1.5 transition-all text-xs font-medium cursor-pointer ${
-                  isSelected
+                className={`w-full flex items-center justify-between px-2.5 py-1.5 transition-all text-xs font-medium cursor-pointer ${isSelected
                     ? 'bg-[#EAEAE7] text-[#191918] font-bold rounded-lg shadow-2xs'
                     : 'text-[#787774] hover:text-[#191918] hover:bg-[#EAEAE7]/60 rounded-lg'
-                }`}
+                  }`}
               >
                 <div className="flex items-center gap-2 min-w-0">
                   <span
-                    className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center flex-shrink-0 ${
-                      isSelected ? 'bg-[#1C1C1C] text-white' : 'bg-[#EAEAE7] text-[#191918]'
-                    }`}
+                    className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center flex-shrink-0 ${isSelected ? 'bg-[#1C1C1C] text-white' : 'bg-[#EAEAE7] text-[#191918]'
+                      }`}
                   >
                     全
                   </span>
@@ -430,17 +427,15 @@ export default function NotesSidebar({
               <button
                 type="button"
                 onClick={() => setScope({ type: 'bookmarks' })}
-                className={`w-full flex items-center justify-between px-2.5 py-1.5 transition-all text-xs font-medium cursor-pointer ${
-                  isSelected
+                className={`w-full flex items-center justify-between px-2.5 py-1.5 transition-all text-xs font-medium cursor-pointer ${isSelected
                     ? 'bg-[#EAEAE7] text-[#191918] font-bold rounded-lg shadow-2xs'
                     : 'text-[#787774] hover:text-[#191918] hover:bg-[#EAEAE7]/60 rounded-lg'
-                }`}
+                  }`}
               >
                 <div className="flex items-center gap-2 min-w-0">
                   <span
-                    className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center flex-shrink-0 ${
-                      isSelected ? 'bg-[#1C1C1C] text-white' : 'bg-[#EAEAE7] text-[#191918]'
-                    }`}
+                    className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center flex-shrink-0 ${isSelected ? 'bg-[#1C1C1C] text-white' : 'bg-[#EAEAE7] text-[#191918]'
+                      }`}
                   >
                     星
                   </span>
@@ -533,19 +528,17 @@ export default function NotesSidebar({
                     },
                   ])
                 }
-                className={`w-full flex items-center justify-between px-2.5 py-1.5 transition-all text-xs font-medium cursor-pointer ${
-                  dropFolderId === folder.id
+                className={`w-full flex items-center justify-between px-2.5 py-1.5 transition-all text-xs font-medium cursor-pointer ${dropFolderId === folder.id
                     ? 'ring-1 ring-[#1C1C1C] bg-white text-[#191918] rounded-lg'
                     : isSelected
-                    ? 'bg-[#EAEAE7] text-[#191918] font-bold rounded-lg shadow-2xs'
-                    : 'text-[#787774] hover:text-[#191918] hover:bg-[#EAEAE7]/60 rounded-lg'
-                }`}
+                      ? 'bg-[#EAEAE7] text-[#191918] font-bold rounded-lg shadow-2xs'
+                      : 'text-[#787774] hover:text-[#191918] hover:bg-[#EAEAE7]/60 rounded-lg'
+                  }`}
               >
                 <div className="flex items-center gap-2 min-w-0">
                   <span
-                    className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center flex-shrink-0 ${
-                      isSelected ? 'bg-[#1C1C1C] text-white' : 'bg-[#EAEAE7] text-[#191918]'
-                    }`}
+                    className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center flex-shrink-0 ${isSelected ? 'bg-[#1C1C1C] text-white' : 'bg-[#EAEAE7] text-[#191918]'
+                      }`}
                   >
                     {initialBadge}
                   </span>
@@ -568,17 +561,15 @@ export default function NotesSidebar({
                   onClick={() =>
                     setScope(scope.type === 'trash' ? { type: 'all' } : { type: 'trash' })
                   }
-                  className={`w-full flex items-center justify-between px-2.5 py-1.5 transition-all text-xs font-medium cursor-pointer ${
-                    isSelected
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 transition-all text-xs font-medium cursor-pointer ${isSelected
                       ? 'bg-[#EAEAE7] text-[#191918] font-bold rounded-lg shadow-2xs'
                       : 'text-[#787774] hover:text-[#191918] hover:bg-[#EAEAE7]/60 rounded-lg'
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center gap-2 min-w-0">
                     <span
-                      className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center flex-shrink-0 ${
-                        isSelected ? 'bg-[#1C1C1C] text-white' : 'bg-[#EAEAE7] text-[#191918]'
-                      }`}
+                      className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center flex-shrink-0 ${isSelected ? 'bg-[#1C1C1C] text-white' : 'bg-[#EAEAE7] text-[#191918]'
+                        }`}
                     >
                       垃
                     </span>
@@ -595,17 +586,16 @@ export default function NotesSidebar({
       </aside>
 
       {/* ================= 第 3 栏：记录列表栏 (w-72 = 288px) ================= */}
-      <section className="w-72 bg-[#F9F9F8] border-r border-black/[0.06] flex flex-col h-full flex-shrink-0">
+      <section className="w-72 bg-[#F9F9F8] flex flex-col h-full flex-shrink-0">
         {/* 顶部：目录展开按钮 + 现代极简微型搜索框 + 炭黑 +新增 按钮 */}
-        <div className="h-11 px-2.5 border-b border-black/[0.06] flex items-center gap-1.5 flex-shrink-0">
+        <div className="h-11 px-2.5 flex items-center gap-1.5 flex-shrink-0">
           <button
             type="button"
             onClick={toggleFolderTree}
-            className={`w-7 h-7 rounded-md flex items-center justify-center transition-colors cursor-pointer shrink-0 ${
-              isFolderTreeOpen
+            className={`w-7 h-7 rounded-md flex items-center justify-center transition-colors cursor-pointer shrink-0 ${isFolderTreeOpen
                 ? 'bg-[#EAEAE7] text-[#191918]'
                 : 'text-[#787774] hover:text-[#191918] hover:bg-[#EAEAE7]/60'
-            }`}
+              }`}
             title={isFolderTreeOpen ? '收起分类目录' : '展开分类目录'}
           >
             <FolderTree className="w-3.5 h-3.5" />
@@ -671,13 +661,11 @@ export default function NotesSidebar({
                 onContextMenu={(e) =>
                   inTrash ? openTrashMenu(e, note) : openNoteMenu(e, note)
                 }
-                className={`group relative px-2.5 py-2 rounded-lg transition-all ${
-                  inTrash ? 'cursor-default' : 'cursor-pointer'
-                } ${draggingNoteId === note.id ? 'opacity-30' : ''} ${
-                  isActive
+                className={`group relative px-2.5 py-2 rounded-lg transition-all ${inTrash ? 'cursor-default' : 'cursor-pointer'
+                  } ${draggingNoteId === note.id ? 'opacity-30' : ''} ${isActive
                     ? 'bg-white shadow-[0_1px_3px_rgba(0,0,0,0.05),0_1px_1px_rgba(0,0,0,0.02)] ring-1 ring-black/[0.08]'
                     : 'bg-transparent hover:bg-black/[0.035] text-[#191918]'
-                }`}
+                  }`}
               >
                 {/* 第一行：标题 + 右侧时间/星标 */}
                 <div className="flex items-center justify-between gap-1.5 min-w-0">
@@ -708,9 +696,8 @@ export default function NotesSidebar({
                           e.stopPropagation()
                           if (!inTrash) startRenameNote(note.id, note.title)
                         }}
-                        className={`truncate text-xs ${
-                          isActive ? 'font-semibold text-[#191918]' : 'font-normal text-[#191918]'
-                        }`}
+                        className={`truncate text-xs ${isActive ? 'font-semibold text-[#191918]' : 'font-normal text-[#191918]'
+                          }`}
                       >
                         {note.title || '未命名笔记'}
                       </h4>

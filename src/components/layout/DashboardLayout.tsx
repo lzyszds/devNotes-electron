@@ -380,7 +380,7 @@ export default function DashboardLayout({
       {/* ================= 下方主体：左侧窄导航 + 侧边栏 + 主画布 ================= */}
       <div className="flex-1 flex flex-row overflow-hidden min-h-0">
         {/* ================= 1. 第 1 栏：最左侧窄导航 (w-16 = 64px) ================= */}
-        <aside className="w-16 bg-[#F3F3F1] border-r border-black/[0.06] flex flex-col items-center py-2.5 justify-between flex-shrink-0 z-30 select-none">
+        <aside className="w-16 bg-[#F3F3F1] flex flex-col items-center py-2.5 justify-between flex-shrink-0 z-30 select-none">
           {/* 模块图标 + 2 字短标签导航 */}
           <nav className="flex flex-col gap-1 w-full px-1">
             {railToolIds.map((toolId) => {
@@ -425,7 +425,7 @@ export default function DashboardLayout({
           </nav>
 
           {/* 底部：云同步 / 统计 / 设置 / 圆形黑底头像 */}
-          <div className="flex flex-col items-center gap-2 w-full px-2 pt-2 border-t border-black/[0.06]">
+          <div className="flex flex-col items-center gap-2 w-full px-2 pt-2 ">
             {/* 云同步 */}
             <Tooltip placement="right" content="云端同步设置">
               <button
@@ -541,8 +541,8 @@ export default function DashboardLayout({
               </aside>
 
               {/* 工具记录列表栏 (w-72 = 288px) */}
-              <section className="w-72 bg-[#F9F9F8] border-r border-black/[0.06] flex flex-col h-full flex-shrink-0">
-                <div className="h-11 px-2.5 border-b border-black/[0.06] flex items-center gap-1.5 flex-shrink-0">
+              <section className="w-72 bg-[#F9F9F8] flex flex-col h-full flex-shrink-0">
+                <div className="h-11 px-2.5 flex items-center gap-1.5 flex-shrink-0">
                   <button
                     type="button"
                     onClick={toggleFolderTree}

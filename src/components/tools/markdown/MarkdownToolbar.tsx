@@ -138,11 +138,10 @@ export default function MarkdownToolbar({
             aria-label={command.label}
             aria-pressed={active || undefined}
             onClick={(event) => onCommand(command, event.currentTarget)}
-            className={`flex-shrink-0 rounded-lg p-1.5 transition-colors cursor-pointer disabled:pointer-events-none disabled:opacity-35 ${
-              active
+            className={`flex-shrink-0 rounded-lg p-1.5 transition-colors cursor-pointer disabled:pointer-events-none disabled:opacity-35 ${active
                 ? 'bg-black/[0.08] text-[#191918] font-bold'
                 : 'text-[#787774] hover:bg-black/[0.04] hover:text-[#191918]'
-            }`}
+              }`}
           >
             <Icon className="h-3.5 w-3.5" />
           </button>
@@ -152,7 +151,7 @@ export default function MarkdownToolbar({
   }
 
   return (
-    <div className="relative z-40 flex flex-shrink-0 items-center overflow-x-auto scrollbar-hide px-3 md:px-12 py-2 select-none max-md:p-0 max-md:border-t max-md:border-black/[0.06] max-md:bg-white">
+    <div className="relative z-40 flex flex-shrink-0 justify-center items-center overflow-x-auto scrollbar-hide px-3 md:px-12 py-2 select-none max-md:p-0 max-md:border-t max-md:border-black/[0.06] max-md:bg-white">
       <div className="inline-flex items-center gap-0.5 px-2 py-1 rounded-xl bg-white/95 backdrop-blur-md border border-black/[0.08] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_1px_rgba(0,0,0,0.02)] max-md:w-full max-md:rounded-none max-md:border-0 max-md:shadow-none max-md:bg-transparent max-md:px-2 max-md:h-10">
         {backToTop && (
           <Tooltip content="返回顶部">
@@ -160,9 +159,8 @@ export default function MarkdownToolbar({
               type="button"
               onClick={backToTop.onClick}
               aria-label="返回顶部"
-              className={`mr-1 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-[#787774] transition-colors hover:bg-black/[0.04] hover:text-[#191918] cursor-pointer ${
-                backToTop.visible ? '' : 'invisible'
-              }`}
+              className={`mr-1 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-[#787774] transition-colors hover:bg-black/[0.04] hover:text-[#191918] cursor-pointer ${backToTop.visible ? '' : 'invisible'
+                }`}
             >
               <ArrowUpToLine className="h-3.5 w-3.5" />
             </button>
