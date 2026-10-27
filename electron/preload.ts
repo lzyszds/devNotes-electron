@@ -81,9 +81,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // App info
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
 
-  // 自动更新：手动检查、立即重启安装，以及订阅状态推送
+  // 自动更新：手动检查、立即重启安装，获取当前状态及订阅状态推送
   checkForUpdates: () => ipcRenderer.invoke('update-check'),
   installUpdate: () => ipcRenderer.invoke('update-install'),
+  getUpdateStatus: () => ipcRenderer.invoke('update-get-status'),
   onUpdateStatus: (callback: (status: UpdateStatus) => void) => {
     const listener = (_: unknown, status: UpdateStatus) => callback(status)
     ipcRenderer.on('update:status', listener)
@@ -328,6 +329,7 @@ declare global {
       getAppVersion: () => Promise<string>
       checkForUpdates: () => Promise<unknown>
       installUpdate: () => Promise<void>
+      getUpdateStatus: () => Promise<UpdateStatus | null>
       onUpdateStatus: (callback: (status: UpdateStatus) => void) => () => void
       storeGet: (key: string) => Promise<any>
       storeSet: (key: string, value: any) => Promise<void>

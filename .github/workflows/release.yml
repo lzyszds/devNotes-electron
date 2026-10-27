@@ -137,6 +137,7 @@ jobs:
           path: |
             release/*.exe
             release/*.blockmap
+            release/*.7z
             release/latest*.yml
 
   publish:

@@ -134,6 +134,23 @@ export default function DashboardLayout({
     });
   }, []);
 
+  // 监听全量/差量在线更新就绪事件
+  const [isUpdateReady, setIsUpdateReady] = useState(false);
+  useEffect(() => {
+    window.electronAPI?.getUpdateStatus?.().then((s) => {
+      if (s?.state === "downloaded") setIsUpdateReady(true);
+    });
+    return window.electronAPI?.onUpdateStatus?.((s) => {
+      if (s.state === "downloaded") {
+        setIsUpdateReady(true);
+        showToast(
+          `🎉 新版本 v${s.version} 差量下载完毕，点击设置即可立即重启安装！`,
+          "default"
+        );
+      }
+    });
+  }, [showToast]);
+
   const {
     activeNote,
     handleRename: handleRenameNote,
@@ -1048,13 +1065,23 @@ export default function DashboardLayout({
             </Tooltip>
 
             {/* 全局设置 */}
-            <Tooltip placement="right" content="系统设置 (⌘,)">
+            <Tooltip
+              placement="right"
+              content={
+                isUpdateReady
+                  ? "新版本已就绪！点击设置立即安装"
+                  : "系统设置 (⌘,)"
+              }
+            >
               <button
                 type="button"
                 onClick={() => openSettings("general")}
-                className="w-8 h-8 flex items-center justify-center rounded-lg text-[#787774] hover:text-[#191918] hover:bg-[#EAEAE7] transition-all cursor-pointer"
+                className="relative w-8 h-8 flex items-center justify-center rounded-lg text-[#787774] hover:text-[#191918] hover:bg-[#EAEAE7] transition-all cursor-pointer"
               >
                 <Settings className="w-4 h-4" />
+                {isUpdateReady && (
+                  <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white animate-pulse" />
+                )}
               </button>
             </Tooltip>
           </div>

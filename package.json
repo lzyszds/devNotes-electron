@@ -153,6 +153,13 @@
       ],
       "artifactName": "${productName}-${version}.${ext}"
     },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "deleteAppDataOnUninstall": false,
+      "differentialPackage": true
+    },
     "asarUnpack": [
       "node_modules/@xitanggg/**/*"
     ]

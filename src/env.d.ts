@@ -49,15 +49,31 @@ interface Window {
     /** 自动更新(可选,浏览器环境下不存在) */
     checkForUpdates?: () => Promise<unknown>
     installUpdate?: () => Promise<void>
+    getUpdateStatus?: () => Promise<{
+      state: 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error' | 'dev-mode'
+      version?: string
+      percent?: number
+      bytesPerSecond?: number
+      transferred?: number
+      total?: number
+      message?: string
+    } | null>
     onUpdateStatus?: (
       callback: (
         status:
           | { state: 'checking' }
           | { state: 'available'; version: string }
           | { state: 'not-available' }
-          | { state: 'downloading'; percent: number }
+          | {
+              state: 'downloading'
+              percent: number
+              bytesPerSecond?: number
+              transferred?: number
+              total?: number
+            }
           | { state: 'downloaded'; version: string }
           | { state: 'error'; message: string }
+          | { state: 'dev-mode'; message: string }
       ) => void
     ) => () => void
     storeGet: (key: string) => Promise<any>
