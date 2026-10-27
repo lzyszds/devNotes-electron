@@ -35,7 +35,7 @@ function formatUptime(seconds: number): string {
   return `${minutes} 分钟`
 }
 
-export default function SystemInspectorTool() {
+export default function SystemInspectorTool({ isActive = true }: { isActive?: boolean }) {
   const [hardware, setHardware] = useState<SystemHardwareInfo | null>(null)
   const [processes, setProcesses] = useState<AppProcessMemory[]>([])
   const [loading, setLoading] = useState(true)
@@ -100,14 +100,14 @@ export default function SystemInspectorTool() {
     fetchSystemData()
   }, [fetchSystemData])
 
-  // 自动刷新
+  // 自动刷新：切到后台时暂停轮询，避免无休止 IPC 扫描进程占用主线程
   useEffect(() => {
-    if (!autoRefresh) return
+    if (!autoRefresh || !isActive) return
     const timer = setInterval(() => {
       fetchSystemData()
     }, 4000)
     return () => clearInterval(timer)
-  }, [autoRefresh, fetchSystemData])
+  }, [autoRefresh, isActive, fetchSystemData])
 
   // 终止失控进程
   const handleKill = async (pid: number, name: string) => {

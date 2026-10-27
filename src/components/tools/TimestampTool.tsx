@@ -12,7 +12,7 @@ import {
   CopyButton,
 } from '../ui'
 
-export default function TimestampTool() {
+export default function TimestampTool({ isActive = true }: { isActive?: boolean }) {
   const [currentTime, setCurrentTime] = useState(new Date())
   const [inputTimestamp, setInputTimestamp] = useState('')
   const [inputDate, setInputDate] = useState('')
@@ -32,9 +32,10 @@ export default function TimestampTool() {
   })
 
   useEffect(() => {
+    if (!isActive) return
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
     return () => clearInterval(timer)
-  }, [])
+  }, [isActive])
 
   const timestampToDate = () => {
     if (!inputTimestamp) return
@@ -84,6 +85,7 @@ export default function TimestampTool() {
           title="最近转换历史"
           items={history}
           onClear={clearHistory}
+          onDelete={removeHistoryItem}
           onPick={(item) => {
             if (item.data.includes('-') || item.data.includes('T')) setInputDate(item.data)
             else setInputTimestamp(item.data)

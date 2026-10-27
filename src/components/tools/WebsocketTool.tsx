@@ -192,6 +192,7 @@ export default function WebsocketTool() {
           title="已保存的节点"
           items={history}
           onClear={clearHistory}
+          onDelete={removeHistoryItem}
           onPick={(item) => {
             setUrl(item.data);
             setShowHistory(false);

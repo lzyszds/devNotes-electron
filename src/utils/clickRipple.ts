@@ -73,6 +73,18 @@ export function installClickRipple(): void {
       // 禁用态不弹，与视觉上的不可用保持一致
       if (!button || button.disabled) return
 
+      // 复选框与开关属于高频状态切换微控件，不走按钮涟漪，避免强制重排与动画竞争导致卡顿
+      const role = button.getAttribute('role')
+      if (
+        role === 'checkbox' ||
+        role === 'switch' ||
+        button.hasAttribute('data-no-ripple') ||
+        button.closest('[role="checkbox"]') ||
+        button.closest('[role="switch"]')
+      ) {
+        return
+      }
+
       spawnRipple(button, e.clientX, e.clientY)
     },
     // 捕获阶段：按钮内部 stopPropagation 也不影响触发

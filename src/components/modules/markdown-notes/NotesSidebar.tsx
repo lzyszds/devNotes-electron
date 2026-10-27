@@ -267,17 +267,21 @@ export default function NotesSidebar({
     [handleSelect, onAfterSelect]
   )
 
-  const startRenameNote = (id: string, title: string) => {
+  const startRenameNote = useCallback((id: string, title: string) => {
     setRenamingNoteId(id)
     setRenameDraft(title)
-  }
+  }, [])
 
-  const commitRenameNote = () => {
+  const handleRenameCancel = useCallback(() => {
+    setRenamingNoteId(null)
+  }, [])
+
+  const commitRenameNote = useCallback(() => {
     const id = renamingNoteId
     const next = renameDraft.trim()
     setRenamingNoteId(null)
     if (id && next) handleRename(id, next)
-  }
+  }, [renamingNoteId, renameDraft, handleRename])
 
   const startRenameFolder = (id: string, name: string) => {
     setRenamingFolderId(id)
@@ -291,7 +295,23 @@ export default function NotesSidebar({
     if (id && next) handleRenameFolder(id, next)
   }
 
-  const openNoteMenu = (e: ReactMouseEvent, note: NoteItem) => {
+  const copyNote = useCallback(async (text: string, okMessage: string) => {
+    try {
+      if (window.electronAPI?.clipboardWrite) await window.electronAPI.clipboardWrite(text)
+      else await navigator.clipboard.writeText(text)
+      showToast(okMessage)
+    } catch {
+      showToast('复制失败')
+    }
+  }, [showToast])
+
+  const purgeOne = useCallback((note: NoteItem) => {
+    if (!window.confirm(`彻底删除「${note.title}」？此操作不可恢复。`)) return
+    handlePurge(note.id)
+    showToast('已彻底删除')
+  }, [handlePurge, showToast])
+
+  const openNoteMenu = useCallback((e: ReactMouseEvent, note: NoteItem) => {
     const moveTargets = [
       ...(note.folderId
         ? [
@@ -383,9 +403,9 @@ export default function NotesSidebar({
         },
       },
     ])
-  }
+  }, [folders, handleMoveToFolder, openContextMenu, selectNote, startRenameNote, handleToggleBookmark, showToast, copyNote, handleExport, handleDelete])
 
-  const openTrashMenu = (e: ReactMouseEvent, note: NoteItem) => {
+  const openTrashMenu = useCallback((e: ReactMouseEvent, note: NoteItem) => {
     openContextMenu(e, [
       {
         id: 'trash-restore',
@@ -412,13 +432,7 @@ export default function NotesSidebar({
         onSelect: () => purgeOne(note),
       },
     ])
-  }
-
-  const purgeOne = (note: NoteItem) => {
-    if (!window.confirm(`彻底删除「${note.title}」？此操作不可恢复。`)) return
-    handlePurge(note.id)
-    showToast('已彻底删除')
-  }
+  }, [openContextMenu, handleRestore, showToast, copyNote, purgeOne])
 
   const emptyTrash = () => {
     if (trashed.length === 0) return
@@ -427,28 +441,18 @@ export default function NotesSidebar({
     showToast('回收站已清空')
   }
 
-  const copyNote = async (text: string, okMessage: string) => {
-    try {
-      if (window.electronAPI?.clipboardWrite) await window.electronAPI.clipboardWrite(text)
-      else await navigator.clipboard.writeText(text)
-      showToast(okMessage)
-    } catch {
-      showToast('复制失败')
-    }
-  }
-
   const dropFolderIdRef = useRef<string | null>(null)
   const dragHandledRef = useRef(false)
 
-  const handleDragStart = (event: ReactDragEvent, note: NoteItem) => {
+  const handleDragStart = useCallback((event: ReactDragEvent, note: NoteItem) => {
     dragHandledRef.current = false
     dropFolderIdRef.current = null
     setDraggingNoteId(note.id)
     event.dataTransfer.effectAllowed = 'move'
     event.dataTransfer.setData('text/plain', note.id)
-  }
+  }, [])
 
-  const settleDrag = (rawFolderId: string | null) => {
+  const settleDrag = useCallback((rawFolderId: string | null) => {
     if (dragHandledRef.current) return
     const folderId = rawFolderId === ALL_TAB ? null : rawFolderId
     try {
@@ -471,11 +475,11 @@ export default function NotesSidebar({
       setDraggingNoteId(null)
       setDropFolderId(null)
     }
-  }
+  }, [draggingNoteId, notes, handleMoveToFolder, showToast])
 
-  const handleDragEnd = () => {
+  const handleDragEnd = useCallback(() => {
     settleDrag(dropFolderIdRef.current)
-  }
+  }, [settleDrag])
 
   const newFolder = () => {
     const id = handleCreateFolder()
@@ -792,7 +796,7 @@ export default function NotesSidebar({
                 onStartRename={startRenameNote}
                 onRenameChange={setRenameDraft}
                 onRenameCommit={commitRenameNote}
-                onRenameCancel={() => setRenamingNoteId(null)}
+                onRenameCancel={handleRenameCancel}
               />
             )
           })}

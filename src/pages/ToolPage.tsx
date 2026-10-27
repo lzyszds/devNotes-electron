@@ -44,6 +44,10 @@ function EncodeToolEntry({ toolId, initialType }: { toolId: string; initialType?
   return <EncodeTool initialType={initialType} modeRequest={request} />
 }
 
+const EnDecodeTool = (props: any) => <EncodeToolEntry toolId="en-decode" {...props} />
+const Base64Tool = (props: any) => <EncodeToolEntry toolId="base64" initialType="base64" {...props} />
+const UrlTool = (props: any) => <EncodeToolEntry toolId="url" initialType="url" {...props} />
+
 const toolComponents: Record<string, React.ComponentType<any>> = {
   'markdown-notes': NotesTool,
   'json-toolbox':   JsonToolbox,
@@ -54,12 +58,12 @@ const toolComponents: Record<string, React.ComponentType<any>> = {
   'text-translate': TextTranslateTool,
   'qr-code':        QrCodeTool,
   'image-convert':  ImageConvertTool,
-  'en-decode': () => <EncodeToolEntry toolId="en-decode" />,
+  'en-decode':      EnDecodeTool,
   'timestamp':      TimestampTool,
   'regexp':         RegexpTool,
   'password':       PasswordTool,
-  'base64': () => <EncodeToolEntry toolId="base64" initialType="base64" />,
-  'url':    () => <EncodeToolEntry toolId="url"    initialType="url" />,
+  'base64':         Base64Tool,
+  'url':            UrlTool,
   'websocket':      WebsocketTool,
   'bitwise':        BitwiseTool,
   'snippets':       SnippetsTool,
@@ -78,29 +82,50 @@ function ToolLoading() {
   )
 }
 
+interface KeepAliveItemProps {
+  id: string
+  isActive: boolean
+  Component: React.ComponentType<any>
+}
+
+/**
+ * 单个 Keep-Alive 工具容器。
+ *
+ * 关键性能屏障：
+ * 使用 React.memo 配合属性浅比较，彻底切断外层（DashboardLayout / NotesProvider）
+ * 重渲染对非活跃工具的级联波及。
+ * 当其他工具或顶栏更新时，后台不可见的工具组件完全跳过渲染。
+ */
+const KeepAliveItem = React.memo(
+  function KeepAliveItem({ isActive, Component }: KeepAliveItemProps) {
+    return (
+      <div
+        className={`absolute inset-0 flex flex-col overflow-hidden ${
+          isActive ? 'visible z-10' : 'invisible z-0 pointer-events-none'
+        }`}
+        aria-hidden={!isActive}
+      >
+        <Suspense fallback={<ToolLoading />}>
+          <Component isActive={isActive} />
+        </Suspense>
+      </div>
+    )
+  },
+  (prev, next) =>
+    prev.id === next.id &&
+    prev.isActive === next.isActive &&
+    prev.Component === next.Component
+)
+
 /**
  * 工具页容器 —— Keep-Alive 模式。
  *
  * 核心思路：曾经打开过的工具保持 DOM 挂载，切走时只用 CSS 隐藏（display:none），
  * 切回来时立即可见，不再重新初始化编辑器。
  *
- * 为什么这样做：
- *   NotesTool 内部的 Milkdown / Cherry 编辑器初始化耗时较长（解析 ProseMirror schema、
- *   挂载插件、渲染正文）。之前每次切走工具都会卸载组件，切回来重走一遍初始化，
- *   导致"切回笔记 tab 有明显延迟"。
- *
- * display:none 不会触发组件卸载，组件的所有 state / effect 均保持活跃，
- * 但该元素及其子树不参与 layout / paint，对 GPU 和主线程几乎无额外负担。
- *
- * 仅渲染「访问过的」工具（visited 集合）：首次打开一个工具时仍走 lazy + Suspense，
- * 加载完成后进入 keep-alive，后续切换即时切换。
+ * 性能保护：通过 KeepAliveItem 的 memo 屏障，非当前工具在后台零重绘零开销。
  */
 export default function ToolPage({ toolId }: { toolId: string }) {
-  /*
-   * 记录曾经打开过的工具 id 集合。
-   * 用 ref 做「已访问」的累加（纯副作用，不需要触发重渲染），
-   * 用 state 控制渲染列表（才会真正追加新的 DOM）。
-   */
   const visitedRef = useRef<Set<string>>(new Set())
   const [visited, setVisited] = useState<string[]>(() => {
     // 初始只挂载第一个活跃工具，避免启动时批量渲染
@@ -118,26 +143,14 @@ export default function ToolPage({ toolId }: { toolId: string }) {
     <div className="h-full w-full bg-white flex flex-col overflow-hidden relative">
       {visited.map((id) => {
         const ToolComponent = toolComponents[id]
-        const isActive = id === toolId
         if (!ToolComponent) return null
         return (
-          /*
-           * 使用 absolute + inset-0 配合 visible / invisible：
-           * 不活跃的工具保持已有布局与尺寸（不被抹平为 0x0），不接收事件也不触发 Paint。
-           * 切回笔记 tab 时直接恢复可见，避免复杂的 Markdown/CodeMirror 重新触发布局重排与测量，
-           * 彻底消除切回笔记 tab 时的延迟。
-           */
-          <div
+          <KeepAliveItem
             key={id}
-            className={`absolute inset-0 flex flex-col overflow-hidden ${
-              isActive ? 'visible z-10' : 'invisible z-0 pointer-events-none'
-            }`}
-            aria-hidden={!isActive}
-          >
-            <Suspense fallback={<ToolLoading />}>
-              <ToolComponent />
-            </Suspense>
-          </div>
+            id={id}
+            isActive={id === toolId}
+            Component={ToolComponent}
+          />
         )
       })}
     </div>

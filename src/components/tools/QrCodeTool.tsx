@@ -265,6 +265,7 @@ export default function QrCodeTool() {
           title="历史内容库"
           items={history}
           onClear={clearHistory}
+          onDelete={removeHistoryItem}
           onPick={(item) => {
             setText(item.data)
             setShowHistory(false)

@@ -15,6 +15,7 @@ import { AUTO_TARGET, useTranslate } from '../../../context/TranslateContext'
 import Tooltip from '../../ui/Tooltip'
 import {
   BTN,
+  Checkbox,
   Select,
   ToolActionBar,
   ToolBadge,
@@ -255,21 +256,29 @@ export default function TextTranslateTool() {
    */
   const [prefs, setPrefs] = useState<TranslatePrefs>(DEFAULT_TRANSLATE_PREFS)
   const { api, autoTranslate, unwrapLines, ocrLang } = prefs
-  /** 改一项就写盘，调用方不用各自处理持久化 */
-  const patchPrefs = (patch: Partial<TranslatePrefs>) =>
-    setPrefs((prev) => {
-      const next = { ...prev, ...patch }
-      void saveTranslatePrefs(next)
-      return next
-    })
+  const prefsLoadedRef = useRef(false)
+
+  /** 改一项就同步状态；实际落盘移至后台 effect，不阻塞当前帧交互 */
+  const patchPrefs = (patch: Partial<TranslatePrefs>) => {
+    setPrefs((prev) => ({ ...prev, ...patch }))
+  }
   const setApi = (value: TranslationAPI) => patchPrefs({ api: value })
   const setAutoTranslate = (value: boolean) => patchPrefs({ autoTranslate: value })
   const setUnwrapLines = (value: boolean) => patchPrefs({ unwrapLines: value })
   const setOcrLang = (value: OcrLanguage) => patchPrefs({ ocrLang: value })
 
   useEffect(() => {
-    void loadTranslatePrefs().then(setPrefs)
+    void loadTranslatePrefs().then((saved) => {
+      setPrefs(saved)
+      prefsLoadedRef.current = true
+    })
   }, [])
+
+  // 偏好变更后异步写盘，避免在交互主链路内同步执行 IPC 引发掉帧
+  useEffect(() => {
+    if (!prefsLoadedRef.current) return
+    void saveTranslatePrefs(prefs)
+  }, [prefs])
 
   const [translateConfig, setTranslateConfig] = useState<TranslateApiConfig | null>(null)
   const [progress, setProgress] = useState({ current: 0, total: 0 })
@@ -631,6 +640,7 @@ export default function TextTranslateTool() {
           title="最近翻译"
           items={history}
           onClear={clearHistory}
+          onDelete={removeHistoryItem}
           onPick={(item) => {
             setInput(item.data)
             setShowHistory(false)
@@ -744,15 +754,12 @@ export default function TextTranslateTool() {
 
             <ToolCardFooter>
               <div className="flex items-center gap-3 min-w-0">
-                <label className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={unwrapLines}
-                    onChange={(e) => setUnwrapLines(e.target.checked)}
-                    className="w-3.5 h-3.5 rounded border-slate-300 dark:border-dark-border accent-brand-600 focus:ring-0"
-                  />
-                  <span>合并断行（PDF/代码）</span>
-                </label>
+                <Checkbox
+                  size="sm"
+                  checked={unwrapLines}
+                  onChange={setUnwrapLines}
+                  label={<span className="text-[11px] font-normal text-slate-500 dark:text-slate-400">合并断行（PDF/代码）</span>}
+                />
                 {input && (
                   <>
                     <span className="text-slate-200 dark:text-dark-border">|</span>
@@ -904,15 +911,11 @@ export default function TextTranslateTool() {
         <ToolActionBar
           info={
             <div className="flex items-center gap-4 md:gap-6 flex-wrap">
-              <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={autoTranslate}
-                  onChange={(e) => setAutoTranslate(e.target.checked)}
-                  className="w-4 h-4 rounded border-slate-300 dark:border-dark-border accent-brand-600 focus:ring-0"
-                />
-                <span>实时自动翻译（防抖 {AUTO_DEBOUNCE_MS}ms）</span>
-              </label>
+              <Checkbox
+                checked={autoTranslate}
+                onChange={setAutoTranslate}
+                label={`实时自动翻译（防抖 ${AUTO_DEBOUNCE_MS}ms）`}
+              />
               <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-slate-400 dark:text-slate-500">
                 <span>快捷键:</span>
                 <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-slate-100 dark:bg-dark-hover border border-slate-200 dark:border-dark-border border-b-2 rounded text-slate-500 dark:text-slate-400">

@@ -231,6 +231,7 @@ export default function RegexpTool() {
           title="历史表达式库"
           items={history}
           onClear={clearHistory}
+          onDelete={removeHistoryItem}
           onPick={(item) => {
             setPattern(item.data.pattern)
             setFlags(item.data.flags)

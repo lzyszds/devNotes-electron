@@ -80,14 +80,13 @@ export default function Switch({
     >
       <div className="min-w-0 flex-1">
         {label && (
-          <label
-            htmlFor={switchId}
+          <span
             className={`block text-xs font-semibold text-slate-800 dark:text-slate-200 ${
               disabled ? 'cursor-not-allowed' : 'cursor-pointer'
             }`}
           >
             {label}
-          </label>
+          </span>
         )}
         {description && (
           <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">{description}</p>

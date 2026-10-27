@@ -1152,7 +1152,7 @@ export default function DashboardLayout({
                     {groupedToolList.map((group) => (
                       <div key={group.id} className="mb-1.5">
                         {/* 粘性分组头：滚动时钉在列表顶部，扫到哪组一目了然 */}
-                        <div className="z-10 px-2.5 py-1 flex items-center justify-between bg-[#F3F3F1] rounded-md mb-2 backdrop-blur-[5px]">
+                        <div className="z-10 px-2.5 py-1 flex items-center justify-between bg-[#F3F3F1] rounded-md mb-2">
                           <span className="text-[11px] font-extrabold text-[#191918] tracking-wider">
                             {group.name}
                           </span>

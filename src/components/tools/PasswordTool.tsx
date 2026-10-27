@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Check, Eye, EyeOff, History, RefreshCw, Settings2, ShieldCheck, Zap } from 'lucide-react'
+import { Eye, EyeOff, History, RefreshCw, Settings2, ShieldCheck, Zap } from 'lucide-react'
 import { useToolHistory } from '../../hooks/useToolHistory'
 import { useHistoryContextMenu } from '../../hooks/useHistoryContextMenu'
 import {
   BTN,
+  Checkbox,
   ToolActionBar,
   ToolBadge,
   ToolCard,
@@ -143,6 +144,7 @@ export default function PasswordTool() {
           title="最近生成的密码"
           items={history}
           onClear={clearHistory}
+          onDelete={removeHistoryItem}
           onPick={(item) => {
             setPassword(item.data)
             calculateStrength(item.data)
@@ -235,38 +237,29 @@ export default function PasswordTool() {
             {Object.entries(CHAR_OPTIONS).map(([key, val]) => {
               const active = options[key as keyof typeof options]
               return (
-                <label
+                <div
                   key={key}
-                  className={`flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer transition-colors ${
+                  onClick={() => setOptions((prev) => ({ ...prev, [key]: !active }))}
+                  className={`flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer transition-colors select-none ${
                     active
                       ? 'border-brand-200/70 bg-brand-50/50 dark:border-brand-500/30 dark:bg-brand-500/10'
                       : 'border-slate-200/70 dark:border-dark-border hover:bg-slate-50 dark:hover:bg-dark-hover'
                   }`}
                 >
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={active}
-                    onChange={(e) => setOptions((prev) => ({ ...prev, [key]: e.target.checked }))}
-                    className="sr-only"
+                    tabIndex={-1}
+                    className="pointer-events-none"
                   />
-                  <span
-                    className={`w-4 h-4 rounded-[5px] border flex items-center justify-center shrink-0 transition-colors ${
-                      active
-                        ? 'border-brand-600 bg-brand-600 text-white'
-                        : 'border-slate-300 dark:border-slate-600'
-                    }`}
-                  >
-                    {active && <Check size={11} strokeWidth={3} />}
-                  </span>
-                  <span className="flex flex-col min-w-0">
+                  <div className="flex flex-col min-w-0">
                     <span className="text-xs font-semibold text-slate-800 dark:text-slate-100">
                       {val.label}
                     </span>
                     <span className="text-[11px] font-mono text-slate-400 dark:text-slate-500">
                       {val.sub}
                     </span>
-                  </span>
-                </label>
+                  </div>
+                </div>
               )
             })}
           </div>

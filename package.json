@@ -20,6 +20,7 @@
     "icons": "node scripts/generate-iconset.cjs && node scripts/generate-ico.cjs && node scripts/generate-icns.cjs"
   },
   "dependencies": {
+    "@radix-ui/react-checkbox": "^1.4.1",
     "@xitanggg/node-insert-text": "^1.5.1",
     "electron-macos-window-extensions": "^0.1.2",
     "electron-store": "^11.0.2",

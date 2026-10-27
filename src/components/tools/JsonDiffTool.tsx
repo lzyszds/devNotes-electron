@@ -486,6 +486,7 @@ export default function JsonDiffTool() {
           title="比对历史"
           items={history}
           onClear={clearHistory}
+          onDelete={removeHistoryItem}
           onPick={(item) => restorePair(item.data)}
           onItemContextMenu={openHistoryMenu}
           renderItemTitle={(item) => item.title || "无标题比对"}

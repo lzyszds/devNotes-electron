@@ -14,7 +14,6 @@ import {
   RefreshCw,
   Globe,
   Zap,
-  Check,
   Pencil,
   ArrowLeft,
   Pause,
@@ -46,7 +45,7 @@ import {
 } from "../../utils/translateConfig";
 import { openAppSettings } from "../../utils/settingsBus";
 import { LANGUAGES, langName } from "../../utils/languages";
-import { BTN, Select, ToolBadge, ToolCard, ToolCardFooter, ToolCardHeader, ToolEmpty, ToolHistoryOverlay, ToolNotice, ToolShell, ToolTag, CodeEditor, iconButtonClass } from "../ui";
+import { BTN, Checkbox, Select, Switch, ToolBadge, ToolCard, ToolCardFooter, ToolCardHeader, ToolEmpty, ToolHistoryOverlay, ToolNotice, ToolShell, ToolTag, CodeEditor, iconButtonClass } from "../ui";
 import Tooltip from "../ui/Tooltip";
 
 type TranslationMode = "full" | "path" | "key-mapping";
@@ -91,38 +90,6 @@ const API_LABELS: Record<TranslationAPI, string> = {
 };
 
 const ToolbarDivider = () => <div className={UI.divider} />;
-
-const SettingToggle = ({
-  label,
-  desc,
-  checked,
-  onChange,
-}: {
-  label: string;
-  desc: string;
-  checked: boolean;
-  onChange: (v: boolean) => void;
-}) => (
-  <label className="flex items-start gap-2.5 cursor-pointer select-none min-w-[200px]">
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-      className={`relative mt-0.5 h-5 w-9 rounded-full transition shrink-0 ${checked ? "bg-brand-600" : "bg-slate-200 dark:bg-dark-hover"
-        }`}
-    >
-      <span
-        className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-4" : "translate-x-0"
-          }`}
-      />
-    </button>
-    <span>
-      <span className="block text-xs font-semibold text-slate-700 dark:text-slate-200">{label}</span>
-      <span className="block text-[10px] text-slate-400 dark:text-slate-500 leading-snug mt-0.5">{desc}</span>
-    </span>
-  </label>
-);
 
 // Tree View
 const JsonTreeView = ({ data }: { data: unknown }) => (
@@ -654,6 +621,7 @@ export default function JsonI18nTool() {
           title="翻译历史"
           items={history}
           onClear={clearHistory}
+          onDelete={removeHistoryItem}
           onPick={(item) => {
             setInput(item.data);
             setShowHistory(false);
@@ -785,15 +753,13 @@ export default function JsonI18nTool() {
                             : ""
                             }`}
                         >
-                          <span
-                            className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 ${selected
-                              ? "bg-brand-600 border-brand-600 text-white"
-                              : "border-slate-300 dark:border-dark-border"
-                              }`}
-                          >
-                            {selected && <Check size={9} />}
-                          </span>
-                          {lang.name}
+                          <Checkbox
+                            size="sm"
+                            checked={selected}
+                            tabIndex={-1}
+                            className="pointer-events-none"
+                          />
+                          <span>{lang.name}</span>
                         </button>
                       );
                     })}
@@ -1246,27 +1212,31 @@ export default function JsonI18nTool() {
                 <section className="space-y-2.5">
                   <p className={UI.label}>翻译行为</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
-                    <SettingToggle
+                    <Switch
+                      size="sm"
                       label="自动下载"
-                      desc="全部完成后自动下载所有语言 JSON"
+                      description="全部完成后自动下载所有语言 JSON"
                       checked={settings.autoDownload}
                       onChange={(v) => updateSettings({ autoDownload: v })}
                     />
-                    <SettingToggle
+                    <Switch
+                      size="sm"
                       label="桌面通知"
-                      desc="翻译完成后弹出系统通知"
+                      description="翻译完成后弹出系统通知"
                       checked={settings.notifyOnComplete}
                       onChange={(v) => updateSettings({ notifyOnComplete: v })}
                     />
-                    <SettingToggle
+                    <Switch
+                      size="sm"
                       label="保存历史"
-                      desc="成功后自动保存到翻译历史"
+                      description="成功后自动保存到翻译历史"
                       checked={settings.autoSaveHistory}
                       onChange={(v) => updateSettings({ autoSaveHistory: v })}
                     />
-                    <SettingToggle
+                    <Switch
+                      size="sm"
                       label="滚动到结果"
-                      desc="完成后自动滚动到翻译结果区域"
+                      description="完成后自动滚动到翻译结果区域"
                       checked={settings.scrollToResults}
                       onChange={(v) => updateSettings({ scrollToResults: v })}
                     />

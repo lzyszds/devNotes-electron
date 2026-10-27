@@ -260,6 +260,7 @@ export default function EncodeTool({
             title="历史文本片段"
             items={history}
             onClear={clearHistory}
+            onDelete={removeHistoryItem}
             onPick={(item) => {
               setInput(item.data)
               setShowHistory(false)

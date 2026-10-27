@@ -297,6 +297,7 @@ export default function JsonFormatTool() {
           title="历史记录"
           items={history}
           onClear={clearHistory}
+          onDelete={removeHistoryItem}
           onPick={(item) => {
             setInput(item.data);
             setShowHistory(false);
