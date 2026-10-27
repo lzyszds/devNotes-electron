@@ -6,9 +6,7 @@ import { takeToolMode, subscribeToolMode, type ModeRequest } from '../utils/tool
  * 不再在启动时把全部工具的 JS 一次性解析执行完。
  */
 const NotesTool          = lazy(() => import('../components/tools/NotesTool'))
-const JsonFormatTool     = lazy(() => import('../components/tools/JsonFormatTool'))
-const JsonDiffTool       = lazy(() => import('../components/tools/JsonDiffTool'))
-const JsonI18nTool       = lazy(() => import('../components/tools/JsonI18nTool'))
+const JsonToolbox        = lazy(() => import('../components/tools/JsonToolbox'))
 const QrCodeTool         = lazy(() => import('../components/tools/QrCodeTool'))
 const LanTransferTool    = lazy(() => import('../components/tools/LanTransferTool'))
 const NetProbeTool       = lazy(() => import('../components/tools/NetProbeTool'))
@@ -48,13 +46,11 @@ function EncodeToolEntry({ toolId, initialType }: { toolId: string; initialType?
 
 const toolComponents: Record<string, React.ComponentType<any>> = {
   'markdown-notes': NotesTool,
-  'json-format':    JsonFormatTool,
-  'json-diff':      JsonDiffTool,
+  'json-toolbox':   JsonToolbox,
   'lan-transfer':   LanTransferTool,
   'net-probe':      NetProbeTool,
   'file-hash':      FileHashTool,
   'data-convert':   DataConvertTool,
-  'json-i18n':      JsonI18nTool,
   'text-translate': TextTranslateTool,
   'qr-code':        QrCodeTool,
   'image-convert':  ImageConvertTool,

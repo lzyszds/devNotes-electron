@@ -3,6 +3,18 @@
 @tailwind utilities;
 
 /*
+ * 按钮点击涟漪的宿主约束（涟漪见 utils/clickRipple.ts）：
+ * 涟漪 span 绝对定位在按钮内、靠 overflow 裁在圆角里，这两条就是给它兜底的。
+ * 故意只用元素选择器（特异性最低）：带 .absolute / .overflow-visible 等工具类、
+ * 或自身已定位/已控溢出的按钮不受影响 —— Tailwind v3 下工具类总能赢。
+ * 菜单类浮层（Select 等）都走 portal，overflow 不会裁到它们。
+ */
+button {
+  position: relative;
+  overflow: hidden;
+}
+
+/*
  * ==========================================================================
  * 等宽字体（代码块、行内代码、行号、状态栏等共用一套）
  *
@@ -679,6 +691,16 @@ html.dark ::-webkit-scrollbar-thumb:hover {
     @apply inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-[10px] bg-sky-500 px-4 text-xs font-semibold text-white shadow-sm transition-all duration-150 hover:bg-sky-600 active:scale-[0.98];
   }
 
+  /*
+   * 工具页顶部紧凑标题栏（h-10）右端的操作区：按钮是从 68px 大顶栏时代传进来的
+   * （各工具自己写 h-8 / px-5），直接放进细条偏大。
+   * 这里对整个操作区做等比 zoom 收小一号——按钮、图标、间距一起缩，
+   * 免得去逐个工具改按钮尺寸。
+   */
+  .tool-topbar-actions {
+    zoom: 0.88;
+  }
+
   /* Typography & Labels */
   .tool-label {
     @apply block text-[11px] font-semibold text-slate-500 dark:text-slate-400;
@@ -726,10 +748,29 @@ html.dark ::-webkit-scrollbar-thumb:hover {
    * 插入工具条压在菜单上，所以提到 95。
    */
   .context-menu {
-    @apply fixed z-[95] min-w-[176px] max-w-[280px] rounded-xl border border-slate-200/80 bg-white/[0.98] p-1 backdrop-blur-xl dark:border-dark-border dark:bg-dark-panel/[0.98];
+    @apply fixed z-[95] min-w-[176px] max-w-[280px] max-h-[min(60vh,420px)] overflow-y-auto overflow-x-hidden rounded-xl border border-slate-200/80 bg-white/[0.98] p-1 backdrop-blur-xl dark:border-dark-border dark:bg-dark-panel/[0.98];
     box-shadow: 0 16px 48px -12px rgba(15, 23, 42, 0.32);
     animation: context-menu-in 120ms cubic-bezier(0.22, 1, 0.36, 1);
     transform-origin: top left;
+  }
+
+  /*
+   * 限高之后的滚动条：细一条淡色，不抢菜单内容的视觉。
+   * 根菜单与子菜单面板各自滚动 —— 长列表（如笔记文件夹多的路由菜单）不再撑到满屏。
+   */
+  .context-menu::-webkit-scrollbar,
+  .context-menu-submenu::-webkit-scrollbar {
+    @apply w-1.5;
+  }
+
+  .context-menu::-webkit-scrollbar-thumb,
+  .context-menu-submenu::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-slate-900/15 dark:bg-white/20;
+  }
+
+  .context-menu::-webkit-scrollbar-track,
+  .context-menu-submenu::-webkit-scrollbar-track {
+    @apply bg-transparent;
   }
 
   .context-menu-item {
@@ -783,7 +824,7 @@ html.dark ::-webkit-scrollbar-thumb:hover {
    * backdrop-filter 会为 fixed 后代创建包含块,用 fixed 会整体错位。
    */
   .context-menu-submenu {
-    @apply absolute top-0;
+    @apply absolute top-0 max-h-[min(60vh,420px)] overflow-y-auto overflow-x-hidden;
     animation: context-submenu-in 120ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 

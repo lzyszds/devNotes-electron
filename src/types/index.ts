@@ -26,9 +26,7 @@ export const toolCategories: ToolCategory[] = [
  * 只放"随手用一下"的小工具 —— 独立模块（见下）不进这里。
  */
 export const tools: Tool[] = [
-  { id: 'json-format', name: 'JSON 美化', icon: 'Braces', description: 'JSON 格式化、排序、压缩', category: 'dev' },
-  { id: 'json-diff', name: 'JSON 比对', icon: 'GitCompare', description: 'JSON 结构化比较', category: 'dev' },
-  { id: 'json-i18n', name: 'JSON 翻译', icon: 'Languages', description: 'JSON 多语言翻译，支持 JSONPath 和键名映射', category: 'dev' },
+  { id: 'json-toolbox', name: 'JSON 工具箱', icon: 'Braces', description: '美化/压缩/排序 · 双栏比对 · 多语言翻译，三合一', category: 'dev' },
   { id: 'url', name: 'URL 编码', icon: 'Link2', description: 'URL 编码解码', category: 'encode' },
   { id: 'websocket', name: 'WS 测试工具', icon: 'Radio', description: 'WebSocket 连接和消息测试', category: 'dev' },
   { id: 'qr-code', name: '二维码', icon: 'QrCode', description: '二维码生成，以及从图片识别解码', category: 'image' },
@@ -59,4 +57,16 @@ export const standaloneModules: Tool[] = [
 ]
 
 /** 工具库 + 独立模块。按 id 查名字/图标的地方用它，别用 tools，否则独立模块会漏掉 */
-export const allModules: Tool[] = [...standaloneModules]
+export const allModules: Tool[] = [...tools, ...standaloneModules]
+
+/**
+ * 三个 json 工具（美化/比对/翻译）合并成了 json-toolbox 一个入口。
+ * 旧 id 保留为别名：快捷键、⌘K 深链接、旧统计数据都能解析到工具箱的对应子模式。
+ */
+export type JsonToolboxMode = 'format' | 'diff' | 'i18n'
+
+export const jsonToolboxAliases: Record<string, JsonToolboxMode> = {
+  'json-format': 'format',
+  'json-diff': 'diff',
+  'json-i18n': 'i18n',
+}

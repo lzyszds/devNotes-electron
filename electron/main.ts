@@ -1575,9 +1575,21 @@ app.whenReady().then(async () => {
   startClipboardCapture()
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
+    /*
+     * macOS 点 Dock 图标（或系统级「重新打开」）唤起。
+     * 本应用的窗口策略是常驻复用：托盘点击、外部唤起剪贴板面板等都会把主窗口
+     * hide 掉而不是销毁，所以大多数时候窗口还在、只是不可见 —— 旧逻辑只在
+     * 「窗口数为 0」时重建，点了 Dock 图标应用永远不出现。
+     * 改成：窗口没了才重建，还在就 restore（最小化缩进 Dock 的情况）+ show + focus，
+     * 与 second-instance 的处理保持一致。
+     */
+    if (!mainWindow || mainWindow.isDestroyed()) {
       createMainWindow()
+      return
     }
+    if (mainWindow.isMinimized()) mainWindow.restore()
+    mainWindow.show()
+    mainWindow.focus()
   })
 })
 

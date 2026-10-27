@@ -33,7 +33,7 @@ export default function SnippetsSidebar({
       {/* ================= 第 2 栏：标签分类栏 (w-52 = 208px，按需展开) ================= */}
       <aside
         style={{ width: isFolderTreeOpen ? 208 : 0 }}
-        className={`bg-[#F3F3F1] border-r border-[#E6E6E3] flex flex-col h-full flex-shrink-0 transition-[width] duration-200 overflow-hidden ${isFolderTreeOpen ? 'opacity-100' : 'w-0 opacity-0 border-r-0'
+        className={`bg-[#F3F3F1] border-r border-[#E6E6E3] flex flex-col h-full flex-shrink-0 overflow-hidden ${isFolderTreeOpen ? 'opacity-100' : 'w-0 opacity-0 border-r-0'
           }`}
       >
         <div className="h-12 px-3 border-b border-[#E6E6E3] flex items-center justify-between flex-shrink-0">

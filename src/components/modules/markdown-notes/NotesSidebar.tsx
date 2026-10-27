@@ -491,7 +491,7 @@ export default function NotesSidebar({
       {/* ================= 第 2 栏：分类目录栏 (w-52 = 208px，按需展开) ================= */}
       <aside
         style={{ width: isFolderTreeOpen ? 208 : 0 }}
-        className={`bg-[#F3F3F1] border-r border-[#E6E6E3] flex flex-col h-full flex-shrink-0 transition-[width] duration-200 overflow-hidden ${isFolderTreeOpen ? 'opacity-100' : 'w-0 opacity-0 border-r-0'
+        className={`bg-[#F3F3F1] border-r border-[#E6E6E3] flex flex-col h-full flex-shrink-0 overflow-hidden ${isFolderTreeOpen ? 'opacity-100' : 'w-0 opacity-0 border-r-0'
           }`}
       >
         {/* 顶部：48px 对齐，左侧粗体标题，右侧炭黑新建胶囊按钮 */}

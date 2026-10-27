@@ -98,50 +98,56 @@ function getSelectionWithin(el: HTMLInputElement | HTMLTextAreaElement): string 
  * 父级 .context-menu 是 fixed（已定位），宿主项 position: relative，所以
  * left: 100% 正好贴在父项右侧。
  */
-function SubmenuPanel({ open, children }: { open: boolean; children: ReactNode }) {
+function SubmenuPanel({
+  open,
+  hostEl,
+  children,
+}: {
+  open: boolean
+  hostEl: HTMLElement | null
+  children: ReactNode
+}) {
   const panelRef = useRef<HTMLDivElement>(null)
   // 退出动画时长与 CSS 里 .context-menu-submenu[data-state='closed'] 保持一致
   const { mounted, state } = usePresence(open, 120)
   const [style, setStyle] = useState<CSSProperties>({
     visibility: 'hidden',
-    left: '100%',
-    top: 0,
+    position: 'fixed',
   })
 
   /*
-   * 先隐藏挂载量尺寸，贴右/下边缘时翻转，避免被视口裁掉。
+   * 子菜单走 portal + fixed 挂到 body 下，不再 absolute 塞在根菜单里 ——
+   * 根菜单限高后带 overflow，absolute 的子菜单会被滚动容器整个裁掉
+   * （右缘只剩一条白边）。之前不敢用 fixed，是因为根菜单的 backdrop-blur
+   * 会把 fixed 后代的包含块吃掉导致错位；portal 到 body 后与它没有
+   * 父子关系，这个顾虑不再存在。
    *
-   * 依赖 open 是为了每次展开都重新量一遍；带上 mounted 则是因为面板由 usePresence
-   * 推迟一帧才挂上 —— 命中 open 变化的那次提交里 panelRef 还是空的，少了它这个 effect
-   * 会当场 return 且此后再不重跑，style.visibility 永远停在 hidden，二级菜单等于隐身。
+   * 量尺寸仍用 offsetWidth/offsetHeight：入场动画带 scale，
+   * getBoundingClientRect 量到的是缩放后的值，会算不够。
+   * 面板自身限高滚动（CSS），贴底时整体上收进视口。
    */
   useLayoutEffect(() => {
     if (!open) return
     const panel = panelRef.current
-    const host = panel?.parentElement
-    if (!panel || !host) return
+    if (!panel || !hostEl) return
 
-    // 面板自身也在跑 context-menu-in 入场动画（scale(0.96)），getBoundingClientRect
-    // 拿到的是缩放后的尺寸（偏小），据此翻转/上移会算不够、面板照样溢出视口。
-    // offsetWidth / offsetHeight 是布局尺寸，不受 transform 影响。
     const subWidth = panel.offsetWidth
     const subHeight = panel.offsetHeight
-    const box = host.getBoundingClientRect()
+    const box = hostEl.getBoundingClientRect()
     const flip = box.right + subWidth > window.innerWidth - VIEWPORT_PADDING
-    const overflowBottom = box.top + subHeight - (window.innerHeight - VIEWPORT_PADDING)
-    const maxShiftUp = Math.max(0, box.top - VIEWPORT_PADDING)
-
-    setStyle({
-      visibility: 'visible',
-      left: flip ? 'auto' : '100%',
-      right: flip ? '100%' : 'auto',
-      top: overflowBottom > 0 ? -Math.min(overflowBottom, maxShiftUp) : 0,
-    })
-  }, [open, mounted])
+    const left = flip
+      ? Math.max(VIEWPORT_PADDING, box.left - subWidth)
+      : box.right
+    const top = Math.max(
+      VIEWPORT_PADDING,
+      Math.min(box.top, window.innerHeight - VIEWPORT_PADDING - subHeight)
+    )
+    setStyle({ visibility: 'visible', position: 'fixed', left, top })
+  }, [open, mounted, hostEl])
 
   if (!mounted) return null
 
-  return (
+  return createPortal(
     <div
       ref={panelRef}
       role="menu"
@@ -150,7 +156,8 @@ function SubmenuPanel({ open, children }: { open: boolean; children: ReactNode }
       style={style}
     >
       {children}
-    </div>
+    </div>,
+    document.body
   )
 }
 
@@ -159,6 +166,9 @@ export function ContextMenuProvider({ children }: { children: ReactNode }) {
   const [placement, setPlacement] = useState({ left: 0, top: 0, ready: false })
   const [nav, setNav] = useState<NavState>(INITIAL_NAV)
   const menuRef = useRef<HTMLDivElement>(null)
+  // 子菜单面板 portal 到 body 之外，宿主项的 DOM 用这张表记着（键 = 层级:条目id），
+  // 展开时 SubmenuPanel 据此把面板定位到宿主项旁边
+  const submenuHostsRef = useRef(new Map<string, HTMLDivElement>())
   // 退出动画时长与 CSS 里 .context-menu[data-state='closed'] 保持一致
   const { mounted, state } = usePresence(Boolean(anchor), 130)
   /**
@@ -225,6 +235,8 @@ export function ContextMenuProvider({ children }: { children: ReactNode }) {
 
     const onPointerDown = (e: MouseEvent) => {
       if (menuRef.current?.contains(e.target as Node)) return
+      // 子菜单面板 portal 在 body 下、不在 menuRef 里 —— 点它不算点在外面
+      if ((e.target as HTMLElement)?.closest?.('.context-menu-submenu')) return
       closeContextMenu()
     }
 
@@ -480,6 +492,18 @@ export function ContextMenuProvider({ children }: { children: ReactNode }) {
     }))
   }, [])
 
+  // 菜单限高之后，键盘 ↑↓ / 悬停切到的高亮项要自动滚进可视区，
+  // 否则高亮在滚动区域外「隐形移动」。已完全可见时 nearest 不会动。
+  // 子菜单面板 portal 在 body 下，不在 menuRef 里，单独兜一次
+  useEffect(() => {
+    const active =
+      menuRef.current?.querySelector<HTMLElement>('[data-active="true"]') ??
+      document.querySelector<HTMLElement>(
+        '.context-menu-submenu [data-active="true"]'
+      )
+    active?.scrollIntoView({ block: "nearest" })
+  }, [nav])
+
   const renderItems = (items: ContextMenuItem[], level: number): ReactNode =>
     items.map((item, index) => {
       if (item.separator) {
@@ -490,7 +514,15 @@ export function ContextMenuProvider({ children }: { children: ReactNode }) {
       const expanded = hasChildren && nav.path[level] === item.id
 
       return (
-        <div key={item.id} className="context-menu-submenu-host">
+        <div
+          key={item.id}
+          ref={(el) => {
+            const hostKey = `${level}:${item.id}`;
+            if (el) submenuHostsRef.current.set(hostKey, el);
+            else submenuHostsRef.current.delete(hostKey);
+          }}
+          className="context-menu-submenu-host"
+        >
           <button
             type="button"
             role="menuitem"
@@ -532,7 +564,10 @@ export function ContextMenuProvider({ children }: { children: ReactNode }) {
           {/* 常驻挂载、由 open 驱动显隐：卸载推迟到退出动画跑完，见 usePresence。
               没有子项的普通条目也要渲染这一层（它自己不挂载），所以 children 得先判空，
               否则 item.children! 会在 .map 上炸 */}
-          <SubmenuPanel open={expanded}>
+          <SubmenuPanel
+            open={expanded}
+            hostEl={submenuHostsRef.current.get(`${level}:${item.id}`) ?? null}
+          >
             {hasChildren ? renderItems(item.children!, level + 1) : null}
           </SubmenuPanel>
         </div>
