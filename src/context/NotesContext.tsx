@@ -143,6 +143,8 @@ interface NotesContextType {
   deleteSnapshot: (id: string) => Promise<void>
   clearAllSnapshots: () => Promise<void>
   createManualSnapshot: () => Promise<BackupSnapshot>
+  /** 外部强制重新加载笔记与目录（如全量导入后调用） */
+  reloadNotes: () => Promise<void>
 }
 
 const NotesContext = createContext<NotesContextType | null>(null)
@@ -273,6 +275,15 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
     },
     [cfConfig.maxSnapshots]
   )
+
+  const reloadNotes = useCallback(async () => {
+    const state = await loadNotesState()
+    setNotes(state.notes)
+    setAllFolders(state.folders)
+    if (state.activeId) setActiveId(state.activeId)
+    else if (state.notes.length > 0) setActiveId(state.notes[0].id)
+    stateRef.current = state
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -1481,6 +1492,7 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
       deleteSnapshot,
       clearAllSnapshots,
       createManualSnapshot,
+      reloadNotes,
     }),
     [
       ready,
@@ -1539,6 +1551,7 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
       deleteSnapshot,
       clearAllSnapshots,
       createManualSnapshot,
+      reloadNotes,
     ]
   )
 

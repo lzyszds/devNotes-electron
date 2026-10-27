@@ -26,6 +26,7 @@ import {
   Gauge,
   Cpu,
   PenTool,
+  Palette,
   type LucideProps,
 } from 'lucide-react'
 
@@ -59,6 +60,7 @@ const ICON_MAP: Record<string, React.ComponentType<LucideProps>> = {
   'scratchpad': StickyNote,
   'speed-test': Gauge,
   'sys-inspector': Cpu,
+  'color-palette': Palette,
   "tool": PenTool
 }
 

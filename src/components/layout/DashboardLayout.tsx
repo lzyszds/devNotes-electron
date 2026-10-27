@@ -14,6 +14,10 @@ import {
   Folder,
   Trash2,
   Languages,
+  Calculator,
+  Sparkles,
+  Clock,
+  Palette,
 } from "lucide-react";
 import { allModules, tools, toolCategories, jsonToolboxAliases } from "../../types";
 import NotesSidebar from "../modules/markdown-notes/NotesSidebar";
@@ -43,6 +47,9 @@ import {
 import WindowControls from "./WindowControls";
 import ToolIcon from "../ui/ToolIcon";
 import { useContextMenu, type ContextMenuItem } from "../ui/ContextMenu";
+import { useToast } from "../ui/Toast";
+import { copyText } from "../../utils/clipboard";
+import { matchQuickCalculator } from "../../utils/cmdCalculator";
 
 /** 2字短标签映射 */
 function getToolShortLabel(toolId: string): string {
@@ -68,6 +75,7 @@ function getToolShortLabel(toolId: string): string {
     "net-probe": "网络",
     scratchpad: "草稿",
     signature: "签名",
+    "color-palette": "色彩",
   };
   return map[toolId] || "工具";
 }
@@ -87,6 +95,7 @@ export default function DashboardLayout({
   onTallyTool,
 }: DashboardLayoutProps) {
   const isMobile = useIsMobile();
+  const { showToast } = useToast();
 
   // 侧边栏折叠控制（控制列表栏）
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => !isMobile);
@@ -475,7 +484,7 @@ export default function DashboardLayout({
   // ⌘K 搜索要直达片段子内容，这里订阅与片段库同一份模块级数据层
   const { snippets } = useSnippets();
 
-  /** ⌘K 结果条目：大路由与子内容（笔记 / 片段 / 设置分区）统一成一种可执行项 */
+  /** ⌘K 结果条目：大路由与子内容（笔记 / 片段 / 设置分区 / 即时计算）统一成一种可执行项 */
   interface CmdItem {
     key: string;
     /** 展示图标对应的模块 id；设置项没有模块图标，走 icon 组件 */
@@ -483,8 +492,10 @@ export default function DashboardLayout({
     icon?: ComponentType<{ className?: string }>;
     name: string;
     description: string;
-    kind: "模块" | "笔记" | "片段" | "设置";
+    kind: "模块" | "笔记" | "片段" | "设置" | "即时计算" | "即时换算";
     run: () => void;
+    isQuickAction?: boolean;
+    badge?: string;
   }
 
   const [activeCmdIndex, setActiveCmdIndex] = useState(0);
@@ -630,14 +641,40 @@ export default function DashboardLayout({
         },
       }));
 
+    // 优先检测即时计算与极速换算（算式、时间戳、UUID、颜色代码）
+    const calcResult = q ? matchQuickCalculator(cmdSearch) : null;
+    let quickItem: CmdItem | null = null;
+    if (calcResult) {
+      let icon = Calculator;
+      if (calcResult.category === "timestamp") icon = Clock;
+      else if (calcResult.category === "color") icon = Palette;
+      else if (calcResult.category === "uuid") icon = Sparkles;
+
+      quickItem = {
+        key: calcResult.id,
+        icon,
+        name: calcResult.title,
+        description: calcResult.subtitle,
+        kind: calcResult.category === "calc" ? "即时计算" : "即时换算",
+        badge: calcResult.badge,
+        isQuickAction: true,
+        run: async () => {
+          await copyText(calcResult.copyValue);
+          showToast(`已复制结果：${calcResult.copyValue}`, "default");
+          setIsCmdOpen(false);
+        },
+      };
+    }
+
     return [
+      ...(quickItem ? [quickItem] : []),
       ...moduleItems,
       ...noteItems,
       ...snippetItems,
       ...settingItems,
     ].slice(0, 16);
     // openSettings 内部只依赖稳定的 setState，刻意不列进依赖
-  }, [cmdSearch, notes, snippets, onOpenTool, handleSelectNote]);
+  }, [cmdSearch, notes, snippets, onOpenTool, handleSelectNote, showToast]);
 
   // 键盘快捷键监听
   useEffect(() => {
@@ -1275,7 +1312,11 @@ export default function DashboardLayout({
                     }`}
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      {item.toolId ? (
+                      {item.isQuickAction ? (
+                        <div className="w-6 h-6 rounded-lg bg-[#1C1C1C] text-white flex items-center justify-center shrink-0 shadow-2xs">
+                          {item.icon && <item.icon className="w-3.5 h-3.5" />}
+                        </div>
+                      ) : item.toolId ? (
                         <ToolIcon
                           toolId={item.toolId}
                           className="w-5 h-5 text-[#191918] shrink-0"
@@ -1286,7 +1327,11 @@ export default function DashboardLayout({
                         )
                       )}
                       <div className="min-w-0">
-                        <div className="text-xs font-semibold text-[#191918] truncate">
+                        <div
+                          className={`text-xs font-semibold text-[#191918] truncate ${
+                            item.isQuickAction ? "font-mono text-[13px] text-brand-600" : ""
+                          }`}
+                        >
                           {item.name}
                         </div>
                         <div className="text-[11px] text-[#787774] truncate">
@@ -1294,15 +1339,22 @@ export default function DashboardLayout({
                         </div>
                       </div>
                     </div>
-                    <span
-                      className={`text-[10px] text-[#787774] flex-shrink-0 ml-2 transition-opacity ${
-                        isActive
-                          ? "opacity-100"
-                          : "opacity-60 group-hover:opacity-100"
-                      }`}
-                    >
-                      {item.kind}
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
+                      {item.badge && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#1C1C1C] text-white font-mono">
+                          {item.badge}
+                        </span>
+                      )}
+                      <span
+                        className={`text-[10px] text-[#787774] transition-opacity ${
+                          isActive
+                            ? "opacity-100"
+                            : "opacity-60 group-hover:opacity-100"
+                        }`}
+                      >
+                        {item.kind}
+                      </span>
+                    </div>
                   </button>
                 );
               })}

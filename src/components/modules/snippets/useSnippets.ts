@@ -132,6 +132,17 @@ async function loadOnce(): Promise<Snippet[]> {
   return seeded
 }
 
+/** 外部强制重新加载片段列表（如备份导入后调用） */
+export async function reloadSnippets(): Promise<Snippet[]> {
+  const saved = await window.electronAPI?.storeGet(SNIPPETS_STORE_KEY).catch(() => null)
+  if (Array.isArray(saved)) {
+    const clean = saved.map(normalizeSnippet).filter((item): item is Snippet => Boolean(item))
+    broadcast(clean)
+    return clean
+  }
+  return []
+}
+
 export function useSnippets() {
   const [snippets, setSnippets] = useState<Snippet[]>(() => cached ?? [])
   const [loaded, setLoaded] = useState(() => Boolean(cached))

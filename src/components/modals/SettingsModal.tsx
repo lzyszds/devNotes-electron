@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+  Archive,
   Bot,
   Cloud,
   Keyboard,
@@ -14,6 +15,7 @@ import { usePresence } from "../../hooks/usePresence";
 import GeneralPanel from "../settings/GeneralPanel";
 import ShortcutSettingsPanel from "../settings/ShortcutSettingsPanel";
 import CloudflareSyncPanel from "../settings/CloudflareSyncPanel";
+import BackupPanel from "../settings/BackupPanel";
 import TranslateApiPanel from "../settings/TranslateApiPanel";
 import AiChannelPanel from "../settings/AiChannelPanel";
 import SpeechPanel from "../settings/SpeechPanel";
@@ -25,6 +27,7 @@ export type SettingsSection =
   | "interface"
   | "shortcuts"
   | "cloud-sync"
+  | "backup"
   | "ai-channel"
   | "translate-api"
   | "speech";
@@ -64,6 +67,12 @@ export const SETTINGS_SECTIONS: SectionMeta[] = [
     label: "云同步",
     hint: "私有服务器与多端数据同步",
     icon: Cloud,
+  },
+  {
+    id: "backup",
+    label: "备份与恢复",
+    hint: "全量本地数据导出与 ZIP 还原",
+    icon: Archive,
   },
   {
     id: "ai-channel",
@@ -226,6 +235,11 @@ export default function SettingsModal({
             {visitedSections.has("cloud-sync") && (
               <div className={section === "cloud-sync" ? "block" : "hidden"}>
                 <CloudflareSyncPanel />
+              </div>
+            )}
+            {visitedSections.has("backup") && (
+              <div className={section === "backup" ? "block" : "hidden"}>
+                <BackupPanel />
               </div>
             )}
             {visitedSections.has("ai-channel") && (

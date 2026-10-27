@@ -43,6 +43,7 @@ export const tools: Tool[] = [
   { id: 'net-probe', name: '网络探测', icon: 'Activity', description: 'Ping、TCP 端口、HTTP(S) 探测，看延迟、丢包并判断卡在哪一层', category: 'dev' },
   { id: 'speed-test', name: '网络测速', icon: 'Gauge', description: '实时测速网络下载速度、上传速度、Ping 时延与网络抖动', category: 'dev' },
   { id: 'sys-inspector', name: '电脑配置检测', icon: 'Cpu', description: '电脑硬件配置检测、实时内存占用空间与各应用进程内存排行', category: 'dev' },
+  { id: 'color-palette', name: 'CSS 颜色与设计', icon: 'Palette', description: 'HEX / RGB / HSL / OKLCH 互转 · 屏幕吸管 · 无障碍对比度与阴影生成', category: 'image' },
   { id: 'scratchpad', name: '草稿纸', icon: 'StickyNote', description: '常驻置顶小窗，随手记临时地址、Token 与待办', category: 'productivity' },
 ]
 

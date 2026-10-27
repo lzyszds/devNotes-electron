@@ -26,6 +26,7 @@ const SpeedTestTool      = lazy(() => import('../components/tools/SpeedTestTool'
 const SystemInspectorTool= lazy(() => import('../components/tools/SystemInspectorTool'))
 const BitwiseTool        = lazy(() => import('../components/tools/BitwiseTool'))
 const PortKillerTool     = lazy(() => import('../components/tools/PortKillerTool'))
+const ColorPaletteTool   = lazy(() => import('../components/tools/ColorPaletteTool'))
 
 /**
  * 编码类工具的入口（编码转换、URL 编码共用同一个编码页面）。
@@ -72,6 +73,7 @@ const toolComponents: Record<string, React.ComponentType<any>> = {
   'signature':      SignatureTool,
   'speed-test':     SpeedTestTool,
   'sys-inspector':  SystemInspectorTool,
+  'color-palette':  ColorPaletteTool,
 }
 
 function ToolLoading() {
