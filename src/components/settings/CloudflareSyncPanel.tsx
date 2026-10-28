@@ -133,6 +133,12 @@ export default function CloudflareSyncPanel() {
 
   // 保存设置
   const handleSaveConfig = async () => {
+    // 密钥同步依赖加密密码做单独加密，没密码就放行等于让密钥无处安放，
+    // 在保存这一步拦住比等推送时报错更直观
+    if (formConfig.syncApiKeys && !formConfig.encryptionPassword) {
+      setTestResult({ ok: false, message: '已开启「同步 API 密钥」，请先设置端到端加密密码再保存' })
+      return
+    }
     await updateCfConfig(formConfig)
     setTestResult({ ok: true, message: '配置已保存并生效' })
   }
@@ -865,7 +871,7 @@ export default function CloudflareSyncPanel() {
                   <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">
                     在您的其它设备上填入相同的 Token，即可自动双向同步全部笔记。
                     <span className="text-emerald-700 dark:text-emerald-300 font-medium ml-1 block sm:inline mt-0.5 sm:mt-0">
-                      🛡️ 具备应用命名空间隔离：即便服务器同时供「萌厨食光」等其它项目共用同步，底层也会附加专属应用指纹，各项目数据在数据库中绝对物理隔离，永不混淆覆盖。
+                      🛡️ 具备应用命名空间隔离：即便服务器同时供多个项目共用同步，底层也会附加专属应用指纹，各项目数据在数据库中绝对物理隔离，永不混淆覆盖。
                     </span>
                   </p>
                 </div>
@@ -935,7 +941,23 @@ export default function CloudflareSyncPanel() {
                 description="笔记与设置在离开本机前由 Web Crypto AES-256-GCM 彻底加密，云端仅存储密文，即使服务器被攻击也无法读取任何内容"
               />
 
-              {formConfig.enableE2EE && (
+              {/* API 密钥同步开关：默认密钥不出本机，开启后也必须先加密 */}
+              <Switch
+                checked={Boolean(formConfig.syncApiKeys)}
+                onChange={(checked) =>
+                  setFormConfig((prev) => ({ ...prev, syncApiKeys: checked }))
+                }
+                label={
+                  <span className="flex items-center gap-1.5">
+                    <KeyRound className="w-3.5 h-3.5 text-amber-500" />
+                    <span>同步 AI / 翻译 API 密钥</span>
+                  </span>
+                }
+                description="默认关闭，API 密钥只留在本机。开启后密钥会先用端到端加密密码加密再上云（需在下方设置加密密码），其他设备用相同密码解密还原"
+              />
+
+              {/* 密码输入：E2EE 或密钥同步任一开启都需要 */}
+              {(formConfig.enableE2EE || formConfig.syncApiKeys) && (
                 <div className="space-y-2 pt-2.5 border-t border-slate-200/60 dark:border-dark-border/60">
                   <div className="relative">
                     <input
@@ -963,6 +985,8 @@ export default function CloudflareSyncPanel() {
                   </div>
                   <p className="text-[10px] text-slate-400 leading-relaxed">
                     采用 Web Crypto AES-256-GCM 算法。请务必牢记该密码，一旦遗失将无法解密还原云端数据。
+                    {formConfig.syncApiKeys && !formConfig.enableE2EE &&
+                      '当前仅同步 API 密钥：笔记正文不会加密，但密钥始终以密文上云。'}
                   </p>
                 </div>
               )}
@@ -1000,9 +1024,9 @@ export default function CloudflareSyncPanel() {
         {/* TAB 4: 私有云服务架构与说明 */}
         {activeTab === 'deploy' && (
           <div className="space-y-4">
-            <NoteCard variant="success" icon={Server} title="统一多租户云同步平台（已全面就绪）">
+            <NoteCard variant="success" icon={Server} title="私有云同步服务（多租户架构）">
               <span className="text-xs leading-relaxed block">
-                您的专属云同步服务已在服务器（<strong className="font-mono">101.201.171.168</strong>）上升级为<strong>统一多租户云同步网关</strong>（托管服务 <code className="font-mono bg-black/5 dark:bg-white/10 px-1 rounded">mengchu-sync</code>），完美支持多个独立项目共用。
+                云同步服务采用<strong>统一多租户网关</strong>架构，多个独立项目可共用同一套同步服务，数据相互隔离、互不可见。
               </span>
               <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
                 <div className="p-2.5 rounded-xl bg-white/70 dark:bg-dark-panel/60 border border-slate-200/60 dark:border-dark-border space-y-1">
@@ -1017,16 +1041,16 @@ export default function CloudflareSyncPanel() {
                 <div className="p-2.5 rounded-xl bg-white/70 dark:bg-dark-panel/60 border border-slate-200/60 dark:border-dark-border space-y-1">
                   <div className="font-semibold text-slate-800 dark:text-white flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-amber-500" />
-                    <span>萌厨食光 (lzyRecipe)</span>
+                    <span>其他项目</span>
                   </div>
-                  <div className="text-slate-500 dark:text-slate-400 font-mono text-[10px]">租户标识: recipe</div>
-                  <div className="text-slate-400 text-[10px]">兼容路由: /sync 或 /recipe/sync</div>
+                  <div className="text-slate-500 dark:text-slate-400 font-mono text-[10px]">租户标识: 自定义 app id</div>
+                  <div className="text-slate-400 text-[10px]">路由: /{'{app}'}/sync</div>
                 </div>
               </div>
 
               <ul className="list-disc list-inside mt-3 space-y-1 text-[11px] opacity-90">
-                <li><strong>联合主键物理隔离</strong>：PostgreSQL 采用 <code>PRIMARY KEY (app, token_hash)</code>，无论两边是否设置相同密码，数据绝对独立。</li>
-                <li><strong>无感平滑兼容</strong>：lzyRecipe 现有的线上代码无需做任何修改，未带 app 标识的请求全自动归属 <code>recipe</code> 租户。</li>
+                <li><strong>每人独立凭据</strong>：同步 Token 由用户自行生成，一个 Token 对应一份独立的数据空间，多设备填同一 Token 即可互通。</li>
+                <li><strong>联合主键物理隔离</strong>：服务端采用 <code>PRIMARY KEY (app, token_hash)</code>，不同 Token 的数据绝对独立，永不混淆覆盖。</li>
                 <li><strong>端到端双重安全</strong>：支持 Web Crypto AES-256-GCM 零知识加密，云端仅存放密文。</li>
               </ul>
 

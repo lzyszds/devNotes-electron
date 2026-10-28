@@ -1204,14 +1204,14 @@ export default function AiChatTool() {
   const handleExportMarkdown = useCallback(() => {
     if (!activeSession) return
     const md = exportSessionAsMarkdown(activeSession)
-    downloadFile(md, `${activeSession.title || 'AI对话'}.md`, 'text/markdown;charset=utf-8')
+    downloadFile(md, `${activeSession.title || '智聊'}.md`, 'text/markdown;charset=utf-8')
     showToast('已导出 Markdown 文档', 'default')
   }, [activeSession, showToast])
 
   const handleExportJson = useCallback(() => {
     if (!activeSession) return
     const json = exportSessionAsJson(activeSession)
-    downloadFile(json, `${activeSession.title || 'AI对话'}.json`, 'application/json;charset=utf-8')
+    downloadFile(json, `${activeSession.title || '智聊'}.json`, 'application/json;charset=utf-8')
     showToast('已导出 JSON 结构化数据', 'default')
   }, [activeSession, showToast])
 

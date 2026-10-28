@@ -35,6 +35,9 @@ export interface CloudflareSyncConfig {
   // 端到端加密（可选）
   enableE2EE: boolean
   encryptionPassword?: string
+  // 敏感密钥同步策略：AI / 翻译的 API Key 默认不出本机，显式开启后才随同步上传
+  //（上传前会用 encryptionPassword 单独加密，见 SENSITIVE_SETTING_KEYS）
+  syncApiKeys: boolean
   // 自动化策略
   autoSync: boolean // 本地有修改防抖自动上传
   autoSyncOnStartup: boolean // 启动时自动从云端拉取最新
@@ -125,10 +128,7 @@ export interface SyncPayload {
 export const SYNCED_SETTING_KEYS = [
   // 剪贴板历史（上传前自动剔除图片 Base64，用【图片】占位，防止撑爆云端）
   'clipboard-history',
-  // 项目级 AI 渠道配置（各服务商独立配置字典）
-  'ai-channel-config',
-  // 翻译与模型
-  'translate-api-config',
+  // 翻译与模型（不含密钥配置 —— API Key 走下面的敏感键通道）
   'text-translate-primary-lang',
   'text-translate-prefs',
   // 快捷键
@@ -149,6 +149,25 @@ export const SYNCED_SETTING_KEYS = [
   'json-i18n-settings',
   'json-i18n-protected-terms',
 ] as const
+
+/**
+ * 含密钥的敏感设置项，独立于普通白名单单独管理。
+ *
+ * 这些键里存着用户的 API Key（AI 渠道、翻译服务），明文上云等于把密钥
+ * 交给同步服务器。因此默认一律不上云；只有用户在设置里显式开启
+ * 「同步 API 密钥」（cfConfig.syncApiKeys）后才会收集，且必须先设置
+ * 端到端加密密码 —— 密钥单独用该密码加密后（见 SECRET_CIPHER_PREFIX）
+ * 才会离开本机，即使整体 payload 未开 E2EE，密钥也始终是密文。
+ */
+export const SENSITIVE_SETTING_KEYS = [
+  // 项目级 AI 渠道配置（各服务商独立配置字典，内含 apiKey）
+  'ai-channel-config',
+  // 翻译服务配置（内含 apiKey）
+  'translate-api-config',
+] as const
+
+/** 敏感键上云时的密文前缀，拉取端据此识别需要解密的值 */
+export const SECRET_CIPHER_PREFIX = 'e2ee::'
 
 /** 设置快照：键 -> 值。值为 null 表示该项被显式清空 */
 export type SettingsSnapshot = Record<string, unknown>
@@ -214,6 +233,73 @@ export async function collectSettings(): Promise<SettingsSnapshot> {
 }
 
 /**
+ * 单独收集敏感（含密钥）设置项。
+ *
+ * 与普通设置分开读：只在用户显式开启「同步 API 密钥」后才会被调用，
+ * 避免白名单一改、密钥就跟着普通设置悄悄上云。
+ */
+async function collectSecretSettings(): Promise<SettingsSnapshot> {
+  const snapshot: SettingsSnapshot = {}
+  const api = window.electronAPI
+
+  for (const key of SENSITIVE_SETTING_KEYS) {
+    try {
+      const value = await api?.storeGet?.(key)
+      if (value !== undefined && value !== null) snapshot[key] = value
+    } catch {
+      // 单项读失败不该拖垮整次同步，跳过即可
+    }
+  }
+  return snapshot
+}
+
+/**
+ * 把敏感键加密后注入设置快照（上云前调用）。
+ *
+ * 统一走 encryptionPassword 派生的 AES-256-GCM 密钥 —— 与笔记正文 E2EE
+ * 同一套加密体系，用户只需记一个密码。值统一加 SECRET_CIPHER_PREFIX
+ * 便于拉取端识别；先 JSON.stringify 是因为键值本身可能是对象，
+ * 解密端按字符串还原后再 parse 回来。
+ */
+async function encryptSecretSettings(
+  snapshot: SettingsSnapshot,
+  password: string
+): Promise<void> {
+  for (const key of SENSITIVE_SETTING_KEYS) {
+    if (!(key in snapshot)) continue
+    const plain = JSON.stringify(snapshot[key])
+    snapshot[key] = SECRET_CIPHER_PREFIX + (await encryptData(plain, password))
+  }
+}
+
+/**
+ * 拉取端还原敏感键：识别密文前缀并解密。
+ *
+ * 解不开（密码不对 / 未设密码）的键直接剔除 —— 把密文原样写进本地存储
+ * 会让 AI / 翻译功能直接失效，剔除后用户重新填一次 Key 即可，
+ * 比静默写坏数据体面。
+ */
+async function decryptSecretSettings(
+  snapshot: SettingsSnapshot,
+  password?: string
+): Promise<void> {
+  for (const key of SENSITIVE_SETTING_KEYS) {
+    const value = snapshot[key]
+    if (typeof value !== 'string' || !value.startsWith(SECRET_CIPHER_PREFIX)) continue
+    if (!password) {
+      delete snapshot[key]
+      continue
+    }
+    try {
+      const plain = await decryptData(value.slice(SECRET_CIPHER_PREFIX.length), password)
+      snapshot[key] = JSON.parse(plain)
+    } catch {
+      delete snapshot[key]
+    }
+  }
+}
+
+/**
  * 合并剪贴板历史：
  * 1. 按 id 对齐去重；
  * 2. 如果本地已有带真实 imageDataUrl 的图片记录，而云端是脱敏后的【图片】，必须保留本地真实图片；
@@ -256,8 +342,11 @@ export async function applySettings(snapshot: SettingsSnapshot): Promise<number>
   const api = window.electronAPI
 
   let applied = 0
-  for (const key of SYNCED_SETTING_KEYS) {
+  for (const key of [...SYNCED_SETTING_KEYS, ...SENSITIVE_SETTING_KEYS]) {
     if (!(key in snapshot)) continue
+    // null 表示云端已清空（例如用户关闭了密钥同步），不回写本地，
+    // 免得把本机正在使用的配置冲掉
+    if (snapshot[key] === null) continue
     try {
       if (LOCAL_STORAGE_SETTING_KEYS.has(key)) {
         // localStorage 要求字符串；云端存的是当初读出来的原样，直接写回
@@ -382,8 +471,8 @@ export function unpackStructuredSettings(settings: any): SettingsSnapshot {
 
   const flat: SettingsSnapshot = {}
 
-  // 1. 兼容老版本直接保存的平铺键
-  for (const k of SYNCED_SETTING_KEYS) {
+  // 1. 兼容老版本直接保存的平铺键（含敏感键：老备份里的密钥是明文平铺存的）
+  for (const k of [...SYNCED_SETTING_KEYS, ...SENSITIVE_SETTING_KEYS]) {
     if (k in settings && settings[k] !== undefined) {
       flat[k] = settings[k]
     }
@@ -452,6 +541,7 @@ export const DEFAULT_CF_CONFIG: CloudflareSyncConfig = {
   kvApiToken: '',
   enableE2EE: false,
   encryptionPassword: '',
+  syncApiKeys: false,
   autoSync: false,
   autoSyncOnStartup: false,
   autoBackupEnabled: false,
@@ -461,11 +551,6 @@ export const DEFAULT_CF_CONFIG: CloudflareSyncConfig = {
   lastSyncTime: 0,
   lastBackupTime: 0,
 }
-
-/**
- * 内置的公共示例 Worker 地址（向后兼容提示）
- */
-export const SAMPLE_WORKER_URL = 'https://fehelper.1024327189.workers.dev'
 
 // ================= 1. 端到端加密 (Web Crypto AES-256-GCM) =================
 async function getKeyFromPassword(password: string, salt: Uint8Array): Promise<CryptoKey> {
@@ -831,6 +916,21 @@ export async function pushToCloudflare(
 
     // 收集本地设置并转换为分类结构
     const rawSettings = await collectSettings()
+
+    /*
+     * API 密钥（AI 渠道 / 翻译服务）默认不出本机。用户显式开启同步密钥时
+     * 必须已有端到端加密密码 —— 密钥单独加密后才注入快照，即使整体 payload
+     * 走明文通道，密钥也始终是密文。
+     */
+    if (config.syncApiKeys) {
+      if (!config.encryptionPassword) {
+        throw new Error('已开启「同步 API 密钥」，请先设置端到端加密密码，否则密钥无法加密上云')
+      }
+      const secretSettings = await collectSecretSettings()
+      await encryptSecretSettings(secretSettings, config.encryptionPassword)
+      Object.assign(rawSettings, secretSettings)
+    }
+
     const structuredSettings = packStructuredSettings(rawSettings)
 
     // 统计摘要（方便在管理端一眼看清快照概况）
@@ -1028,6 +1128,8 @@ export async function pullFromCloudflare(config: CloudflareSyncConfig): Promise<
           rawSettingsObj = payload.settings
         }
         remoteSettings = unpackStructuredSettings(rawSettingsObj)
+        // 敏感键可能是密文（e2ee:: 前缀），按需解密；解不开的键会被剔除
+        await decryptSecretSettings(remoteSettings, config.encryptionPassword)
       } catch {
         // 设置解不开不该让整次拉取失败 —— 笔记才是主体，设置是附带的
       }
@@ -1263,16 +1365,12 @@ export async function loadCloudflareConfig(): Promise<CloudflareSyncConfig> {
     if (!cfg) return DEFAULT_CF_CONFIG
 
     /*
-     * 老版本迁移：把「还在用内置公共端点」的配置的自动化开关全部关掉。
+     * 老版本迁移：workerUrl 为空的配置补上默认服务地址。
      *
-     * 判断依据是 workerUrl 仍是那个公共地址 —— 那个端点不属于任何用户，
-     * 没改过它就意味着用户从未真正接入过自己的云端，此时的 autoSync /
-     * autoSyncOnStartup 只是旧版本默认值带来的副作用，不是用户的选择。
-     * 放任不管的后果就是每次启动都被动拉一份合并，正文整篇被换掉。
-     *
-     * 已经填了自己 Worker / KV 凭据的配置原样尊重，一项都不动。
+     * （旧版还会识别「内置示例 Worker 端点」并重置 —— 那是开发者的个人
+     * Worker 地址，推广版已将其从产物中移除，不再对任何用户暴露。）
      */
-    if (cfg.mode === 'worker' && (!cfg.workerUrl || cfg.workerUrl === SAMPLE_WORKER_URL)) {
+    if (cfg.mode === 'worker' && !cfg.workerUrl) {
       cfg.workerUrl = DEFAULT_SERVER_URL
     }
 

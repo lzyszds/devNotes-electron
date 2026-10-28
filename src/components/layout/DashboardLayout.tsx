@@ -77,7 +77,7 @@ function getToolShortLabel(toolId: string): string {
     scratchpad: "草稿",
     signature: "签名",
     "color-palette": "色彩",
-    "ai-chat": "AI 对话",
+    "ai-chat": "智聊",
   };
   return map[toolId] || "工具";
 }
@@ -195,7 +195,7 @@ export default function DashboardLayout({
   const isToolCollectionActive =
     !isMarkdownActive && !isSnippetsActive && !isTranslateActive && !isAiChatActive;
 
-  // 翻译与 AI 对话页面不提供外层二级侧边栏，进入时默认强制关闭侧边栏
+  // 翻译与智聊页面不提供外层二级侧边栏，进入时默认强制关闭侧边栏
   useEffect(() => {
     if (isTranslateActive || isAiChatActive) {
       setIsSidebarOpen(false);
@@ -318,7 +318,7 @@ export default function DashboardLayout({
   ) => {
     e.preventDefault();
     const goto = (id: string) => {
-      // 翻译与 AI 对话页锁死无侧栏，其余导航进来都展开
+      // 翻译与智聊页锁死无侧栏，其余导航进来都展开
       setIsSidebarOpen(id !== "text-translate" && id !== "ai-chat");
       onOpenTool(id);
     };
@@ -400,7 +400,7 @@ export default function DashboardLayout({
     } else if (route === "ai-chat") {
       items.push({
         id: "open-ai-chat",
-        label: "打开 AI 对话",
+        label: "打开智聊",
         icon: <Bot size={14} />,
         onSelect: () => goto("ai-chat"),
       });
@@ -729,7 +729,7 @@ export default function DashboardLayout({
         !e.altKey
       ) {
         e.preventDefault();
-        // 翻译与 AI 对话页面锁死不允许展开
+        // 翻译与智聊页面锁死不允许展开
         if (isTranslateActive || isAiChatActive) return;
         setIsSidebarOpen((prev) => !prev);
         return;
@@ -738,7 +738,7 @@ export default function DashboardLayout({
       // ⌥⌘D 展开/收起二级目录
       if ((e.metaKey || e.ctrlKey) && e.altKey && e.key.toLowerCase() === "d") {
         e.preventDefault();
-        // 翻译与 AI 对话页面锁死不允许展开
+        // 翻译与智聊页面锁死不允许展开
         if (isTranslateActive || isAiChatActive) return;
         toggleFolderTree();
         return;
@@ -802,7 +802,7 @@ export default function DashboardLayout({
 
   // 计算侧边栏动态总宽度（默认三栏时为 288px，展开目录树时为 208 + 288 = 496px；翻译与 AI 会话页面锁死为 0）
   const sidebarWidth = useMemo(() => {
-    /* 翻译与 AI 对话页面无需二级侧边栏，强制锁死为 0，防止撑开空白区域 */
+    /* 翻译与智聊页面无需二级侧边栏，强制锁死为 0，防止撑开空白区域 */
     if (isTranslateActive || isAiChatActive) return 0;
     if (!isSidebarOpen) return 0;
     if (isMobile) return "100%";
@@ -880,7 +880,7 @@ export default function DashboardLayout({
                 : isTranslateActive
                 ? "翻译中心"
                 : isAiChatActive
-                ? "AI 对话"
+                ? "智聊"
                 : "工具箱"}
             </span>
             <span>/</span>
@@ -947,7 +947,7 @@ export default function DashboardLayout({
       <div className="flex-1 flex flex-row overflow-hidden min-h-0 bg-[#F3F3F1] ">
         {/* ================= 1. 第 1 栏：最左侧窄导航 (w-16 = 64px) ================= */}
         <aside className="w-16 flex flex-col items-center py-2.5 justify-between flex-shrink-0 z-30 select-none">
-          {/* 顶层核心入口：笔记、AI对话、翻译、代码、工具（右键路由可切子内容） */}
+          {/* 顶层核心入口：笔记、智聊、翻译、代码、工具（右键路由可切子内容） */}
           <nav className="flex-1 min-h-0 w-full px-1 flex flex-col gap-1 overflow-y-auto no-scrollbar">
             {/* 1. 笔记 */}
             <Tooltip placement="right" content="Markdown 笔记">
@@ -979,7 +979,7 @@ export default function DashboardLayout({
               </button>
             </Tooltip>
 
-            {/* 2. AI 对话 */}
+            {/* 2. 智聊 */}
             <Tooltip placement="right" content="AI 在线会话">
               <button
                 type="button"
@@ -999,7 +999,7 @@ export default function DashboardLayout({
                 )}
                 <ToolIcon toolId="ai-chat" className="w-5 h-5 mb-1" />
                 <span className="text-[10px] leading-none tracking-tight">
-                  AI 对话
+                  智聊
                 </span>
               </button>
             </Tooltip>
