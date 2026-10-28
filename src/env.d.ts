@@ -57,13 +57,15 @@ interface Window {
       transferred?: number
       total?: number
       message?: string
+      /** 最近一次检查完成时刻（ms），用于判断缓存结论是否过期 */
+      checkedAt?: number
     } | null>
     onUpdateStatus?: (
       callback: (
         status:
           | { state: 'checking' }
-          | { state: 'available'; version: string }
-          | { state: 'not-available' }
+          | { state: 'available'; version: string; checkedAt: number }
+          | { state: 'not-available'; checkedAt: number }
           | {
               state: 'downloading'
               percent: number
@@ -71,8 +73,8 @@ interface Window {
               transferred?: number
               total?: number
             }
-          | { state: 'downloaded'; version: string }
-          | { state: 'error'; message: string }
+          | { state: 'downloaded'; version: string; checkedAt: number }
+          | { state: 'error'; message: string; checkedAt: number }
           | { state: 'dev-mode'; message: string }
       ) => void
     ) => () => void

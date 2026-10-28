@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, Notification } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import log from 'electron-log'
 
@@ -26,6 +26,31 @@ function broadcast(status: UpdateStatus) {
   BrowserWindow.getAllWindows().forEach((win) => {
     if (!win.isDestroyed()) win.webContents.send('update:status', status)
   })
+}
+
+/**
+ * 更新就绪时发一条系统原生通知。
+ *
+ * 应用内横幅只在用户盯着本应用时可见，toast 更是几秒即逝 —— 用户切在
+ * 别的窗口干活时两条都收不到。系统通知走操作系统的通知中心，常驻可回看；
+ * 点击把主窗口拉到前台，配合应用内横幅完成安装。
+ */
+function notifyUpdateReady(version: string) {
+  if (!Notification.isSupported()) return
+  const notification = new Notification({
+    title: 'devNotes 新版本已就绪',
+    body: `v${version} 已在后台下载完成，点击返回应用即可一键安装`,
+    silent: false,
+  })
+  notification.on('click', () => {
+    const win = BrowserWindow.getAllWindows().find((w) => !w.isDestroyed())
+    if (win) {
+      if (win.isMinimized()) win.restore()
+      win.show()
+      win.focus()
+    }
+  })
+  notification.show()
 }
 
 /**
@@ -113,6 +138,7 @@ export function setupAutoUpdater() {
 
   autoUpdater.on('update-downloaded', (info) => {
     broadcast({ state: 'downloaded', version: info.version, checkedAt: Date.now() })
+    notifyUpdateReady(info.version)
   })
 
   autoUpdater.on('error', (error) => {

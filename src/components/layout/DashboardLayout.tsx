@@ -19,6 +19,7 @@ import {
   Clock,
   Palette,
   Bot,
+  X,
 } from "lucide-react";
 import { allModules, tools, toolCategories, jsonToolboxAliases } from "../../types";
 import NotesSidebar from "../modules/markdown-notes/NotesSidebar";
@@ -137,14 +138,17 @@ export default function DashboardLayout({
   }, []);
 
   // 监听全量/差量在线更新就绪事件
-  const [isUpdateReady, setIsUpdateReady] = useState(false);
+  // 记版本号而不是布尔：横幅的「稍后」只对当前版本生效，更新的版本到来时要重新弹出
+  const [updateReadyVersion, setUpdateReadyVersion] = useState<string | null>(null);
+  const [dismissedUpdateVersion, setDismissedUpdateVersion] = useState<string | null>(null);
+  const isUpdateReady = Boolean(updateReadyVersion);
   useEffect(() => {
     window.electronAPI?.getUpdateStatus?.().then((s) => {
-      if (s?.state === "downloaded") setIsUpdateReady(true);
+      if (s?.state === "downloaded" && s.version) setUpdateReadyVersion(s.version);
     });
     return window.electronAPI?.onUpdateStatus?.((s) => {
       if (s.state === "downloaded") {
-        setIsUpdateReady(true);
+        setUpdateReadyVersion(s.version);
         showToast(
           `🎉 新版本 v${s.version} 差量下载完毕，点击设置即可立即重启安装！`,
           "default"
@@ -1328,6 +1332,39 @@ export default function DashboardLayout({
                 <ToolPage toolId={activeTabId} />
               </div>
             </div>
+
+            {/*
+             * 更新就绪横幅：悬浮在内容区顶部中央，不挤占布局。
+             * 左下角 toast 几秒就消失、齿轮上的小绿点太隐蔽，用户反馈根本注意不到 ——
+             * 换成常驻深色横幅 + 一键安装按钮，「稍后」只对当前版本生效，
+             * 下一个版本到来时重新弹出。
+             */}
+            {isUpdateReady && dismissedUpdateVersion !== updateReadyVersion && (
+              <div className="absolute top-3 left-1/2 -translate-x-1/2 z-40 animate-in fade-in slide-in-from-top-2 duration-200 max-w-[90%]">
+                <div className="flex items-center gap-3 pl-3.5 pr-1.5 py-1.5 rounded-2xl bg-[#1C1C1C] text-white shadow-lg shadow-black/20">
+                  <Sparkles size={14} className="text-amber-300 shrink-0" />
+                  <div className="text-xs whitespace-nowrap">
+                    <span className="font-semibold">新版本 v{updateReadyVersion} 已就绪</span>
+                    <span className="text-white/55 ml-1.5 hidden sm:inline">下载完成，重启即装</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => window.electronAPI?.installUpdate?.()}
+                    className="h-7 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-white text-xs font-semibold transition-all cursor-pointer shrink-0"
+                  >
+                    立即重启安装
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDismissedUpdateVersion(updateReadyVersion)}
+                    className="w-7 h-7 rounded-lg flex items-center justify-center text-white/45 hover:text-white hover:bg-white/10 transition-colors cursor-pointer shrink-0"
+                    title="稍后提醒"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              </div>
+            )}
           </main>
         </div>
       </div>
