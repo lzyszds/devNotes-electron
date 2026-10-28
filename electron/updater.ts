@@ -61,7 +61,16 @@ export function setupAutoUpdater() {
     }
     broadcast({ state: 'checking' })
     try {
-      return await autoUpdater.checkForUpdates()
+      await autoUpdater.checkForUpdates()
+
+      /*
+       * 不把 checkForUpdates 的原始返回值交给 IPC：里面带着 CancellationToken
+       * 等不可结构化克隆的类实例，直接 return 会报 "An object could not be cloned"，
+       * 渲染层误以为检查失败，实际检查早已完成。真正的结论由事件广播
+       * （update-available / update-not-available / download-progress）带回，
+       * 这里只回执一个可序列化的确认。
+       */
+      return { state: 'checking' }
     } catch (err: any) {
       const errStatus: UpdateStatus = {
         state: 'error',
