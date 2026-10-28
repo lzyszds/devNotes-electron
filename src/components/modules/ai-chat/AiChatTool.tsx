@@ -237,7 +237,7 @@ const ChatMessageItem = React.memo(function ChatMessageItem({
 
   if (isUser) {
     return (
-      <div className="flex justify-end">
+      <div className="fe-chat-msg flex justify-end">
         <div className="max-w-2xl">
           {/* 引用上下文小标签（纯 SVG 图标，无 Emoji） */}
           {msg.contextPills && msg.contextPills.length > 0 && (
@@ -263,7 +263,7 @@ const ChatMessageItem = React.memo(function ChatMessageItem({
   }
 
   return (
-    <div className="flex items-start gap-3.5 max-w-3xl">
+    <div className="fe-chat-msg flex items-start gap-3.5 max-w-3xl">
       {/* AI 头像 */}
       <div className="w-8 h-8 rounded-xl bg-zinc-100 border border-zinc-200/80 flex items-center justify-center shrink-0 shadow-sm">
         <Bot size={15} className="text-zinc-800" />

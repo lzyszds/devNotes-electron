@@ -4521,3 +4521,17 @@ select:focus-visible {
     transform: scaleX(1);
   }
 }
+/* ================= 智聊消息渲染性能 ================= */
+
+/*
+ * 消息项视口外跳过布局与绘制（Chromium content-visibility）。
+ *
+ * 切换会话时目标会话的全部消息会在一帧内挂载，几十条带代码高亮 HTML 的
+ * 消息同步排版就是切换瞬间的顿挫来源。content-visibility: auto 让屏幕外
+ * 的消息跳过布局与绘制，只有滚进视口的才真正排版；contain-intrinsic-size
+ * 提供屏外占位高度，避免滚动条总高在估算与实测之间来回跳。
+ */
+.fe-chat-msg {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 120px;
+}
