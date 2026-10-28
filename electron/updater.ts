@@ -5,8 +5,8 @@ import log from 'electron-log'
 /** 推给渲染进程的更新状态，与 preload.ts 里的类型保持一致 */
 export type UpdateStatus =
   | { state: 'checking' }
-  | { state: 'available'; version: string }
-  | { state: 'not-available' }
+  | { state: 'available'; version: string; checkedAt: number }
+  | { state: 'not-available'; checkedAt: number }
   | {
       state: 'downloading'
       percent: number
@@ -14,8 +14,8 @@ export type UpdateStatus =
       transferred?: number
       total?: number
     }
-  | { state: 'downloaded'; version: string }
-  | { state: 'error'; message: string }
+  | { state: 'downloaded'; version: string; checkedAt: number }
+  | { state: 'error'; message: string; checkedAt: number }
   | { state: 'dev-mode'; message: string }
 
 /** 内存中缓存最新的更新状态，方便新打开的窗口/设置面板立即读取 */
@@ -66,6 +66,7 @@ export function setupAutoUpdater() {
       const errStatus: UpdateStatus = {
         state: 'error',
         message: err?.message || '连接更新服务器失败',
+        checkedAt: Date.now(),
       }
       broadcast(errStatus)
       return errStatus
@@ -84,11 +85,11 @@ export function setupAutoUpdater() {
   autoUpdater.on('checking-for-update', () => broadcast({ state: 'checking' }))
 
   autoUpdater.on('update-available', (info) => {
-    broadcast({ state: 'available', version: info.version })
+    broadcast({ state: 'available', version: info.version, checkedAt: Date.now() })
   })
 
   autoUpdater.on('update-not-available', () => {
-    broadcast({ state: 'not-available' })
+    broadcast({ state: 'not-available', checkedAt: Date.now() })
   })
 
   autoUpdater.on('download-progress', (progress) => {
@@ -102,15 +103,27 @@ export function setupAutoUpdater() {
   })
 
   autoUpdater.on('update-downloaded', (info) => {
-    broadcast({ state: 'downloaded', version: info.version })
+    broadcast({ state: 'downloaded', version: info.version, checkedAt: Date.now() })
   })
 
   autoUpdater.on('error', (error) => {
-    broadcast({ state: 'error', message: error.message || '更新过程发生异常' })
+    broadcast({ state: 'error', message: error.message || '更新过程发生异常', checkedAt: Date.now() })
   })
 
   // 启动 3 秒后执行一次后台静默检查
   setTimeout(() => {
     autoUpdater.checkForUpdates().catch(() => undefined)
   }, 3000)
+
+  /*
+   * 周期性静默复查。
+   *
+   * 启动那一次检查的结果会缓存整个会话 —— 如果新版本发布晚于本次启动，
+   * 用户会一直看着过期的「已是最新版本」，除非自己想起来手动点检查。
+   * 每 4 小时复查一次，长开的应用半天内也能收到新版提醒。
+   */
+  const RECHECK_INTERVAL_MS = 4 * 60 * 60 * 1000
+  setInterval(() => {
+    autoUpdater.checkForUpdates().catch(() => undefined)
+  }, RECHECK_INTERVAL_MS)
 }

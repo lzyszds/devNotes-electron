@@ -53,6 +53,8 @@ export default function GeneralPanel({
     transferred?: number
     total?: number
     message?: string
+    /** 主进程记录的最近一次检查完成时刻，用于判断缓存是否过期 */
+    checkedAt?: number
   }
   const [updateStatus, setUpdateStatus] = useState<UpdateStatusInfo | null>(null)
   const [lastChecked, setLastChecked] = useState('')
@@ -78,7 +80,20 @@ export default function GeneralPanel({
 
     // 读取当前已有更新状态缓存
     window.electronAPI?.getUpdateStatus?.().then((status) => {
-      if (status) setUpdateStatus(status as UpdateStatusInfo)
+      if (!status) return
+      setUpdateStatus(status as UpdateStatusInfo)
+
+      /*
+       * 缓存的「已是最新版本」可能是几小时前启动时查的旧结果 —— 新版本
+       * 发布晚于那次检查的话，面板会把过期结论当成实时状态展示。
+       * 打开面板时发现缓存超过 10 分钟就静默重查一次，保证这里的结论
+       * 永远是新鲜的；正在下载/已下载的状态则不去打扰。
+       */
+      const s = status as UpdateStatusInfo
+      const isStale = s.state === 'not-available' && Date.now() - (s.checkedAt || 0) > 10 * 60 * 1000
+      if (isStale) {
+        window.electronAPI?.checkForUpdates?.().catch(() => undefined)
+      }
     })
 
     // 订阅后续更新推送
@@ -327,7 +342,13 @@ export default function GeneralPanel({
                     <CheckCircle2 size={13} />
                     <span>当前已是最新版本</span>
                   </div>
-                  {lastChecked && <span>检查时间：{lastChecked}</span>}
+                  <span>
+                    检查时间：
+                    {lastChecked ||
+                      (updateStatus.checkedAt
+                        ? new Date(updateStatus.checkedAt).toLocaleTimeString('zh-CN', { hour12: false })
+                        : '—')}
+                  </span>
                 </div>
               )}
 
