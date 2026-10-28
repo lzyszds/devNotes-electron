@@ -53,6 +53,7 @@ export const tools: Tool[] = [
  */
 export const standaloneModules: Tool[] = [
   { id: 'markdown-notes', name: 'Markdown 笔记', icon: 'FileText', description: '本地笔记编辑器，支持双栏与所见即所得两种模式', category: 'productivity' },
+  { id: 'ai-chat', name: 'AI 对话', icon: 'Bot', description: '多轮会话 · 深度思考 · 预设专家 · 流式打字 · 一键插回笔记', category: 'productivity' },
   { id: 'text-translate', name: '文本翻译', icon: 'Languages', description: '中英日韩等 20 种语言互译，支持自动检测源语言', category: 'productivity' },
   { id: 'snippets', name: '代码片段库', icon: 'FileCode2', description: '收藏常用命令与配置模板，左侧列表随时搜索复制', category: 'productivity' },
 ]

@@ -18,6 +18,7 @@ import {
   Sparkles,
   Clock,
   Palette,
+  Bot,
 } from "lucide-react";
 import { allModules, tools, toolCategories, jsonToolboxAliases } from "../../types";
 import NotesSidebar from "../modules/markdown-notes/NotesSidebar";
@@ -76,6 +77,7 @@ function getToolShortLabel(toolId: string): string {
     scratchpad: "草稿",
     signature: "签名",
     "color-palette": "色彩",
+    "ai-chat": "AI 对话",
   };
   return map[toolId] || "工具";
 }
@@ -188,16 +190,17 @@ export default function DashboardLayout({
   const isMarkdownActive = activeTabId === "markdown-notes";
   const isSnippetsActive = activeTabId === "snippets";
   const isTranslateActive = activeTabId === "text-translate";
-  // 工具集合：当 activeTabId 不是三大独立模块时，即属于小工具集合
+  const isAiChatActive = activeTabId === "ai-chat";
+  // 工具集合：当 activeTabId 不是四大独立模块时，即属于小工具集合
   const isToolCollectionActive =
-    !isMarkdownActive && !isSnippetsActive && !isTranslateActive;
+    !isMarkdownActive && !isSnippetsActive && !isTranslateActive && !isAiChatActive;
 
-  // 翻译页面不提供二级侧边栏，进入时默认强制关闭侧边栏
+  // 翻译与 AI 对话页面不提供外层二级侧边栏，进入时默认强制关闭侧边栏
   useEffect(() => {
-    if (isTranslateActive) {
+    if (isTranslateActive || isAiChatActive) {
       setIsSidebarOpen(false);
     }
-  }, [isTranslateActive]);
+  }, [isTranslateActive, isAiChatActive]);
 
   // 胶囊 Tab 内已打开的工具标签页列表（持久化到本地）
   const [openedToolTabs, setOpenedToolTabs] = useState<string[]>(() => {
@@ -310,13 +313,13 @@ export default function DashboardLayout({
   // 工具 = 已开标签 + 清空；笔记 = 文件夹 / 回收站切视图；代码、翻译 = 打开入口
   const { openContextMenu } = useContextMenu();
   const openRouteMenu = (
-    route: "markdown-notes" | "text-translate" | "snippets" | "tool-collection",
+    route: "markdown-notes" | "ai-chat" | "text-translate" | "snippets" | "tool-collection",
     e: React.MouseEvent
   ) => {
     e.preventDefault();
     const goto = (id: string) => {
-      // 翻译页锁死无侧栏，其余导航进来都展开
-      setIsSidebarOpen(id !== "text-translate");
+      // 翻译与 AI 对话页锁死无侧栏，其余导航进来都展开
+      setIsSidebarOpen(id !== "text-translate" && id !== "ai-chat");
       onOpenTool(id);
     };
     const items: ContextMenuItem[] = [];
@@ -393,6 +396,13 @@ export default function DashboardLayout({
         label: "打开片段库",
         icon: <FileCode2 size={14} />,
         onSelect: () => goto("snippets"),
+      });
+    } else if (route === "ai-chat") {
+      items.push({
+        id: "open-ai-chat",
+        label: "打开 AI 对话",
+        icon: <Bot size={14} />,
+        onSelect: () => goto("ai-chat"),
       });
     } else {
       items.push({
@@ -565,7 +575,7 @@ export default function DashboardLayout({
     const openTool = (id: string) => {
       onOpenTool(id);
       setIsCmdOpen(false);
-      setIsSidebarOpen(id !== "text-translate");
+      setIsSidebarOpen(id !== "text-translate" && id !== "ai-chat");
     };
 
     const moduleItems: CmdItem[] = allModules
@@ -719,8 +729,8 @@ export default function DashboardLayout({
         !e.altKey
       ) {
         e.preventDefault();
-        // 翻译页面锁死不允许展开
-        if (isTranslateActive) return;
+        // 翻译与 AI 对话页面锁死不允许展开
+        if (isTranslateActive || isAiChatActive) return;
         setIsSidebarOpen((prev) => !prev);
         return;
       }
@@ -728,8 +738,8 @@ export default function DashboardLayout({
       // ⌥⌘D 展开/收起二级目录
       if ((e.metaKey || e.ctrlKey) && e.altKey && e.key.toLowerCase() === "d") {
         e.preventDefault();
-        // 翻译页面锁死不允许展开
-        if (isTranslateActive) return;
+        // 翻译与 AI 对话页面锁死不允许展开
+        if (isTranslateActive || isAiChatActive) return;
         toggleFolderTree();
         return;
       }
@@ -751,7 +761,7 @@ export default function DashboardLayout({
         if (shortcut && keyCombo === shortcut) {
           e.preventDefault();
           onOpenTool(toolId);
-          if (toolId === "text-translate") {
+          if (toolId === "text-translate" || toolId === "ai-chat") {
             setIsSidebarOpen(false);
           } else {
             setIsSidebarOpen(true);
@@ -763,7 +773,7 @@ export default function DashboardLayout({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [shortcutMap, onOpenTool, isTranslateActive]);
+  }, [shortcutMap, onOpenTool, isTranslateActive, isAiChatActive]);
 
   // 面包屑当前分类名称
   const currentCategoryName = useMemo(() => {
@@ -778,24 +788,26 @@ export default function DashboardLayout({
     }
     if (isSnippetsActive) return "代码片段";
     if (isTranslateActive) return "文本翻译";
+    if (isAiChatActive) return "AI 在线会话";
     return currentTool?.name || "工具箱";
   }, [
     isMarkdownActive,
     isSnippetsActive,
     isTranslateActive,
+    isAiChatActive,
     scope,
     folders,
     currentTool,
   ]);
 
-  // 计算侧边栏动态总宽度（默认三栏时为 288px，展开目录树时为 208 + 288 = 496px；翻译页面锁死为 0）
+  // 计算侧边栏动态总宽度（默认三栏时为 288px，展开目录树时为 208 + 288 = 496px；翻译与 AI 会话页面锁死为 0）
   const sidebarWidth = useMemo(() => {
-    /* 翻译页面无需二级侧边栏，强制锁死为 0，防止撑开空白区域 */
-    if (isTranslateActive) return 0;
+    /* 翻译与 AI 对话页面无需二级侧边栏，强制锁死为 0，防止撑开空白区域 */
+    if (isTranslateActive || isAiChatActive) return 0;
     if (!isSidebarOpen) return 0;
     if (isMobile) return "100%";
     return isFolderTreeOpen ? 496 : 288;
-  }, [isTranslateActive, isSidebarOpen, isMobile, isFolderTreeOpen]);
+  }, [isTranslateActive, isAiChatActive, isSidebarOpen, isMobile, isFolderTreeOpen]);
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-[#FFFFFF] text-[#191918] font-sans flex flex-col antialiased select-none">
@@ -811,19 +823,19 @@ export default function DashboardLayout({
           {/* 侧边栏折叠按钮 (⌘B) */}
           <button
             type="button"
-            disabled={isTranslateActive}
+            disabled={isTranslateActive || isAiChatActive}
             onClick={() => {
-              if (isTranslateActive) return;
+              if (isTranslateActive || isAiChatActive) return;
               setIsSidebarOpen((prev) => !prev);
             }}
             className={`w-7 h-7 rounded-md flex items-center justify-center transition-colors ${
-              isTranslateActive
+              isTranslateActive || isAiChatActive
                 ? "text-black/20 cursor-not-allowed"
                 : "text-[#787774] hover:text-[#191918] hover:bg-black/[0.04] cursor-pointer"
             }`}
             title={
-              isTranslateActive
-                ? "翻译页面无需侧边栏"
+              isTranslateActive || isAiChatActive
+                ? "当前页面无需外层侧边栏"
                 : isSidebarOpen
                 ? "收起侧边栏 (⌘B)"
                 : "展开侧边栏 (⌘B)"
@@ -835,21 +847,21 @@ export default function DashboardLayout({
           {/* 二级目录扩展按钮 (⌥⌘D) */}
           <button
             type="button"
-            disabled={isTranslateActive}
+            disabled={isTranslateActive || isAiChatActive}
             onClick={() => {
-              if (isTranslateActive) return;
+              if (isTranslateActive || isAiChatActive) return;
               toggleFolderTree();
             }}
             className={`w-7 h-7 rounded-md flex items-center justify-center transition-colors ${
-              isTranslateActive
+              isTranslateActive || isAiChatActive
                 ? "text-black/20 cursor-not-allowed"
                 : isFolderTreeOpen
                 ? "bg-black/[0.06] text-[#191918] cursor-pointer"
                 : "text-[#787774] hover:text-[#191918] hover:bg-black/[0.04] cursor-pointer"
             }`}
             title={
-              isTranslateActive
-                ? "翻译页面无目录树"
+              isTranslateActive || isAiChatActive
+                ? "当前页面无目录树"
                 : isFolderTreeOpen
                 ? "收起二级目录 (⌥⌘D)"
                 : "展开二级目录 (⌥⌘D)"
@@ -867,6 +879,8 @@ export default function DashboardLayout({
                 ? "片段库"
                 : isTranslateActive
                 ? "翻译中心"
+                : isAiChatActive
+                ? "AI 对话"
                 : "工具箱"}
             </span>
             <span>/</span>
@@ -933,7 +947,7 @@ export default function DashboardLayout({
       <div className="flex-1 flex flex-row overflow-hidden min-h-0 bg-[#F3F3F1] ">
         {/* ================= 1. 第 1 栏：最左侧窄导航 (w-16 = 64px) ================= */}
         <aside className="w-16 flex flex-col items-center py-2.5 justify-between flex-shrink-0 z-30 select-none">
-          {/* 顶层四大核心入口：笔记、翻译、代码、工具（右键路由可切子内容） */}
+          {/* 顶层核心入口：笔记、AI对话、翻译、代码、工具（右键路由可切子内容） */}
           <nav className="flex-1 min-h-0 w-full px-1 flex flex-col gap-1 overflow-y-auto no-scrollbar">
             {/* 1. 笔记 */}
             <Tooltip placement="right" content="Markdown 笔记">
@@ -961,6 +975,31 @@ export default function DashboardLayout({
                 <ToolIcon toolId="markdown-notes" className="w-5 h-5 mb-1" />
                 <span className="text-[10px] leading-none tracking-tight">
                   笔记
+                </span>
+              </button>
+            </Tooltip>
+
+            {/* 2. AI 对话 */}
+            <Tooltip placement="right" content="AI 在线会话">
+              <button
+                type="button"
+                onClick={() => {
+                  onOpenTool("ai-chat");
+                  setIsSidebarOpen(false);
+                }}
+                onContextMenu={(e) => openRouteMenu("ai-chat", e)}
+                className={`relative w-full py-2 flex flex-col items-center justify-center rounded-xl transition-all cursor-pointer ${
+                  isAiChatActive
+                    ? "text-[#1C1C1C] font-semibold bg-black/[0.05]"
+                    : "text-[#787774] hover:text-[#191918] hover:bg-black/[0.03]"
+                }`}
+              >
+                {isAiChatActive && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[6px] h-6 bg-[#1C1C1C] rounded-[0_12px_12px_0]" />
+                )}
+                <ToolIcon toolId="ai-chat" className="w-5 h-5 mb-1" />
+                <span className="text-[10px] leading-none tracking-tight">
+                  AI 对话
                 </span>
               </button>
             </Tooltip>
@@ -1098,7 +1137,7 @@ export default function DashboardLayout({
           <div
             style={{ width: sidebarWidth }}
             className={`flex-shrink-0 flex flex-row overflow-hidden z-20 ${
-              isSidebarOpen && !isTranslateActive
+              isSidebarOpen && !isTranslateActive && !isAiChatActive
                 ? "opacity-100"
                 : "w-0 opacity-0 border-r-0"
             }`}

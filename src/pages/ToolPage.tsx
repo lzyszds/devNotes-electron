@@ -27,6 +27,7 @@ const SystemInspectorTool= lazy(() => import('../components/tools/SystemInspecto
 const BitwiseTool        = lazy(() => import('../components/tools/BitwiseTool'))
 const PortKillerTool     = lazy(() => import('../components/tools/PortKillerTool'))
 const ColorPaletteTool   = lazy(() => import('../components/tools/ColorPaletteTool'))
+const AiChatTool         = lazy(() => import('../components/modules/ai-chat/AiChatTool'))
 
 /**
  * 编码类工具的入口（编码转换、URL 编码共用同一个编码页面）。
@@ -74,6 +75,7 @@ const toolComponents: Record<string, React.ComponentType<any>> = {
   'speed-test':     SpeedTestTool,
   'sys-inspector':  SystemInspectorTool,
   'color-palette':  ColorPaletteTool,
+  'ai-chat':        AiChatTool,
 }
 
 function ToolLoading() {

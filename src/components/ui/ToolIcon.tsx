@@ -26,6 +26,7 @@ import {
   Gauge,
   Cpu,
   PenTool,
+  Bot,
   Palette,
   type LucideProps,
 } from 'lucide-react'
@@ -35,6 +36,7 @@ export interface ToolIconProps extends LucideProps {
 }
 
 const ICON_MAP: Record<string, React.ComponentType<LucideProps>> = {
+  'ai-chat': Bot,
   'markdown-notes': FileText,
   'json-format': Braces,
   'json-diff': GitCompare,

@@ -41,6 +41,8 @@ export const BACKUP_TOOL_HISTORY_KEYS = [
 /** 备份中包含的系统设置 Key */
 export const BACKUP_SETTING_KEYS = [
   'ai-channel-config',
+  'devnotes-ai-chat-sessions',
+  'devnotes-ai-chat-active-id',
   'fehelper-shortcuts',
   'devnotes-code-block-theme',
   'fehelper-translate-config',
