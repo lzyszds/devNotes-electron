@@ -61,6 +61,7 @@ export async function translateStream(
   options: StreamTranslateOptions,
 ): Promise<StreamTranslateResult> {
   const { text, sourceLang, targetLang, config, onDelta, onFirstToken, signal } = options
+  if (signal?.aborted) return { ok: false, text: '', error: '已取消' }
   const startedAt = performance.now()
   /** 首字只报一次 */
   let firstTokenReported = false
@@ -83,6 +84,9 @@ export async function translateStream(
   let failure: string | undefined
 
   return new Promise<StreamTranslateResult>((resolve) => {
+    let offChunk: (() => void) | undefined
+    let offEnd: (() => void) | undefined
+    let offAbort: (() => void) | undefined
     const cleanup = () => {
       offChunk?.()
       offEnd?.()
@@ -98,6 +102,8 @@ export async function translateStream(
 
     /** 处理一行 SSE。只认 data: 开头的行，其余（event:/id:/注释）忽略 */
     const handleLine = (line: string) => {
+      // 同一块里可能先收到 [DONE] / 错误，再跟着数据，结束后不能继续交付。
+      if (done) return
       const trimmed = line.trim()
       if (!trimmed || !trimmed.startsWith('data:')) return
       const payload = trimmed.slice(5).trim()
@@ -120,15 +126,16 @@ export async function translateStream(
             firstTokenReported = true
             onFirstToken?.(Math.round(performance.now() - startedAt))
           }
-          onDelta(delta, full)
+          if (!done) onDelta(delta, full)
         }
       } catch {
         // 半行 JSON：留在 buffer 里等下一块补齐，这里静默跳过
       }
     }
 
-    const offChunk = api.onTranslateStreamChunk?.((payload) => {
-      if (payload.requestId !== requestId) return
+    offChunk = api.onTranslateStreamChunk?.((payload) => {
+      // 移除监听不能撤回已排队的 IPC 回调，仍需用结束状态兜底。
+      if (done || payload.requestId !== requestId) return
       buffer += payload.chunk
       /*
        * 按行切分，最后一段留在 buffer —— 它可能是被网络切开的半行。
@@ -136,53 +143,76 @@ export async function translateStream(
        */
       const lines = buffer.split('\n')
       buffer = lines.pop() ?? ''
-      lines.forEach(handleLine)
+      for (const line of lines) {
+        if (done) break
+        handleLine(line)
+      }
     })
 
-    const offEnd = api.onTranslateStreamEnd?.((payload) => {
-      if (payload.requestId !== requestId) return
+    offEnd = api.onTranslateStreamEnd?.((payload) => {
+      if (done || payload.requestId !== requestId) return
       // 收尾时把残留的 buffer 也处理掉：最后一行可能没有换行结尾
       if (buffer.trim()) handleLine(buffer)
+      if (done) return
       if (payload.error) failure = payload.error
       else if (!full) failure = '服务端没有返回任何内容'
       finish()
     })
 
-    // 外部中断：请求主进程停止，并把已收到的部分交出去
-    const offAbort = signal
-      ? (() => {
-          const onAbort = () => {
-            void api.abortTranslateStream?.(requestId)
-            failure = '已取消'
-            finish()
-          }
-          signal.addEventListener('abort', onAbort)
-          return () => signal.removeEventListener('abort', onAbort)
-        })()
-      : undefined
+    // 外部中断先在本地收尾，避免主进程停止期间的尾包覆盖取消结果。
+    const onAbort = () => {
+      if (done) return
+      failure = '已取消'
+      finish()
+      try {
+        void api.abortTranslateStream?.(requestId).catch(() => {})
+      } catch {
+        // 代理不可用时也已完成本地取消，不再等待主进程确认。
+      }
+    }
+    if (signal) {
+      signal.addEventListener('abort', onAbort)
+      offAbort = () => signal.removeEventListener('abort', onAbort)
+      // 防止挂监听之前已发生取消，预取消不能启动远端请求。
+      if (signal.aborted) onAbort()
+    }
+    if (done) return
 
-    // 真发请求。放最后，避免监听还没挂上就开始推分块
-    void startStream({
-      requestId,
-      url,
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${config.apiKey.trim()}`,
-        // 显式要 SSE，有些网关不带这个头就不开流
-        Accept: 'text/event-stream',
-      },
-      body: JSON.stringify({
-        model: config.model.trim(),
-        temperature: 0,
-        stream: true,
-        messages: [
-          { role: 'system', content: buildSystemPrompt(sourceLang, targetLang) },
-          { role: 'user', content: text },
-        ],
-        // 关掉推理模型的思考过程，否则首个可见字符要等好几秒
-        ...buildThinkingOffParams(config),
-      }),
-    })
+    const failStart = (error: unknown) => {
+      if (done) return
+      // 兜底文案统一成中文，调用方只负责原样展示。
+      const message = error instanceof Error ? error.message : String(error ?? '')
+      failure = message || '启动流式翻译失败'
+      finish()
+    }
+
+    // 真发请求。放最后，避免监听还没挂上就开始推分块。
+    // IPC 启动失败不一定再推 end，必须自己结束等待，并吞掉结束后的迟到拒绝。
+    try {
+      void Promise.resolve(startStream({
+        requestId,
+        url,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${config.apiKey.trim()}`,
+          // 显式要 SSE，有些网关不带这个头就不开流
+          Accept: 'text/event-stream',
+        },
+        body: JSON.stringify({
+          model: config.model.trim(),
+          temperature: 0,
+          stream: true,
+          messages: [
+            { role: 'system', content: buildSystemPrompt(sourceLang, targetLang) },
+            { role: 'user', content: text },
+          ],
+          // 关掉推理模型的思考过程，否则首个可见字符要等好几秒
+          ...buildThinkingOffParams(config),
+        }),
+      })).catch(failStart)
+    } catch (error) {
+      failStart(error)
+    }
   })
 }

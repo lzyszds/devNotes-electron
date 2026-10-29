@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import {
   ArrowRight,
   ArrowRightLeft,
@@ -11,7 +11,7 @@ import {
   Volume2,
 } from 'lucide-react'
 import { useHistoryContextMenu } from '../../../hooks/useHistoryContextMenu'
-import { AUTO_TARGET, useTranslate } from '../../../context/TranslateContext'
+import { AUTO_TARGET, useTranslate, useTranslateOutput } from '../../../context/TranslateContext'
 import Tooltip from '../../ui/Tooltip'
 import {
   BTN,
@@ -45,6 +45,8 @@ import { speak } from '../../../utils/speechSettings'
 import { AUTO_LANG, LANGUAGES, langName } from '../../../utils/languages'
 import { subscribeOcrRequest } from '../../../utils/ocrBus'
 import { translateStream } from '../../../utils/translateStream'
+import { createTranslateOutputBuffer } from '../../../utils/translateOutputBuffer'
+import { CHUNK_BYTE_LIMIT, toSegments, unwrapHardBreaks } from '../../../utils/translateTextSegments'
 import {
   DEFAULT_TRANSLATE_PREFS,
   loadTranslatePrefs,
@@ -116,118 +118,56 @@ function resolveAutoTarget(text: string, primary: string): string {
 /** 实时自动翻译的防抖时长 */
 const AUTO_DEBOUNCE_MS = 300
 
-/**
- * 单块字节上限。GTX 与 MyMemory 都用 GET 把正文挂在 query 上，太长会直接失败；
- * MyMemory 官方对 q 的限制是 500 字节（中文按 UTF-8 三字节算，只有约 160 字），
- * 所以必须按引擎分别设定，否则长文在 MyMemory 上会整段失败。
- */
-const CHUNK_BYTE_LIMIT: Record<TranslationAPI, number> = {
-  gtx: 3600,
-  mymemory: 480,
-  openai: 3600,
-  libretranslate: 3600,
-}
+/* 高频流式内容单独订阅；memo 挡住输入时对已有长译文的无关更新。 */
+const TranslationOutput = memo(function TranslationOutput({
+  isTranslating,
+  progress,
+}: {
+  isTranslating: boolean
+  progress: { current: number; total: number }
+}) {
+  const output = useTranslateOutput()
+  return (
+    <div className="flex-1 select-text overflow-y-scroll whitespace-pre-wrap break-words text-[13px] leading-7 text-slate-800 dark:text-slate-100">
+      {output ? output : isTranslating ? (
+        <span className="flex items-center gap-2 text-brand-600 dark:text-brand-400">
+          <Loader2 size={14} className="animate-spin flex-shrink-0" />
+          <span>翻译中{progress.total > 0 ? ` ${progress.current}/${progress.total}` : '…'}</span>
+        </span>
+      ) : (
+        <span className="text-slate-300 dark:text-slate-600">译文将实时在此呈现…</span>
+      )}
+    </div>
+  )
+})
 
-function byteLength(text: string): number {
-  return new TextEncoder().encode(text).length
-}
-
-/**
- * 兜底硬切：整段没有句末标点时按字节数切开。
- * 用 for...of 按码点迭代，不会把 emoji 之类的代理对劈成两半。
- */
-function hardSplit(text: string, byteLimit: number): string[] {
-  const pieces: string[] = []
-  let current = ''
-  for (const char of text) {
-    if (byteLength(current + char) > byteLimit) {
-      pieces.push(current)
-      current = char
-    } else {
-      current += char
-    }
-  }
-  if (current) pieces.push(current)
-  return pieces
-}
-
-/**
- * 段落超过上限时，先按「句末标点 / 换行」切成句子再贪心合并。
- * 切点是零宽的，所以切出来的片段拼回去与原文逐字一致 —— 译文里不会凭空多出或少掉空行。
- */
-function splitLongText(paragraph: string, byteLimit: number): string[] {
-  if (byteLength(paragraph) <= byteLimit) return [paragraph]
-
-  const sentences = paragraph.split(/(?<=[。！？!?；;])(?=[^\n])|(?<=\n)/)
-  const pieces: string[] = []
-  let buffer = ''
-
-  const flush = () => {
-    if (buffer) {
-      pieces.push(buffer)
-      buffer = ''
-    }
-  }
-
-  for (const sentence of sentences) {
-    if (byteLength(sentence) > byteLimit) {
-      flush()
-      pieces.push(...hardSplit(sentence, byteLimit))
-      continue
-    }
-    if (byteLength(buffer) + byteLength(sentence) > byteLimit) {
-      flush()
-      buffer = sentence
-    } else {
-      buffer += sentence
-    }
-  }
-  flush()
-  return pieces
-}
-
-/** 待翻译的一片，或一段必须原样保留的分隔符 */
-interface Segment {
-  text: string
-  translate: boolean
-}
-
-/** 把原文切成「要翻的正文」与「原样保留的空白分隔符」 */
-function toSegments(text: string, byteLimit: number): Segment[] {
-  // 捕获式切分：偶数下标是正文，奇数下标是空行分隔符
-  const raw = text.split(/(\n[ \t]*\n+)/)
-  const segments: Segment[] = []
-
-  raw.forEach((part, index) => {
-    if (!part) return
-    // 空行分隔符与纯空白片段一律不送翻译，避免译文里凭空多出空行
-    if (index % 2 === 1 || !part.trim()) {
-      segments.push({ text: part, translate: false })
-      return
-    }
-    for (const piece of splitLongText(part, byteLimit)) {
-      segments.push({ text: piece, translate: !!piece.trim() })
-    }
-  })
-
-  return segments
-}
-
-/**
- * 合并单个换行、保留空行。
- * PDF 复制出来的正文常在每行末尾硬断行，直接翻会把一句话拆成好几段；
- * 空行是真正的段落边界，必须留着，所以只吃掉「一个换行」。
- */
-function unwrapHardBreaks(text: string): string {
-  return text.replace(/([^\n])\n([^\n])/g, '$1 $2')
-}
+const TranslationOutputActions = memo(function TranslationOutputActions({ lang }: { lang: string }) {
+  const output = useTranslateOutput()
+  const { showToast } = useToast()
+  return (
+    <div className="flex items-center gap-1.5 shrink-0">
+      <Tooltip content="朗读译文">
+        <button
+          type="button"
+          onClick={() => {
+            if (!speak(output, lang)) showToast('当前环境不支持朗读', 'error')
+          }}
+          disabled={!output}
+          className={iconButtonClass('brand')}
+        >
+          <Volume2 size={14} />
+        </button>
+      </Tooltip>
+      <CopyButton value={output} disabled={!output} label="复制译文" />
+    </div>
+  )
+})
 
 export default function TextTranslateTool() {
   // 语言偏好、输入输出、历史都在模块 context 里：专属侧边栏与这里共用同一份数据
   const {
     input,
     setInput,
-    output,
     setOutput,
     sourceLang,
     setSourceLang,
@@ -300,6 +240,49 @@ export default function TextTranslateTool() {
    * 结果区写。代际 id 只挡「写入」，断流还得靠它。
    */
   const streamAbortRef = useRef<AbortController | null>(null)
+  const requestAbortRef = useRef<AbortController | null>(null)
+  const busyRef = useRef(false)
+  const [isComposing, setIsComposing] = useState(false)
+
+  /**
+   * 作废「正在跑的这次翻译」：递增代际、断流、立刻解除忙碌。
+   *
+   * 输入一变就同步调它 —— 旧请求的迟到结果写不进来，新的自动翻译也不会
+   * 被上一轮的忙碌状态挡在门外（原来要等旧请求自己结束，长文下能拖好几秒）。
+   */
+  const cancelTranslation = () => {
+    ++runIdRef.current
+    streamAbortRef.current?.abort()
+    streamAbortRef.current = null
+    requestAbortRef.current?.abort()
+    requestAbortRef.current = null
+    busyRef.current = false
+    setIsTranslating(false)
+  }
+
+  /*
+   * 当前引擎实际用到的配置，变化时要作废旧译文。只比这一段而不是整个对象：
+   * GTX / MyMemory 与自定义接口无关，OpenAI 的改动也不该影响 LibreTranslate
+   * 的请求 —— 否则在设置里改个无关项就把手头这轮翻译掐掉了。
+   */
+  const activeProviderConfig =
+    api === 'openai'
+      ? JSON.stringify(translateConfig?.openai ?? null)
+      : api === 'libretranslate'
+        ? JSON.stringify(translateConfig?.libretranslate ?? null)
+        : ''
+
+  useEffect(() => {
+    cancelTranslation()
+    return () => {
+      ++runIdRef.current
+      streamAbortRef.current?.abort()
+      streamAbortRef.current = null
+      requestAbortRef.current?.abort()
+      requestAbortRef.current = null
+      busyRef.current = false
+    }
+  }, [input, sourceLang, targetLang, primaryLang, api, unwrapLines, activeProviderConfig])
 
   /** 输入框。挂载后自动聚焦，用户按快捷键唤起就能直接敲字 */
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -344,11 +327,12 @@ export default function TextTranslateTool() {
   const effectiveTarget =
     targetLang === AUTO_TARGET ? resolveAutoTarget(input, primaryLang) : targetLang
 
-  const needsConfig = isProvider(api) && !isProviderConfigured(translateConfig)
+  const needsConfig = isProvider(api) &&
+    (translateConfig?.provider !== api || !isProviderConfigured(translateConfig))
   // MyMemory 不支持自动检测：langpair=auto|xx 不被接受，它会把原文当译文静默返回
   const mymemoryAutoBlocked = api === 'mymemory' && sourceLang === AUTO_LANG
   // 空输入 / 正在翻译 / 引擎与源语言冲突，这三种情况都不发起翻译
-  const canTranslate = !!input.trim() && !isTranslating && !mymemoryAutoBlocked
+  const canTranslate = !!input.trim() && !isTranslating && !isComposing && !mymemoryAutoBlocked
 
   const engineSummary =
     api === 'gtx'
@@ -379,6 +363,10 @@ export default function TextTranslateTool() {
     streamAbortRef.current?.abort()
     const controller = new AbortController()
     streamAbortRef.current = controller
+    const outputBuffer = createTranslateOutputBuffer((full) => {
+      if (myId === runIdRef.current) setOutput(full)
+    })
+    controller.signal.addEventListener('abort', outputBuffer.cancel, { once: true })
 
     try {
       const result = await translateStream({
@@ -390,11 +378,13 @@ export default function TextTranslateTool() {
         onDelta: (_delta, full) => {
           // 已经有更新的请求在跑，这次的结果丢掉
           if (myId !== runIdRef.current) return
-          setOutput(full)
+          outputBuffer.push(full)
         },
       })
 
       if (myId !== runIdRef.current) return
+      outputBuffer.flush()
+      if (result.ok) setOutput(result.text)
       if (!result.ok && result.error && result.error !== '已取消') {
         setError(result.error)
         // 部分译文也留着，比清空更有用
@@ -408,13 +398,18 @@ export default function TextTranslateTool() {
     } catch (e) {
       if (myId === runIdRef.current) setError('翻译过程中出错: ' + (e as Error).message)
     } finally {
+      outputBuffer.cancel()
+      controller.signal.removeEventListener('abort', outputBuffer.cancel)
       if (streamAbortRef.current === controller) streamAbortRef.current = null
-      if (myId === runIdRef.current) setIsTranslating(false)
+      if (myId === runIdRef.current) {
+        busyRef.current = false
+        setIsTranslating(false)
+      }
     }
   }
 
   const handleTranslate = async () => {
-    if (!input.trim() || isTranslating || mymemoryAutoBlocked) return
+    if (!input.trim() || busyRef.current || isComposing || mymemoryAutoBlocked) return
 
     if (needsConfig) {
       setError(
@@ -425,6 +420,7 @@ export default function TextTranslateTool() {
     }
 
     setError('')
+    busyRef.current = true
     setIsTranslating(true)
     setProgress({ current: 0, total: 0 })
 
@@ -441,6 +437,8 @@ export default function TextTranslateTool() {
       return
     }
 
+    const controller = new AbortController()
+    requestAbortRef.current = controller
     try {
       const segments = toSegments(unwrapLines ? unwrapHardBreaks(text) : text, CHUNK_BYTE_LIMIT[api])
       const indexes = segments
@@ -453,6 +451,8 @@ export default function TextTranslateTool() {
         targetLang: effectiveTarget,
         api,
         providerConfig: translateConfig ?? undefined,
+        shouldStop: () => myId !== runIdRef.current,
+        signal: controller.signal,
         onProgress: (done, total) => {
           if (myId === runIdRef.current) setProgress({ current: done, total })
         },
@@ -481,7 +481,11 @@ export default function TextTranslateTool() {
     } catch (e) {
       if (myId === runIdRef.current) setError('翻译过程中出错: ' + (e as Error).message)
     } finally {
-      if (myId === runIdRef.current) setIsTranslating(false)
+      if (requestAbortRef.current === controller) requestAbortRef.current = null
+      if (myId === runIdRef.current) {
+        busyRef.current = false
+        setIsTranslating(false)
+      }
     }
   }
 
@@ -493,7 +497,7 @@ export default function TextTranslateTool() {
   /**
    * 截图取字：收到图片 → OCR → 填进输入框并翻译。
    *
-   * 关掉自动翻译会走上面那条 debounce，所以填完 input 什么都不用做，
+   * 开着自动翻译会走下面那条 debounce，所以填完 input 什么都不用做，
    * 翻译会自己跟上；这里只需要在关掉自动翻译时手动触发一次。
    */
   const ocrSeqRef = useRef(0)
@@ -537,18 +541,13 @@ export default function TextTranslateTool() {
   }, [autoTranslate, ocrLang, setError, setInput])
 
   useEffect(() => {
-    if (!autoTranslate) return
+    if (!autoTranslate || isComposing) return
     if (!input.trim() || mymemoryAutoBlocked) return
     // 接口没配就别自动跑：否则每敲一个字都弹一次红色错误条，等着用户去点「立即翻译」时提示一次就够了
     if (needsConfig) return
     const timer = setTimeout(() => void translateRef.current(), AUTO_DEBOUNCE_MS)
-    return () => {
-      clearTimeout(timer)
-      // 输入又变了：正在跑的流式请求作废，断掉它免得两股译文交错写入
-      streamAbortRef.current?.abort()
-      streamAbortRef.current = null
-    }
-  }, [input, autoTranslate, mymemoryAutoBlocked, needsConfig])
+    return () => clearTimeout(timer)
+  }, [input, autoTranslate, isComposing, sourceLang, targetLang, primaryLang, api, unwrapLines, activeProviderConfig, mymemoryAutoBlocked, needsConfig])
 
   // 音色与语速取自「设置 → 语音朗读」，和设置面板里的试听共用同一套参数
   const speakText = (text: string, langCode: string) => {
@@ -563,6 +562,7 @@ export default function TextTranslateTool() {
   const sourceSpeakLang = sourceLang === AUTO_LANG ? (looksChinese(input) ? 'zh' : 'en') : sourceLang
 
   const clearAll = () => {
+    cancelTranslation()
     setInput('')
     setOutput('')
     setError('')
@@ -665,7 +665,7 @@ export default function TextTranslateTool() {
         )}
 
         {/* 双子卡片：原文 / 译文 */}
-        <div className="tool-cascade flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 min-h-[440px]">
+        <div className="tool-cascade flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 h-full">
           {/* ---------------- 原文 ---------------- */}
           <ToolCard>
             {/* 语言区自己换行，整条不做横向滚动 —— 滚动容器会把「更多」下拉截断在边上 */}
@@ -737,9 +737,16 @@ export default function TextTranslateTool() {
                 ref={inputRef}
                 value={input}
                 onChange={(e) => {
+                  // 打字先同步作废旧请求，别等 effect —— 晚一帧旧译文还会闪一下
+                  cancelTranslation()
                   setInput(e.target.value)
                   if (error) setError('')
                 }}
+                onCompositionStart={() => {
+                  cancelTranslation()
+                  setIsComposing(true)
+                }}
+                onCompositionEnd={() => setIsComposing(false)}
                 onKeyDown={(e) => {
                   // 回车即翻译，Shift + 回车换行；翻不了的时候把回车让给默认的换行行为
                   if (e.key !== 'Enter' || e.shiftKey || !canTranslate) return
@@ -836,21 +843,7 @@ export default function TextTranslateTool() {
                 加载态与占位文案走同一个内联槽位，不做绝对定位浮在上层 ——
                 浮层会和下面的占位文字叠在一起，两者字号、基线都对不齐。
               */}
-              <div className="flex-1 select-text overflow-y-auto whitespace-pre-wrap break-words text-[13px] leading-7 text-slate-800 dark:text-slate-100">
-                {output ? (
-                  output
-                ) : isTranslating ? (
-                  <span className="flex items-center gap-2 text-brand-600 dark:text-brand-400">
-                    <Loader2 size={14} className="animate-spin flex-shrink-0" />
-                    <span>
-                      翻译中
-                      {progress.total > 0 ? ` ${progress.current}/${progress.total}` : '…'}
-                    </span>
-                  </span>
-                ) : (
-                  <span className="text-slate-300 dark:text-slate-600">译文将实时在此呈现…</span>
-                )}
-              </div>
+              <TranslationOutput isTranslating={isTranslating} progress={progress} />
             </div>
 
             <ToolCardFooter>
@@ -890,19 +883,7 @@ export default function TextTranslateTool() {
                 </span>
               </div>
 
-              <div className="flex items-center gap-1.5 shrink-0">
-                <Tooltip content="朗读译文">
-                  <button
-                    type="button"
-                    onClick={() => speakText(output, effectiveTarget)}
-                    disabled={!output}
-                    className={iconButtonClass('brand')}
-                  >
-                    <Volume2 size={14} />
-                  </button>
-                </Tooltip>
-                <CopyButton value={() => output} disabled={!output} label="复制译文" />
-              </div>
+              <TranslationOutputActions lang={effectiveTarget} />
             </ToolCardFooter>
           </ToolCard>
         </div>

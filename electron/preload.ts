@@ -242,6 +242,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   /** 渲染层就绪后主动拉一次截图（防止推的消息早于监听挂上而丢失） */
   requestCaptureShot: () => ipcRenderer.invoke('request-capture-shot'),
+  /** 自定义选区的底图已解码并经过绘制帧，主进程校验发送窗口后再显示 */
+  notifyCaptureShown: () => ipcRenderer.send('capture:shown'),
 
   /* 流式翻译：发起 + 中断 + 订阅分块推送 */
   startTranslateStream: (options: {

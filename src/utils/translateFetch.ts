@@ -40,6 +40,12 @@ export async function translateFetch(
   url: string,
   init?: RequestInit & { timeout?: number }
 ): Promise<TranslateFetchResult> {
+  const signal = init?.signal;
+  const cancelled = (): TranslateFetchResult => ({
+    ok: false, status: 0, text: "", error: "已取消",
+  });
+  if (signal?.aborted) return cancelled();
+
   const headers = init?.headers as Record<string, string> | undefined;
   const body =
     typeof init?.body === "string"
@@ -50,29 +56,43 @@ export async function translateFetch(
   const timeout = init?.timeout ?? (isGoogleTranslateUrl(url) ? 10000 : 15000);
 
   if (useElectronProxy()) {
+    let onAbort: (() => void) | undefined;
     try {
-      return await window.electronAPI!.translateFetch!({
+      // 非流式 IPC 没有取消协议：这里只结束等待，主进程仍靠原有超时收尾。
+      // race 会接住迟到的拒绝，不能让它触发重试或成为未处理异常。
+      const aborted = new Promise<TranslateFetchResult>((resolve) => {
+        onAbort = () => resolve(cancelled());
+        signal?.addEventListener("abort", onAbort, { once: true });
+      });
+      if (signal?.aborted) return cancelled();
+      const request = window.electronAPI!.translateFetch!({
         url,
         method: init?.method,
         headers,
         body,
         timeout,
       });
+      const result = await Promise.race([request, aborted]);
+      return signal?.aborted ? cancelled() : result;
     } catch (err) {
-      return {
+      return signal?.aborted ? cancelled() : {
         ok: false,
         status: 0,
         text: "",
         error: err instanceof Error ? err.message : String(err),
       };
+    } finally {
+      if (onAbort) signal?.removeEventListener("abort", onAbort);
     }
   }
 
+  const controller = new AbortController();
+  const onAbort = () => controller.abort();
+  signal?.addEventListener("abort", onAbort, { once: true });
+  if (signal?.aborted) controller.abort();
+  const timer = setTimeout(() => controller.abort(), timeout);
   try {
     const proxyUrl = resolveDevProxyUrl(url);
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeout);
-
     const response = await fetch(proxyUrl, {
       method: init?.method,
       headers: {
@@ -82,21 +102,24 @@ export async function translateFetch(
       body,
       signal: controller.signal,
     });
-
-    clearTimeout(timer);
-
+    // 超时和外部取消都需覆盖正文读取，不能收到响应头就拆掉取消链路。
+    const text = await response.text();
+    if (signal?.aborted) return cancelled();
     return {
       ok: response.ok,
       status: response.status,
-      text: await response.text(),
+      text,
     };
   } catch (err) {
-    return {
+    return signal?.aborted ? cancelled() : {
       ok: false,
       status: 0,
       text: "",
       error: err instanceof Error ? err.message : String(err),
     };
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener("abort", onAbort);
   }
 }
 
@@ -134,13 +157,15 @@ export function resetGtxCache() {
 }
 
 /** 探测 Google 翻译是否可达，不可达时跳过后续 GTX 请求 */
-export async function isGtxReachable(): Promise<boolean> {
-  if (gtxUnavailable === true) return false;
+export async function isGtxReachable(signal?: AbortSignal): Promise<boolean> {
+  if (signal?.aborted || gtxUnavailable === true) return false;
 
   const probeUrl =
     "https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=zh-CN&dt=t&dj=1&q=hi";
 
-  const result = await translateFetch(probeUrl, { timeout: 8000 });
+  const result = await translateFetch(probeUrl, { timeout: 8000, signal });
+  // 用户取消不代表服务不可达，不能污染跨请求共享的探测缓存。
+  if (signal?.aborted) return false;
 
   if (result.status === 0 || result.error) {
     gtxUnavailable = true;

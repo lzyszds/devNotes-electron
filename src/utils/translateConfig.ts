@@ -211,8 +211,17 @@ export function subscribeTranslateConfig(listener: ConfigListener): () => void {
   };
 }
 
+/**
+ * 内容没变就不广播。
+ *
+ * 读盘每次都会 merge 出一个新对象，身份必然变化。翻译页拿配置变化当
+ * 「旧译文作废」的信号 —— 若只看身份，光是打开一次设置面板就会把
+ * 正在跑的手动翻译掐掉。所以这里按内容比较，真的改了才通知。
+ */
 function publish(config: TranslateApiConfig) {
+  const unchanged = JSON.stringify(config) === JSON.stringify(cachedConfig);
   cachedConfig = config;
+  if (unchanged) return;
   configListeners.forEach((listener) => listener(config));
 }
 

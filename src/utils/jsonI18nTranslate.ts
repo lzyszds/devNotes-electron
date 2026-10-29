@@ -50,10 +50,13 @@ export const DEFAULT_LANG_CONCURRENCY = 3;
 
 let gtxReachableCache: boolean | null = null;
 
-export async function checkGtxReachable(force = false): Promise<boolean> {
+export async function checkGtxReachable(force = false, signal?: AbortSignal): Promise<boolean> {
+  if (signal?.aborted) return false;
   if (!force && gtxReachableCache !== null) return gtxReachableCache;
-  gtxReachableCache = await isGtxReachable();
-  return gtxReachableCache;
+  const reachable = await isGtxReachable(signal);
+  if (signal?.aborted) return false;
+  gtxReachableCache = reachable;
+  return reachable;
 }
 
 export function resetGtxReachableCache() {
@@ -63,18 +66,21 @@ export function resetGtxReachableCache() {
 async function translateOneGtx(
   text: string,
   sourceLang: string,
-  targetLang: string
+  targetLang: string,
+  signal?: AbortSignal
 ): Promise<string> {
-  if (!text.trim()) return text;
+  if (signal?.aborted || !text.trim()) return text;
 
   const sl = LANG_CODE_MAP[sourceLang] || sourceLang;
   const tl = LANG_CODE_MAP[targetLang] || targetLang;
 
   for (const url of GTX_SINGLE_URLS) {
     for (const useDj of [false, true]) {
+      if (signal?.aborted) return text;
       try {
         const fullUrl = buildGtxSingleUrl(url, sl, tl, text, useDj);
-        const result = await translateFetch(fullUrl, { timeout: 15000 });
+        const result = await translateFetch(fullUrl, { timeout: 15000, signal });
+        if (signal?.aborted) return text;
 
         if (result.status === 0 || result.error || !result.ok || !result.text) {
           continue;
@@ -94,18 +100,20 @@ async function translateOneGtx(
 async function translateOneMyMemory(
   text: string,
   sourceLang: string,
-  targetLang: string
+  targetLang: string,
+  signal?: AbortSignal
 ): Promise<string> {
-  if (!text.trim()) return text;
+  if (signal?.aborted || !text.trim()) return text;
 
   const sl = LANG_CODE_MAP[sourceLang] || sourceLang;
   const tl = LANG_CODE_MAP[targetLang] || targetLang;
   const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${sl}|${tl}`;
 
   try {
-    const response = await fetch(url);
-    if (!response.ok) return text;
+    const response = await fetch(url, { signal });
+    if (signal?.aborted || !response.ok) return text;
     const data = await response.json();
+    if (signal?.aborted) return text;
     if (data.responseStatus === 200 && data.responseData?.translatedText) {
       return data.responseData.translatedText;
     }
@@ -127,6 +135,8 @@ export interface TranslateBatchOptions {
   onProgress?: (done: number, total: number) => void;
   /** 返回 true 时不再派发新的翻译请求（用于「暂停」） */
   shouldStop?: () => boolean;
+  /** 取消在途请求并阻止重试、回退；与仅停止派发的暂停语义独立 */
+  signal?: AbortSignal;
 }
 
 export interface TranslateBatchResult {
@@ -150,7 +160,13 @@ export async function translateTextBatch(
     protectedTerms = [],
     onProgress,
     shouldStop,
+    signal,
   } = options;
+
+  const cancelled = (): TranslateBatchResult => ({
+    results: texts.slice(), apiUsed: "已取消", ok: false, error: "已取消",
+  });
+  if (signal?.aborted) return cancelled();
 
   // 自定义接口走独立路径：失败即报错，绝不改道 MyMemory
   if (isProvider(api)) {
@@ -163,22 +179,24 @@ export async function translateTextBatch(
       textConcurrency,
       protectedTerms,
       onProgress,
-      shouldStop
+      shouldStop,
+      signal
     );
   }
 
   const translateOne = (text: string) =>
     translateWithProtection(text, protectedTerms, (t) =>
-      translateOneGtx(t, sourceLang, targetLang)
+      translateOneGtx(t, sourceLang, targetLang, signal)
     );
 
   const translateOneMyMemoryProtected = (text: string) =>
     translateWithProtection(text, protectedTerms, (t) =>
-      translateOneMyMemory(t, sourceLang, targetLang)
+      translateOneMyMemory(t, sourceLang, targetLang, signal)
     );
 
   if (api === "gtx") {
-    const gtxOk = await checkGtxReachable();
+    const gtxOk = await checkGtxReachable(false, signal);
+    if (signal?.aborted) return cancelled();
     if (gtxOk) {
       try {
         const results = await runPool(
@@ -186,8 +204,10 @@ export async function translateTextBatch(
           translateOne,
           textConcurrency,
           onProgress,
-          shouldStop
+          shouldStop,
+          signal
         );
+        if (signal?.aborted) return cancelled();
         const hasAny = results.some((r, i) => r && r.trim() && r !== texts[i]);
         if (hasAny) {
           return { results, apiUsed: "GTX Single (并发)", ok: true };
@@ -198,14 +218,18 @@ export async function translateTextBatch(
     }
   }
 
+  if (signal?.aborted) return cancelled();
+
   // MyMemory 限速，降低并发
   const results = await runPool(
     texts,
     translateOneMyMemoryProtected,
     Math.min(3, textConcurrency),
     onProgress,
-    shouldStop
+    shouldStop,
+    signal
   );
+  if (signal?.aborted) return cancelled();
   const hasAny = results.some((r, i) => r && r.trim() && r !== texts[i]);
   if (hasAny) {
     return { results, apiUsed: "MyMemory (并发)", ok: true };
@@ -228,7 +252,8 @@ async function translateBatchWithProvider(
   textConcurrency: number,
   protectedTerms: string[],
   onProgress?: (done: number, total: number) => void,
-  shouldStop?: () => boolean
+  shouldStop?: () => boolean,
+  signal?: AbortSignal
 ): Promise<TranslateBatchResult> {
   const label = providerLabel(provider);
 
@@ -248,12 +273,13 @@ async function translateBatchWithProvider(
     translateWithProtection(text, protectedTerms, async (t) => {
       const outcome =
         provider === "openai"
-          ? await translateWithOpenAI(t, sourceLang, targetLang, config.openai)
+          ? await translateWithOpenAI(t, sourceLang, targetLang, config.openai, signal)
           : await translateWithLibreTranslate(
               t,
               sourceLang,
               targetLang,
-              config.libretranslate
+              config.libretranslate,
+              signal
             );
 
       if (!outcome.ok || !outcome.text) {
@@ -271,8 +297,13 @@ async function translateBatchWithProvider(
     translateOne,
     Math.min(4, textConcurrency),
     onProgress,
-    shouldStop
+    shouldStop,
+    signal
   );
+
+  if (signal?.aborted) {
+    return { results: texts.slice(), apiUsed: "已取消", ok: false, error: "已取消" };
+  }
 
   if (failed === 0) {
     return { results, apiUsed: `${label} (${texts.length})`, ok: true };
@@ -381,6 +412,8 @@ export interface MultiLangTranslateOptions {
   protectedTerms?: string[];
   /** 返回 true 时不再派发新的翻译请求（用于「暂停」） */
   shouldStop?: () => boolean;
+  /** 取消在途请求并阻止重试、回退；与仅停止派发的暂停语义独立 */
+  signal?: AbortSignal;
   onLangStart?: (lang: string) => void;
   onLangProgress?: (lang: string, done: number, total: number) => void;
   onLangComplete?: (result: LangTranslateResult) => void;
@@ -401,6 +434,7 @@ export async function translateMultiLang(
     langConcurrency = DEFAULT_LANG_CONCURRENCY,
     protectedTerms = [],
     shouldStop,
+    signal,
     onLangStart,
     onLangProgress,
     onLangComplete,
@@ -424,6 +458,7 @@ export async function translateMultiLang(
         textConcurrency,
         protectedTerms,
         shouldStop,
+        signal,
         onProgress: (done, total) => {
           onLangProgress?.(targetLang, done, total);
         },
@@ -474,5 +509,5 @@ export async function translateMultiLang(
     }
   };
 
-  return runPool(targetLangs, translateOneLang, langConcurrency);
+  return runPool(targetLangs, translateOneLang, langConcurrency, undefined, shouldStop, signal);
 }

@@ -147,6 +147,7 @@ interface Window {
     cancelCapture?: () => Promise<void>
     onCaptureReady?: (callback: (payload: unknown) => void) => () => void
     requestCaptureShot?: () => Promise<unknown>
+    notifyCaptureShown?: () => void
 
     /* 流式翻译 */
     startTranslateStream?: (options: {

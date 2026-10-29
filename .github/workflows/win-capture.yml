@@ -1,0 +1,35 @@
+name: Windows capture helper
+
+# 只验证截图助手本身（编译、选区单测、无桌面自检）。
+# 与发版解耦：改这个 helper 不会触发打包 / Release。
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'native/win-capture/**'
+      - 'scripts/build-win-capture.cjs'
+      - '.github/workflows/win-capture.yml'
+
+jobs:
+  build-and-selftest:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 构建 + 选区单测
+        run: node scripts/build-win-capture.cjs
+
+      - name: 无桌面自检（抓屏 → PNG）
+        shell: pwsh
+        run: |
+          $out = Join-Path $env:RUNNER_TEMP 'capture-selftest.png'
+          & "native/win-capture/build/Release/devnotes-capture.exe" --selftest $out
+          if (-not (Test-Path $out)) { throw '截图助手自检未生成 PNG' }
+          $bytes = [IO.File]::ReadAllBytes($out)
+          if ($bytes[0] -ne 0x89 -or $bytes[1] -ne 0x50) { throw '截图助手输出不是 PNG' }
+          Write-Host "selftest PNG: $($bytes.Length) bytes"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: devnotes-capture-selftest
+          path: ${{ runner.temp }}/capture-selftest.png

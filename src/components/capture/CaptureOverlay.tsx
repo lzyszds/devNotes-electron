@@ -3,8 +3,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 /*
  * 截图框选遮罩。
  *
- * 这个页面跑在一个独立的、铺满全屏的透明窗口里（见 electron/main.ts 的
- * createCaptureWindow）。流程：
+ * 非 macOS 使用独立全屏窗口（见 electron/main.ts 的 createCaptureWindow）；
+ * macOS 由系统原生框选，不加载本页。这里的流程：
  *   1. 主进程先抓一张全屏图，挂到本页 <img> 上作背景
  *   2. 用户拖拽画选框，松手后用 canvas 按选区裁出图片
  *   3. 结果发回主进程，由它转交给主窗口去做 OCR + 翻译
@@ -36,6 +36,8 @@ export default function CaptureOverlay() {
   /** 拖拽起点，用 ref 避免每帧 setState */
   const originRef = useRef<{ x: number; y: number } | null>(null)
   const [error, setError] = useState('')
+  const imageRef = useRef<HTMLImageElement | null>(null)
+  const [loadedSource, setLoadedSource] = useState('')
 
   /**
    * 关掉遮罩窗口。
@@ -56,15 +58,21 @@ export default function CaptureOverlay() {
       setError('截图接口不可用')
       return
     }
-    const off = api.onCaptureReady((payload) => {
+    let active = true
+    const receive = (payload: unknown) => {
+      if (!active) return
       const data = payload as CapturePayload & { error?: string }
-      // 主进程抓图失败时会把错误塞在这个 payload 里，别当成图去渲染
       if (data?.error) {
         setError(data.error)
         return
       }
+      if (!data?.dataUrl) {
+        setError('没有可用的截图')
+        return
+      }
       setShot(data)
-    })
+    }
+    const off = api.onCaptureReady(receive)
 
     /*
      * 挂好监听后主动拉一次。
@@ -73,10 +81,29 @@ export default function CaptureOverlay() {
      * React 可能还没渲染、这个监听还没挂上 —— 消息发出来没人接就丢了，
      * 表现为只有遮罩、没有底图。所以渲染就绪后再问一次，哪次先到用哪次。
      */
-    void api.requestCaptureShot?.()
+    void api.requestCaptureShot?.().then(receive).catch((error: unknown) => {
+      if (active) setError(error instanceof Error ? error.message : '截图失败')
+    })
 
-    return off
+    return () => {
+      active = false
+      off()
+    }
   }, [])
+
+  /* 等页面实际使用的 img 解码完成，并留出一个绘制周期；不再用第二张 Image
+   * 或超时强行 show 来猜首帧。错误提示也在 React 提交后再显示窗口。 */
+  useEffect(() => {
+    if (!error && (!shot || loadedSource !== shot.dataUrl)) return
+    let secondFrame = 0
+    const firstFrame = requestAnimationFrame(() => {
+      secondFrame = requestAnimationFrame(() => window.electronAPI?.notifyCaptureShown?.())
+    })
+    return () => {
+      cancelAnimationFrame(firstFrame)
+      cancelAnimationFrame(secondFrame)
+    }
+  }, [error, loadedSource, shot])
 
   // Esc 取消。用 keydown 而不是给 div 挂事件 —— 焦点未必在哪个元素上
   useEffect(() => {
@@ -128,7 +155,8 @@ export default function CaptureOverlay() {
     originRef.current = null
 
     try {
-      const cropped = await cropSelection(shot, selection)
+      if (!imageRef.current) throw new Error('截图底图未就绪')
+      const cropped = cropSelection(imageRef.current, shot, selection)
       await window.electronAPI?.finishCapture?.(cropped)
     } catch (e) {
       setError(e instanceof Error ? e.message : '裁剪失败')
@@ -159,8 +187,8 @@ export default function CaptureOverlay() {
     )
   }
 
-  // 截图还没到时给个全黑底，避免闪一下桌面
-  if (!shot) return <div className="fixed inset-0 bg-slate-900/80" />
+  // 截图还没到：这时窗口通常还没 show（主进程等 reveal 信号），这块底只作兜底
+  if (!shot) return <div className="fixed inset-0 bg-slate-900" />
 
   return (
     <div
@@ -171,7 +199,10 @@ export default function CaptureOverlay() {
     >
       {/* 全屏底图：这就是待框选的画面 */}
       <img
+        ref={imageRef}
         src={shot.dataUrl}
+        onLoad={() => setLoadedSource(shot.dataUrl)}
+        onError={() => setError('截图解码失败')}
         alt=""
         draggable={false}
         className="absolute inset-0 w-full h-full object-fill pointer-events-none"
@@ -235,37 +266,25 @@ export default function CaptureOverlay() {
  * 选框坐标是 CSS 像素，截图是物理像素（Retina 上是两倍），所以要把比例
  * 还原回去，否则裁出来的位置和大小全错。
  */
-function cropSelection(shot: CapturePayload, selection: Selection): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const image = new Image()
-    image.onload = () => {
-      // 物理像素 / CSS 像素。不能用 scaleFactor —— 窗口可能被系统缩放过，
-      // 用底图实际尺寸除以逻辑尺寸最准
-      const ratioX = image.naturalWidth / shot.width
-      const ratioY = image.naturalHeight / shot.height
-
-      const canvas = document.createElement('canvas')
-      canvas.width = Math.round(selection.w * ratioX)
-      canvas.height = Math.round(selection.h * ratioY)
-      const ctx = canvas.getContext('2d')
-      if (!ctx) {
-        reject(new Error('当前环境拿不到画布'))
-        return
-      }
-      ctx.drawImage(
-        image,
-        selection.x * ratioX,
-        selection.y * ratioY,
-        selection.w * ratioX,
-        selection.h * ratioY,
-        0,
-        0,
-        canvas.width,
-        canvas.height,
-      )
-      resolve(canvas.toDataURL('image/png'))
-    }
-    image.onerror = () => reject(new Error('截图解码失败'))
-    image.src = shot.dataUrl
-  })
+function cropSelection(image: HTMLImageElement, shot: CapturePayload, selection: Selection): string {
+  // 复用已经解码的底图，不在松手后再解码整张 Retina 截图，缩短退出等待。
+  const ratioX = image.naturalWidth / shot.width
+  const ratioY = image.naturalHeight / shot.height
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.round(selection.w * ratioX)
+  canvas.height = Math.round(selection.h * ratioY)
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('当前环境拿不到画布')
+  ctx.drawImage(
+    image,
+    selection.x * ratioX,
+    selection.y * ratioY,
+    selection.w * ratioX,
+    selection.h * ratioY,
+    0,
+    0,
+    canvas.width,
+    canvas.height,
+  )
+  return canvas.toDataURL('image/png')
 }

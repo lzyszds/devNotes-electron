@@ -3,6 +3,9 @@ const { spawn } = require("node:child_process");
 const env = { ...process.env, CSC_IDENTITY_AUTO_DISCOVERY: "false" };
 const args = ["electron-builder", ...process.argv.slice(2)];
 
+// 本地与 CI 共用入口，避免开发机有 .node、发布机却漏编，打包后静默降级。
+if (process.platform === "darwin") require("./build-mac-panel.cjs");
+
 // dmg-builder can pick up a broken Homebrew Python on macOS. Prefer the
 // system Python unless the caller already pinned a specific interpreter.
 if (process.platform === "darwin" && !env.PYTHON_PATH) {

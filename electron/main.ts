@@ -36,6 +36,8 @@ import { listLocalInterfaces, queryPublicIp } from './netInfo'
 import { HASH_ALGORITHMS, hashFiles, type HashAlgorithm } from './hashFile'
 import { getSystemHardwareInfo, getProcessMemoryList } from './systemInfo'
 import { setupAutoUpdater } from './updater'
+import { captureMacRegion } from './macRegionCapture'
+import { captureWindowsRegion, isWindowsNativeAvailable, releaseWindowsNativeResult } from './windowsNativeCapture'
 import {
   MAX_ENTRIES,
   buildEntry,
@@ -46,7 +48,9 @@ import {
 import {
   isPasteAvailable,
   isPasteTrusted,
+  lastPasteFailure,
   openAccessibilitySettings,
+  pasteModuleLoadError,
   pasteToFocusedApp,
   pasteImageToFocusedApp,
   pasteFileToFocusedApp,
@@ -70,20 +74,30 @@ function loadNonactivating(): ((handle: Buffer) => void) | null {
   if (nonactivatingFn !== undefined) return nonactivatingFn
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const mod = require(path.join(__dirname, '../native')) as {
+    const modulePath = app.isPackaged
+      ? path.join(process.resourcesPath, 'native/nonactivating.node')
+      : path.join(__dirname, '../native')
+    const mod = require(modulePath) as {
       makeNonActivating?: (handle: Buffer) => void
     }
     nonactivatingFn = typeof mod.makeNonActivating === 'function' ? mod.makeNonActivating : null
-  } catch {
+  } catch (error) {
     nonactivatingFn = null
+    console.warn('[clipboard] 不抢焦点组件加载失败，退回鼠标操作模式：', error)
   }
   return nonactivatingFn
 }
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
-/** 截图框选用的一次性全屏遮罩窗口 */
+/** 非 macOS 的框选遮罩；macOS 走系统原生选区，不创建此窗口 */
 let captureWindow: BrowserWindow | null = null
+/** 从权限检查到框选结束均保持单例，避免连按快捷键启动多个系统截图进程 */
+let captureOpening = false
+let macCaptureController: AbortController | null = null
+let windowsCaptureController: AbortController | null = null
+/** 已在退出流程中：截图回退不能在这时再开新窗口 */
+let quitting = false
 /** 草稿纸小窗。单例 —— 反复唤起只把它调出来，不开第二个 */
 let scratchWindow: BrowserWindow | null = null
 /** 剪贴板取词面板。同样是单例 */
@@ -224,20 +238,91 @@ async function ensureScreenPermission(): Promise<boolean> {
     return false
   }
 
-  // not-determined / unknown：主动申请，系统会当场弹授权窗
-  return systemPreferences.askForMediaAccess('screen')
+  // macOS 不支持 askForMediaAccess('screen')，该接口只支持麦克风和摄像头。
+  // 尚未决定时让系统截图调用触发屏幕录制授权；用户授权后若系统要求重启再重试。
+  return true
 }
 
-/** 查权限 → 有权限就开截图遮罩。快捷键与按钮两处共用的入口 */
+/** 快捷键与按钮共用入口；原生框选期间不聚焦主窗口，保留当前桌面的状态。 */
 async function openCapture(): Promise<void> {
-  if (await ensureScreenPermission()) createCaptureWindow()
+  if (captureOpening || captureWindow || quitting) return
+  captureOpening = true
+  const controller = new AbortController()
+  try {
+    if (!await ensureScreenPermission()) return
+
+    // Windows：独立原生助手按需启动，用完即退，不常驻截图页面。
+    if (process.platform === 'win32' && isWindowsNativeAvailable()) {
+      windowsCaptureController = controller
+      let outcome: Awaited<ReturnType<typeof captureWindowsRegion>>
+      try {
+        outcome = await captureWindowsRegion(controller.signal)
+      } finally {
+        windowsCaptureController = null
+      }
+
+      if (outcome.status === 'ok') {
+        try {
+          deliverCapture(`data:image/png;base64,${outcome.result.image.toString('base64')}`)
+        } finally {
+          await releaseWindowsNativeResult(outcome.result)
+        }
+        return
+      }
+      // 用户按了取消，或应用正在退出：都不再弹一层遮罩
+      if (outcome.status === 'cancelled' || controller.signal.aborted || quitting) return
+
+      // 助手没跑起来 / 抓不到桌面：回退一次内置遮罩，别让截图功能整个不可用。
+      // 走到这里 windowsCaptureController 已清空，回退的遮罩不会被当成原生截图。
+      console.warn('[capture] 原生截图失败，回退内置遮罩：', outcome.reason)
+      createCaptureWindow()
+      return
+    }
+
+    if (process.platform !== 'darwin') {
+      createCaptureWindow()
+      return
+    }
+
+    macCaptureController = controller
+    try {
+      const image = await captureMacRegion(controller.signal)
+      if (image) {
+        deliverCapture(`data:image/png;base64,${image.toString('base64')}`)
+      } else if (!controller.signal.aborted) {
+        // Esc 和首次拒绝授权都可能不生成文件；拒绝时补上权限引导，不能静默失败。
+        const status = systemPreferences.getMediaAccessStatus('screen')
+        if (status === 'denied' || status === 'restricted') await ensureScreenPermission()
+      }
+    } finally {
+      macCaptureController = null
+    }
+  } catch (error) {
+    console.error('[capture]', error)
+    if (!controller.signal.aborted) {
+      void dialog.showMessageBox({
+        type: 'error',
+        message: '截图失败',
+        detail: error instanceof Error ? error.message : String(error),
+      })
+    }
+  } finally {
+    captureOpening = false
+  }
+}
+
+/** 原生选区和自定义选区统一把结果送给常驻主窗口，不在截图页加载 OCR。 */
+function deliverCapture(dataUrl: string): void {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.show()
+  mainWindow.focus()
+  mainWindow.webContents.send('capture:ocr-request', dataUrl)
 }
 
 /**
- * 开一个铺满主屏的透明无边框窗口，用来做截图框选。
- *
- * 截图数据在窗口 did-finish-load 之后才推送：渲染层要先挂上监听，
- * 早发就丢了。窗口用 alwaysOnTop + fullscreenable 的组合保证盖住其他应用。
+ * 非 macOS 使用铺满主屏的无边框窗口框选。
+ * 截图在显示前完成，渲染层通过推送与主动拉取共用同一张底图。
  */
 function createCaptureWindow(): void {
   if (captureWindow) {
@@ -253,17 +338,19 @@ function createCaptureWindow(): void {
    * 结果缓存成 Promise，窗口加载好后无论是主进程推还是渲染层拉，都读这一份，
    * 避免重复抓屏（第二次抓就会把已经显示出来的遮罩拍进去）。
    */
-  captureShotPromise = grabPrimaryScreen()
+  const shotPromise = grabPrimaryScreen().catch((error: unknown) => ({
+    error: error instanceof Error ? error.message : '截图失败',
+  }))
+  captureShotPromise = shotPromise
 
-  captureWindow = new BrowserWindow({
+  const win = new BrowserWindow({
     x,
     y,
     width,
     height,
     frame: false,
-    // 深色不透明背景：抓屏一完成就 show 窗口时，页面还没加载完，先露出
-    // 这个深色遮罩，既不露桌面也不闪白，等底图渲染好再盖上去
     backgroundColor: '#0f172a',
+    paintWhenInitiallyHidden: true,
     alwaysOnTop: true,
     skipTaskbar: true,
     resizable: false,
@@ -273,7 +360,7 @@ function createCaptureWindow(): void {
     /*
      * 先不显示。抓屏必须发生在窗口显示**之前** —— 否则拍到的是自己那层
      * 遮罩，底图就是灰的。这里不设 show: false 的话窗口创建即显示；
-     * 真正 show 的时机在抓屏完成后（见下面的 captureShotPromise.then）。
+     * 真正 show 的时机在渲染层把底图画好之后（见下面的 capture:shown）。
      */
     show: false,
     webPreferences: {
@@ -283,8 +370,11 @@ function createCaptureWindow(): void {
       // window.electronAPI 是 undefined，遮罩层既截不到图也关不掉
       contextIsolation: true,
       nodeIntegration: false,
+      // 隐藏时也要走绘制帧，等真实底图完成后才显示，而不是定时猜加载时间。
+      backgroundThrottling: false,
     },
   })
+  captureWindow = win
 
   /*
    * 用 'floating' 而不是 'screen-saver'。
@@ -294,7 +384,7 @@ function createCaptureWindow(): void {
    * 'floating' 已经高于普通应用窗口，压住别人的界面没问题，同时把
    * 权限弹窗的层级让出来。
    */
-  captureWindow.setAlwaysOnTop(true, 'floating')
+  win.setAlwaysOnTop(true, 'floating')
 
   /*
    * 兜底：注册一个自毁快捷键。
@@ -309,47 +399,46 @@ function createCaptureWindow(): void {
 
   // 窗口被系统或用户关掉时，别把 Escape 留在全局注册表里 ——
   // 否则正常使用时按 Esc 会被这个残留的注册吃掉
-  captureWindow.on('closed', () => {
-    globalShortcut.unregister('Escape')
-    captureWindow = null
+  const reveal = (event: Electron.IpcMainEvent) => {
+    if (event.sender !== win.webContents || win.isDestroyed() || win.isVisible()) return
+    clearTimeout(loadTimer)
+    win.show()
+    win.focus()
+  }
+  ipcMain.on('capture:shown', reveal)
+
+  // 加载失败只关闭并报错，绝不把尚未准备好的全屏背景色展示给用户。
+  const fail = (error: unknown) => {
+    if (win.isDestroyed() || captureWindow !== win) return
+    closeCaptureWindow()
+    void dialog.showMessageBox({
+      type: 'error',
+      message: '截图界面加载失败',
+      detail: error instanceof Error ? error.message : String(error),
+    })
+  }
+  const loadTimer = setTimeout(() => fail(new Error('截图界面加载超时，请重试')), 15000)
+  win.on('closed', () => {
+    clearTimeout(loadTimer)
+    ipcMain.removeListener('capture:shown', reveal)
+    if (captureWindow === win) {
+      globalShortcut.unregister('Escape')
+      captureWindow = null
+      captureShotPromise = null
+    }
+  })
+  win.webContents.on('render-process-gone', () => fail(new Error('截图渲染进程已退出')))
+  win.webContents.once('did-finish-load', async () => {
+    const payload = await shotPromise
+    // 闭包绑定本次窗口和截图，取消后的旧异步任务不能污染下一次截图。
+    if (!win.isDestroyed()) win.webContents.send('capture:ready', payload)
   })
 
   const devServerUrl = process.env.VITE_DEV_SERVER_URL
-  if (devServerUrl) {
-    void captureWindow.loadURL(`${devServerUrl}?capture=1`)
-  } else {
-    void captureWindow.loadFile(path.join(__dirname, '../dist/index.html'), {
-      search: 'capture=1',
-    })
-  }
-
-  /*
-   * 抓屏一完成就 show 窗口，不用等页面加载完 —— dev 模式 loadURL 走 vite
-   * 开发服务器，编译 + 加载模块要几百毫秒起，全等它窗口才出现会显得很慢。
-   * 抓屏（desktopCapturer.getSources）通常几十毫秒，窗口能立刻亮出来，
-   * 先露出深色遮罩；底图等页面渲染好再推（见 did-finish-load）。
-   *
-   * 成功和失败都要 show：失败时渲染层会显示错误界面，同样需要窗口可见。
-   */
-  const reveal = () => {
-    captureWindow?.show()
-    captureWindow?.focus()
-  }
-  void captureShotPromise.then(reveal, reveal)
-
-  /*
-   * 页面加载完才推底图：渲染层要先挂上监听，早发就丢了。窗口已经由
-   * reveal 显示出来了，这里只负责把图送过去。
-   */
-  captureWindow.webContents.once('did-finish-load', async () => {
-    let payload: unknown
-    try {
-      payload = await captureShotPromise
-    } catch (e) {
-      payload = { error: e instanceof Error ? e.message : '截图失败' }
-    }
-    captureWindow?.webContents.send('capture:ready', payload)
-  })
+  const loading = devServerUrl
+    ? win.loadURL(`${devServerUrl}?capture=1`)
+    : win.loadFile(path.join(__dirname, '../dist/index.html'), { search: 'capture=1' })
+  void loading.catch(fail)
 }
 
 /** 抓主屏全屏图，转 dataURL */
@@ -375,12 +464,12 @@ async function grabPrimaryScreen() {
   }
 }
 
-/** 关掉遮罩窗口。框选完成或取消都走这里 */
+/** 先隐藏完整画面，再销毁表面，避免关闭期间露出 BrowserWindow 的背景色。 */
 function closeCaptureWindow(): void {
-  captureWindow?.close()
-  captureWindow = null
-  // 缓存要清掉：那是一张全屏图，留着白占几 MB 内存
-  captureShotPromise = null
+  const win = captureWindow
+  if (!win || win.isDestroyed()) return
+  win.hide()
+  win.close()
 }
 
 /* ==================== 草稿纸：置顶小窗 ==================== */
@@ -1114,7 +1203,7 @@ function setupIpc() {
   /**
    * 选中即粘贴：写剪贴板 + 模拟 ⌘V，落进当前聚焦的那个输入框。
    *
-   * 按条目类型分发：文本走 insertText，图片走写剪贴板 + paste()。
+   * 按条目类型写入剪贴板，再由 paste() 模拟系统粘贴快捷键。
    * 返回结果给界面，让它区分「贴好了」与「已复制，请手动按 ⌘V」。
    */
   ipcMain.handle(
@@ -1132,16 +1221,47 @@ function setupIpc() {
        * non-activating 面板抢了 key window（键盘焦点），收起它之后 key window
        * 会自动还给唤出面板前的应用。等一小拍让这个转移稳定，再模拟 ⌘V。
        */
+      const panel = clipboardWindow
+      const wasVisible = panel && !panel.isDestroyed() && panel.isVisible()
       hideClipboardWindow()
       await new Promise((resolve) => setTimeout(resolve, 80))
 
-      if (payload.type === 'image') {
-        return pasteImageToFocusedApp(payload.imageDataUrl ?? '')
+      let result: { ok: boolean; reason?: 'no-module' | 'no-permission' | 'failed' }
+      try {
+        result =
+          payload.type === 'image'
+            ? await pasteImageToFocusedApp(payload.imageDataUrl ?? '')
+            : payload.type === 'file'
+              ? await pasteFileToFocusedApp(payload.filePath ?? '')
+              : await pasteToFocusedApp(payload.text ?? '')
+      } catch (error) {
+        console.warn('[paste] 写入剪贴板或模拟粘贴异常：', error)
+        result = { ok: false, reason: 'failed' }
       }
-      if (payload.type === 'file') {
-        return pasteFileToFocusedApp(payload.filePath ?? '')
+
+      /*
+       * 失败要能在日志里看到原因，而不是只看到「没粘贴成功」这个现象：
+       * no-module 说明打包配置/架构有问题，no-permission 是授权，
+       * failed 是模拟按键本身出错（常见原因是另一个工具在长按修饰键）。
+       */
+      if (!result.ok) {
+        console.warn(
+          `[paste] 自动粘贴失败 reason=${result.reason}`,
+          result.reason === 'no-module'
+            ? `原生模块加载失败：${pasteModuleLoadError() ?? '未知'}`
+            : (lastPasteFailure() ?? '')
+        )
+        // 粘贴前已经隐藏过面板，失败时要恢复它，否则渲染层的原因提示永远看不到。
+        if (wasVisible && panel === clipboardWindow && !panel.isDestroyed()) {
+          if (loadNonactivating()) {
+            panel.show()
+            panel.focus()
+          } else {
+            panel.showInactive()
+          }
+        }
       }
-      return pasteToFocusedApp(payload.text ?? '')
+      return result
     }
   )
 
@@ -1250,17 +1370,14 @@ function setupIpc() {
    * 先关遮罩再发消息：遮罩是 alwaysOnTop 的，不关掉会把主窗口盖住，
    * 用户看不到识别结果。
    */
-  ipcMain.handle('finish-capture', (_, dataUrl: string) => {
+  ipcMain.handle('finish-capture', (event, dataUrl: string) => {
+    if (event.sender !== captureWindow?.webContents) return
     closeCaptureWindow()
-    if (!mainWindow) return
-    if (mainWindow.isMinimized()) mainWindow.restore()
-    mainWindow.show()
-    mainWindow.focus()
-    mainWindow.webContents.send('capture:ocr-request', dataUrl)
+    deliverCapture(dataUrl)
   })
 
-  ipcMain.handle('cancel-capture', () => {
-    closeCaptureWindow()
+  ipcMain.handle('cancel-capture', (event) => {
+    if (event.sender === captureWindow?.webContents) closeCaptureWindow()
   })
 
   // Store operations
@@ -1622,6 +1739,11 @@ app.on('will-quit', () => {
  */
 let notesFlushPending = false
 app.on('before-quit', (event) => {
+  // 截图助手可能正开着全屏框选层：先杀掉 / 中止，再处理窗口
+  quitting = true
+  macCaptureController?.abort()
+  windowsCaptureController?.abort()
+  closeCaptureWindow()
   if (notesFlushPending) return
   const win = mainWindow
   if (!win || win.isDestroyed()) return

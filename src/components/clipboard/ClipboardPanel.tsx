@@ -94,6 +94,8 @@ export default function ClipboardPanel() {
   const [activeIndex, setActiveIndex] = useState(0)
   /** 刚注入成功的那条，给个原地反馈 */
   const [justSent, setJustSent] = useState<string | null>(null)
+  /** 上次粘贴失败的原因，持续显示到下次成功 */
+  const [failedReason, setFailedReason] = useState<string | null>(null)
   /** 折叠的日期组。首次加载后默认折叠非今天，用户可手动折叠/展开任意组（含今天） */
   const [collapsedDays, setCollapsedDays] = useState<Set<string>>(() => new Set())
 
@@ -243,15 +245,24 @@ export default function ClipboardPanel() {
 
   /* ---------------- 动作 ---------------- */
 
+  /**
+   * 选中即粘贴。自动粘贴失败时面板先不关 —— 用户能看到「已复制，按 ⌘V」
+   * 的说明，再按一次回车就能再试（比如刚在系统设置里勾了辅助功能授权）。
+   * 以前不管成没成都报「已填入」并立刻收起，失败时看起来就像什么都没发生。
+   */
   const pick = async (entry: ClipboardEntry) => {
-    await api?.clipboardPaste?.({
+    const result = await api?.clipboardPaste?.({
       type: entry.type,
       text: entry.text,
       imageDataUrl: entry.imageDataUrl,
       filePath: entry.filePath,
     })
+    if (!result?.ok) {
+      setFailedReason(result?.reason ?? 'failed')
+      return
+    }
+    setFailedReason(null)
     setJustSent(entry.id)
-    window.setTimeout(() => void api?.clipboardClose?.(), 200)
   }
 
   const remove = async (id: string, event: React.MouseEvent) => {
@@ -539,24 +550,45 @@ export default function ClipboardPanel() {
           )}
         </div>
 
-        {/* 底栏：kbd 键帽提示 */}
-        <footer className="shrink-0 px-4 py-2 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
-          <div className="flex items-center gap-3.5">
-            <span className="flex items-center gap-1">
-              <Kbd>↑</Kbd>
-              <Kbd>↓</Kbd>
-              <span className="text-[11px] text-slate-500 ml-1">导航</span>
-            </span>
-            <span className="flex items-center gap-1">
-              <Kbd>↵</Kbd>
-              <span className="text-[11px] text-slate-500 ml-1">粘贴</span>
-            </span>
-            <span className="flex items-center gap-1">
-              <Kbd>Del</Kbd>
-              <span className="text-[11px] text-slate-500 ml-1">删除</span>
-            </span>
-          </div>
-          <span className="flex items-center gap-1">
+        {/* 底栏：粘贴失败时换成原因说明，高度写死成同一行，切换时不跳动 */}
+        <footer className="shrink-0 px-4 py-2 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-3 min-h-[37px]">
+          {failedReason ? (
+            <div className="flex items-center gap-2 min-w-0 text-[11px]">
+              <span className="font-semibold text-amber-600 shrink-0">未自动粘贴</span>
+              <span className="text-slate-600 truncate">
+                {failedReason === 'no-permission'
+                  ? '已复制。需要「辅助功能」权限：见系统提示，授权后按 ↵ 重试'
+                  : failedReason === 'no-module'
+                    ? '已复制。当前版本缺少自动粘贴组件，请按 ⌘V 手动粘贴'
+                    : '自动粘贴失败，请重试；若内容已复制，可切回目标应用按 ⌘V'}
+              </span>
+              {failedReason === 'no-permission' && (
+                <button
+                  onClick={() => void api?.clipboardOpenAccessibility?.()}
+                  className="shrink-0 rounded px-1.5 py-0.5 font-medium text-sky-700 hover:bg-sky-100"
+                >
+                  打开设置
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center gap-3.5">
+              <span className="flex items-center gap-1">
+                <Kbd>↑</Kbd>
+                <Kbd>↓</Kbd>
+                <span className="text-[11px] text-slate-500 ml-1">导航</span>
+              </span>
+              <span className="flex items-center gap-1">
+                <Kbd>↵</Kbd>
+                <span className="text-[11px] text-slate-500 ml-1">粘贴</span>
+              </span>
+              <span className="flex items-center gap-1">
+                <Kbd>Del</Kbd>
+                <span className="text-[11px] text-slate-500 ml-1">删除</span>
+              </span>
+            </div>
+          )}
+          <span className="flex items-center gap-1 shrink-0">
             <Kbd>Esc</Kbd>
             <span className="text-[11px] text-slate-500 ml-1">退出</span>
           </span>

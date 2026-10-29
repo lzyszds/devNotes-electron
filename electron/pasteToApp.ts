@@ -1,12 +1,12 @@
 /*
  * 把文本「粘贴」进当前聚焦的外部应用 —— 剪贴板面板选中即生效的关键一步。
  *
- * 原理：内容写进系统剪贴板 → 模拟一次 ⌘V。系统收到这个合成按键，会把它
- * 粘进当时聚焦的那个输入框。我们全程不关心那个框是谁的、在哪 ——
- * 那是操作系统的活。前提是面板窗口**不抢焦点**（见 openClipboardWindow），
- * 否则焦点在面板自己身上，⌘V 就粘到面板里了。
+ * 两步分开：先用 Electron 把内容写进系统剪贴板（保底，用户手动 ⌘V 也能拿到），
+ * 再模拟粘贴快捷键，把内容送进当时聚焦的输入框。我们不关心那个框是谁的、
+ * 在哪 —— 那是操作系统的活。前提是面板窗口**不抢焦点**（见 openClipboardWindow），
+ * 否则文字会送进面板自己。
  *
- * 模拟按键在 macOS 上必须获得「辅助功能」授权，这是系统级的安全边界，
+ * 模拟输入在 macOS 上必须获得「辅助功能」授权，这是系统级的安全边界，
  * 程序绕不过去，只能引导用户去勾选。
  */
 
@@ -20,28 +20,36 @@ import path from 'path'
  * 它带平台相关的预编译二进制，装不上或平台不支持时不该让整个应用起不来 ——
  * 拿不到就降级成「只写剪贴板，用户自己按 ⌘V」，其余功能照常。
  */
-type InsertTextFn = (text: string, insertWithPaste?: boolean) => void
 type PasteFn = (arrowKeyToClickBeforePaste?: string) => void
 
 interface NativeModule {
-  insertText: InsertTextFn
   paste: PasteFn
 }
 
 let nativeModule: NativeModule | null = null
 let loadAttempted = false
+/** 加载失败的具体原因。「只能复制不能自动粘贴」要能看出是模块没进来还是别的问题 */
+let loadFailure: string | null = null
 
 function loadNativeModule(): NativeModule | null {
   if (loadAttempted) return nativeModule
   loadAttempted = true
+  if (process.platform !== 'darwin' && process.platform !== 'win32') return null
   try {
     // 运行时才 require：打包环境下模块可能不存在，静态 import 会让主进程直接崩
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     nativeModule = require('@xitanggg/node-insert-text') as NativeModule
-  } catch {
+  } catch (error) {
     nativeModule = null
+    loadFailure = error instanceof Error ? error.message : String(error)
   }
   return nativeModule
+}
+
+/** 原生模块加载失败的原因；加载成功返回 null */
+export function pasteModuleLoadError(): string | null {
+  loadNativeModule()
+  return nativeModule ? null : (loadFailure ?? '模块未安装')
 }
 
 /** 是否具备「自动粘贴」能力（模块装上了 且 平台是 macOS / Windows） */
@@ -95,7 +103,7 @@ async function ensurePastePermission(): Promise<boolean> {
   if (process.platform !== 'darwin') return true
   if (isPasteTrusted()) return true
 
-  // 首次申请：系统会当场弹授权窗，用户点「允许」即生效，本次粘贴继续
+  // 系统提示只负责引导，返回的是当前状态；设置页里的授权完成后需要重试
   if (requestPastePermission()) return true
 
   // 之前拒绝过，系统不再弹窗，只能引导去设置手动勾选
@@ -126,10 +134,11 @@ export async function pasteToFocusedApp(text: string): Promise<{
   // 先把内容写进剪贴板：无论能不能自动粘贴，这一步都必须做 ——
   // 它是唯一保底的路径，用户手动按 ⌘V 也能拿到。
   // Electron 44 起 writeText 也是异步的，await 一下别留下竞态。
+  lastPasteError = null
   await clipboard.writeText(text)
 
-  const insertText = loadNativeModule()?.insertText
-  if (!insertText) return { ok: false, reason: 'no-module' }
+  const paste = loadNativeModule()?.paste
+  if (!paste) return { ok: false, reason: 'no-module' }
 
   if (!(await ensurePastePermission())) {
     return { ok: false, reason: 'no-permission' }
@@ -141,16 +150,25 @@ export async function pasteToFocusedApp(text: string): Promise<{
      * 唤出面板前的应用（见 main.ts 粘贴前 hideClipboardWindow + 短等待），
      * 这里不再起 open 子进程激活目标、也不再等 200ms —— 那是「面板抢焦点」
      * 旧方案的遗留，去掉后粘贴几乎即时。
-     *
-     * insertWithPaste = true：走「存剪贴板 → 设值 → 模拟 ⌘V → 还原剪贴板」。
-     * 不用逐字符模拟输入（CGEventKeyboardSetUnicodeString）：对中文、emoji
-     * 这类需要输入法参与的内容不可靠，粘贴走系统输入通道兼容性好得多。
      */
-    insertText(text, true)
+    /*
+     * 前面已经用 Electron 写好剪贴板，只需模拟一次粘贴快捷键。
+     * 不再调用 insertText 的剪贴板备份/清空/还原流程，也不用 Unicode 模拟输入：
+     * 后者在部分应用、长文本或修饰键仍按下时有限制，系统粘贴兼容性更稳妥。
+     */
+    paste()
     return { ok: true }
-  } catch {
+  } catch (error) {
+    lastPasteError = error instanceof Error ? error.message : String(error)
     return { ok: false, reason: 'failed' }
   }
+}
+
+/** 最近一次自动粘贴失败的原因，用于日志与排查 */
+let lastPasteError: string | null = null
+
+export function lastPasteFailure(): string | null {
+  return lastPasteError
 }
 
 /**
@@ -177,13 +195,14 @@ export async function copyImageToClipboard(imageDataUrl: string): Promise<boolea
  * 与文本不同，node-insert-text 没有「写图片 + 模拟粘贴」的一体化函数，
  * 所以这里自己拆开：先把 dataURL 还原成 PNG 写进剪贴板，再调 paste() 模拟 ⌘V。
  *
- * 图片会留在剪贴板里（不像文本粘贴那样恢复原状）—— 这符合预期：用户
+ * 图片和文本一样会留在剪贴板里 —— 这符合预期：用户
  * 刚粘贴了这张图，剪贴板就该是它。
  */
 export async function pasteImageToFocusedApp(imageDataUrl: string): Promise<{
   ok: boolean
   reason?: 'no-module' | 'no-permission' | 'failed'
 }> {
+  lastPasteError = null
   const written = await copyImageToClipboard(imageDataUrl)
   if (!written) return { ok: false, reason: 'failed' }
 
@@ -196,7 +215,8 @@ export async function pasteImageToFocusedApp(imageDataUrl: string): Promise<{
   try {
     paste()
     return { ok: true }
-  } catch {
+  } catch (error) {
+    lastPasteError = error instanceof Error ? error.message : String(error)
     return { ok: false, reason: 'failed' }
   }
 }
@@ -205,13 +225,14 @@ export async function pasteImageToFocusedApp(imageDataUrl: string): Promise<{
  * 把文件粘贴进当前聚焦的外部应用。
  *
  * 文件剪贴板在 macOS 上走 bookmark 类型：把绝对路径转回 file:// URL 写进
- * 剪贴板，再模拟 ⌘V。焦点处理与文本/图片一致 —— 先显式激活唤出面板前的
- * 应用，再粘贴。文件只是路径引用，若已移动/删除，粘贴目标会收不到。
+ * 剪贴板，再模拟 ⌘V。焦点处理与文本/图片一致，由调用方先收起面板。
+ * 文件只是路径引用，若已移动/删除，粘贴目标会收不到。
  */
 export async function pasteFileToFocusedApp(filePath: string): Promise<{
   ok: boolean
   reason?: 'no-module' | 'no-permission' | 'failed'
 }> {
+  lastPasteError = null
   if (!filePath) return { ok: false, reason: 'failed' }
   const fileUrl = pathToFileURL(filePath).toString()
   const fileName = path.basename(filePath)
@@ -230,7 +251,8 @@ export async function pasteFileToFocusedApp(filePath: string): Promise<{
   try {
     paste()
     return { ok: true }
-  } catch {
+  } catch (error) {
+    lastPasteError = error instanceof Error ? error.message : String(error)
     return { ok: false, reason: 'failed' }
   }
 }

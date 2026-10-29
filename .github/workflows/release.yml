@@ -127,6 +127,21 @@ jobs:
       - name: 构建前端
         run: bun run build:web
 
+      # 截图助手：独立原生 exe，按需启动、用完退出。
+      # 必须先于 electron-builder，因为打包会把它放进 extraResources。
+      - name: 构建 Windows 截图助手
+        run: node scripts/build-win-capture.cjs
+
+      # 无桌面也能跑：验证助手能实际抓屏并编码 PNG
+      - name: 自检截图助手
+        shell: pwsh
+        run: |
+          $out = Join-Path $env:RUNNER_TEMP 'capture-selftest.png'
+          & "native/win-capture/build/Release/devnotes-capture.exe" --selftest $out
+          if (-not (Test-Path $out)) { throw '截图助手自检未生成 PNG' }
+          $bytes = [IO.File]::ReadAllBytes($out)
+          if ($bytes[0] -ne 0x89 -or $bytes[1] -ne 0x50) { throw '截图助手输出不是 PNG' }
+
       - name: 打包 Electron（不在这里发布）
         run: node scripts/run-electron-builder.cjs --publish never
 

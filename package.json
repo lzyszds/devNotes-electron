@@ -15,6 +15,7 @@
     "cap:open": "cap open android",
     "cap:apk": "bun run build:mobile && cap sync android && cd android && ./gradlew assembleDebug",
     "preview": "vite preview",
+    "build:win-capture": "node scripts/build-win-capture.cjs",
     "electron:dev": "vite",
     "electron:build": "npm run build",
     "icons": "node scripts/generate-iconset.cjs && node scripts/generate-ico.cjs && node scripts/generate-icns.cjs"
@@ -121,6 +122,12 @@
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.plist",
       "notarize": true,
+      "extraResources": [
+        {
+          "from": "native/build/Release/nonactivating.node",
+          "to": "native/nonactivating.node"
+        }
+      ],
       "target": [
         {
           "target": "dmg",
@@ -151,7 +158,13 @@
         "zh-CN",
         "en-US"
       ],
-      "artifactName": "${productName}-${version}.${ext}"
+      "artifactName": "${productName}-${version}.${ext}",
+      "extraResources": [
+        {
+          "from": "native/win-capture/build/Release/devnotes-capture.exe",
+          "to": "native/devnotes-capture.exe"
+        }
+      ]
     },
     "nsis": {
       "oneClick": true,
@@ -160,6 +173,7 @@
       "deleteAppDataOnUninstall": false,
       "differentialPackage": true
     },
+    "extraResources": [],
     "asarUnpack": [
       "node_modules/@xitanggg/**/*"
     ]

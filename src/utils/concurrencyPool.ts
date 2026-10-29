@@ -4,7 +4,8 @@ export async function runPool<T, R>(
   worker: (item: T, index: number) => Promise<R>,
   concurrency: number,
   onProgress?: (done: number, total: number) => void,
-  shouldStop?: () => boolean
+  shouldStop?: () => boolean,
+  signal?: AbortSignal
 ): Promise<R[]> {
   if (items.length === 0) return [];
 
@@ -14,10 +15,11 @@ export async function runPool<T, R>(
 
   const runNext = async (): Promise<void> => {
     while (nextIndex < items.length) {
-      // 收到停止信号后不再派发新任务，已在跑的请求自然收尾
-      if (shouldStop?.()) break;
+      // 暂停只阻止派发；取消还由 worker 的请求 signal 中止在途网络。
+      if (signal?.aborted || shouldStop?.()) break;
       const index = nextIndex++;
       results[index] = await worker(items[index], index);
+      if (signal?.aborted) break;
       completed++;
       onProgress?.(completed, items.length);
     }

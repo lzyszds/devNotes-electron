@@ -234,8 +234,10 @@ export async function translateWithOpenAI(
   text: string,
   sourceLang: string,
   targetLang: string,
-  config: OpenAICompatibleConfig
+  config: OpenAICompatibleConfig,
+  signal?: AbortSignal
 ): Promise<AdapterOutcome> {
+  if (signal?.aborted) return { ok: false, error: "已取消" };
   if (!text.trim()) return { ok: true, text };
 
   const url = buildChatCompletionsUrl(config.baseUrl);
@@ -263,8 +265,10 @@ export async function translateWithOpenAI(
     },
     body,
     timeout: OPENAI_TIMEOUT_MS,
+    signal,
   });
 
+  if (signal?.aborted) return { ok: false, error: "已取消" };
   if (result.status === 0 || result.error) {
     return { ok: false, error: describeFetchFailure(result.error) };
   }
@@ -279,8 +283,10 @@ export async function translateWithLibreTranslate(
   text: string,
   sourceLang: string,
   targetLang: string,
-  config: LibreTranslateConfig
+  config: LibreTranslateConfig,
+  signal?: AbortSignal
 ): Promise<AdapterOutcome> {
+  if (signal?.aborted) return { ok: false, error: "已取消" };
   if (!text.trim()) return { ok: true, text };
 
   const url = buildLibreTranslateUrl(config.baseUrl);
@@ -305,8 +311,10 @@ export async function translateWithLibreTranslate(
     headers,
     body: JSON.stringify(payload),
     timeout: LIBRE_TIMEOUT_MS,
+    signal,
   });
 
+  if (signal?.aborted) return { ok: false, error: "已取消" };
   if (result.status === 0 || result.error) {
     return { ok: false, error: describeFetchFailure(result.error) };
   }

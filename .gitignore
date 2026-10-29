@@ -39,3 +39,14 @@ npm-debug.log*
 /.cursor/
 # answer-me-with-html 等插件会把生成的 HTML 写进工作目录
 /.tmp/
+
+# 原生组件的构建中间产物。真正要入库的只有 Release/nonactivating.node
+# （打包时直接拷进 Resources，见 package.json 的 mac.extraResources）。
+# （node-gyp 的 config.gypi / node_gyp_bins 曾被误提交，这里一并挡掉）
+/native/build/*
+!/native/build/Release/
+/native/build/Release/*
+!/native/build/Release/nonactivating.node
+
+# Windows 截图助手的 CMake 构建产物
+native/win-capture/build/

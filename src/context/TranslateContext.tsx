@@ -4,12 +4,9 @@ import { useToolHistory, type HistoryItem } from '../hooks/useToolHistory'
 import { AUTO_LANG } from '../utils/languages'
 
 /**
- * 「文本翻译」独立模块的状态中枢。
- *
- * 这个模块和工具库里的那些工具不一样：它有一条常驻的专属二级侧边栏，
- * 侧边栏要显示当前语言方向、要能一键回填历史记录，翻译页要读同一份数据 ——
- * 两边隔着 DashboardLayout 的层级，所以共同状态（语言偏好、输入输出、历史）
- * 提到这里，页面与侧边栏都从 context 取，不再各存一份。
+ * 翻译页跨工具切换时保留的状态。
+ * 译文单独订阅：流式输出只刷新结果正文和复制 / 朗读按钮，
+ * 不把每个 token 的更新广播给输入框、语言选择器和整页外壳。
  */
 
 /** 「自动双向」：输入中文出英文、输入英文出中文，不必每次手动切 */
@@ -22,8 +19,6 @@ interface TranslateContextValue {
   /** 待翻译原文 */
   input: string
   setInput: (value: string) => void
-  /** 译文 */
-  output: string
   setOutput: (value: string) => void
   /** 源语言，AUTO_LANG 表示自动检测 */
   sourceLang: string
@@ -50,6 +45,7 @@ interface TranslateContextValue {
 }
 
 const TranslateContext = createContext<TranslateContextValue | null>(null)
+const TranslateOutputContext = createContext('')
 
 export function TranslateProvider({ children }: { children: ReactNode }) {
   const [input, setInput] = useState('')
@@ -70,7 +66,11 @@ export function TranslateProvider({ children }: { children: ReactNode }) {
     if (value !== AUTO_LANG) lastSourceRef.current = value
   }, [])
 
+  const textRef = useRef({ input, output })
+  textRef.current = { input, output }
+
   const swapLanguages = useCallback(() => {
+    const { input, output } = textRef.current
     // 源语言是「自动检测」时没有具体语种可交换，用它记着的最近一次源语言兜底
     const resolvedSource = sourceLang === AUTO_LANG ? lastSourceRef.current : sourceLang
     setSourceLangState(targetLang)
@@ -80,7 +80,7 @@ export function TranslateProvider({ children }: { children: ReactNode }) {
       setInput(output)
       setOutput(input)
     }
-  }, [sourceLang, targetLang, input, output])
+  }, [sourceLang, targetLang])
 
   useEffect(() => {
     localStorage.setItem(PRIMARY_LANG_KEY, primaryLang)
@@ -95,7 +95,6 @@ export function TranslateProvider({ children }: { children: ReactNode }) {
     () => ({
       input,
       setInput,
-      output,
       setOutput,
       sourceLang,
       setSourceLang,
@@ -116,7 +115,6 @@ export function TranslateProvider({ children }: { children: ReactNode }) {
     }),
     [
       input,
-      output,
       sourceLang,
       setSourceLang,
       targetLang,
@@ -132,11 +130,20 @@ export function TranslateProvider({ children }: { children: ReactNode }) {
     ]
   )
 
-  return <TranslateContext.Provider value={value}>{children}</TranslateContext.Provider>
+  return (
+    <TranslateContext.Provider value={value}>
+      <TranslateOutputContext.Provider value={output}>{children}</TranslateOutputContext.Provider>
+    </TranslateContext.Provider>
+  )
 }
 
 export function useTranslate() {
   const context = useContext(TranslateContext)
   if (!context) throw new Error('useTranslate 必须在 TranslateProvider 内使用')
   return context
+}
+
+/** 译文区配合 memo 使用：只跟随流式内容更新，不被每次输入连带刷新 */
+export function useTranslateOutput() {
+  return useContext(TranslateOutputContext)
 }
