@@ -52,7 +52,7 @@ function findVcvars64() {
     '-requires', 'Microsoft.VisualStudio.Component.VC.Tools.x86.x64',
     '-property', 'installationPath',
   ], { encoding: 'utf8' })
-  const install = (found.stdout || '').trim()
+  const install = (found.stdout || '').trim().split(/\r?\n/)[0].trim()
   const bat = install && path.join(install, 'VC', 'Auxiliary', 'Build', 'vcvars64.bat')
   if (!bat || !fs.existsSync(bat)) {
     console.error('[win-capture] 找不到 vcvars64.bat，请安装 MSVC x64 工具集')
@@ -91,7 +91,9 @@ if (msvcAlreadyLoaded()) {
   const chain = buildSteps
     .map(([command, args]) => [command, ...args.map((arg) => `"${arg}"`)].join(' '))
     .join(' && ')
-  run('cmd.exe', ['/d', '/s', '/c', `call "${bat}" && ${chain}`])
+  // 只在外层包一对引号：cmd /s /c 会剥掉首尾引号，内层再给 bat 加引号
+  // 会被当成命令名的一部分（GitHub runner 的 VS 装在 "Program Files" 下，必踩）。
+  run('cmd.exe', ['/d', '/s', '/c', `call ${bat} && ${chain}`])
 }
 
 if (!fs.existsSync(output)) {
