@@ -38,6 +38,7 @@ import { getSystemHardwareInfo, getProcessMemoryList } from './systemInfo'
 import { setupAutoUpdater } from './updater'
 import { captureMacRegion } from './macRegionCapture'
 import { captureWindowsRegion, isWindowsNativeAvailable, releaseWindowsNativeResult } from './windowsNativeCapture'
+import { lightOcrRecognize } from './lightOcr'
 import {
   MAX_ENTRIES,
   buildEntry,
@@ -311,13 +312,41 @@ async function openCapture(): Promise<void> {
   }
 }
 
+/**
+ * 把主窗口拉到屏幕最前并要焦点。
+ *
+ * 截图翻译的触发点常在别的应用里：框选结束时前台还是那个应用，而 Windows
+ * 只允许前台进程调 SetForegroundWindow —— 只 show()/focus() 的话，窗口可能
+ * 排在原应用后面。先临时置顶一帧再还回去，让它在不动聚焦规则的情况下
+ * 盖到最前。
+ */
+function raiseMainWindow(): void {
+  mainWindow?.setAlwaysOnTop(true, 'screen-saver')
+  if (mainWindow?.isMinimized()) mainWindow.restore()
+  mainWindow?.show()
+  mainWindow?.focus()
+  mainWindow?.setAlwaysOnTop(false)
+}
+
 /** 原生选区和自定义选区统一把结果送给常驻主窗口，不在截图页加载 OCR。 */
 function deliverCapture(dataUrl: string): void {
-  if (!mainWindow || mainWindow.isDestroyed()) return
-  if (mainWindow.isMinimized()) mainWindow.restore()
-  mainWindow.show()
-  mainWindow.focus()
-  mainWindow.webContents.send('capture:ocr-request', dataUrl)
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    raiseMainWindow()
+    mainWindow.webContents.send('capture:ocr-request', dataUrl)
+    return
+  }
+
+  /*
+   * 主窗口被用户真关过（closed → mainWindow 为 null）：当场重建，截图结果
+   * 不能吞掉。走 did-finish-load 再推 OCR，和 focusWindowAndOpenTool 的
+   * 时机一样；ready-to-show 钩子由 createMainWindow 负责显示窗口。
+   */
+  createMainWindow()
+  const created = mainWindow as BrowserWindow | null
+  if (!created) return
+  created.webContents.once('did-finish-load', () => {
+    created.webContents.send('capture:ocr-request', dataUrl)
+  })
 }
 
 /**
@@ -668,10 +697,42 @@ function startClipboardCapture(): void {
 
 let clipboardStop: (() => void) | null = null
 
+/**
+ * 面板隐藏时的闲置销毁。
+ *
+ * 面板数据全部来自主进程（clipboardList 推拉共用 clipboardEntries），
+ * 渲染层没有独占状态，销毁重建零损失；隐藏不复用的话，下一次唤起要
+ * 重开一整个渲染进程 + 加载应用前端（几百毫秒）。折衷：先隐藏保留
+ * 快速唤起，闲置 10 分钟仍不可见就销毁 —— 偷懒常驻的渲染进程至少
+ * 有一份完整应用前端的内存（几十上百 MB），用户看不见不该一直背着。
+ */
+const CLIPBOARD_IDLE_DESTROY_MS = 10 * 60_000
+let clipboardIdleTimer: NodeJS.Timeout | null = null
+
+function cancelClipboardIdleDestroy(): void {
+  if (clipboardIdleTimer !== null) {
+    clearTimeout(clipboardIdleTimer)
+    clipboardIdleTimer = null
+  }
+}
+
+function scheduleClipboardIdleDestroy(): void {
+  cancelClipboardIdleDestroy()
+  clipboardIdleTimer = setTimeout(() => {
+    clipboardIdleTimer = null
+    // 期间没有被再次唤起（唤起会清掉这个定时器）才动手
+    if (clipboardWindow && !clipboardWindow.isDestroyed() && !clipboardWindow.isVisible()) {
+      clipboardWindow.close()
+    }
+  }, CLIPBOARD_IDLE_DESTROY_MS)
+}
+
 function openClipboardWindow(): void {
   // 原生 addon 是否可用：可用则走「nonactivating mask + show/focus」的完整方案
   // （不抢焦点、有 hover、有键盘）；不可用则退回 focusable: false + showInactive。
   const nonactivating = loadNonactivating()
+  // 唤起即取消闲置销毁
+  cancelClipboardIdleDestroy()
 
   // devNotes 是否在前台。面板是 non-activating 的，不抢焦点，所以这个
   // 只用来决定「要不要把主窗口藏起来」，粘贴不再需要它记目标应用。
@@ -773,20 +834,24 @@ function openClipboardWindow(): void {
   window.on('resized', persistBounds)
   window.on('moved', persistBounds)
   window.on('closed', () => {
+    cancelClipboardIdleDestroy()
     clipboardWindow = null
   })
 }
 
 /**
- * 收起面板：只隐藏、不销毁。窗口常驻复用 —— 下次唤出直接 show 即出，
- * 省去「新建窗口 + 加载页面」那几百毫秒，历史记录也在渲染层内存里原样保留。
+ * 收起面板：先隐藏保快速唤起；闲置 10 分钟仍不可见则销毁整个渲染进程
+ * （数据全在主进程，重建零损失，见 scheduleClipboardIdleDestroy 的说明）。
  */
 function hideClipboardWindow(): void {
   if (clipboardWindow && !clipboardWindow.isDestroyed()) clipboardWindow.hide()
+  // 闲置一段时间仍不可见就销毁整个渲染进程，见 scheduleClipboardIdleDestroy
+  scheduleClipboardIdleDestroy()
 }
 
 /** 真正销毁面板，仅应用退出时调用 */
 function closeClipboardWindow(): void {
+  cancelClipboardIdleDestroy()
   if (clipboardWindow && !clipboardWindow.isDestroyed()) clipboardWindow.close()
   clipboardWindow = null
 }
@@ -1378,6 +1443,15 @@ function setupIpc() {
 
   ipcMain.handle('cancel-capture', (event) => {
     if (event.sender === captureWindow?.webContents) closeCaptureWindow()
+  })
+
+  /**
+   * light-ocr（PP-OCRv6 子进程）识别一张图。
+   * unsupported = 依赖没装/包不完整；failed = 跑起来但出错。
+   * 渲染层两种失败都回退 tesseract，仅 console.warn 记录原因。
+   */
+  ipcMain.handle('ocr-light-recognize', async (_, dataUrl: string) => {
+    return lightOcrRecognize(dataUrl)
   })
 
   // Store operations

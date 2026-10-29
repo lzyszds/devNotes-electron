@@ -210,10 +210,12 @@ export default function CaptureOverlay() {
 
       {/*
         压暗层。有选区时用 clip-path 把选区挖空，让那一块露出原图；
-        没选区时整体压暗。
+        没选区时整体压暗。用主题色 brand-900 而不是 slate：原生
+        devnotes-capture 的遮罩混的也是 brand-900（见 overlay.cpp），
+        两边观感要一致。
       */}
       <div
-        className="absolute inset-0 bg-slate-900/55 pointer-events-none"
+        className="absolute inset-0 bg-brand-900/55 pointer-events-none"
         style={
           selection
             ? {

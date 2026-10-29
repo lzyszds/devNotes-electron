@@ -631,7 +631,10 @@ export default function TextTranslateTool() {
           </button>
         </>
       }
-      // 内容区自己带滚动容器：下面这块是整页排布，交给外壳反而要拆两层
+      /*
+       * scroll={false}：这一页是「固定满页 + 卡片内滚动」布局 —— 页面本身
+       * 不滚动，原文/译文各自在卡片内部滚，东西多时页面骨架不动。
+       */
       scroll={false}
       overlay={
         <ToolHistoryOverlay
@@ -649,8 +652,8 @@ export default function TextTranslateTool() {
         />
       }
     >
-      {/* 主工作区 */}
-      <div className="flex-1 overflow-y-auto p-3 lg:p-8 flex flex-col gap-4">
+      {/* 主工作区：占满剩余高度，不滚动 —— 滚动交给卡片内部 */}
+      <div className="flex-1 min-h-0 overflow-hidden p-3 lg:p-8 flex flex-col gap-4">
         {/* MyMemory 不支持自动检测，提前说清楚，别让它把原文当译文返回 */}
         {mymemoryAutoBlocked && (
           <ToolNotice tone="warn" icon={TriangleAlert} className="flex-shrink-0">
@@ -664,10 +667,14 @@ export default function TextTranslateTool() {
           </ToolNotice>
         )}
 
-        {/* 双子卡片：原文 / 译文 */}
-        <div className="tool-cascade flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 h-full">
+        {/*
+          双子卡片：原文 / 译文。grid-rows 用 minmax(0,1fr)（grid-rows-* 写法）
+          把行高钉死在视口内：缺省的 auto 行会被长内容撑开、顺带把整页撑出滚动，
+          卡片里的 flex-1 min-h-0 也就失效了。手机单列时上下等分两行。
+        */}
+        <div className="tool-cascade flex-1 min-h-0 grid grid-cols-1 grid-rows-2 md:grid-cols-2 md:grid-rows-1 gap-4">
           {/* ---------------- 原文 ---------------- */}
-          <ToolCard>
+          <ToolCard className="min-h-0 overflow-hidden">
             {/* 语言区自己换行，整条不做横向滚动 —— 滚动容器会把「更多」下拉截断在边上 */}
             <div className="flex items-start justify-between gap-2 px-4 py-2 min-h-11 border-b border-slate-100 dark:border-dark-border shrink-0">
               <div className="flex flex-wrap items-center gap-1 min-w-0">
@@ -797,7 +804,7 @@ export default function TextTranslateTool() {
           </ToolCard>
 
           {/* ---------------- 译文 ---------------- */}
-          <ToolCard>
+          <ToolCard className="min-h-0 overflow-hidden">
             <div className="flex items-start justify-between gap-2 px-4 py-2 min-h-11 border-b border-slate-100 dark:border-dark-border shrink-0">
               <div className="flex flex-wrap items-center gap-1 min-w-0">
                 <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500 mr-1 shrink-0">

@@ -21,6 +21,7 @@
     "icons": "node scripts/generate-iconset.cjs && node scripts/generate-ico.cjs && node scripts/generate-icns.cjs"
   },
   "dependencies": {
+    "@arcships/light-ocr": "^0.5.9",
     "@radix-ui/react-checkbox": "^1.4.1",
     "@xitanggg/node-insert-text": "^1.5.1",
     "electron-macos-window-extensions": "^0.1.2",
@@ -93,6 +94,11 @@
       "node_modules/@xitanggg/node-insert-text/**/*",
       "node_modules/@xitanggg/node-insert-text-darwin-*/**/*",
       "node_modules/@xitanggg/node-insert-text-win32-*/**/*",
+      "node_modules/@arcships/light-ocr/**/*",
+      "node_modules/@arcships/light-ocr-runtime/**/*",
+      "node_modules/@arcships/light-ocr-model-ppocrv6-small/**/*",
+      "node_modules/@arcships/light-ocr-win32-*/**/*",
+      "node_modules/@arcships/light-ocr-darwin-*/**/*",
       "!**/*.map",
       "!**/tesseract-core.wasm",
       "!**/tesseract-core.wasm.js",
@@ -175,7 +181,12 @@
     },
     "extraResources": [],
     "asarUnpack": [
-      "node_modules/@xitanggg/**/*"
+      "node_modules/@xitanggg/**/*",
+      "node_modules/@arcships/light-ocr/**/*",
+      "node_modules/@arcships/light-ocr-runtime/**/*",
+      "node_modules/@arcships/light-ocr-model-ppocrv6-small/**/*",
+      "node_modules/@arcships/light-ocr-win32-*/**/*",
+      "node_modules/@arcships/light-ocr-darwin-*/**/*"
     ]
   }
 }

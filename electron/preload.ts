@@ -284,6 +284,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.removeListener('capture:ocr-request', listener)
     }
   },
+  /** light-ocr（PP-OCRv6 子进程）识别一张图；依赖缺失时返回 unsupported */
+  lightOcr: (
+    dataUrl: string
+  ): Promise<{ status: 'ok'; text: string } | { status: 'unsupported' } | { status: 'failed'; reason: string }> =>
+    ipcRenderer.invoke('ocr-light-recognize', dataUrl),
 })
 
 // 外部打开文件的消息负载

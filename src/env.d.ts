@@ -167,6 +167,13 @@ interface Window {
     ) => () => void
     onCaptureOcrRequest?: (callback: (dataUrl: string) => void) => () => void
 
+    /* light-ocr（PP-OCRv6 子进程）识别：依赖缺失时 unsupported，渲染层回退 tesseract */
+    lightOcr?: (dataUrl: string) => Promise<
+      { status: 'ok'; text: string }
+      | { status: 'unsupported' }
+      | { status: 'failed'; reason: string }
+    >
+
     /* 草稿纸置顶小窗 */
     scratchOpen?: () => Promise<void>
     scratchClose?: () => Promise<void>

@@ -26,6 +26,9 @@ struct CaptureSession {
   // 与快照同尺寸的 DIB：blit 时直接取子区域，避免每帧重建 BITMAPINFO
   HDC source_dc = nullptr;
   HBITMAP source_bitmap = nullptr;
+  // 快照的压暗版（混入半透明 Slate）：遮罩层画它，选区洞里画原亮度快照
+  HDC dim_dc = nullptr;
+  HBITMAP dim_bitmap = nullptr;
   int width = 0;
   int height = 0;
   bool finished = false;
@@ -39,14 +42,19 @@ struct CaptureSession {
     // 先把 DIB 从 DC 里换出来再删，否则 DeleteObject 失败、位图泄漏
     if (buffer_dc && buffer_bitmap) SelectObject(buffer_dc, GetStockObject(BLACK_PEN));
     if (source_dc && source_bitmap) SelectObject(source_dc, GetStockObject(BLACK_PEN));
+    if (dim_dc && dim_bitmap) SelectObject(dim_dc, GetStockObject(BLACK_PEN));
     if (buffer_bitmap) DeleteObject(buffer_bitmap);
     if (buffer_dc) DeleteDC(buffer_dc);
     if (source_bitmap) DeleteObject(source_bitmap);
     if (source_dc) DeleteDC(source_dc);
+    if (dim_bitmap) DeleteObject(dim_bitmap);
+    if (dim_dc) DeleteDC(dim_dc);
     buffer_bitmap = nullptr;
     buffer_dc = nullptr;
     source_bitmap = nullptr;
     source_dc = nullptr;
+    dim_bitmap = nullptr;
+    dim_dc = nullptr;
   }
 };
 
@@ -67,27 +75,36 @@ POINT virtual_origin() {
 }
 
 /*
- * 压暗层：单色图案刷子只有“黑 / 透明”两档，做不出真正半透明。
- * 用 4×4 单色网点把快照打上暗纹，观感接近 Slate 遮罩；
- * 代价是放大看有规则网点，作为临时遮罩可以接受。
+ * 压暗层：跟随主题色 —— 应用当前是「Notion 极简暖灰炭黑」的唯一一套
+ * 主题（index.css :root），渲染端回退遮罩用 bg-brand-900/55，这里保持同款：
+ * 即 brand-900 = RGB(12,12,12) 以 55% 不透明度盖在原画面上，观感是暖灰暗层
+ * 而不是 slate 暗蓝。注意 index.css 换主题时要同步改这里的常量和
+ * CaptureOverlay 的遮罩类名。
+ *
+ * GDI 的单色 pattern 刷子做不出半透明：pattern 的 0 位会被画成
+ * DC 背景色（默认白色），FillRect 结果是黑白对半的亮格子，直接
+ * 把下面的快照盖死，观感像满屏雪花。改用逐像素预混：框选开始前
+ * 把快照混色一次存进 DIB，之后的拖拽重绘零额外开销。
+ *
+ * BGRA 排列：(通道 * 45 + 主题色通道值 * 55 + 50) / 100，即 45% 原色。
  */
-HBRUSH checker_brush() {
-  static HBRUSH brush = nullptr;
-  if (brush) return brush;
-  // 1 平面、1bpp。第 4 个参数是每像素位数；之前误写成 16，
-  // 驱动会按 16bpp 去读这几个字节，网点变成一条斜线。
-  // 8×8、每行 1 字节：0x55 / 0xAA 交错，大约一半像素被压暗。
-  const BYTE pattern[8] = {0x55, 0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55, 0xAA};
-  HBITMAP bits = CreateBitmap(8, 8, 1, 1, pattern);
-  if (!bits) return nullptr;
-  brush = CreatePatternBrush(bits);
-  // 刷子已经拷走图案，位图可以立刻删，否则进程退出前一直占着
-  DeleteObject(bits);
-  return brush;
+constexpr int kDimNum = 45;   // 原画面权重 = 100 - 55
+constexpr int kDimBlue = 12;  // 主题 brand-900 #0c0c0c → BGRA 顺序
+constexpr int kDimGreen = 12;
+constexpr int kDimRed = 12;
+
+std::vector<uint8_t> make_dim_pixels(const CapturedImage& image) {
+  std::vector<uint8_t> pixels = image.pixels;
+  for (size_t i = 0; i + 3 < pixels.size(); i += 4) {
+    pixels[i] = static_cast<uint8_t>((pixels[i] * kDimNum + kDimBlue * 55 + 50) / 100);
+    pixels[i + 1] = static_cast<uint8_t>((pixels[i + 1] * kDimNum + kDimGreen * 55 + 50) / 100);
+    pixels[i + 2] = static_cast<uint8_t>((pixels[i + 2] * kDimNum + kDimRed * 55 + 50) / 100);
+  }
+  return pixels;
 }
 
 void render(CaptureSession& s) {
-  if (!s.buffer_dc || !s.source_dc) return;
+  if (!s.buffer_dc || !s.source_dc || !s.dim_dc) return;
   const CapturedImage& image = s.ctx->snapshot;
   const POINT origin = virtual_origin();
 
@@ -95,22 +112,24 @@ void render(CaptureSession& s) {
   GetClientRect(s.hwnd, &client);
   FillRect(s.buffer_dc, &client, static_cast<HBRUSH>(GetStockObject(BLACK_BRUSH)));
 
-  // 快照、窗口、鼠标坐标都是物理像素：PerMonitorV2 下不需要任何 DPI 换算
+  // 底图：整块先画原亮度快照
   BitBlt(s.buffer_dc, image.rect.left - origin.x, image.rect.top - origin.y,
          image.rect.width(), image.rect.height(), s.source_dc, 0, 0, SRCCOPY);
 
-  // 有选区时把选区挖空，那里的快照保持原亮度
-  RECT shade = client;
+  // 有选区时把选区挖空，遮罩（压暗快照）只铺在选区外
   if (s.has_selection && !s.selection.empty()) {
     RECT hole{static_cast<LONG>(s.selection.left), static_cast<LONG>(s.selection.top),
               static_cast<LONG>(s.selection.right), static_cast<LONG>(s.selection.bottom)};
     ExcludeClipRect(s.buffer_dc, hole.left, hole.top, hole.right, hole.bottom);
   }
-  if (const HBRUSH brush = checker_brush()) FillRect(s.buffer_dc, &shade, brush);
+  BitBlt(s.buffer_dc, image.rect.left - origin.x, image.rect.top - origin.y,
+         image.rect.width(), image.rect.height(), s.dim_dc, 0, 0, SRCCOPY);
   SelectClipRgn(s.buffer_dc, nullptr);
 
   if (s.has_selection && !s.selection.empty()) {
-    HPEN pen = CreatePen(PS_SOLID, 2, RGB(96, 165, 250));
+    // 主题 brand-400（index.css :root = 120 119 116），与渲染端选框 border-brand-400 一致。
+    // 注意：主题换回青蓝时这里要同步改成 111 202 216。
+    HPEN pen = CreatePen(PS_SOLID, 2, RGB(120, 119, 116));
     HGDIOBJ old_pen = SelectObject(s.buffer_dc, pen);
     HGDIOBJ old_brush = SelectObject(s.buffer_dc, GetStockObject(NULL_BRUSH));
     Rectangle(s.buffer_dc, s.selection.left, s.selection.top, s.selection.right,
@@ -155,6 +174,17 @@ bool create_surfaces(CaptureSession& s, int width, int height) {
   SelectObject(s.buffer_dc, s.buffer_bitmap);
   s.width = width;
   s.height = height;
+
+  // 压暗版全场只算这一次，之后拖拽重绘直接 blit
+  s.dim_dc = CreateCompatibleDC(nullptr);
+  void* dim_bits = nullptr;
+  s.dim_bitmap = s.dim_dc ? CreateDIBSection(s.dim_dc, &source_info, DIB_RGB_COLORS, &dim_bits,
+                                             nullptr, 0)
+                          : nullptr;
+  if (!s.dim_dc || !s.dim_bitmap || !dim_bits) return false;
+  SelectObject(s.dim_dc, s.dim_bitmap);
+  const std::vector<uint8_t> dim_pixels = make_dim_pixels(image);
+  std::copy(dim_pixels.begin(), dim_pixels.end(), static_cast<uint8_t*>(dim_bits));
   return true;
 }
 

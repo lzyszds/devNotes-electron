@@ -37,7 +37,9 @@ ctest --test-dir native/win-capture/build-test --output-on-failure
   显示后再 `SetFocus`。右键取消不依赖焦点。快照里保留了原始桌面合成（含阴影）。
 - **首帧完整**：背景在隐藏状态下画进内存 DC，显示时一次上屏，不出现空窗。
 - **多屏**：进程声明 `PerMonitorV2`，鼠标、`GetSystemMetrics`、`BitBlt` 都是物理像素，
-  选区不再做 DPI 换算，只加上虚拟桌面原点。压暗层是 8×8 单色网点，不是真半透明。
+  选区不再做 DPI 换算，只加上虚拟桌面原点。压暗层在内存里把快照预混主题色
+  `brand-900/55`（与渲染端回退遮罩 `CaptureOverlay` 同色），不用 GDI pattern 刷子
+  —— 单色 pattern 的 0 位会被画成白色，FillRect 出来是亮格子。
 - **局限**：快照取自桌面 DC 的 `BitBlt`。个别使用 D3D 独占全屏 / HDR 覆盖层的场景
   可能抓不到内容；失败时退出码为 1，主进程会回退到 Electron 遮罩。
   这个局限需要在真机上验证，CI 的虚拟桌面只覆盖基础路径。
