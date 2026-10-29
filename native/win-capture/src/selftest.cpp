@@ -1,7 +1,6 @@
 #include "selftest.h"
 
 #include <cstdio>
-#include <string>
 
 #include "capture_io.h"
 #include "selection_state.h"
@@ -28,6 +27,15 @@ int run_selftest(const wchar_t* output_path) {
     std::fwprintf(stderr, L"抓屏失败：%ls\n", error.c_str());
     return 1;
   }
+  // WIC 的 PNG 编码器默认在原地更新文件（WICInPlaceBitmapEncoder），
+  // 目标文件不存在时 MSVC 运行库会直接让进程静默退出（退出码 0、什么都不写）。
+  // 先把它建成空文件，编码器才会按“新建”处理。
+  std::FILE* placeholder = _wfopen(output_path, L"wb");
+  if (!placeholder) {
+    std::fwprintf(stderr, L"无法创建输出文件：%ls\n", output_path);
+    return 1;
+  }
+  std::fclose(placeholder);
   if (!encode_png(image, output_path, error)) {
     std::fwprintf(stderr, L"编码失败：%ls\n", error.c_str());
     return 1;
