@@ -89,6 +89,10 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
   const std::wstring output = arg_at(argv_count, argv, L"--output");
   LocalFree(argv);
 
+  // 自检或拿到 --selftest 输出时，GUI 子系统的 stderr 在 CI 里是黑洞。
+  // 挂到父进程（GitHub runner / 终端）：父进程没有控制台时自动跳过。
+  if (!selftest.empty()) AttachConsole(ATTACH_PARENT_PROCESS);
+
   const HRESULT com = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
   if (FAILED(com) && com != RPC_E_CHANGED_MODE) {
     fail(L"无法初始化 COM：" + format_win_error(com));

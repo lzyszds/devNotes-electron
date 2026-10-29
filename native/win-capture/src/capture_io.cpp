@@ -108,6 +108,12 @@ bool encode_png_region(const CapturedImage& source, const PixelRect& region,
                 base + static_cast<size_t>(y) * source.stride, row_bytes);
   }
 
+  // 命令行工具有义务自己初始化 COM：WIC 的 CLSID_WICImagingFactory 是进程内
+  // Apartment 组件，未初始化时 CoCreateInstance 直接返回 CO_E_NOTINITIALIZED，
+  // 表现就是「抓屏成功、PNG 一个字都没写」。跟主程序里已初始化的 COM 不冲突。
+  const HRESULT com = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+  const bool com_owned = SUCCEEDED(com);
+
   IWICImagingFactory* factory = nullptr;
   IWICBitmapEncoder* encoder = nullptr;
   IStream* stream = nullptr;
@@ -141,6 +147,7 @@ bool encode_png_region(const CapturedImage& source, const PixelRect& region,
   if (encoder) encoder->Release();
   if (stream) stream->Release();
   if (factory) factory->Release();
+  if (com_owned) CoUninitialize();
 
   if (FAILED(hr)) {
     error = L"PNG 编码失败：" + format_win_error(hr);
