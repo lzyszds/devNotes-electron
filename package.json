@@ -1,7 +1,7 @@
 {
   "name": "devnotes",
   "productName": "devNotes",
-  "version": "2.0.1",
+  "version": "2.1.5",
   "description": "devNotes (React + TypeScript + Tailwind)",
   "main": "dist-electron/main.js",
   "scripts": {
