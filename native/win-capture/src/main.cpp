@@ -9,6 +9,9 @@
 #define _WIN32_WINNT 0x0A00
 #include <windows.h>
 #include <objbase.h>
+// WIN32_LEAN_AND_MEAN 会把 shellapi.h 排除在 windows.h 之外，
+// 少了它 CommandLineToArgvW 没声明（C3861）。必须放在 windows.h 之后。
+#include <shellapi.h>
 
 #include <string>
 

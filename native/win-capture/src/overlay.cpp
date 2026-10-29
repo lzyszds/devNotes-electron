@@ -131,22 +131,26 @@ void render(CaptureSession& s) {
 bool create_surfaces(CaptureSession& s, int width, int height) {
   const CapturedImage& image = s.ctx->snapshot;
 
+  // 位图信息必须先落到具名变量：CreateDIBSection 要的是 lvalue，直接对
+  // 函数返回值取址 MSVC 不认（C2102 '&' requires l-value）。
+  const BITMAPINFO source_info = dib_info(image.rect.width(), image.rect.height());
   s.source_dc = CreateCompatibleDC(nullptr);
   void* source_bits = nullptr;
-  s.source_bitmap =
-      s.source_dc
-          ? CreateDIBSection(s.source_dc, &dib_info(image.rect.width(), image.rect.height()),
-                             DIB_RGB_COLORS, &source_bits, nullptr, 0)
-          : nullptr;
+  s.source_bitmap = s.source_dc
+                        ? CreateDIBSection(s.source_dc, &source_info, DIB_RGB_COLORS,
+                                           &source_bits, nullptr, 0)
+                        : nullptr;
   if (!s.source_dc || !s.source_bitmap || !source_bits) return false;
   SelectObject(s.source_dc, s.source_bitmap);
   std::copy(image.pixels.begin(), image.pixels.end(), static_cast<uint8_t*>(source_bits));
 
+  const BITMAPINFO buffer_info = dib_info(width, height);
   s.buffer_dc = CreateCompatibleDC(nullptr);
   void* buffer_bits = nullptr;
-  s.buffer_bitmap = s.buffer_dc ? CreateDIBSection(s.buffer_dc, &dib_info(width, height),
-                                                   DIB_RGB_COLORS, &buffer_bits, nullptr, 0)
-                                : nullptr;
+  s.buffer_bitmap = s.buffer_dc
+                        ? CreateDIBSection(s.buffer_dc, &buffer_info, DIB_RGB_COLORS,
+                                           &buffer_bits, nullptr, 0)
+                        : nullptr;
   if (!s.buffer_dc || !s.buffer_bitmap || !buffer_bits) return false;
   SelectObject(s.buffer_dc, s.buffer_bitmap);
   s.width = width;
