@@ -1,9 +1,26 @@
 #include "selftest.h"
 
 #include <cstdio>
+#include <string>
 
 #include "capture_io.h"
 #include "selection_state.h"
+#include "win_error.h"
+
+namespace {
+
+// 与 main.cpp 的 fail() 同理：wprintf 走 ANSI 代码页，中文在英文 CI 上是乱码。
+void report(const std::wstring& message) {
+  const int size =
+      WideCharToMultiByte(CP_UTF8, 0, message.c_str(), -1, nullptr, 0, nullptr, nullptr);
+  if (size <= 1) return;
+  std::string utf8(static_cast<size_t>(size - 1), '\0');
+  WideCharToMultiByte(CP_UTF8, 0, message.c_str(), -1, utf8.data(), size, nullptr, nullptr);
+  std::fprintf(stderr, "%s\n", utf8.c_str());
+  std::fflush(stderr);
+}
+
+}  // namespace
 
 // 命令行参数：devnotes-capture --selftest C:\temp\out.png
 // 成功返回 0，失败写 stderr 并返回 1。
@@ -18,28 +35,27 @@ int run_selftest(const wchar_t* output_path) {
   // 一个固定的小区域即可：验证“坐标换算 → 抓图 → PNG 编码”整条链路
   PixelRect probe = clip_to_bounds(rect_from_points(x, y, x + 64, y + 64), bounds);
   if (probe.empty()) {
-    std::fputs("虚拟桌面尺寸异常\n", stderr);
+    report(L"虚拟桌面尺寸异常");
     return 1;
   }
 
   CapturedImage image;
   if (!capture_desktop_region(probe, image, error)) {
-    std::fwprintf(stderr, L"抓屏失败：%ls\n", error.c_str());
+    report(L"抓屏失败：" + error);
     return 1;
   }
-  // WIC 的 PNG 编码器默认在原地更新文件（WICInPlaceBitmapEncoder），
-  // 目标文件不存在时 MSVC 运行库会直接让进程静默退出（退出码 0、什么都不写）。
-  // 先把它建成空文件，编码器才会按“新建”处理。
+  // 先建空文件再交给编码器：WIC 原地更新文件时，目标不存在会直接失败。
   std::FILE* placeholder = _wfopen(output_path, L"wb");
   if (!placeholder) {
-    std::fwprintf(stderr, L"无法创建输出文件：%ls\n", output_path);
+    report(L"无法创建输出文件：" + std::wstring(output_path));
     return 1;
   }
   std::fclose(placeholder);
   if (!encode_png(image, output_path, error)) {
-    std::fwprintf(stderr, L"编码失败：%ls\n", error.c_str());
+    report(L"编码失败：" + error);
     return 1;
   }
-  std::wprintf(L"selftest ok: %dx%d -> %ls\n", probe.width(), probe.height(), output_path);
+  report(L"selftest ok: " + std::to_wstring(probe.width()) + L"x" +
+         std::to_wstring(probe.height()) + L" -> " + std::wstring(output_path));
   return 0;
 }

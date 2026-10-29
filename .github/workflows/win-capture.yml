@@ -28,7 +28,7 @@ jobs:
           $log = Join-Path $env:RUNNER_TEMP 'selftest.log'
           $proc = Start-Process -FilePath $exe -ArgumentList '--selftest', "'$out'" -Wait -PassThru `
             -RedirectStandardError $log
-          if (Test-Path $log) { Get-Content $log | Write-Host }
+          if (Test-Path $log) { Get-Content $log -Encoding utf8 | Write-Host }
           if ($proc.ExitCode -ne 0) { throw "截图助手自检失败，退出码 $($proc.ExitCode)" }
           if (-not (Test-Path $out)) { throw '截图助手自检未生成 PNG' }
           $bytes = [IO.File]::ReadAllBytes($out)

@@ -13,6 +13,7 @@
 // 少了它 CommandLineToArgvW 没声明（C3861）。必须放在 windows.h 之后。
 #include <shellapi.h>
 
+#include <cstdio>
 #include <string>
 
 #include "capture_io.h"
@@ -30,7 +31,17 @@ std::wstring arg_at(int argc, wchar_t** argv, const wchar_t* name) {
 }
 
 void fail(const std::wstring& message) {
-  std::fwprintf(stderr, L"%ls\n", message.c_str());
+  // wprintf 写的是进程 ANSI 代码页（纯中文在英文 CI 上是乱码，甚至直接失败），
+  // 统一转 UTF-8 再用 printf：终端与 CI 日志都按 UTF-8 读。
+  const int size = WideCharToMultiByte(CP_UTF8, 0, message.c_str(), -1, nullptr, 0, nullptr, nullptr);
+  if (size <= 1) {
+    std::fprintf(stderr, "capture failed\n");
+    std::fflush(stderr);
+    return;
+  }
+  std::string utf8(static_cast<size_t>(size - 1), '\0');
+  WideCharToMultiByte(CP_UTF8, 0, message.c_str(), -1, utf8.data(), size, nullptr, nullptr);
+  std::fprintf(stderr, "%s\n", utf8.c_str());
   std::fflush(stderr);
 }
 
@@ -89,9 +100,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
   const std::wstring output = arg_at(argv_count, argv, L"--output");
   LocalFree(argv);
 
-  // 自检或拿到 --selftest 输出时，GUI 子系统的 stderr 在 CI 里是黑洞。
-  // 挂到父进程（GitHub runner / 终端）：父进程没有控制台时自动跳过。
-  if (!selftest.empty()) AttachConsole(ATTACH_PARENT_PROCESS);
+
 
   const HRESULT com = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
   if (FAILED(com) && com != RPC_E_CHANGED_MODE) {
