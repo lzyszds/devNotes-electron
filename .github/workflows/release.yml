@@ -136,14 +136,15 @@ jobs:
       - name: 自检截图助手
         shell: pwsh
         run: |
+          # 路径不能带引号：Start-Process 的 ArgumentList 是字符串数组，引号会原样传给程序
           $out = Join-Path $env:RUNNER_TEMP 'capture-selftest.png'
           # 用 Start-Process 才能拿到真实退出码：pwsh 7 里 & 直接调 GUI 程序，
           # 即使它自己 ExitProcess(1)，$LASTEXITCODE 也可能为空。
           $exe = Resolve-Path "native/win-capture/build/Release/devnotes-capture.exe"
           $log = Join-Path $env:RUNNER_TEMP 'selftest.log'
-          $proc = Start-Process -FilePath $exe -ArgumentList '--selftest', "'$out'" -Wait -PassThru `
+          $proc = Start-Process -FilePath $exe -ArgumentList '--selftest', $out -Wait -PassThru `
             -RedirectStandardError $log
-          if (Test-Path $log) { Get-Content $log -Encoding utf8 | Write-Host }
+          if (Test-Path $log) { Get-Content $log -Encoding utf8 | Out-Host }
           if ($proc.ExitCode -ne 0) { throw "截图助手自检失败，退出码 $($proc.ExitCode)" }
           if (-not (Test-Path $out)) { throw '截图助手自检未生成 PNG' }
           $bytes = [IO.File]::ReadAllBytes($out)
