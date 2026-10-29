@@ -137,12 +137,11 @@ jobs:
         shell: pwsh
         run: |
           $out = Join-Path $env:RUNNER_TEMP 'capture-selftest.png'
-          # exe 是 WIN32 子系统程序：不捕获输出的话，它出错时提示只进黑洞，
-          # 日志里只剩「没生成 PNG」，看不出真正原因。合并到 2>&1 再判退出码。
-          $log = & "native/win-capture/build/Release/devnotes-capture.exe" --selftest $out 2>&1
-          $code = $LASTEXITCODE
-          $log | Write-Host
-          if ($code -ne 0) { throw "截图助手自检失败，退出码 $code" }
+          # 用 Start-Process 才能拿到真实退出码：pwsh 7 里 & 直接调 GUI 程序，
+          # 即使它自己 ExitProcess(1)，$LASTEXITCODE 也可能为空。
+          $exe = Resolve-Path "native/win-capture/build/Release/devnotes-capture.exe"
+          $proc = Start-Process -FilePath $exe -ArgumentList '--selftest', "'$out'" -Wait -PassThru
+          if ($proc.ExitCode -ne 0) { throw "截图助手自检失败，退出码 $($proc.ExitCode)" }
           if (-not (Test-Path $out)) { throw '截图助手自检未生成 PNG' }
           $bytes = [IO.File]::ReadAllBytes($out)
           if ($bytes[0] -ne 0x89 -or $bytes[1] -ne 0x50) { throw '截图助手输出不是 PNG' }
