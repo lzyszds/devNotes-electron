@@ -52,6 +52,7 @@ function findVcvars64() {
     '-requires', 'Microsoft.VisualStudio.Component.VC.Tools.x86.x64',
     '-property', 'installationPath',
   ], { encoding: 'utf8' })
+  // 只取第一行：装了多个 VS 时 vswhere 会逐行输出，拼在一起路径就不对了
   const install = (found.stdout || '').trim().split(/\r?\n/)[0].trim()
   const bat = install && path.join(install, 'VC', 'Auxiliary', 'Build', 'vcvars64.bat')
   if (!bat || !fs.existsSync(bat)) {
@@ -82,18 +83,24 @@ const buildSteps = [
   ['cmake', ['--build', buildDir]],
   ['ctest', ['--test-dir', buildDir, '--output-on-failure']],
 ]
+const chain = buildSteps
+  .map(([command, args]) => [command, ...args.map((arg) => `"${arg}"`)].join(' '))
+  .join(' && ')
 
 if (msvcAlreadyLoaded()) {
-  for (const [command, args] of buildSteps) run(command, args)
+  run('cmd.exe', ['/d', '/s', '/c', chain])
 } else {
-  // vcvars 只对当前 cmd 会话生效，三次调用必须包在同一次 cmd /c 里
+  // vcvars 只对当前 cmd 会话生效，三步必须包在同一次 cmd /c 里。
+  //
+  // 引号只能放在自己写好的批处理里：batch 和参数交给 PowerShell 传时，
+  // Git Bash 会再剥一层引号、pwsh 的默认 shell 又是 PowerShell —— VS 装在
+  // "Program Files" 下，路径一旦少引号就是 'C:\Program' 不是内部命令。
   const bat = findVcvars64()
-  const chain = buildSteps
-    .map(([command, args]) => [command, ...args.map((arg) => `"${arg}"`)].join(' '))
-    .join(' && ')
-  // 只在外层包一对引号：cmd /s /c 会剥掉首尾引号，内层再给 bat 加引号
-  // 会被当成命令名的一部分（GitHub runner 的 VS 装在 "Program Files" 下，必踩）。
-  run('cmd.exe', ['/d', '/s', '/c', `call ${bat} && ${chain}`])
+  const tempDir = fs.mkdtempSync(path.join(process.env.RUNNER_TEMP || process.env.TEMP || root, 'win-capture-'))
+  const script = path.join(tempDir, 'build.cmd')
+  fs.writeFileSync(script, ['@echo off', `call "${bat}"`, chain, ''].join('\r\n'))
+  run('cmd.exe', ['/d', '/c', script])
+  fs.rmSync(tempDir, { recursive: true, force: true })
 }
 
 if (!fs.existsSync(output)) {
