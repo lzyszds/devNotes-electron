@@ -1,9 +1,11 @@
 /*
  * 图片文字识别（OCR）。
  *
- * 主引擎：light-ocr（@arcships/light-ocr），PP-OCRv6 的 C++ 内核以子进程
- * CLI 方式调用（见 electron/lightOcr.ts）—— 中文/混排小字准确率最高，
- * 单张 <1 秒，主窗口零常驻内存；完全离线，不联网。
+ * 主引擎：light-ocr（@arcships/light-ocr），PP-OCRv6 的 C++ 内核跑在一个
+ * 常驻子进程里（见 electron/lightOcr.ts 与包内的 serve.cjs）—— 中文/混排小字
+ * 准确率最高，完全离线、不联网。第一次识别要付约 0.7s 的引擎启动，之后每张
+ * 图只剩推理时间（实测 124 行的大截图约 6s，小截图 0.4s 以内）；闲置三分钟
+ * 由主进程把子进程收掉。
  *
  * 兜底：tesseract.js，资源全部走本地静态目录：
  *  - worker 与 core wasm 从 public/tesseract/ 加载（构建后跟 dist/ 一起走），
@@ -16,6 +18,15 @@
  * 只保留 lstm 版 core：tesseract 4 之后 LSTM 是唯一在维护的识别引擎，
  * 老的 legacy 引擎识别率明显更差。fast 是量化模型，精度上略逊常规版，
  * 识别预处理（放大 + 灰度化）能弥补大半（见 upscaleForOcr 的说明）。
+ *
+ * 送进去的图片格式：**PNG，而且不做量化压缩**。这一条是实测定的，别再改：
+ *  - light-ocr 原生层只认 PNG / JPEG（WebP 直接报「not a supported JPEG or PNG」）；
+ *  - PNG 有损化（调色板量化、JPEG 重编码）会伤到识别率：同一张 2800×1800 截图，
+ *    原始 PNG 识别 124 行，256 色量化 PNG 少 3 行、JPEG 少 17 行且平均置信掉
+ *    0.002~0.015 —— 小字边缘的抗锯齿一糊，模型就把字形认成别的字；
+ *  - 传输量不是瓶颈：走 IPC 的是结构化克隆的字符串，几 MB 只在进程间拷一次
+ *    （实测 25ms 解码），比起识别本身的 5~6 秒可以忽略。
+ * 所以这里只把「不是 PNG 的输入」统一转成 PNG，绝不用 JPEG/WebP 省体积。
  */
 
 import { createWorker, type Worker } from 'tesseract.js'
@@ -37,11 +48,41 @@ export const OCR_LANGUAGES: { value: OcrLanguage; label: string }[] = [
   { value: 'chi_sim', label: '仅中文' },
 ]
 
+/**
+ * 识别阶段名。界面按它决定文案与图标，比直接拿中文 status 字符串分支稳
+ * （文案随时可能改，阶段名是契约）。
+ */
+export type OcrStage = 'engine' | 'detect' | 'recognize'
+
 export interface OcrProgress {
   /** 0 ~ 1 */
   progress: number
+  /** 当前处在哪个阶段。缺省按 status 推断 */
+  stage?: OcrStage
+  /**
+   * 整个识别已经跑了多久（ms）。
+   *
+   * 阶段进度只能说明「走到哪一步」，说明不了「还要等多久」——
+   * 用户真正关心的是这个数。识别结束时这里就是这次识别的总耗时。
+   */
+  elapsedMs?: number
   /** 给人看的状态描述 */
   status: string
+  /**
+   * 这一阶段的显示**权重**（相对值，不是百分比）。
+   *
+   * 一段 OCR 的耗时几乎全在「逐行识别」上（实测 124 行：检测 0.25s、
+   * 识别 5.3s），所以进度条不能按阶段均分，否则会长时间卡在 30%。
+   * 数字只是相对比例，界面按 阶段起点 + 阶段内进度 × 权重 累加。
+   */
+  weight?: number
+}
+
+/** 阶段文案。进度条与胶囊上都显示这一句 */
+export const OCR_STAGE_LABELS: Record<OcrStage, string> = {
+  engine: '准备识别引擎',
+  detect: '分析排版',
+  recognize: '识别文字',
 }
 
 let workerPromise: Promise<Worker> | null = null
@@ -64,6 +105,17 @@ let activeWorker: Worker | null = null
 const UPSCALE_TARGET = 2000
 const UPSCALE_MAX = 3
 
+/**
+ * 识别前的统一整形：解码 → （按需放大）→ 灰度 → PNG。
+ *
+ * 几种输入都在这里收敛成「灰度 PNG」：
+ *  - 小图放大到长边 2000（UPSCALE_MAX 封顶，超大截图不放大）；
+ *  - 任何非 PNG 输入（macOS 截图支路会给 JPEG）一律重编码成 PNG ——
+ *    light-ocr 原生层只认 PNG / JPEG，而 WebP 它直接拒绝；
+ *  - 顺带灰度化。
+ *
+ * **不做有损压缩**：调色板量化的 PNG 与 JPEG 都会伤识别率，实测见文件头注释。
+ */
 async function upscaleForOcr(image: string): Promise<string> {
   const el = new Image()
   el.src = image
@@ -71,14 +123,17 @@ async function upscaleForOcr(image: string): Promise<string> {
     el.onload = () => resolve()
     el.onerror = () => reject(new Error('图片解码失败'))
   })
-  const longest = Math.max(el.naturalWidth, el.naturalHeight)
-  if (!longest) return image
+  const width = el.naturalWidth
+  const height = el.naturalHeight
+  if (!width || !height) return image
+
+  const longest = Math.max(width, height)
   const scale = Math.min(UPSCALE_TARGET / longest, UPSCALE_MAX)
-  if (scale <= 1) return image
+  const needsResize = scale > 1
 
   const canvas = document.createElement('canvas')
-  canvas.width = Math.round(el.naturalWidth * scale)
-  canvas.height = Math.round(el.naturalHeight * scale)
+  canvas.width = needsResize ? Math.round(width * scale) : width
+  canvas.height = needsResize ? Math.round(height * scale) : height
   const ctx = canvas.getContext('2d')
   if (!ctx) return image
   ctx.imageSmoothingEnabled = true
@@ -225,6 +280,8 @@ function describeStatus(status: string): string {
  * 没有这组包），本会话不再尝试；null = 没试过。failed 只单次回退。
  */
 let lightSupported: boolean | null = null
+/** 进度订阅用的请求号：每次识别 +1，主进程原样带回 */
+let lightRequestId = 0
 
 async function lightOcrText(
   image: string,
@@ -232,9 +289,35 @@ async function lightOcrText(
 ): Promise<string | null> {
   const call = window.electronAPI?.lightOcr
   if (!call || lightSupported === false) return null
-  onProgress?.({ progress: 0.3, status: 'recognizing text' })
+  // 起点先给一条「正在起引擎」，之后全部由主进程按引擎耗时推上来
+  onProgress?.({ progress: 0, stage: 'engine', status: '准备识别引擎', weight: 15 })
+
+  // 主进程按 requestId 把进度推回来；连截几张时不会串台
+  const requestId = ++lightRequestId
+  const startedAt = performance.now()
+  let unsubscribe = () => {}
+  if (onProgress) {
+    unsubscribe = window.electronAPI?.onOcrProgress?.((p) => {
+      if (p.requestId !== requestId) return
+      onProgress({
+        progress: p.value,
+        stage: p.stage,
+        status: OCR_STAGE_LABELS[p.stage] ?? '识别文字',
+        weight: p.weight,
+        elapsedMs: Math.round(performance.now() - startedAt),
+      })
+    }) ?? (() => {})
+  }
   try {
-    const outcome = await call(image)
+    /*
+     * 显式钉死 CPU 执行后端。
+     *
+     * 原生层默认 auto，在 macOS 上会挑 Apple CoreML：同一张 125 行的截图实测
+     * CoreML 12.5s、CPU 6.5s —— 识别段（recognitionInference）差了一倍，
+     * 这正是「识别特别慢」的主因。CPU 走 onnxruntime 的向量化实现，对这种
+     * small 模型反而更快，精度也一模一样（同一批行、同样的置信度）。
+     */
+    const outcome = await call(image, 'cpu', requestId)
     if (outcome.status === 'ok') {
       lightSupported = true
       return postProcess(outcome.text)
@@ -248,6 +331,8 @@ async function lightOcrText(
   } catch (error) {
     console.warn('[ocr] light-ocr 调用失败，回退 tesseract：', error)
     return null
+  } finally {
+    unsubscribe()
   }
 }
 
@@ -266,18 +351,30 @@ export async function recognizeText(
 ): Promise<string> {
   const lang = options.lang ?? 'chi_sim+eng'
 
-  // 预处理（放大 + 灰度化）一次，两条路径共用；解码失败就按原图识别
+  /*
+   * 预处理（放大 + 灰度 + 统一 PNG）一次，两条路径共用。
+   * 非 PNG 的输入（macOS 截图支路会给 JPEG）必须在这里转成 PNG ——
+   * light-ocr 原生层只认 PNG / JPEG，WebP 会被直接拒绝。
+   */
   let scaled = image
   try {
     scaled = await upscaleForOcr(image)
   } catch {
-    // ignore
+    // 解码都失败了：原样交给识别层，让它报具体错误
   }
 
   const light = await lightOcrText(scaled, options.onProgress)
   if (light !== null) return light
 
-  const worker = await getWorker(lang, options.onProgress)
+  // 主引擎不可用才回退：引擎启动与语言包加载各给一段权重，识别阶段吃剩下的
+  options.onProgress?.({ progress: 0, stage: 'engine', status: '准备识别引擎', weight: 20 })
+  const worker = await getWorker(lang, (p) =>
+    options.onProgress?.({
+      ...p,
+      stage: p.status === 'recognizing text' ? 'recognize' : 'engine',
+      weight: p.status === 'recognizing text' ? 80 : 20,
+    })
+  )
   activeWorker = worker
 
   try {

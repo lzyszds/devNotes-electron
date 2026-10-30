@@ -166,13 +166,35 @@ interface Window {
       callback: (payload: { requestId: string; error?: string }) => void
     ) => () => void
     onCaptureOcrRequest?: (callback: (dataUrl: string) => void) => () => void
+    /** 调试日志落盘（即发即忘） */
+    debugLog?: (line: string) => void
+    /**
+     * 告诉主进程截图订阅已经挂好：主进程开始直推、不再留缓存，
+     * 并把冷启动 / 页面刷新期间暂存的那张补推过来。
+     */
+    notifyCaptureOcrReady?: () => void
 
     /* light-ocr（PP-OCRv6 子进程）识别：依赖缺失时 unsupported，渲染层回退 tesseract */
-    lightOcr?: (dataUrl: string) => Promise<
+    lightOcr?: (
+      dataUrl: string,
+      provider?: 'auto' | 'cpu' | 'apple',
+      requestId?: number
+    ) => Promise<
       { status: 'ok'; text: string }
       | { status: 'unsupported' }
       | { status: 'failed'; reason: string }
     >
+    /** 识别进度。stage 只做文案归类；value 是本阶段进度（0~1），weight 是它在整条进度里的占比 */
+    onOcrProgress?: (
+      callback: (progress: {
+        requestId: number
+        stage: 'engine' | 'detect' | 'recognize'
+        value: number
+        weight?: number
+        current?: number
+        total?: number
+      }) => void
+    ) => () => void
 
     /* 草稿纸置顶小窗 */
     scratchOpen?: () => Promise<void>

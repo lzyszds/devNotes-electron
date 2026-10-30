@@ -304,12 +304,49 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.removeListener('capture:ocr-request', listener)
     }
   },
-  /** light-ocr（PP-OCRv6 子进程）识别一张图；依赖缺失时返回 unsupported */
+  /** 调试日志：即发即忘地写进本地日志文件（见 electron/debugLog.ts） */
+  debugLog: (line: string): void => {
+    ipcRenderer.send('debug-log', line)
+  },
+  /**
+   * 告诉主进程「主窗口的截图订阅已经挂好了」。
+   *
+   * 主进程据此把推送改成「直推不留缓存」，并把冷启动 / 页面刷新期间暂存的
+   * 那张截图补推过来。只发一次信号，不等回执 —— 图会顺着
+   * capture:ocr-request 那条推送路回来。
+   */
+  notifyCaptureOcrReady: (): void => {
+    ipcRenderer.send('capture:ocr-ready')
+  },
+  /**
+   * light-ocr（PP-OCRv6 常驻子进程）识别一张图；依赖缺失时返回 unsupported。
+   * provider 不传则由主进程默认钉 CPU（CoreML 在 macOS 上慢一倍，见 lightOcr.ts）。
+   * requestId 只用于把 ocr:progress 推给发起方 —— 连截几张时不能串台。
+   */
   lightOcr: (
-    dataUrl: string
+    dataUrl: string,
+    provider?: 'auto' | 'cpu' | 'apple',
+    requestId?: number
   ): Promise<{ status: 'ok'; text: string } | { status: 'unsupported' } | { status: 'failed'; reason: string }> =>
-    ipcRenderer.invoke('ocr-light-recognize', dataUrl),
+    ipcRenderer.invoke('ocr-light-recognize', dataUrl, provider, requestId),
+  /** 识别进度（起引擎 / 分析排版 / 逐行识别），按 requestId 过滤 */
+  onOcrProgress: (callback: (progress: OcrProgressEvent) => void) => {
+    const listener = (_: unknown, progress: OcrProgressEvent) => callback(progress)
+    ipcRenderer.on('ocr:progress', listener)
+    return () => {
+      ipcRenderer.removeListener('ocr:progress', listener)
+    }
+  },
 })
+
+/** 识别进度事件。stage 只用于文案归类，value 是本阶段的进度（0~1） */
+export interface OcrProgressEvent {
+  requestId: number
+  stage: 'engine' | 'detect' | 'recognize'
+  value: number
+  current?: number
+  total?: number
+}
 
 // 外部打开文件的消息负载
 export interface OpenFilePayload {
