@@ -185,15 +185,21 @@ interface Window {
     clipboardList?: () => Promise<ClipboardEntry[]>
     clipboardRemove?: (id: string) => Promise<ClipboardEntry[]>
     clipboardClear?: () => Promise<ClipboardEntry[]>
-    clipboardRestore?: (text: string) => Promise<boolean>
     clipboardCopyImage?: (imageDataUrl: string) => Promise<boolean>
+    /** 按条目 id 复制图片（原图在磁盘，主进程按需读） */
+    clipboardCopyImageById?: (entryId: string) => Promise<boolean>
+    /** 上云用的剪贴板投影：图片已脱敏成【图片】，只回轻条目 */
+    clipboardProjectForSync?: () => Promise<
+      { id: string; type: 'text'; text: string; at: number }[]
+    >
     onClipboardChanged?: (callback: (entries: ClipboardEntry[]) => void) => () => void
 
     /* 选中即粘贴到外部应用（需辅助功能授权） */
-    clipboardPasteAvailable?: () => Promise<boolean>
-    clipboardPastePermission?: () => Promise<boolean>
-    clipboardRequestPermission?: () => Promise<boolean>
     clipboardOpenAccessibility?: () => Promise<void>
+    /** 按条目 id 粘贴图片：主进程读原图 → base64 → 写剪贴板 → 模拟 ⌘V */
+    clipboardPasteImage?: (
+      entryId: string
+    ) => Promise<{ ok: boolean; reason?: 'no-module' | 'no-permission' | 'failed' }>
     clipboardPaste?: (
       payload: {
         type: 'text' | 'image' | 'file'
@@ -332,8 +338,18 @@ interface ClipboardEntry {
   type: 'text' | 'image' | 'file'
   /** type='text' 时的正文 */
   text?: string
-  /** type='image' 时的 PNG dataURL */
+  /**
+   * type='image' 时的 PNG dataURL —— 只在「采集瞬间 → 主进程落盘」这一内存
+   * 通道里存在；持久化历史里不再内嵌 base64（图片已改为文件态存储）。
+   */
   imageDataUrl?: string
+  /**
+   * type='image' 时磁盘上的原图文件指针（clipboard-images/<imageId>.png）。
+   * 面板缩略图用 dnclip://thumb/<imageId> 直读，粘贴走 clipboardPasteImage。
+   */
+  imageId?: string
+  /** type='image' 时原图字节数（不经解码即可显示大小） */
+  imageBytes?: number
   /** type='file' 时的绝对路径 */
   filePath?: string
   /** 采集时刻（毫秒时间戳） */

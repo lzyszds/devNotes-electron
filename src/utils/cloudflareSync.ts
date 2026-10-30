@@ -204,26 +204,22 @@ export async function collectSettings(): Promise<SettingsSnapshot> {
         if (raw !== null) snapshot[key] = raw
         continue
       }
+      if (key === 'clipboard-history') {
+        /*
+         * 剪贴板不让渲染层把整份历史拉回来再投影。
+         *
+         * 以前是 storeGet 拿全量（现在虽已是轻条目，但 3000 条 × 上千字符的
+         * 文本仍是几 MB 的数据，做一次 IPC 克隆只为了把图片字段换成【图片】），
+         * 改由主进程直接在源头投影：图片条目只回 {id,type:'text',text:'【图片】',at}，
+         * 文本条目原样回。IPC 传输量与条目数成正比但不再是全量。
+         */
+        const projected = await api?.clipboardProjectForSync?.()
+        if (Array.isArray(projected)) snapshot[key] = projected
+        continue
+      }
       const value = await api?.storeGet?.(key)
       if (value !== undefined && value !== null) {
-        if (key === 'clipboard-history' && Array.isArray(value)) {
-          // 用户硬性要求：剪切板的图片不要同步，云端直接丢弃图片数据，用【图片】来表示
-          // 彻底剔除图片 base64/二进制数据，保护服务器硬盘空间，同时允许文本在多端同步
-          snapshot[key] = value.map((entry: any) => {
-            if (!entry || typeof entry !== 'object') return entry
-            if (entry.type === 'image' || entry.imageDataUrl) {
-              return {
-                id: entry.id,
-                type: 'text',
-                text: '【图片】',
-                at: entry.at || Date.now(),
-              }
-            }
-            return entry
-          })
-        } else {
-          snapshot[key] = value
-        }
+        snapshot[key] = value
       }
     } catch {
       // 单项读失败不该拖垮整次同步，跳过即可
@@ -319,8 +315,13 @@ function mergeClipboardHistory(localList: any[], remoteList: any[]): any[] {
     if (!localItem) {
       map.set(remoteItem.id, remoteItem)
     } else {
-      // 本地已有该条目：若本地有图片，远端是【图片】脱敏占位，保留本地图片数据
-      if (localItem.imageDataUrl && (!remoteItem.imageDataUrl || remoteItem.text === '【图片】')) {
+      // 本地已有该条目：若本地有真实图片（inline 兜底或文件态 imageId 均算），
+      // 远端是【图片】脱敏占位，必须保留本地真实图片，否则图片文件指针被
+      // 脱敏文本覆盖后，本地图就成了没人引用的孤儿
+      if (
+        (localItem.imageDataUrl || localItem.imageId) &&
+        (!remoteItem.imageDataUrl || remoteItem.text === '【图片】')
+      ) {
         // 保留本地真实图片
       } else if ((remoteItem.at || 0) > (localItem.at || 0)) {
         map.set(remoteItem.id, remoteItem)
@@ -671,17 +672,28 @@ async function executeRequest(
     }
   }
 
-  // 2. 标准 fetch
-  const res = await fetch(url, {
-    method: options.method || 'GET',
-    headers: options.headers,
-    body: options.body,
-  })
-  const text = await res.text()
-  return {
-    ok: res.ok,
-    status: res.status,
-    text,
+  // 2. 标准 fetch（浏览器 / 非 Electron 环境）
+  //
+  // 必须带超时：Electron 那一路自己有 15s 的 timeout，浏览器这一路原来裸调，
+  // 服务器半死不活（连上但不回包）时会一直挂着 —— 界面上就是「同步按钮点了
+  // 转圈永远不停」。AbortController 到点中断，按失败返回让上层给出提示。
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 15000)
+  try {
+    const res = await fetch(url, {
+      method: options.method || 'GET',
+      headers: options.headers,
+      body: options.body,
+      signal: controller.signal,
+    })
+    const text = await res.text()
+    return {
+      ok: res.ok,
+      status: res.status,
+      text,
+    }
+  } finally {
+    clearTimeout(timer)
   }
 }
 
@@ -1399,7 +1411,20 @@ export async function loadBackupSnapshots(): Promise<BackupSnapshot[]> {
   try {
     if (window.electronAPI?.storeGet) {
       const stored = await window.electronAPI.storeGet(SNAPSHOTS_STORE_KEY)
-      if (Array.isArray(stored)) return stored
+      if (Array.isArray(stored)) {
+        // 老版本在 localStorage 里还镜像过一份（leveldb 被它撑到近百 MB）。
+        // 以 store 为准，顺手把这坨历史遗留删掉 —— 一次性清理，之后不再写
+        if (localStorage.getItem(SNAPSHOTS_STORE_KEY) !== null) {
+          queueMicrotask(() => {
+            try {
+              localStorage.removeItem(SNAPSHOTS_STORE_KEY)
+            } catch {
+              // ignore
+            }
+          })
+        }
+        return stored
+      }
     }
     const local = localStorage.getItem(SNAPSHOTS_STORE_KEY)
     if (local) {
@@ -1413,15 +1438,18 @@ export async function loadBackupSnapshots(): Promise<BackupSnapshot[]> {
 }
 
 export async function saveBackupSnapshots(snapshots: BackupSnapshot[]): Promise<void> {
+  /*
+   * 只写 electron-store（大 key 走 bulk 分文件 + 防抖异步落盘）。
+   *
+   * 原来的 localStorage 镜像每存一次快照就把「最多 20 份完整笔记库」整套
+   * stringify 再同步写一遍 —— 库 1MB 时每次备份就是 20MB 的同步写，
+   * Local Storage 的 leveldb 就是这么被撑到近百 MB 的。快照属于「能从笔记库
+   * 重建」的冗余数据，不值得占着渲染主线程和存储配额。
+   */
   try {
     if (window.electronAPI?.storeSet) {
       await window.electronAPI.storeSet(SNAPSHOTS_STORE_KEY, snapshots)
     }
-  } catch {
-    // ignore
-  }
-  try {
-    localStorage.setItem(SNAPSHOTS_STORE_KEY, JSON.stringify(snapshots))
   } catch {
     // ignore
   }
@@ -1431,17 +1459,31 @@ export function createSnapshotFromState(
   state: NotesState,
   trigger: 'auto' | 'manual' | 'startup' | 'rollback_guard'
 ): BackupSnapshot {
-  const jsonStr = JSON.stringify(state)
-  // 计数与标题都只看未删除文档 —— 回收站里的不该出现在「N 篇」和快照摘要里
+  /*
+   * 快照要存一份「此刻的完整状态」。原先是 stringify → new Blob 量字节 →
+   * JSON.parse 再转回对象，等于对整库做三遍全量处理（库到 MB 级时每次自动
+   * 备份都要几十 ms）。现在只 stringify 一次，字节数按 UTF-8 长度估算
+   * （先按字符数计，非 ASCII 再按编码后的长度修正），对象直接用原 state ——
+   * 调用方传进来的 state 已经是不可变快照（每次编辑都换新对象），不会被子
+   * 后续写回改掉。
+   */
   const alive = state.notes.filter((note) => !note.deletedAt)
+  let sizeBytes = 0
+  try {
+    const jsonStr = JSON.stringify(state)
+    // 字符数 ≤ 字节数；纯 ASCII 时两者相等，中文按 3 字节估算
+    sizeBytes = jsonStr.length + (jsonStr.length - jsonStr.replace(/[^\x00-\x7f]/g, '').length) * 2
+  } catch {
+    sizeBytes = 0
+  }
   return {
     id: `snap_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
     timestamp: Date.now(),
     trigger,
     docCount: alive.length,
-    sizeBytes: new Blob([jsonStr]).size,
+    sizeBytes,
     noteTitles: alive.map((n) => n.title || '未命名笔记').slice(0, 5),
-    state: JSON.parse(jsonStr),
+    state,
   }
 }
 

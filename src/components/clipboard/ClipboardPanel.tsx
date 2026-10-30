@@ -109,9 +109,24 @@ export default function ClipboardPanel() {
     void api?.clipboardList?.().then((list) => {
       if (alive && list) setEntries(list)
     })
+    /*
+     * 主进程在面板隐藏期间不推全量（省掉上万条的克隆），改为「唤起时先写
+     * 同步缓存再 show」。面板聚焦/可见时立刻去主进程读缓存 —— 两条路径都
+     * 读同一份主进程真值，不会出现顺序错位。
+     */
+    const syncOnShow = () => {
+      if (document.visibilityState !== 'visible') return
+      void api?.clipboardList?.().then((list) => {
+        if (alive && list) setEntries(list)
+      })
+    }
+    window.addEventListener('focus', syncOnShow)
+    document.addEventListener('visibilitychange', syncOnShow)
     const off = api?.onClipboardChanged?.((list) => setEntries(list))
     return () => {
       alive = false
+      window.removeEventListener('focus', syncOnShow)
+      document.removeEventListener('visibilitychange', syncOnShow)
       off?.()
     }
   }, [api])
@@ -251,12 +266,18 @@ export default function ClipboardPanel() {
    * 以前不管成没成都报「已填入」并立刻收起，失败时看起来就像什么都没发生。
    */
   const pick = async (entry: ClipboardEntry) => {
-    const result = await api?.clipboardPaste?.({
-      type: entry.type,
-      text: entry.text,
-      imageDataUrl: entry.imageDataUrl,
-      filePath: entry.filePath,
-    })
+    /*
+     * 图片走 clipboardPasteImage：原图已文件态存储，渲染层不再持有 base64，
+     * 由主进程读盘 → base64 → 写剪贴板 → 模拟 ⌘V，「贴出图」链路不变。
+     */
+    const result =
+      entry.type === 'image'
+        ? await api?.clipboardPasteImage?.(entry.id)
+        : await api?.clipboardPaste?.({
+            type: entry.type,
+            text: entry.text,
+            filePath: entry.filePath,
+          })
     if (!result?.ok) {
       setFailedReason(result?.reason ?? 'failed')
       return
@@ -464,7 +485,16 @@ export default function ClipboardPanel() {
                     <div className="flex-1 min-w-0 flex items-center gap-2">
                       {entry.type === 'image' ? (
                         <img
-                          src={entry.imageDataUrl}
+                          /*
+                           * 缩略图走 dnclip://thumb/<imageId> 直读磁盘（主进程协议回 PNG），
+                           * 不再从 history JSON 里 load 大块 base64。
+                           * 旧格式 entry（尚未迁移完的兜底）仍有 inline dataURL
+                           */
+                          src={
+                            entry.imageId
+                              ? `dnclip://thumb/${entry.imageId}`
+                              : entry.imageDataUrl
+                          }
                           alt="图片"
                           className="w-9 h-9 rounded-md object-cover border border-slate-200 shrink-0"
                         />
@@ -520,7 +550,13 @@ export default function ClipboardPanel() {
                               onClick={async (e) => {
                                 e.stopPropagation()
                                 if (entry.type === 'image') {
-                                  await api?.clipboardCopyImage?.(entry.imageDataUrl ?? '')
+                                  if (entry.imageId) {
+                                    // 原图在磁盘上，按 id 让主进程读盘写回剪贴板
+                                    await api?.clipboardCopyImageById?.(entry.id)
+                                  } else {
+                                    // 尚未迁移的旧格式兜底：仍有 inline base64
+                                    await api?.clipboardCopyImage?.(entry.imageDataUrl ?? '')
+                                  }
                                 } else if (entry.type === 'file') {
                                   await copyText(entry.filePath ?? '')
                                 } else {
