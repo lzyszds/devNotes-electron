@@ -93,13 +93,23 @@ export function canonicalLanguageId(raw: string): string {
  * （lowlight 的适配层在 language 为空时走 `highlightAuto`），换 shiki 时不能丢。
  * shiki 自己不做语言猜测，所以把 highlight.js 留着，只当「猜语言」用。
  *
- * 猜一次要跑遍 common 那 37 个语法，比按语言解析贵得多，所以按内容缓存上一次的结果。
+ * 猜一次要跑遍 common 那 37 个语法，比按语言解析贵得多。缓存用 LRU 而不是
+ * 「只记上一条」：一屏上通常有好几个无语言标签的块，只记最后一条时，每次
+ * 全文重算（打字、换主题、切文档）都要把所有块挨个重猜一遍 —— 从 O(块数) 次
+ * 全文扫描降到「每个块的首次」一次。
  */
 const autoDetector = createLowlight(commonLanguages)
-let lastGuess: { content: string; id: string } | null = null
+const GUESS_CACHE_LIMIT = 64
+/** key → 猜出的语言。Map 的插入顺序即 LRU 顺序：命中时删掉再写回，队列尾部就是最久未用的 */
+const guessCache = new Map<string, string>()
 
 function guessLanguage(content: string): string {
-  if (lastGuess?.content === content) return lastGuess.id
+  const cached = guessCache.get(content)
+  if (cached !== undefined) {
+    guessCache.delete(content)
+    guessCache.set(content, cached)
+    return cached
+  }
 
   let id = FALLBACK_LANG
   try {
@@ -109,7 +119,11 @@ function guessLanguage(content: string): string {
     // 猜不出来就用兜底，别让异常冒到调用方（它会带崩全文高亮）
   }
 
-  lastGuess = { content, id }
+  guessCache.set(content, id)
+  if (guessCache.size > GUESS_CACHE_LIMIT) {
+    const oldest = guessCache.keys().next().value
+    if (oldest !== undefined) guessCache.delete(oldest)
+  }
   return id
 }
 
