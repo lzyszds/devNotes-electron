@@ -24,37 +24,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
   /* 剪贴板历史面板 */
   clipboardOpen: () => ipcRenderer.invoke('clipboard-open'),
   clipboardClose: () => ipcRenderer.invoke('clipboard-close'),
-  /*
-   * 列表是「轻条目」：图片条目只有 imageId 指针（原图与缩略图分别落盘，
-   * 缩略图走 dnclip://thumb/<id> 协议直读），绝无 base64 大字符串。
-   */
   clipboardList: (): Promise<
-    {
-      id: string
-      type: 'text' | 'image' | 'file'
-      text: string
-      at: number
-      truncated?: boolean
-      imageId?: string
-      imageBytes?: number
-    }[]
+    { id: string; text: string; at: number; truncated?: boolean }[]
   > => ipcRenderer.invoke('clipboard-list'),
   clipboardRemove: (id: string) => ipcRenderer.invoke('clipboard-remove', id),
   clipboardClear: () => ipcRenderer.invoke('clipboard-clear'),
+  clipboardRestore: (text: string) => ipcRenderer.invoke('clipboard-restore', text),
   clipboardCopyImage: (imageDataUrl: string): Promise<boolean> =>
     ipcRenderer.invoke('clipboard-copy-image', imageDataUrl),
-  /** 按条目 id 复制图片。原图在磁盘上，由主进程按需读并写回系统剪贴板 */
-  clipboardCopyImageById: (entryId: string): Promise<boolean> =>
-    ipcRenderer.invoke('clipboard-copy-image-by-id', entryId),
-  /**
-   * 上云用的剪贴板投影（图片一律脱敏成【图片】）。
-   * 主进程侧直接生成，省掉「整份历史过 IPC 再在渲染层 map」的开销。
-   */
-  clipboardProjectForSync: (): Promise<
-    { id: string; type: 'text'; text: string; at: number }[]
-  > => ipcRenderer.invoke('clipboard-project-for-sync'),
 
   /* 选中即粘贴到当前聚焦的外部应用（需要辅助功能授权） */
+  clipboardPasteAvailable: (): Promise<boolean> =>
+    ipcRenderer.invoke('clipboard-paste-available'),
+  clipboardPastePermission: (): Promise<boolean> =>
+    ipcRenderer.invoke('clipboard-paste-permission'),
+  clipboardRequestPermission: (): Promise<boolean> =>
+    ipcRenderer.invoke('clipboard-request-permission'),
   clipboardOpenAccessibility: (): Promise<void> =>
     ipcRenderer.invoke('clipboard-open-accessibility'),
   clipboardPaste: (
@@ -66,11 +51,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     }
   ): Promise<{ ok: boolean; reason?: 'no-module' | 'no-permission' | 'failed' }> =>
     ipcRenderer.invoke('clipboard-paste', payload),
-  /** 按条目 id 粘贴图片：主进程读原图文件 → base64 → 写剪贴板 → 模拟 ⌘V */
-  clipboardPasteImage: (
-    entryId: string
-  ): Promise<{ ok: boolean; reason?: 'no-module' | 'no-permission' | 'failed' }> =>
-    ipcRenderer.invoke('clipboard-paste-image', entryId),
 
   /** 采集到新内容时推送，面板不用轮询 */
   onClipboardChanged: (
@@ -347,6 +327,7 @@ export interface OcrProgressEvent {
   current?: number
   total?: number
 }
+
 
 // 外部打开文件的消息负载
 export interface OpenFilePayload {

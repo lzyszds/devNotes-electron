@@ -218,10 +218,6 @@ interface Window {
 
     /* 选中即粘贴到外部应用（需辅助功能授权） */
     clipboardOpenAccessibility?: () => Promise<void>
-    /** 按条目 id 粘贴图片：主进程读原图 → base64 → 写剪贴板 → 模拟 ⌘V */
-    clipboardPasteImage?: (
-      entryId: string
-    ) => Promise<{ ok: boolean; reason?: 'no-module' | 'no-permission' | 'failed' }>
     clipboardPaste?: (
       payload: {
         type: 'text' | 'image' | 'file'
@@ -229,6 +225,10 @@ interface Window {
         imageDataUrl?: string
         filePath?: string
       }
+    ) => Promise<{ ok: boolean; reason?: 'no-module' | 'no-permission' | 'failed' }>
+    /** 按条目 id 粘贴图片：主进程读原图文件 → base64 → 写剪贴板 → 模拟 ⌘V */
+    clipboardPasteImage?: (
+      entryId: string
     ) => Promise<{ ok: boolean; reason?: 'no-module' | 'no-permission' | 'failed' }>
 
     /* 文件局域网分享 */
