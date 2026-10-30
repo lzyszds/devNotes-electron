@@ -16,6 +16,13 @@ import { LAN_TRANSFER_PAGE } from './lanTransferPage'
 
 const MAX_UPLOAD_BYTES = 200 * 1024 * 1024
 const MAX_TEXT_CHARS = 100_000
+/**
+ * 收件箱条数上限。每收一件都要重写 inbox.json，且文件条目占真实磁盘 ——
+ * 无限制时「手机一直往里发」会让数组与 JSON 无限增长。200 条足够一天的
+ * 中转使用，超出的旧条目连同落盘文件一起淘汰（只淘汰本次新收之前就有的，
+ * 避免把刚收到的挤掉）。
+ */
+const MAX_INBOX_ENTRIES = 200
 
 const EXT_BY_MIME: Record<string, string> = {
   'image/png': 'png',
@@ -59,6 +66,31 @@ let token = ''
 let autoCopy = true
 let onInbox: ((event: InboxEvent) => void) | null = null
 
+/**
+ * 收件文件 + 缩略图的索引缓存：id → 磁盘文件名。
+ * 原来每次取缩略图/复制/定位都要 readdirSync 整个目录再线性 find，用到就扫一遍；
+ * 有缓存后只有「新收到的文件」和「删掉的条目」才更新索引。
+ */
+const storedFileIndex = new Map<string, string>()
+
+function indexStoredFile(name: string) {
+  const dot = name.indexOf('.')
+  if (dot > 0) storedFileIndex.set(name.slice(0, dot), name)
+}
+
+function loadStoredFileIndex(): string[] {
+  let names: string[]
+  try {
+    names = fs.readdirSync(path.join(dataDir(), 'files'))
+  } catch {
+    return []
+  }
+  for (const name of names) {
+    if (!name.endsWith('.part')) indexStoredFile(name)
+  }
+  return names
+}
+
 function loadInbox() {
   if (inboxLoaded) return
   inboxLoaded = true
@@ -68,11 +100,58 @@ function loadInbox() {
   } catch {
     inbox = []
   }
+  loadStoredFileIndex()
 }
 
+let inboxSaveTimer: ReturnType<typeof setTimeout> | null = null
+
 function saveInbox() {
-  fs.mkdirSync(dataDir(), { recursive: true })
-  fs.writeFileSync(indexFile(), JSON.stringify(inbox))
+  // 防抖异步写：手机连续发多个文件时会连续触发，同步 writeFileSync
+  // 会把主进程（以及整个 UI）卡在这些小 IO 上
+  if (inboxSaveTimer) clearTimeout(inboxSaveTimer)
+  inboxSaveTimer = setTimeout(() => {
+    inboxSaveTimer = null
+    const payload = JSON.stringify(inbox)
+    void fs.promises
+      .mkdir(dataDir(), { recursive: true })
+      .then(() => fs.promises.writeFile(indexFile(), payload))
+      .catch(() => {})
+  }, 300)
+}
+
+/** 删掉文件条目在磁盘上的实体（收件箱淘汰 / 删除 / 清空共用） */
+function removeInboxFiles(entries: InboxEntry[]) {
+  const dir = path.join(dataDir(), 'files')
+  for (const entry of entries) {
+    if (entry.kind !== 'file') continue
+    // 索引里有确切文件名就不必扫目录；没有（老数据/启动前）再退化成前缀扫描
+    const known = storedFileIndex.get(entry.id)
+    storedFileIndex.delete(entry.id)
+    if (known) {
+      void fs.promises.rm(path.join(dir, known), { force: true }).catch(() => {})
+      continue
+    }
+    fs.promises
+      .readdir(dir)
+      .then((names) => {
+        for (const name of names) {
+          if (!name.startsWith(`${entry.id}.`)) continue
+          void fs.promises.rm(path.join(dir, name), { force: true }).catch(() => {})
+        }
+      })
+      .catch(() => {})
+  }
+}
+
+/** 入库统一入口：头部插入 + 上限裁剪 + 淘汰文件 + 落盘 */
+function pushInbox(entry: InboxEntry) {
+  inbox = [entry, ...inbox]
+  const dropped = inbox.slice(MAX_INBOX_ENTRIES)
+  if (dropped.length > 0) {
+    inbox = inbox.slice(0, MAX_INBOX_ENTRIES)
+    removeInboxFiles(dropped)
+  }
+  saveInbox()
 }
 
 function newId() {
@@ -149,9 +228,9 @@ function receiveFile(req: http.IncomingMessage, res: http.ServerResponse) {
     if (aborted) return
     fs.rename(tmp, target, (err) => {
       if (err) return fail(500, '保存失败')
+      indexStoredFile(storedName)
       const entry: InboxEntry = { kind: 'file', id, name: rawName || storedName, size: written, mime, receivedAt: Date.now() }
-      inbox = [entry, ...inbox]
-      saveInbox()
+      pushInbox(entry)
       if (autoCopy && mime.startsWith('image/')) void copyImageFile(target).catch(() => {})
       onInbox?.({ entry })
       sendJson(res, 200, { ok: true, id })
@@ -166,8 +245,7 @@ async function receiveText(req: http.IncomingMessage, res: http.ServerResponse) 
     if (!text.trim()) return sendJson(res, 400, { ok: false, error: '内容为空' })
     if (text.length > MAX_TEXT_CHARS) return sendJson(res, 413, { ok: false, error: '文字太长' })
     const entry: InboxEntry = { kind: 'text', id: newId(), text, receivedAt: Date.now() }
-    inbox = [entry, ...inbox]
-    saveInbox()
+    pushInbox(entry)
     if (autoCopy) void clipboard.writeText(text)
     onInbox?.({ entry })
     sendJson(res, 200, { ok: true, id: entry.id })
@@ -313,9 +391,12 @@ export function readInboxThumb(id: string): string | null {
 }
 
 function findStoredFile(id: string): string | null {
-  const dir = filesDir()
-  const match = fs.readdirSync(dir).find((name) => name.startsWith(`${id}.`) && !name.endsWith('.part'))
-  return match ? path.join(dir, match) : null
+  const known = storedFileIndex.get(id)
+  if (known) return path.join(filesDir(), known)
+  // 索引缺这条（比如索引建立后外部又写了文件），补扫一次
+  const names = loadStoredFileIndex()
+  const match = names.find((name) => name.startsWith(`${id}.`) && !name.endsWith('.part'))
+  return match ? path.join(filesDir(), match) : null
 }
 
 export async function copyInboxItem(id: string): Promise<boolean> {
@@ -338,23 +419,16 @@ export function revealInboxItem(id: string) {
 export function deleteInboxItem(id: string): boolean {
   const entry = inbox.find((item) => item.id === id)
   if (!entry) return false
-  if (entry.kind === 'file') {
-    const file = findStoredFile(id)
-    if (file) fs.rmSync(file, { force: true })
-  }
   inbox = inbox.filter((item) => item.id !== id)
+  removeInboxFiles([entry])
   saveInbox()
   return true
 }
 
 export function clearInbox() {
-  for (const entry of inbox) {
-    if (entry.kind === 'file') {
-      const file = findStoredFile(entry.id)
-      if (file) fs.rmSync(file, { force: true })
-    }
-  }
+  const removed = inbox
   inbox = []
+  removeInboxFiles(removed)
   saveInbox()
 }
 

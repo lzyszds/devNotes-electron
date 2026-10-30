@@ -126,10 +126,20 @@ export function setupAutoUpdater() {
     broadcast({ state: 'not-available', checkedAt: Date.now() })
   })
 
+  /*
+   * 下载进度节流到 1s：download-progress 每秒可能触发十几次，每次都往所有
+   * 窗口广播 + 渲染层重渲，而百分比肉眼在 1s 粒度下已经完全够用。
+   * 首帧与 100% 必须放行，否则进度条开头发滞、结尾停在 99%。
+   */
+  let lastDownloadBroadcast = 0
   autoUpdater.on('download-progress', (progress) => {
+    const rounded = Math.round(progress.percent)
+    const now = Date.now()
+    if (rounded < 100 && now - lastDownloadBroadcast < 1000) return
+    lastDownloadBroadcast = now
     broadcast({
       state: 'downloading',
-      percent: Math.round(progress.percent),
+      percent: rounded,
       bytesPerSecond: progress.bytesPerSecond,
       transferred: progress.transferred,
       total: progress.total,

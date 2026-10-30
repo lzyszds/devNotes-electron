@@ -89,6 +89,13 @@ export interface NetFetchResult {
   error?: string
 }
 
+/**
+ * 响应体上限。这个函数是给翻译 / 云同步 / 各类 API 用的，正常响应都是
+ * 几十 KB 级；一旦对方给的是视频流、超长日志或恶意大包，无上限累积会把
+ * 主进程内存直接吃掉（字符串拼接还会 O(n²) 抖动）。超限即断，按错误返回。
+ */
+const MAX_RESPONSE_BYTES = 10 * 1024 * 1024
+
 /** 使用 Electron net 模块发起请求，自动走 session 代理配置 */
 export function fetchViaNet(options: NetFetchOptions): Promise<NetFetchResult> {
   return new Promise((resolve) => {
@@ -116,16 +123,30 @@ export function fetchViaNet(options: NetFetchOptions): Promise<NetFetchResult> {
     }, timeoutMs)
 
     let responseData = ''
+    let receivedBytes = 0
+    let settled = false
+    const settle = (result: NetFetchResult) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      resolve(result)
+    }
 
     request.on('response', (response) => {
       response.on('data', (chunk) => {
+        if (settled) return
+        receivedBytes += chunk.length
+        if (receivedBytes > MAX_RESPONSE_BYTES) {
+          settle({ ok: false, status: 0, text: '', error: '响应体超过 10MB，已中断' })
+          request.abort()
+          return
+        }
         responseData += chunk.toString()
       })
 
       response.on('end', () => {
-        clearTimeout(timer)
         const status = response.statusCode || 0
-        resolve({
+        settle({
           ok: status >= 200 && status < 300,
           status,
           text: responseData,
@@ -133,8 +154,7 @@ export function fetchViaNet(options: NetFetchOptions): Promise<NetFetchResult> {
       })
 
       response.on('error', (err) => {
-        clearTimeout(timer)
-        resolve({
+        settle({
           ok: false,
           status: 0,
           text: '',
@@ -144,8 +164,7 @@ export function fetchViaNet(options: NetFetchOptions): Promise<NetFetchResult> {
     })
 
     request.on('error', (err) => {
-      clearTimeout(timer)
-      resolve({
+      settle({
         ok: false,
         status: 0,
         text: '',
@@ -154,8 +173,7 @@ export function fetchViaNet(options: NetFetchOptions): Promise<NetFetchResult> {
     })
 
     request.on('abort', () => {
-      clearTimeout(timer)
-      resolve({
+      settle({
         ok: false,
         status: 0,
         text: '',

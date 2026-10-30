@@ -38,6 +38,9 @@ type MessageLog = {
 
 const READY_STATE_LABELS = ["已断开", "连接中", "已连接", "正在关闭"];
 
+/** 日志保留条数上限：日志是倒序展示的，超过就丢最旧的（见 appendLog） */
+const MAX_LOGS = 300;
+
 /** 每条日志的配色：接收绿、发送蓝、错误红、系统灰 */
 const LOG_TONES: Record<MessageLog["type"], string> = {
   received: "bg-emerald-50/70 text-emerald-900 dark:bg-emerald-500/[0.08] dark:text-emerald-200",
@@ -50,12 +53,26 @@ export default function WebsocketTool() {
   const [url, setUrl] = useState("wss://echo.websocket.events");
   const [message, setMessage] = useState("");
   const [logs, setLogs] = useState<MessageLog[]>([]);
+
+  /*
+   * 收到新日志就贴底（列表是倒序的，最新在顶部，所以 scrollTop = 0）。
+   * 原来挂了个 ref 却从没用过 —— 长连接刷屏时用户得一直手动往上拖。
+   * 只在「有新日志」时动，用户自己滚动不会被抢。
+   */
+  useEffect(() => {
+    const newest = logs[0]?.id ?? 0;
+    if (newest === lastLogIdRef.current) return;
+    lastLogIdRef.current = newest;
+    const el = scrollRef.current;
+    if (el) el.scrollTop = 0;
+  }, [logs]);
   const [status, setStatus] = useState<number>(WebSocket.CLOSED);
   const [showHistory, setShowHistory] = useState(false);
 
   const socketRef = useRef<WebSocket | null>(null);
   const logIdRef = useRef(0);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const lastLogIdRef = useRef(0);
 
   const { history, saveHistory, clearHistory, removeHistoryItem } =
     useToolHistory<string>("websocket");
@@ -69,14 +86,20 @@ export default function WebsocketTool() {
 
   const appendLog = (type: MessageLog["type"], text: string) => {
     logIdRef.current += 1;
+    /*
+     * 单条日志长度与总条数都设上限：高频推送（服务端每秒几十条）时，
+     * 日志数组原本只增不减，长连接挂一天就是几十万条 DOM 文本常驻内存 +
+     * 每次 push 都整体 map 重渲。保留最近 300 条，足够回看上下文。
+     */
+    const body = text.length > 20000 ? `${text.slice(0, 20000)}…（已截断，共 ${text.length} 字符）` : text;
     setLogs((prev) => [
       {
         id: logIdRef.current,
         type,
-        text,
+        text: body,
         time: new Date().toLocaleTimeString("zh-CN"),
       },
-      ...prev,
+      ...prev.slice(0, MAX_LOGS - 1),
     ]);
   };
 
