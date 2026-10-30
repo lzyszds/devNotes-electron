@@ -1,5 +1,6 @@
 import React, { Suspense, lazy, useEffect, useRef, useState } from 'react'
 import { takeToolMode, subscribeToolMode, type ModeRequest } from '../utils/toolModeRequest'
+import { dlog } from '../utils/debugLog'
 
 /*
  * 所有工具按需加载（lazy）：用户打开哪个工具才加载那个模块，
@@ -102,6 +103,14 @@ interface KeepAliveItemProps {
  */
 const KeepAliveItem = React.memo(
   function KeepAliveItem({ isActive, Component }: KeepAliveItemProps) {
+    /*
+     * 挂载/卸载留痕。
+     *
+     * 之前排查「识别中不显示进度」时，日志里出现「开始识别 → 1ms 后组件卸载
+     * → 重新挂载」，识别结果写进了已经消失的那个实例。这条日志就是用来
+     * 盯住这类意外重挂的，别删。
+     */
+    dlog('[keepalive] 渲染', Component.displayName || Component.name, 'isActive =', isActive)
     return (
       <div
         className={`absolute inset-0 flex flex-col overflow-hidden ${
@@ -136,11 +145,17 @@ export default function ToolPage({ toolId }: { toolId: string }) {
     visitedRef.current.add(toolId)
     return [toolId]
   })
+  /*
+   * 保证「同一个 id 只出现一次」。列表里出现重复 key 时 React 会卸载重建，
+   * 工具组件里的所有状态（编辑器实例、识别进度）都会跟着丢 —— 这就是
+   * 「识别到一半组件被重挂」的直接原因之一。
+   */
 
   useEffect(() => {
+    dlog('[toolpage] 当前工具 →', toolId, '已挂载', [...visitedRef.current].join(','))
     if (visitedRef.current.has(toolId)) return
     visitedRef.current.add(toolId)
-    setVisited((prev) => [...prev, toolId])
+    setVisited((prev) => (prev.includes(toolId) ? prev : [...prev, toolId]))
   }, [toolId])
 
   return (

@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import {
   ArrowRight,
   ArrowRightLeft,
@@ -43,7 +43,22 @@ import { translateTextBatch, type TranslationAPI } from '../../../utils/jsonI18n
 import { openAppSettings } from '../../../utils/settingsBus'
 import { speak } from '../../../utils/speechSettings'
 import { AUTO_LANG, LANGUAGES, langName } from '../../../utils/languages'
-import { subscribeOcrRequest } from '../../../utils/ocrBus'
+import { dlog } from '../../../utils/debugLog'
+import {
+  beginOcrRun,
+  failOcrRun,
+  finishOcrRun,
+  getOcrSnapshot,
+  isCurrentOcrRun,
+  subscribeOcrRun,
+  takeOcrResult,
+  updateOcrProgress,
+} from '../../../utils/ocrRunStore'
+import {
+  subscribeTranslateInbox,
+  takeTranslateRequest,
+  type TranslateRequest,
+} from '../../../utils/translateInbox'
 import { translateStream } from '../../../utils/translateStream'
 import { createTranslateOutputBuffer } from '../../../utils/translateOutputBuffer'
 import { CHUNK_BYTE_LIMIT, toSegments, unwrapHardBreaks } from '../../../utils/translateTextSegments'
@@ -55,10 +70,10 @@ import {
 } from '../../../utils/translatePrefs'
 import {
   OCR_LANGUAGES,
-  describeStatus,
   recognizeText,
   type OcrLanguage,
 } from '../../../utils/ocr'
+import OcrProgressBar from './OcrProgressBar'
 
 const API_OPTIONS: SelectOption<TranslationAPI>[] = [
   { value: 'gtx', label: 'GTX' },
@@ -66,6 +81,14 @@ const API_OPTIONS: SelectOption<TranslationAPI>[] = [
   { value: 'openai', label: 'OpenAI 兼容' },
   { value: 'libretranslate', label: 'LibreTranslate' },
 ]
+
+/** 翻译页组件的挂载序号，仅用于调试日志 */
+let translateMountSeq = 0
+
+/** 毫秒转「123ms / 1.2s」：一秒以内给毫秒，上面给秒 */
+function formatDuration(ms: number): string {
+  return ms < 1000 ? `${Math.round(ms)}ms` : `${(ms / 1000).toFixed(1)}s`
+}
 
 /** 源语言多一个「自动检测」 */
 const SOURCE_OPTIONS: SelectOption[] = [
@@ -164,6 +187,17 @@ const TranslationOutputActions = memo(function TranslationOutputActions({ lang }
 })
 
 export default function TextTranslateTool() {
+  /*
+   * 挂载/卸载留痕。冷启动第一次截图出现「已订阅但没收到图」时，这两个日志能
+   * 直接区分两种情况：StrictMode 双挂载、或组件被反复卸载重挂（切页动画把
+   * 翻译页整个换掉了）。
+   */
+  useEffect(() => {
+    const instance = ++translateMountSeq
+    dlog('[translate] 组件挂载 #' + instance)
+    return () => dlog('[translate] 组件卸载 #' + instance)
+  }, [])
+
   // 语言偏好、输入输出、历史都在模块 context 里：专属侧边栏与这里共用同一份数据
   const {
     input,
@@ -224,11 +258,11 @@ export default function TextTranslateTool() {
   const [progress, setProgress] = useState({ current: 0, total: 0 })
   const [error, setError] = useState('')
   const [showHistory, setShowHistory] = useState(false)
-  const [ocrState, setOcrState] = useState<{
-    status: 'recognizing' | 'done'
-    progress: number
-    label: string
-  } | null>(null)
+  /*
+   * 识别进度与结果放在模块级 store 里（utils/ocrRunStore）：
+   * Keep-Alive 环境下本组件可能被卸载重建，状态不能跟着实例一起丢。
+   */
+  const ocrSnapshot = useSyncExternalStore(subscribeOcrRun, getOcrSnapshot, getOcrSnapshot)
   const { showToast } = useToast()
 
   // 代际 id：翻译请求没有 AbortSignal，用它在响应回来时丢弃过期的结果
@@ -390,7 +424,7 @@ export default function TextTranslateTool() {
         // 部分译文也留着，比清空更有用
         if (result.text) setOutput(result.text)
       }
-      setElapsed(Math.round(performance.now() - startedAt))
+      reportTranslateTime(Math.round(performance.now() - startedAt))
       if (result.ok) {
         const from = sourceLang === AUTO_LANG ? '自动检测' : langName(sourceLang)
         saveHistory(text, `翻译: ${from} → ${langName(target)}`)
@@ -408,8 +442,44 @@ export default function TextTranslateTool() {
     }
   }
 
+  /**
+   * 最近一次「截图识别」的耗时，等着和紧随其后的那次翻译拼成一条记录。
+   *
+   * 用 ref 而不是 state：它只是给 reportTranslateTime 读的临时值，
+   * 放进 state 反而会让每次翻译都多一轮渲染。
+   */
+  const ocrTimingRef = useRef<{ ocrMs: number } | null>(null)
+  /** 状态栏上展示的耗时组合（识别 / 翻译 / 合计） */
+  const [ocrTiming, setOcrTiming] = useState<{
+    ocrMs: number
+    translateMs?: number
+    combinedMs?: number
+  } | null>(null)
+
+  /**
+   * 翻译耗时的唯一出口。
+   *
+   * 除了「只翻译」的 ms，还顺手记下一个组合耗时：
+   *  - 截图识别 → 自动翻译：记录 = 识别 + 翻译；
+   *  - 普通翻译：记录 = 翻译。
+   * 状态栏显示哪个见后面的 render，两段都能看到，不必自己相加。
+   */
+  const reportTranslateTime = (ms: number) => {
+    setElapsed(ms)
+    const ocr = ocrTimingRef.current
+    if (ocr) {
+      setOcrTiming({ ...ocr, translateMs: ms, combinedMs: ocr.ocrMs + ms })
+    } else {
+      setOcrTiming(null)
+    }
+  }
+
   const handleTranslate = async () => {
     if (!input.trim() || busyRef.current || isComposing || mymemoryAutoBlocked) return
+    dlog('[translate] 开始翻译，输入长度', input.length)
+    // 翻译真的起来了：截图的看门狗不必再补
+    ocrTranslatePendingRef.current = 0
+    window.clearTimeout(ocrTranslateWatchdogRef.current)
 
     if (needsConfig) {
       setError(
@@ -427,6 +497,7 @@ export default function TextTranslateTool() {
     const myId = ++runIdRef.current
     const text = input
     const startedAt = performance.now()
+    /* 记下一次翻译真正的起点：截图识别后的翻译要能把两段耗时合并显示 */
 
     /*
      * OpenAI 兼容接口走流式：文字边生成边显示，不用干等整段翻译完。
@@ -470,7 +541,7 @@ export default function TextTranslateTool() {
       })
 
       setOutput(merged.map((segment) => segment.text).join(''))
-      setElapsed(Math.round(performance.now() - startedAt))
+      reportTranslateTime(Math.round(performance.now() - startedAt))
       // 即使部分失败也把已拿到的译文显示出来（失败块回落原文）
       if (!result.ok && result.error) setError(result.error)
 
@@ -500,45 +571,136 @@ export default function TextTranslateTool() {
    * 开着自动翻译会走下面那条 debounce，所以填完 input 什么都不用做，
    * 翻译会自己跟上；这里只需要在关掉自动翻译时手动触发一次。
    */
-  const ocrSeqRef = useRef(0)
-  useEffect(() => {
-    const off = subscribeOcrRequest(async (dataUrl) => {
-      // 连续截好几张时，后发的先回来会被旧结果覆盖，用序号挡掉
-      const seq = ++ocrSeqRef.current
-      setOcrState({ status: 'recognizing', progress: 0, label: '准备识别' })
-      setError('')
+  /**
+   * 截图识别是否在等一次自动翻译。
+   *
+   * 冷启动后第一次截图时，翻译页是刚挂载的：`input` 从空变成识别结果，自动
+   * 翻译那条 300ms 防抖会起跑；但同一时刻挂载流程里还有别的 effect 在跑，
+   * 实测那次翻译会被「切页/挂载」撞掉（用户看到的就是只填了原文没出译文）。
+   * 所以截图这条路自己记一笔，翻译丢了就补一次。
+   */
+  const ocrTranslatePendingRef = useRef(0)
+  /** 上面那笔「待翻译」的看门狗计时器 */
+  const ocrTranslateWatchdogRef = useRef(0)
 
-      try {
-        const text = await recognizeText(dataUrl, {
-          lang: ocrLang,
-          onProgress: (p) => {
-            if (ocrSeqRef.current !== seq) return
-            setOcrState({
-              status: 'recognizing',
-              progress: p.progress,
-              label: describeStatus(p.status),
-            })
-          },
-        })
-        if (ocrSeqRef.current !== seq) return
+  /**
+   * 处理一件排队来的活（截图识别 / 待翻译文字）。
+   *
+   * 活由 utils/translateInbox 收件，这里在挂载后与「有新活」时来取。
+   * 不在本组件里直接监听 IPC：翻译页是懒加载的，冷启动第一次截图时它还不存在。
+   */
+  const runRequest = useCallback(async (request: TranslateRequest) => {
+    if (request.kind === 'text') {
+      setInput(request.text)
+      // 纯文字直接翻，不必等自动翻译的防抖（用户是明确点了「翻译这段」）
+      window.setTimeout(() => void translateRef.current(), 0)
+      return
+    }
 
-        if (!text) {
-          setOcrState(null)
-          setError('没有从这张图里识别出文字，换个区域或换个语言试试')
-          return
-        }
-        setInput(text)
-        setOcrState({ status: 'done', progress: 1, label: '识别完成' })
-        // 关掉自动翻译时不会有 debounce 兜底，这里补一次
-        if (!autoTranslate) window.setTimeout(() => void translateRef.current(), 0)
-      } catch (e) {
-        if (ocrSeqRef.current !== seq) return
-        setOcrState(null)
-        setError('识别失败：' + (e instanceof Error ? e.message : String(e)))
+    /*
+     * 截图识别：状态全部写进 ocrRunStore，而不是本组件的 state。
+     *
+     * 这样即使本组件在识别途中被卸载重建（Keep-Alive / Suspense 都可能），
+     * 进度仍然在 store 里继续更新，结果也会落在新挂载的实例上 —— 不会出现
+     * 「识别时看不到进度、识别完才突然冒出来」。
+     */
+    const seq = beginOcrRun()
+    setError('')
+    dlog('[translate] 收到图片，开始识别 seq', seq)
+
+    try {
+      const text = await recognizeText(request.dataUrl, {
+        lang: ocrLang,
+        onProgress: (p) => updateOcrProgress(seq, p),
+      })
+      if (!isCurrentOcrRun(seq)) return
+
+      if (!text) {
+        failOcrRun(seq)
+        setError('没有从这张图里识别出文字，换个区域或换个语言试试')
+        return
       }
-    })
-    return off
+
+      dlog('[translate] 识别完成，seq', seq, 'autoTranslate =', autoTranslate)
+      finishOcrRun(seq, text)
+
+      /*
+       * 记下「这次识别还在等译文」：handleTranslate 一旦真的启动就会把它清掉，
+       * 2.5s 后还没清就说明自动翻译那次被吞了（冷启动挂载/切页时会发生），
+       * 由看门狗补一次。只在开着自动翻译时需要 —— 关着的话下面立刻手动翻。
+       */
+      ocrTranslatePendingRef.current = autoTranslate ? seq : 0
+      window.clearTimeout(ocrTranslateWatchdogRef.current)
+      ocrTranslateWatchdogRef.current = window.setTimeout(() => {
+        // 防抖 300ms + 挂载余量，2.5s 还没看到翻译启动就补一次
+        dlog('[translate] 看门狗触发，补一次翻译；pending =', ocrTranslatePendingRef.current, 'seq =', seq)
+        if (ocrTranslatePendingRef.current !== seq) return
+        ocrTranslatePendingRef.current = 0
+        void translateRef.current()
+      }, 2500)
+      // 关掉自动翻译时不会有 debounce 兜底，这里补一次
+      if (!autoTranslate) window.setTimeout(() => void translateRef.current(), 0)
+    } catch (e) {
+      if (!isCurrentOcrRun(seq)) return
+      failOcrRun(seq)
+      setError('识别失败：' + (e instanceof Error ? e.message : String(e)))
+    }
   }, [autoTranslate, ocrLang, setError, setInput])
+
+  /*
+   * 识别结果从 store 取出来填进输入框。
+   *
+   * 放在渲染期的 effect 里而不是识别完成时直接 setInput：组件可能是重挂后的
+   * 新实例，只有它在跑 effect 才说明已经就绪。
+   */
+  useEffect(() => {
+    const result = takeOcrResult()
+    if (!result) return
+    setInput(result.text)
+    // 记下识别耗时：紧接着的翻译会把两段拼成「识别 + 翻译」一起显示
+    ocrTimingRef.current = { ocrMs: result.elapsedMs }
+    setOcrTiming({ ocrMs: result.elapsedMs })
+    dlog('[translate] 消费识别结果', result.text.length, '字符')
+  }, [ocrSnapshot])
+
+  /*
+   * 挂载即来取活：冷启动第一次截图时，图早就在队列里等着了。
+   * 之后靠事件驱动（桥入队时通知），不再轮询。
+   *
+   * ⚠️ 取原有活只在**真正的挂载**时做一次，不能放在下面这个 effect 体里。
+   *
+   * StrictMode 下 React 会把 effect 体跑两遍（挂载 → 卸载 → 再挂载），日志里
+   * 就是「开始取活 / 取到活 ocr / 组件卸载 / 开始取活」。effect 体里再 take
+   * 一次的话，队列里若恰好还有第二张截图（连截两张很常见），第二趟就会把它
+   * 领走并重新 beginOcrRun —— 识别进度被打回 0，第一帧就处在「刚开始」的
+   * 状态，翻页动画的起点跟着错位。所以：
+   *   - 挂载时取件放在 ref 守卫后面，双跑也只取一次；
+   *   - effect 本体只负责订阅，真要走事件路径。
+   */
+  const drainStartedRef = useRef(false)
+
+  useEffect(() => {
+    const take = (next: TranslateRequest) => {
+      dlog('[translate] 取到活', next.kind)
+      void runRequest(next)
+    }
+
+    return subscribeTranslateInbox(() => {
+      const request = takeTranslateRequest()
+      if (request) take(request)
+    })
+  }, [runRequest])
+
+  useEffect(() => {
+    if (drainStartedRef.current) return
+    drainStartedRef.current = true
+    dlog('[translate] 开始取活（挂载）')
+    const request = takeTranslateRequest()
+    if (request) {
+      dlog('[translate] 取到活', request.kind)
+      void runRequest(request)
+    }
+  }, [runRequest])
 
   useEffect(() => {
     if (!autoTranslate || isComposing) return
@@ -567,6 +729,8 @@ export default function TextTranslateTool() {
     setOutput('')
     setError('')
     setElapsed(null)
+    ocrTimingRef.current = null
+    setOcrTiming(null)
   }
 
   return (
@@ -720,25 +884,6 @@ export default function TextTranslateTool() {
               )}
             </div>
 
-            {/* 识别进度：只有截了图、还在识别时才出现，识别完自动收掉 */}
-          {ocrState?.status === 'recognizing' && (
-            <div className="mx-4 mt-3 flex items-center gap-2.5 rounded-lg bg-brand-50 dark:bg-brand-500/10 px-3 py-2 shrink-0">
-              <Loader2 size={13} className="animate-spin text-brand-500 shrink-0" />
-              <span className="text-[11px] font-medium text-brand-700 dark:text-brand-300 shrink-0">
-                {ocrState.label}
-              </span>
-              <div className="flex-1 h-1 rounded-full bg-brand-200/50 dark:bg-brand-500/20 overflow-hidden">
-                <div
-                  className="h-full bg-brand-500 transition-[width] duration-200"
-                  style={{ width: `${Math.round(ocrState.progress * 100)}%` }}
-                />
-              </div>
-              <span className="text-[10px] font-mono text-brand-500 tabular-nums shrink-0">
-                {Math.round(ocrState.progress * 100)}%
-              </span>
-            </div>
-          )}
-
           <div className="flex-1 min-h-0 p-4 flex flex-col">
               <textarea
                 ref={inputRef}
@@ -766,41 +911,52 @@ export default function TextTranslateTool() {
               />
             </div>
 
-            <ToolCardFooter>
-              <div className="flex items-center gap-3 min-w-0">
-                <Checkbox
-                  size="sm"
-                  checked={unwrapLines}
-                  onChange={setUnwrapLines}
-                  label={<span className="text-[11px] font-normal text-slate-500 dark:text-slate-400">合并断行（PDF/代码）</span>}
-                />
-                {input && (
-                  <>
-                    <span className="text-slate-200 dark:text-dark-border">|</span>
-                    <button
-                      onClick={clearAll}
-                      className="flex items-center gap-1 text-[11px] hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
-                    >
-                      <Trash2 size={12} />
-                      <span>清空</span>
-                    </button>
-                  </>
-                )}
-              </div>
-              <div className="flex items-center gap-1.5 shrink-0">
-                <span className="font-mono">{input.length} 字符</span>
-                <Tooltip content="朗读原文">
-                  <button
-                    type="button"
-                    onClick={() => speakText(input, sourceSpeakLang)}
-                    disabled={!input.trim()}
-                    className={iconButtonClass('brand')}
-                  >
-                    <Volume2 size={14} />
-                  </button>
-                </Tooltip>
-              </div>
-            </ToolCardFooter>
+            {/*
+              底栏做成「上下滚翻」的槽位：识别时翻上去显示进度，识别完翻回来
+              恢复原工具栏。两屏共用同一个固定高度，不改变布局尺寸，所以不会
+              顶动上面的正文（见 OcrProgressBar 的注释）。
+            */}
+            {/* ⚠️ 不要换回 ToolCardFooter：它自带 h-8，与槽位的高度规则会打架 */}
+            <div className="h-8 shrink-0 rounded-b-xl border-t border-[#E6E6E3] bg-[#FBFBFA]">
+              {/* 进度直接读 store：组件重挂也不丢，收摊计时也在 store 里 */}
+              <OcrProgressBar run={ocrSnapshot.run}>
+                <div className="flex w-full items-center justify-between gap-3 px-3.5 text-[10px] font-medium text-[#787774] tabular-nums">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <Checkbox
+                      size="sm"
+                      checked={unwrapLines}
+                      onChange={setUnwrapLines}
+                      label={<span className="text-[11px] font-normal text-slate-500 dark:text-slate-400">合并断行（PDF/代码）</span>}
+                    />
+                    {input && (
+                      <>
+                        <span className="text-slate-200 dark:text-dark-border">|</span>
+                        <button
+                          onClick={clearAll}
+                          className="flex items-center gap-1 text-[11px] transition-colors hover:text-rose-600 dark:hover:text-rose-400"
+                        >
+                          <Trash2 size={12} />
+                          <span>清空</span>
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <span className="font-mono">{input.length} 字符</span>
+                    <Tooltip content="朗读原文">
+                      <button
+                        type="button"
+                        onClick={() => speakText(input, sourceSpeakLang)}
+                        disabled={!input.trim()}
+                        className={iconButtonClass('brand')}
+                      >
+                        <Volume2 size={14} />
+                      </button>
+                    </Tooltip>
+                  </div>
+                </div>
+              </OcrProgressBar>
+            </div>
           </ToolCard>
 
           {/* ---------------- 译文 ---------------- */}
@@ -883,6 +1039,20 @@ export default function TextTranslateTool() {
                     <span className="flex items-center gap-1.5 text-brand-600 dark:text-brand-400">
                       <Loader2 size={12} className="animate-spin" />
                       翻译中…
+                    </span>
+                  ) : ocrTiming?.translateMs !== undefined ? (
+                    /*
+                     * 截图识别 + 翻译的完整链路：两段分开列，再给一个合计。
+                     * 只显示翻译那段会让人以为「识别不算数」，只显示合计又看不出慢在哪一步。
+                     */
+                    <span className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+                      <span title="识别耗时">识别 {formatDuration(ocrTiming.ocrMs)}</span>
+                      <span className="text-emerald-600/40 dark:text-emerald-400/40">·</span>
+                      <span title="翻译耗时">翻译 {formatDuration(ocrTiming.translateMs)}</span>
+                      <span className="text-emerald-600/40 dark:text-emerald-400/40">·</span>
+                      <span title="识别 + 翻译" className="font-semibold">
+                        合计 {formatDuration(ocrTiming.combinedMs ?? ocrTiming.ocrMs + ocrTiming.translateMs)}
+                      </span>
                     </span>
                   ) : elapsed !== null ? (
                     <span className="text-emerald-600 dark:text-emerald-400">● 耗时 {elapsed}ms</span>

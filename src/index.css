@@ -44,6 +44,14 @@ button {
 }
 
 :root {
+  /*
+   * 翻译页底栏「上下滚翻」槽位的高度。
+   *
+   * 这个值必须和 CARD_FOOT 的 h-8（32px）一致：窗口取它、轨道取它的两倍。
+   * 之所以抽成变量而不是在各处写 32px：混用 h-full / h-1/2 时高度链一断，
+   * 两屏就会被压成一半高，进度行直接看不见（踩过一次）。
+   */
+  --ocr-pane: 32px;
   color-scheme: light;
   font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Inter', 'Segoe UI', sans-serif;
   line-height: 1.5;
@@ -613,6 +621,33 @@ html.dark ::-webkit-scrollbar-thumb:hover {
 
 
   /*
+   * 翻译页底栏「上下滚翻」槽位（见 OcrProgressBar）。
+   *
+   * 位移交给 CSS transition，而不是 JS 逐帧写 transform：识别开始的那一帧
+   * 只要把 translateY 从 0 改成 -50%，浏览器就一定会补过渡，不受 React
+   * 批处理 / StrictMode 重挂 / effect 跑没跑过的影响 —— 这正是上一版
+   * 实测停在 translateY(-0.048%) 的根源。
+   *
+   * 两屏都用 .fe-ocr-pane（flex: 1），高度只由轨道（--ocr-pane × 2）决定，
+   * 窗口始终是 --ocr-pane 高，所以翻页时下方面板不会位移。
+   */
+  .fe-ocr-track {
+    transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform;
+  }
+
+  .fe-ocr-pane {
+    height: var(--ocr-pane, 32px);
+    flex: 0 0 var(--ocr-pane, 32px);
+    overflow: hidden;
+  }
+
+  /* 进度条宽度：跟着引擎上报走，过渡一下免得一跳一跳 */
+  .fe-ocr-fill {
+    transition: width 220ms ease-out;
+  }
+
+  /*
    * 卡片抬起。用弹性曲线（尾段轻微过冲）而不是纯 ease —— 鼠标划过时
    * 是「弹起来」而不是「平移上去」，这是 Raycast / Linear 手感的关键差别。
    * 只动 transform 与阴影，不碰布局属性，所以抬起时不会引起重排。
@@ -883,6 +918,12 @@ html.dark ::-webkit-scrollbar-thumb:hover {
   .motion-lift:hover,
   .tool-panel:hover {
     transform: none !important;
+  }
+
+  /* 翻页是功能性的状态切换，不是装饰：保留位移，只去掉缓动 */
+  .fe-ocr-track,
+  .fe-ocr-fill {
+    transition: none;
   }
 }
 

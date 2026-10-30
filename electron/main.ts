@@ -13,6 +13,14 @@ import {
 } from './proxy'
 import { migrateUserDataIfNeeded } from './migrateUserData'
 import {
+  deleteImageFiles,
+  installClipProtocolHandler,
+  loadImageDataUrl,
+  removeOrphanImageFiles,
+  registerClipProtocolScheme,
+  saveImageEntryToDisk,
+} from './clipboardImages'
+import {
   addOutboxFiles,
   addOutboxText,
   clearInbox,
@@ -38,7 +46,8 @@ import { getSystemHardwareInfo, getProcessMemoryList } from './systemInfo'
 import { setupAutoUpdater } from './updater'
 import { captureMacRegion } from './macRegionCapture'
 import { captureWindowsRegion, isWindowsNativeAvailable, releaseWindowsNativeResult } from './windowsNativeCapture'
-import { lightOcrRecognize } from './lightOcr'
+import { lightOcrRecognize, shutdownLightOcr } from './lightOcr'
+import { initDebugLog, mainLog, registerRendererLogIpc } from './debugLog'
 import {
   MAX_ENTRIES,
   buildEntry,
@@ -47,8 +56,6 @@ import {
   type ClipboardEntry,
 } from './clipboardHistory'
 import {
-  isPasteAvailable,
-  isPasteTrusted,
   lastPasteFailure,
   openAccessibilitySettings,
   pasteModuleLoadError,
@@ -56,7 +63,6 @@ import {
   pasteImageToFocusedApp,
   pasteFileToFocusedApp,
   copyImageToClipboard,
-  requestPastePermission,
 } from './pasteToApp'
 import type { IpcMainInvokeEvent } from 'electron'
 
@@ -103,6 +109,29 @@ let quitting = false
 let scratchWindow: BrowserWindow | null = null
 /** 剪贴板取词面板。同样是单例 */
 let clipboardWindow: BrowserWindow | null = null
+/**
+ * 面板最近一次拿到的列表。
+ *
+ * 面板隐藏期间主进程不再推全量（上万条数据的克隆不便宜），所以它内存里的
+ * 列表可能过期。唤起时主进程先把这个缓存放进来、再 show，面板读缓存即刻
+ * 显示最新内容 —— 缓存由主进程每次改动列表时同步维护，永远是当前真值。
+ */
+let lastClipboardList: ClipboardEntry[] = []
+
+/**
+ * 列表变动的唯一出口：更新内存列表 / 缓存 / 落盘，面板可见才推。
+ *
+ * 全仓库不再允许直接给 clipboardEntries 赋值 —— 漏一次缓存或漏一次落盘，
+ * 面板就会显示旧数据、重启就丢历史。加/删/清/迁移/渲染层回写统一走这里。
+ */
+function commitClipboardEntries(next: ClipboardEntry[], persist = true): void {
+  clipboardEntries = next
+  lastClipboardList = next
+  if (persist) store.set(CLIPBOARD_HISTORY_KEY, next)
+  if (clipboardWindow && !clipboardWindow.isDestroyed() && clipboardWindow.isVisible()) {
+    clipboardWindow.webContents.send('clipboard:changed', next)
+  }
+}
 /** 剪贴板轮询计时器 */
 let clipboardTimer: NodeJS.Timeout | null = null
 /** 本次框选的截图结果，缓存起来供推 / 拉两条路径共用（见 createCaptureWindow） */
@@ -110,8 +139,10 @@ let captureShotPromise: Promise<unknown> | null = null
 /** 进行中的流式翻译请求，按 requestId 索引，供中途中断 */
 const streamHandles = new Map<string, { abort: () => void }>()
 
-// 必须在 new Store() 之前执行:迁移会决定本次启动读哪个 userData 目录
+// 必须在 new Store() 之前执行：migrateUserDataIfNeeded 决定本次启动读哪个 userData 目录
+// dnclip 协议的 privileged scheme 登记同样卡在 ready 前，错过时机注册会直接抛错
 migrateUserDataIfNeeded()
+registerClipProtocolScheme()
 
 const store = new Store()
 
@@ -263,6 +294,7 @@ async function openCapture(): Promise<void> {
       }
 
       if (outcome.status === 'ok') {
+        mainLog('[capture] Windows 原生框选成功')
         try {
           deliverCapture(`data:image/png;base64,${outcome.result.image.toString('base64')}`)
         } finally {
@@ -288,6 +320,7 @@ async function openCapture(): Promise<void> {
     macCaptureController = controller
     try {
       const image = await captureMacRegion(controller.signal)
+      mainLog('[capture] macOS 框选返回', image ? `${image.length} 字节` : 'null')
       if (image) {
         deliverCapture(`data:image/png;base64,${image.toString('base64')}`)
       } else if (!controller.signal.aborted) {
@@ -329,24 +362,64 @@ function raiseMainWindow(): void {
 }
 
 /** 原生选区和自定义选区统一把结果送给常驻主窗口，不在截图页加载 OCR。 */
+/**
+ * 最近一次截图结果。
+ *
+ * **只在「主窗口这一版页面还没挂好监听」时才留**，而且只会留一个很短的窗口期：
+ * 渲染层的 App 挂载后会立刻发 capture:ocr-ready，主进程收到就补推这张图并
+ * 立刻清空（见 handleCaptureOcrReady）。
+ *
+ * 以前的写法是「推送的同时无条件存一份，等渲染层来拉」—— 推送明明成功了，
+ * 这份缓存却没人清，一直躺在主进程里；下次刷新页面时 App 挂载又拉一次，
+ * 于是「每次刷新都会把上一次的截图重新识别一遍」。别改回去。
+ */
+let pendingCapture: string | null = null
+
+/**
+ * 主窗口这一版页面是否已经在听 capture:ocr-request。
+ *
+ * 和下面的 rendererReady 不是一回事：rendererReady 要等笔记数据加载完才发，
+ * 截图翻译冷启动时等不起。这个信号由 App 的截图订阅 effect 发出，是「监听
+ * 挂上了」最贴近的信号。
+ *
+ * reload / 重新加载页面时 webContents 还是同一个，所以要显式在 did-start-loading
+ * 里清掉 —— 页面一刷新，旧的监听就没了，新的一版挂好之前都算「没就绪」。
+ */
+let captureListenerReady = false
+
+/** 原生选区和自定义选区统一把结果送给常驻主窗口，不在截图页加载 OCR。 */
 function deliverCapture(dataUrl: string): void {
   if (mainWindow && !mainWindow.isDestroyed()) {
     raiseMainWindow()
-    mainWindow.webContents.send('capture:ocr-request', dataUrl)
+    if (captureListenerReady) {
+      /*
+       * 监听已经挂好了：直接推，**不留缓存**。
+       *
+       * 这是「刷新页面就重放上次截图」的根治点 —— 推送成功后还把图留在
+       * pendingCapture 里，就等于让下一次页面加载再识别一遍。
+       */
+      mainLog('[capture] 推送识别请求（渲染层已就绪，不留缓存），字节数', Math.round(dataUrl.length / 1024), 'KB')
+      mainWindow.webContents.send('capture:ocr-request', dataUrl)
+      return
+    }
+
+    // 还没挂好监听（冷启动刚打开窗口 / 页面刚 reload）：留一份，等 ready 信号补推
+    pendingCapture = dataUrl
+    mainLog('[capture] 渲染层未就绪，暂存待补推，字节数', Math.round(dataUrl.length / 1024), 'KB')
     return
   }
 
   /*
    * 主窗口被用户真关过（closed → mainWindow 为 null）：当场重建，截图结果
-   * 不能吞掉。走 did-finish-load 再推 OCR，和 focusWindowAndOpenTool 的
-   * 时机一样；ready-to-show 钩子由 createMainWindow 负责显示窗口。
+   * 不能吞掉。
+   *
+   * 先存进 pendingCapture 再重建：did-finish-load 只是「HTML 加载完」，
+   * React 的监听那时还没挂 —— 直接在这里 send 大概率落空。存下来让渲染层
+   * 挂好监听后发 ready 信号来补推，是唯一可靠的一路。
    */
+  pendingCapture = dataUrl
+  mainLog('[capture] 主窗口不存在，重建后补推，字节数', Math.round(dataUrl.length / 1024), 'KB')
   createMainWindow()
-  const created = mainWindow as BrowserWindow | null
-  if (!created) return
-  created.webContents.once('did-finish-load', () => {
-    created.webContents.send('capture:ocr-request', dataUrl)
-  })
 }
 
 /**
@@ -659,39 +732,113 @@ function loadClipboardHistory(): void {
    * 加载时顺手剔除 —— 代码改了但历史不清，用户会以为 bug 还在。
    */
   const cleaned = list.filter((entry) => entry && entry.text !== '[object Promise]')
-  clipboardEntries = cleaned
-  if (cleaned.length !== list.length) persistClipboardHistory()
+  // 加载阶段面板还没建，isVisible 分支不会推；脏数据清除要落盘，不落的话每次开机都白清一遍
+  commitClipboardEntries(cleaned, cleaned.length !== list.length)
 }
 
-function persistClipboardHistory(): void {
-  store.set(CLIPBOARD_HISTORY_KEY, clipboardEntries)
+/*
+ * 旧版迁移：历史 JSON 里曾直接内嵌图片 base64（如今只允许存 imageId 指针）。
+ * 逐条把 inline 图片搬到磁盘文件（原图 + 缩略图），完成后清掉 JSON 里的 inline
+ * 数据并整体重写历史 JSON。一次性任务，跑在 startClipboardCapture 里后台执行，
+ * 不阻塞启动；迁移完成顺手再做孤儿文件兜底清理。
+ */
+async function migrateLegacyInlineClipboardImages(): Promise<void> {
+  if (!clipboardEntries.some((entry) => entry.type === 'image' && entry.imageDataUrl)) {
+    // 没有旧格式数据，也照做一次孤儿清理：删条目只删 JSON 的历史包袱在这里还债
+    removeOrphanImageFiles(clipboardEntries)
+    return
+  }
+
+  const migrated: ClipboardEntry[] = []
+  for (const entry of clipboardEntries) {
+    if (entry.type === 'image' && entry.imageDataUrl) {
+      try {
+        migrated.push(await saveImageEntryToDisk(entry))
+      } catch {
+        // 单条失败保持 inline 数据，不动它
+        migrated.push(entry)
+      }
+    } else {
+      migrated.push(entry)
+    }
+  }
+  // 迁移完成后统一提交：落盘 + 补缩略图（面板可见才会推）
+  commitClipboardEntries(migrated)
+  removeOrphanImageFiles(migrated)
+}
+
+/** 入库时把「附件文件跟随条目生死」封装起来：删条目必须连图片文件一起删 */
+function deleteImageFilesForIds(ids: string[]): void {
+  for (const id of ids) deleteImageFiles(id)
+}
+
+/**
+ * 单条入库：inline 图片先转成文件态，再头部插入 + 超量裁剪 + 落盘。
+ *
+ * 用链式 promise 串行化：图片落盘是异步的，两次采集 tick 之间如果并发跑
+ * 会导致插入顺序错乱。
+ */
+let appendEntryChain: Promise<void> = Promise.resolve()
+
+function appendClipboardEntry(entry: ClipboardEntry): void {
+  appendEntryChain = appendEntryChain.then(async () => {
+    let settled = entry
+    if (entry.type === 'image' && entry.imageDataUrl) {
+      try {
+        settled = await saveImageEntryToDisk(entry)
+      } catch {
+        // 转换失败保留 inline base64 兜底，图不能丢
+      }
+    }
+
+    // 淘汰超量的旧条目，被挤掉的图片条目连文件一起清
+    const merged = [settled, ...clipboardEntries]
+    const dropped = merged.slice(MAX_ENTRIES)
+    deleteImageFilesForIds(
+      dropped.filter((droppedEntry) => droppedEntry.type === 'image').map((e) => e.id)
+    )
+    // 面板可见才推全量列表：面板隐藏时它靠唤起时的缓存同步（见 lastClipboardList），
+    // 关着推送纯属白克隆上万条数据
+    commitClipboardEntries(merged.slice(0, MAX_ENTRIES))
+  }).catch((error) => {
+    /*
+     * 链尾必须有 catch：没有它，任何一次入库异常都会让 appendEntryChain 变成
+     * rejected 且永不再前进 —— 剪贴板从此静默停止记录，比偶发丢一条严重得多。
+     * 捕获后重新赋值成已 resolve 的链，下一 tick 继续正常工作。
+     */
+    console.warn('[clipboard] 入库失败：', error)
+  })
 }
 
 /**
  * 开始采集。
  *
  * 剪贴板历史已接入云同步，但遵循严格约束：
- * 上云时图片数据（imageDataUrl）一律丢弃，并在云端标记为【图片】，
+ * 上云时图片数据一律丢弃，并在云端标记为【图片】，
  * 保证服务器硬盘 0 压力，同时让文本与代码片段能在多端跨设备流转。
  */
 function startClipboardCapture(): void {
   loadClipboardHistory()
   clipboardStop?.()
 
+  /*
+   * 旧版 inline 图片迁磁盘与「采集入库」共用同一条串行链 —— 迁移要处理
+   * 数秒，期间用户复制东西若并发进行，迁移尾部拿快照覆写会把新条目挤丢。
+   * catch 同样必要：迁移失败不能毒化后续所有入库
+   */
+  appendEntryChain = appendEntryChain
+    .then(() => migrateLegacyInlineClipboardImages())
+    .catch((error) => console.warn('[clipboard] 旧图片迁移失败：', error))
+
   clipboardStop = startClipboardWatch((entry) => {
     /*
      * 只对文本走 shouldCapture（敏感词过滤 + 与最新一条去重）。
-     * 图片在采集层已经用 lastImageDataUrl 去重过了，且没有「敏感」问题，
+     * 图片在采集层已经按 PNG 指纹去重过了，且没有「敏感」问题，
      * 这里直接放行 —— 之前拿 entry.text（图片条目是 undefined）喂
      * shouldCapture，非字符串一律返回 false，图片全被丢掉了。
      */
     if (entry.type === 'text' && !shouldCapture(entry.text, clipboardEntries[0])) return
-    clipboardEntries = [entry, ...clipboardEntries].slice(0, MAX_ENTRIES)
-    persistClipboardHistory()
-    // 面板开着的话实时刷新，用户不用关掉再开
-    if (clipboardWindow && !clipboardWindow.isDestroyed()) {
-      clipboardWindow.webContents.send('clipboard:changed', clipboardEntries)
-    }
+    appendClipboardEntry(entry)
   })
 }
 
@@ -750,6 +897,12 @@ function openClipboardWindow(): void {
 
   if (clipboardWindow && !clipboardWindow.isDestroyed()) {
     if (clipboardWindow.isMinimized()) clipboardWindow.restore()
+    /*
+     * 先把最新列表推到面板的「同步缓存」，再 show —— 渲染层的 show 监听
+     * 会立刻读缓存，所以面板挂起期间新复制的条目是「唤起即就位」，
+     * 不会先闪一帧旧列表。send 本身是异步投递，缓存保证顺序不错。
+     */
+    clipboardWindow.webContents.send('clipboard:changed', clipboardEntries)
     if (nonactivating) {
       clipboardWindow.show()
       clipboardWindow.focus()
@@ -825,6 +978,17 @@ function openClipboardWindow(): void {
    */
   window.on('blur', () => {
     if (!window.isDestroyed()) window.hide()
+  })
+
+  /*
+   * 每次重新露出都让面板重拉一份列表。
+   *
+   * clipboard:changed 只在面板可见时推全量（隐藏时推上万条等于白克隆），
+   * 所以面板挂起期间入库的新条目它并不知道 —— 这里补一次唤醒同步。
+   * 首次加载由挂载时的 clipboard-list 覆盖。
+   */
+  window.on('show', () => {
+    if (!window.isDestroyed()) window.webContents.send('clipboard:changed', lastClipboardList)
   })
 
   const persistBounds = () => {
@@ -1016,6 +1180,17 @@ function createMainWindow() {
   registerWindowShortcuts(mainWindow)
   loadRendererWindow(mainWindow)
 
+  /*
+   * 页面一 reload，旧的截图监听就没了，新的一版挂好之前都得算「没就绪」。
+   * did-start-loading 每次加载都会触发（首次 load、reload、缓存刷新都算），
+   * 比 once('did-finish-load') 更能覆盖「刷新页面」这条路径。
+   */
+  const mainContents = mainWindow.webContents
+  captureListenerReady = false
+  mainContents.on('did-start-loading', () => {
+    captureListenerReady = false
+  })
+
   // 拦截应用内的外部超链接跳转，统一调用系统默认浏览器打开，防止应用窗口被外部网页篡改
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('https:') || url.startsWith('http:') || url.startsWith('mailto:')) {
@@ -1043,6 +1218,7 @@ function createMainWindow() {
   mainWindow.on('closed', () => {
     mainWindow = null
     rendererReady = false
+    captureListenerReady = false
   })
 }
 
@@ -1222,30 +1398,43 @@ function setupIpc() {
   })
 
   /** 面板读全量列表。渲染端挂载时拉一次，之后的增量走 clipboard:changed 推送 */
-  ipcMain.handle('clipboard-list', () => clipboardEntries)
+  ipcMain.handle('clipboard-list', () => lastClipboardList)
 
-  /** 删单条 */
+  /**
+   * 上云用的剪贴板投影。
+   *
+   * 用户硬性要求：剪切板图片不上云，云端只留【图片】占位 —— 服务器硬盘 0 压力，
+   * 同时文本仍能多端流转。投影在主进程侧完成，渲染层拿到的是已经脱敏的轻列表。
+   */
+  ipcMain.handle('clipboard-project-for-sync', () =>
+    clipboardEntries.map((entry) => {
+      if (entry.type === 'image' || entry.imageDataUrl) {
+        return { id: entry.id, type: 'text' as const, text: '【图片】', at: entry.at || Date.now() }
+      }
+      return {
+        id: entry.id,
+        type: 'text' as const,
+        text: entry.type === 'file' ? entry.filePath ?? '' : entry.text ?? '',
+        at: entry.at,
+      }
+    })
+  )
+
+  /** 删单条。被删的图片条目连磁盘文件一起清，不留垃圾 */
   ipcMain.handle('clipboard-remove', (_event, id: string) => {
-    clipboardEntries = clipboardEntries.filter((entry) => entry.id !== id)
-    persistClipboardHistory()
-    return clipboardEntries
+    const target = clipboardEntries.find((entry) => entry.id === id)
+    if (target && (target.imageId || target.imageDataUrl)) {
+      deleteImageFilesForIds([target.id])
+    }
+    const next = clipboardEntries.filter((entry) => entry.id !== id)
+    commitClipboardEntries(next)
+    return next
   })
 
   ipcMain.handle('clipboard-clear', () => {
-    clipboardEntries = []
-    persistClipboardHistory()
-    return clipboardEntries
-  })
-
-  /**
-   * 把某条写回系统剪贴板。
-   *
-   * 面板的「选中即注入」是靠渲染端自己往输入框里塞，不走这里 ——
-   * 这个通道是给「只想复制走」的场景兜底的。
-   */
-  ipcMain.handle('clipboard-restore', (_event, text: string) => {
-    clipboard.writeText(text)
-    return true
+    deleteImageFilesForIds(clipboardEntries.map((entry) => entry.id))
+    commitClipboardEntries([])
+    return lastClipboardList
   })
 
   /** 图片只写回剪贴板，不模拟粘贴 —— 面板图片条目的「复制」按钮 */
@@ -1253,17 +1442,65 @@ function setupIpc() {
     return copyImageToClipboard(imageDataUrl)
   })
 
-  /** 是否已获辅助功能授权（模拟按键的前提）。不弹窗，只查询 */
-  ipcMain.handle('clipboard-paste-permission', () => isPasteTrusted())
+  /**
+   * 按条目 id 复制/粘贴图片。
+   *
+   * 原图已从 JSON 摘到磁盘（见 clipboardImages），渲染层不再持有 base64 ——
+   * 这里读文件换回 dataURL 再走原来的链路，「贴出 base64 图」的能力不变，
+   * 只是数据从「JSON 常驻」变成了「按需读盘」。
+   */
+  const resolveImageDataUrl = async (entryId: string): Promise<string | null> => {
+    const entry = clipboardEntries.find((item) => item.id === entryId)
+    if (entry?.imageDataUrl) return entry.imageDataUrl
+    if (entry?.imageId) return loadImageDataUrl(entry.imageId)
+    return null
+  }
 
-  /** 主动申请授权：会弹出系统引导，把用户送到「辅助功能」设置页 */
-  ipcMain.handle('clipboard-request-permission', () => requestPastePermission())
+  ipcMain.handle('clipboard-copy-image-by-id', async (_event, entryId: string) => {
+    const dataUrl = await resolveImageDataUrl(entryId)
+    if (!dataUrl) return false
+    return copyImageToClipboard(dataUrl)
+  })
+
+  ipcMain.handle('clipboard-paste-image', async (_event, entryId: string) => {
+    const dataUrl = await resolveImageDataUrl(entryId)
+    if (!dataUrl) return { ok: false, reason: 'failed' as const }
+
+    /*
+     * 与 clipboard-paste 同一套时序：non-activating 面板抢了焦点，先收起，
+     * 等焦点还给唤出面板前的应用再模拟 ⌘V。
+     */
+    const panel = clipboardWindow
+    const wasVisible = panel && !panel.isDestroyed() && panel.isVisible()
+    hideClipboardWindow()
+    await new Promise((resolve) => setTimeout(resolve, 80))
+
+    let result: { ok: boolean; reason?: 'no-module' | 'no-permission' | 'failed' }
+    try {
+      result = await pasteImageToFocusedApp(dataUrl)
+    } catch (error) {
+      console.warn('[paste] 图片粘贴写入剪贴板或模拟按键异常：', error)
+      result = { ok: false, reason: 'failed' }
+    }
+
+    if (
+      !result.ok &&
+      wasVisible &&
+      panel === clipboardWindow &&
+      !panel.isDestroyed()
+    ) {
+      if (loadNonactivating()) {
+        panel.show()
+        panel.focus()
+      } else {
+        panel.showInactive()
+      }
+    }
+    return result
+  })
 
   /** 直接打开系统设置的辅助功能面板（用户拒绝过授权后，系统不再弹窗，只能这样引导） */
   ipcMain.handle('clipboard-open-accessibility', () => openAccessibilitySettings())
-
-  /** 自动粘贴能力是否可用（原生模块装上没）。界面据此决定要不要显示权限引导 */
-  ipcMain.handle('clipboard-paste-available', () => isPasteAvailable())
 
   /**
    * 选中即粘贴：写剪贴板 + 模拟 ⌘V，落进当前聚焦的那个输入框。
@@ -1414,6 +1651,35 @@ function setupIpc() {
   ipcMain.handle('start-capture', () => openCapture())
 
   /**
+   * 主窗口的截图订阅挂好了。
+   *
+   * 由 App 里那条截图订阅 effect 发出（send，不用 invoke —— 它只是通知，
+   * 不必等回执）。收到就：
+   *   1. 标记监听已就绪，之后 deliverCapture 一律直推、不再留缓存；
+   *   2. 把暂存的那张（冷启动 / 页面 reload 期间截的）立刻补推并清空。
+   *
+   * 只认主窗口：工具窗口、截图遮罩层都会加载同一份渲染代码，它们的 signal
+   * 不能把主窗口的状态带偏。sender 对不上时顺带把暂存图也作废 —— 那说明
+   * 这张图对应的那一版页面已经不存在了，留着只会在下次加载时被重放。
+   */
+  ipcMain.on('capture:ocr-ready', (event) => {
+    if (event.sender !== mainWindow?.webContents) {
+      mainLog('[capture] 忽略非主窗口的 ocr-ready 信号')
+      return
+    }
+    captureListenerReady = true
+    const dataUrl = pendingCapture
+    pendingCapture = null
+    if (!dataUrl) {
+      mainLog('[capture] 渲染层已就绪，没有待补推的截图')
+      return
+    }
+    if (!mainWindow || mainWindow.isDestroyed()) return
+    mainLog('[capture] 渲染层已就绪，补推暂存截图，字节数', Math.round(dataUrl.length / 1024), 'KB')
+    mainWindow.webContents.send('capture:ocr-request', dataUrl)
+  })
+
+  /**
    * 遮罩层的渲染进程就绪后主动来拉一次截图。
    *
    * 主进程推图是在 did-finish-load，那是「HTML 加载完」，React 的 effect
@@ -1436,6 +1702,7 @@ function setupIpc() {
    * 用户看不到识别结果。
    */
   ipcMain.handle('finish-capture', (event, dataUrl: string) => {
+    mainLog('[capture] finish-capture 到达，sender 匹配 =', event.sender === captureWindow?.webContents)
     if (event.sender !== captureWindow?.webContents) return
     closeCaptureWindow()
     deliverCapture(dataUrl)
@@ -1450,9 +1717,38 @@ function setupIpc() {
    * unsupported = 依赖没装/包不完整；failed = 跑起来但出错。
    * 渲染层两种失败都回退 tesseract，仅 console.warn 记录原因。
    */
-  ipcMain.handle('ocr-light-recognize', async (_, dataUrl: string) => {
-    return lightOcrRecognize(dataUrl)
-  })
+  ipcMain.handle(
+    'ocr-light-recognize',
+    async (event, dataUrl: string, provider?: 'auto' | 'cpu' | 'apple', requestId?: number) => {
+      /*
+       * 进度按 requestId 推回发起方窗口。渲染层连截几张图时会有多个请求在路上，
+       * 不带 id 的话进度条会被上一张的进度串台。
+       */
+      const send = (progress: { progress: number; status: string; weight: number }) => {
+        if (event.sender.isDestroyed()) return
+        /*
+         * requestId 缺省时也要推：老版本渲染层（或还没重新构建的那份）不带这个参数，
+         * 早期这里直接 return，结果是引擎跑完都没有一条进度 —— 进度条永远停在起点。
+         * 用 0 兜底，渲染层按 0 订阅即可，连截几张时新版本会各自带上自己的号。
+         */
+        event.sender.send('ocr:progress', {
+          requestId: requestId ?? 0,
+          // status 是给人看的中文，按它归类阶段（见 electron/lightOcr.ts 里的三处回调）
+          stage:
+            progress.status === '准备识别引擎'
+              ? 'engine'
+              : progress.status === '分析排版'
+                ? 'detect'
+                : 'recognize',
+          value: progress.progress,
+          // 权重交给渲染层换算成整条进度，主进程只报「本阶段走到哪」
+          weight: progress.weight,
+        })
+      }
+      return lightOcrRecognize(dataUrl, { provider, onProgress: send })
+    }
+  )
+
 
   // Store operations
   ipcMain.handle('store-get', (_, key: string) => {
@@ -1462,10 +1758,7 @@ function setupIpc() {
   ipcMain.handle('store-set', (_, key: string, value: any) => {
     store.set(key, value)
     if (key === CLIPBOARD_HISTORY_KEY && Array.isArray(value)) {
-      clipboardEntries = value
-      if (clipboardWindow && !clipboardWindow.isDestroyed()) {
-        clipboardWindow.webContents.send('clipboard:changed', clipboardEntries)
-      }
+      commitClipboardEntries(value, false)
     }
   })
 
@@ -1532,7 +1825,13 @@ function setupIpc() {
       const handle = fetchViaNetStream({
         ...rest,
         onChunk: (chunk) => send('translate-stream-chunk', { chunk }),
-        onEnd: (error) => send('translate-stream-end', { error }),
+        onEnd: (error) => {
+          // 关键：自然结束也要摘掉 handle。之前只有「用户主动 abort」才 delete，
+          // 正常跑完的请求会在 Map 里永久留一个闭包（连带钉住 net.request 与
+          // webContents），常驻一天泄漏量 = 全天流式请求数
+          streamHandles.delete(requestId)
+          send('translate-stream-end', { error })
+        },
       })
 
       streamHandles.set(requestId, handle)
@@ -1583,12 +1882,16 @@ function setupIpc() {
     }
 
     const filePath = result.filePaths[0]
-    const content = fs.readFileSync(filePath, 'utf-8')
+    // 笔记可能是几十 MB 的长文，同步读会把主进程卡住，窗口跟着顿一下
+    const [content, stat] = await Promise.all([
+      fs.promises.readFile(filePath, 'utf-8'),
+      fs.promises.stat(filePath),
+    ])
     return {
       path: filePath,
       name: path.basename(filePath),
       content,
-      mtimeMs: fs.statSync(filePath).mtimeMs,
+      mtimeMs: stat.mtimeMs,
     }
   })
 
@@ -1615,7 +1918,7 @@ function setupIpc() {
         return null
       }
 
-      fs.writeFileSync(result.filePath, options.content ?? '', 'utf-8')
+      await fs.promises.writeFile(result.filePath, options.content ?? '', 'utf-8')
       return {
         path: result.filePath,
         name: path.basename(result.filePath),
@@ -1647,6 +1950,15 @@ function setupIpc() {
       if (!event.sender.isDestroyed()) event.sender.send('net-ping:event', { id, ...ev })
     })
     pingRuns.set(id, stop)
+    /*
+     * 窗口关闭/刷新后渲染层不会再发 net-ping-stop，那些还在跑的 ping
+     * 会一直挂在定时器里（且回调里 isDestroyed 早退，等于纯粹空转）。
+     * 挂在 sender 上随窗口销毁一起收掉 —— once 保证 watch 用完即卸。
+     */
+    event.sender.once('destroyed', () => {
+      pingRuns.get(id)?.()
+      pingRuns.delete(id)
+    })
     return { id, host }
   })
   ipcMain.handle('net-ping-stop', (_, id: number) => {
@@ -1673,7 +1985,19 @@ function setupIpc() {
         (HASH_ALGORITHMS as readonly string[]).includes(algo),
       )
       if (algorithms.length === 0) throw new Error('至少选择一种算法')
+      /*
+       * 进度节流：hashFile 是按块回调的，大文件（几个 G）会每块推一条 IPC，
+       * 渲染层也就跟着每块重渲一次。100ms 一次足够让进度条平滑；文件切换
+       * （path 变化）时强制推一条，保证界面上文件名的切换即时可见。
+       */
+      let lastProgressAt = 0
+      let lastProgressPath = ''
       return hashFiles(payload.paths.filter((p) => typeof p === 'string' && p), algorithms, (progress) => {
+        const now = Date.now()
+        const pathChanged = progress.path !== lastProgressPath
+        if (!pathChanged && now - lastProgressAt < 100) return
+        lastProgressAt = now
+        lastProgressPath = progress.path
         if (!event.sender.isDestroyed()) event.sender.send('hash:progress', { requestId: payload.requestId, ...progress })
       })
     },
@@ -1748,8 +2072,15 @@ app.on('will-finish-launching', () => {
 })
 
 app.whenReady().then(async () => {
+  // 先把本地日志落盘通道建起来，后面所有排查日志都写进同一个文件
+  initDebugLog(app.getPath('userData'))
+  registerRendererLogIpc(ipcMain, app.isPackaged)
+
   // 无边框窗口没有菜单栏可挂，默认菜单留着只会提供一批用不上的快捷键
   Menu.setApplicationMenu(null)
+
+  // dnclip:// 图片协议：面板缩略图 <img> 直接走它，不经过 IPC/JSON 搬运
+  installClipProtocolHandler()
 
   await applyProxyConfig(store)
   createMainWindow()
@@ -1798,6 +2129,9 @@ app.on('will-quit', () => {
   clipboardStop?.()
   clipboardStop = null
   stopLanTransfer()
+  // OCR 引擎子进程是常驻的（模型占一百多 MB），退出时必须主动收掉，
+  // 否则会留下一个没有父进程的孤儿 Node 进程
+  shutdownLightOcr()
 })
 
 /*
