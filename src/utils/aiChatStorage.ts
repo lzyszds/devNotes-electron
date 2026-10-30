@@ -59,6 +59,8 @@ export function createNewSession(presetId = 'general', title = '新对话'): AiC
 
 /** 同步读取缓存的历史会话列表（供组件初次挂载时即刻渲染，消除空白闪烁与异步延迟） */
 export function getCachedChatSessions(): AiChatSession[] {
+  // 防抖还没落地时，内存里的那份一定比 localStorage 新（首次进入组件就先拿它）
+  if (pendingSessions) return pendingSessions
   try {
     const local = localStorage.getItem(AI_CHAT_SESSIONS_STORAGE_KEY)
     if (local) {
@@ -109,23 +111,44 @@ export async function loadChatSessions(): Promise<AiChatSession[]> {
 }
 
 let saveSessionsTimer: any = null
+/** 防抖窗口内最新的那份会话列表：localStorage 等防抖结束再写，避免每次流式追加都整库 stringify */
+let pendingSessions: AiChatSession[] | null = null
 
 /** 持久化保存所有会话列表（防抖 300ms 异步持久化至磁盘，避免高频 IPC 阻塞主线程） */
 export function saveChatSessions(sessions: AiChatSession[]): void {
-  // 先同步写 localStorage，保障即使立刻刷新也不丢失状态
+  /*
+   * localStorage 不再同步全量写：流式回复期间消息会高频追加，每次都对
+   * 「全部会话 + 全部消息」做一次 JSON.stringify 是切会话卡顿的老来源之一。
+   * 现在与磁盘写入共用同一个 300ms 防抖，窗口关闭时由 flushChatSessions 兜底。
+   */
+  pendingSessions = sessions
+
+  if (saveSessionsTimer) clearTimeout(saveSessionsTimer)
+  saveSessionsTimer = setTimeout(() => {
+    flushChatSessions()
+  }, 300)
+}
+
+/**
+ * 立刻把挂起的会话写盘（localStorage 同步 + electron-store 异步）。
+ * 窗口隐藏 / 退出时调用，保证「防抖窗口内改的最后一句」不会丢。
+ */
+export function flushChatSessions(): void {
+  if (saveSessionsTimer) {
+    clearTimeout(saveSessionsTimer)
+    saveSessionsTimer = null
+  }
+  const sessions = pendingSessions
+  if (!sessions) return
+  pendingSessions = null
   try {
     localStorage.setItem(AI_CHAT_SESSIONS_STORAGE_KEY, JSON.stringify(sessions))
   } catch {
     // ignore
   }
-
-  // 磁盘文件与 electron-store 采用 300ms 防抖写入
-  if (saveSessionsTimer) clearTimeout(saveSessionsTimer)
-  saveSessionsTimer = setTimeout(() => {
-    if (window.electronAPI?.storeSet) {
-      window.electronAPI.storeSet(AI_CHAT_SESSIONS_STORAGE_KEY, sessions).catch(() => {})
-    }
-  }, 300)
+  if (window.electronAPI?.storeSet) {
+    window.electronAPI.storeSet(AI_CHAT_SESSIONS_STORAGE_KEY, sessions).catch(() => {})
+  }
 }
 
 /** 读取上次停留的会话 ID */

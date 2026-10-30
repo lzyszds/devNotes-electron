@@ -11,8 +11,8 @@
  */
 
 import React, {
-  startTransition,
   useCallback,
+  useDeferredValue,
   useEffect,
   useMemo,
   useRef,
@@ -75,6 +75,7 @@ import {
   getCachedActiveSessionId,
   getCachedChatSessions,
   loadActiveSessionId,
+  flushChatSessions,
   loadChatSessions,
   saveActiveSessionId,
   saveChatSessions,
@@ -120,6 +121,16 @@ function getPresetIcon(presetId: string, className = 'w-4 h-4') {
  */
 const MARKDOWN_CACHE = new Map<string, string>()
 const CODE_HIGHLIGHT_CACHE = new Map<string, string>()
+
+/**
+ * 单次挂载消息窗口大小。
+ *
+ * 切换会话时 React 必须在「一次同步提交」里卸载旧会话整棵消息 DOM、再挂载新会话
+ * 整棵消息 DOM —— 这是切换瞬间主线程被堵死几百 ms 的根源（content-visibility 只省
+ * 排版与绘制，省不掉 DOM 挂载成本）。只渲染末尾一个窗口，「加载更早」按钮按此步长
+ * 向上增量补载，让每次切换/进入永远是轻量提交。
+ */
+const MESSAGE_WINDOW_STEP = 40
 
 /** 配置 marked 的代码块高亮与终端极客深色主题 */
 const customRenderer = new marked.Renderer()
@@ -215,7 +226,8 @@ interface ChatMessageItemProps {
   onInsertToNote: (content: string) => void
   onRegenerate: (msgId: string) => void
   onDelete: (msgId: string) => void
-  isStreaming: boolean
+  /** 是否正在生成。用 ref 而不是布尔值：流式开关一次不该让所有历史消息重渲 */
+  isStreamingRef: React.MutableRefObject<boolean>
 }
 
 const ChatMessageItem = React.memo(function ChatMessageItem({
@@ -226,7 +238,7 @@ const ChatMessageItem = React.memo(function ChatMessageItem({
   onInsertToNote,
   onRegenerate,
   onDelete,
-  isStreaming,
+  isStreamingRef,
 }: ChatMessageItemProps) {
   const isUser = msg.role === 'user'
 
@@ -333,8 +345,10 @@ const ChatMessageItem = React.memo(function ChatMessageItem({
           <button
             type="button"
             onClick={() => onRegenerate(msg.id)}
-            disabled={isStreaming}
-            className={`hover:text-zinc-800 flex items-center gap-1 transition-colors cursor-pointer ${isStreaming ? 'opacity-40 cursor-not-allowed' : ''
+            // 用 ref 读「是否在生成」，回调本身不再依赖状态 —— 否则这个回调
+            // 每次流式开关一变就换 identity，整批消息的 memo 全被击穿
+            disabled={isStreamingRef.current}
+            className={`hover:text-zinc-800 flex items-center gap-1 transition-colors cursor-pointer ${isStreamingRef.current ? 'opacity-40 cursor-not-allowed' : ''
               }`}
           >
             <RotateCcw size={13} />
@@ -575,6 +589,15 @@ export default function AiChatTool() {
   // 3. 用户输入与流式响应状态
   const [inputText, setInputText] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
+  /*
+   * isStreaming 的 ref 副本：给「一次生成期间不该重建」的回调用（消息操作栏、
+   * 渲染列表）。用 state 做依赖的话，生成开始/结束各让整批历史消息重渲一次，
+   * 长会话里这就是一次可感知的停顿。
+   */
+  const isStreamingRef = useRef(false)
+  useEffect(() => {
+    isStreamingRef.current = isStreaming
+  }, [isStreaming])
   const [streamingReasoning, setStreamingReasoning] = useState('')
   const [streamingContent, setStreamingContent] = useState('')
   const [firstTokenMs, setFirstTokenMs] = useState<number | null>(null)
@@ -586,6 +609,40 @@ export default function AiChatTool() {
 
   // 深度思考折叠状态字典（消息 ID -> 是否展开）
   const [expandedThinking, setExpandedThinking] = useState<Record<string, boolean>>({})
+
+  // 性能优化：历史消息只挂尾部一个窗口，更早的历史按 MESSAGE_WINDOW_STEP 增量补载。
+  // 一次性全员挂载会让切换会话的同步 commit 大到把主线程堵死几百 ms。
+  const [visibleMessageCount, setVisibleMessageCount] = useState(MESSAGE_WINDOW_STEP)
+
+  // 用 ref 侧记当前活跃会话 ID：handleSelectSession / handleDeleteSession 不再依赖
+  // activeSessionId 这个 state。该依赖一变回调 identity 就变，侧栏几十个
+  // SessionItem 的 React.memo 会被整批击穿重绘，是切换路径上的一笔无效开销。
+  const activeSessionIdRef = useRef(activeSessionId)
+  useEffect(() => {
+    activeSessionIdRef.current = activeSessionId
+  }, [activeSessionId])
+
+  // 切换活跃会话时重置窗口：保证每次切换后的首次提交永远是「尾部一个窗口」。
+  // （同时兜底覆盖异步恢复 activeId 等非用户点击路径的会话变更）
+  useEffect(() => {
+    setVisibleMessageCount(MESSAGE_WINDOW_STEP)
+  }, [activeSessionId])
+
+  /*
+   * 会话落盘是 300ms 防抖的（见 saveChatSessions），窗口隐藏 / 关闭时
+   * 防抖窗口内最后一句还在内存里 —— 这里补一次同步 flush。
+   */
+  useEffect(() => {
+    const flush = () => flushChatSessions()
+    window.addEventListener('pagehide', flush)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') flush()
+    })
+    return () => {
+      window.removeEventListener('pagehide', flush)
+      flush()
+    }
+  }, [])
 
   // 5. 显式引用知识库文章状态与弹窗控制（不再全自动静默关联，改由用户按需选配）
   const [selectedRefNoteIds, setSelectedRefNoteIds] = useState<string[]>([])
@@ -630,7 +687,9 @@ export default function AiChatTool() {
     }
   }, [isRefModalOpen])
 
-  // 性能优化：流式传输时的 Markdown 渲染限频，保障长文本高频输出时不卡死主线程
+  // 性能优化：流式传输时的 Markdown 渲染限频，保障长文本高频输出时不卡死主线程。
+  // 60ms 是「一半帧率」—— SSE 每来一小段就全量重解析整篇 markdown，长回复后期
+  // 每次解析都是几十 ms，频率再高就把主线程喂满了；再低则肉眼能看出卡顿。
   useEffect(() => {
     if (!streamingContent) {
       setStreamingHtml('')
@@ -641,19 +700,22 @@ export default function AiChatTool() {
       return
     }
 
+    // 定时器已挂上说明这一帧的解析正在排队，别重复安排
+    if (markdownTimerRef.current) return
+
     const now = performance.now()
-    if (now - lastMarkdownParseTimeRef.current >= 60) {
+    const wait = Math.max(0, 60 - (now - lastMarkdownParseTimeRef.current))
+    if (wait === 0) {
       lastMarkdownParseTimeRef.current = now
       setStreamingHtml(renderMarkdown(streamingContent))
-    } else {
-      if (!markdownTimerRef.current) {
-        markdownTimerRef.current = setTimeout(() => {
-          lastMarkdownParseTimeRef.current = performance.now()
-          setStreamingHtml(renderMarkdown(pendingContentRef.current || streamingContent))
-          markdownTimerRef.current = null
-        }, 60)
-      }
+      return
     }
+    markdownTimerRef.current = setTimeout(() => {
+      lastMarkdownParseTimeRef.current = performance.now()
+      markdownTimerRef.current = null
+      // 取 ref 里的最新全文：定时器等待期间内容可能又长了几段，用旧的会往回跳
+      setStreamingHtml(renderMarkdown(pendingContentRef.current || streamingContent))
+    }, wait)
   }, [streamingContent])
 
   // 活跃未删除文档列表
@@ -741,6 +803,22 @@ export default function AiChatTool() {
     return sessions.find((s) => s.id === activeSessionId) || sessions[0] || null
   }, [sessions, activeSessionId])
 
+  /*
+   * 并发优先级拆分（切换会话流畅度的核心）：
+   *
+   * 侧栏高亮 / 标题 / 输入区都是轻量 UI，必须跟着 activeSessionId 同步立即提交，
+   * 点哪立刻亮哪；而整份历史消息列表是重量级渲染，改走 useDeferredValue 延后一拍、
+   * 由 React 并发切片渲染，期间输入框与点击始终可响应。
+   *
+   * 原方案把两者一起包在 startTransition 里 —— transition 会把同一次更新里
+   * 「所有消费方」整体延迟提交，结果是点击高亮也要等几百条消息渲染完才出现，
+   * 正是切会话「等几百 ms 才有反应」的体感来源。
+   */
+  const deferredActiveSessionId = useDeferredValue(activeSessionId)
+  const deferredSession = useMemo(() => {
+    return sessions.find((s) => s.id === deferredActiveSessionId) || activeSession
+  }, [sessions, deferredActiveSessionId, activeSession])
+
   // 当前会话的角色预设
   const activePreset: AiChatPreset = useMemo(() => {
     return getPresetById(activeSession?.presetId || 'general')
@@ -755,20 +833,22 @@ export default function AiChatTool() {
     })
   }, [])
 
-  // 切换活跃会话（关键优化：利用 React startTransition 将高开销会话切换标记为非阻塞转换，侧栏点击即刻高亮响应，绝不卡死主线程）
+  // 切换活跃会话。轻量 UI（侧栏高亮/标题/输入区）用普通 setState 立即提交，点击即刻反馈；
+  // 重量级的消息列表经 useDeferredValue 延后渲染（见 deferredSession 处注释）。
   const handleSelectSession = useCallback(
     (id: string) => {
       if (isStreaming) {
         showToast('请先等待当前 AI 回答完毕或点击停止', 'default')
         return
       }
-      if (id === activeSessionId) return
-      startTransition(() => {
-        setActiveSessionId(id)
-      })
+      // ref 侧记最新值：即使快速连点，比较的也始终是最新会话 ID
+      if (id === activeSessionIdRef.current) return
+      activeSessionIdRef.current = id
+      setActiveSessionId(id)
+      setVisibleMessageCount(MESSAGE_WINDOW_STEP)
       saveActiveSessionId(id)
     },
-    [isStreaming, activeSessionId, showToast],
+    [isStreaming, showToast],
   )
 
   // 新建会话
@@ -780,9 +860,9 @@ export default function AiChatTool() {
     const preset = getPresetById(presetId)
     const newSession = createNewSession(presetId, `${preset.name}对话`)
     updateAndSaveSessions((prev) => [newSession, ...prev])
-    startTransition(() => {
-      setActiveSessionId(newSession.id)
-    })
+    activeSessionIdRef.current = newSession.id
+    setActiveSessionId(newSession.id)
+    setVisibleMessageCount(MESSAGE_WINDOW_STEP)
     saveActiveSessionId(newSession.id)
     setTimeout(() => {
       textareaRef.current?.focus()
@@ -849,31 +929,32 @@ export default function AiChatTool() {
     setEditingTitle(val)
   }, [])
 
-  // 删除单场会话
+  // 删除单场会话。读取「当前会话」走 ref 而非 state 依赖，避免击穿侧栏整排 memo；
+  // 切换目标会话同样走普通 setState 立即提交（消息列表由 deferred 延后渲染）。
   const handleDeleteSession = useCallback((sessionId: string, e: React.MouseEvent) => {
     e.stopPropagation()
     setSessions((currentSessions) => {
       if (currentSessions.length <= 1) {
         const fresh = createNewSession('general', '日常全能问答')
         saveChatSessions([fresh])
-        startTransition(() => {
-          setActiveSessionId(fresh.id)
-        })
+        activeSessionIdRef.current = fresh.id
+        setActiveSessionId(fresh.id)
+        setVisibleMessageCount(MESSAGE_WINDOW_STEP)
         saveActiveSessionId(fresh.id)
         return [fresh]
       }
       const nextSessions = currentSessions.filter((s) => s.id !== sessionId)
       saveChatSessions(nextSessions)
-      if (activeSessionId === sessionId) {
+      if (activeSessionIdRef.current === sessionId) {
         const nextActive = nextSessions[0].id
-        startTransition(() => {
-          setActiveSessionId(nextActive)
-        })
+        activeSessionIdRef.current = nextActive
+        setActiveSessionId(nextActive)
+        setVisibleMessageCount(MESSAGE_WINDOW_STEP)
         saveActiveSessionId(nextActive)
       }
       return nextSessions
     })
-  }, [activeSessionId])
+  }, [])
 
   // 清空当前会话的消息记录
   const handleClearCurrentMessages = useCallback(() => {
@@ -893,10 +974,12 @@ export default function AiChatTool() {
     })
   }, [])
 
+  // 依赖 deferredActiveSessionId：等延后的新会话消息列表真正提交后再滚到底，
+  // 否则会在还挂着旧列表时提前滚动，新列表提交后位置又归零。
   useEffect(() => {
     scrollToBottom(false)
     isNearBottomRef.current = true
-  }, [activeSessionId, scrollToBottom])
+  }, [deferredActiveSessionId, scrollToBottom])
 
   // 切换单条消息的推理思考折叠
   const handleToggleThinking = useCallback((msgId: string) => {
@@ -915,7 +998,18 @@ export default function AiChatTool() {
     [showToast],
   )
 
-  // 插入到当前 Markdown 笔记
+  /*
+   * 插入到当前 Markdown 笔记。
+   *
+   * 笔记标题走 ref 读：原来把它列在依赖里，笔记标题一变（或切文档）这个回调
+   * 就换 identity，进而让整批历史消息的 memo 全部失效重渲。提示文案里的标题
+   * 不需要「实时准确到字」，用最新值即可。
+   */
+  const activeNoteTitleRef = useRef(activeNote?.title)
+  useEffect(() => {
+    activeNoteTitleRef.current = activeNote?.title
+  }, [activeNote?.title])
+
   const handleInsertToNote = useCallback(
     (content: string) => {
       if (!insertText) {
@@ -923,9 +1017,9 @@ export default function AiChatTool() {
         return
       }
       insertText(`\n\n> **AI 会话引用**：\n\n${content}\n\n`)
-      showToast(`已插入到笔记「${activeNote?.title || '当前文档'}」`, 'default')
+      showToast(`已插入到笔记「${activeNoteTitleRef.current || '当前文档'}」`, 'default')
     },
-    [insertText, activeNote?.title, showToast],
+    [insertText, showToast],
   )
 
   // 代理全局复制代码与插入笔记按钮
@@ -1158,7 +1252,7 @@ export default function AiChatTool() {
   // 重新生成最后一次回复
   const handleRegenerate = useCallback(
     (targetMsgId: string) => {
-      if (isStreaming || !activeSession) return
+      if (isStreamingRef.current || !activeSession) return
       const msgIndex = activeSession.messages.findIndex((m) => m.id === targetMsgId)
       if (msgIndex === -1) return
 
@@ -1179,13 +1273,14 @@ export default function AiChatTool() {
 
       handleSendMessage(userPrompt)
     },
-    [isStreaming, activeSession, updateAndSaveSessions, handleSendMessage],
+    // isStreaming 用 ref 读，不再作为依赖：否则生成开始/结束都会重建这个回调
+    [activeSession, updateAndSaveSessions, handleSendMessage],
   )
 
   // 删除单条消息
   const handleDeleteMessage = useCallback(
     (msgId: string) => {
-      if (isStreaming || !activeSessionId) return
+      if (isStreamingRef.current || !activeSessionId) return
       updateAndSaveSessions((prev) =>
         prev.map((s) =>
           s.id === activeSessionId
@@ -1197,7 +1292,7 @@ export default function AiChatTool() {
         ),
       )
     },
-    [isStreaming, activeSessionId, updateAndSaveSessions],
+    [activeSessionId, updateAndSaveSessions],
   )
 
   // 导出整场会话
@@ -1247,10 +1342,29 @@ export default function AiChatTool() {
     [handleSendMessage],
   )
 
-  // 性能优化：会话历史列表组件 Memo 缓存，用户在输入框打字时不触发历史消息重复 diff 重绘
+  // 尾部窗口之外被隐藏的更早消息条数（供顶部「加载更早」按钮展示）
+  const earlierHiddenCount = deferredSession
+    ? Math.max(0, deferredSession.messages.length - visibleMessageCount)
+    : 0
+
+  // 增量补载更早的历史消息。新内容全部插在滚动容器顶部，直接放开会让视口内容
+  // 整体「跳走」；挂载前记下 scrollHeight，提交后的下一帧把总增量补回 scrollTop。
+  const handleLoadEarlier = useCallback(() => {
+    const prevHeight = chatContainerRef.current?.scrollHeight ?? 0
+    setVisibleMessageCount((prev) => prev + MESSAGE_WINDOW_STEP)
+    requestAnimationFrame(() => {
+      const el = chatContainerRef.current
+      if (el && el.scrollHeight > prevHeight) {
+        el.scrollTop = el.scrollTop + (el.scrollHeight - prevHeight)
+      }
+    })
+  }, [])
+
+  // 性能优化：会话历史列表组件 Memo 缓存，用户在输入框打字时不触发历史消息重复 diff 重绘。
+  // 渲染源用 deferredSession（延后一拍、并发切片），并只挂 MESSAGE_WINDOW_STEP 尾部窗口。
   const renderedMessages = useMemo(() => {
-    if (!activeSession) return null
-    return activeSession.messages.map((msg) => (
+    if (!deferredSession) return null
+    return deferredSession.messages.slice(-visibleMessageCount).map((msg) => (
       <ChatMessageItem
         key={msg.id}
         msg={msg}
@@ -1260,29 +1374,29 @@ export default function AiChatTool() {
         onInsertToNote={handleInsertToNote}
         onRegenerate={handleRegenerate}
         onDelete={handleDeleteMessage}
-        isStreaming={isStreaming}
+        isStreamingRef={isStreamingRef}
       />
     ))
   }, [
-    activeSession,
+    deferredSession,
+    visibleMessageCount,
     expandedThinking,
     handleToggleThinking,
     handleCopyMessage,
     handleInsertToNote,
     handleRegenerate,
     handleDeleteMessage,
-    isStreaming,
   ])
 
-  // 过滤后的会话列表
+  // 过滤后的会话列表（置顶/普通已经在这里分好，避免在渲染体里再 filter 两遍）
   const filteredSessions = useMemo(() => {
     const kw = searchKeyword.trim().toLowerCase()
     let list = sessions
     if (sidebarTab === 'starred') {
       list = list.filter((s) => s.starred)
     }
-    if (!kw) return list
-    return list.filter((s) => s.title.toLowerCase().includes(kw))
+    if (kw) list = list.filter((s) => s.title.toLowerCase().includes(kw))
+    return list
   }, [sessions, searchKeyword, sidebarTab])
 
   // 置顶会话与普通会话拆分
@@ -1587,6 +1701,19 @@ export default function AiChatTool() {
             </div>
           )}
 
+          {/* 更早的历史按窗口增量补载：一次性全员挂载会把切会话的同步提交放大到几百 ms */}
+          {earlierHiddenCount > 0 && (
+            <div className="flex justify-center pb-1">
+              <button
+                type="button"
+                onClick={handleLoadEarlier}
+                className="px-3 py-1 rounded-full text-[11px] text-zinc-500 bg-zinc-100 hover:bg-zinc-200/70 transition-colors cursor-pointer"
+              >
+                加载更早消息（还有 {earlierHiddenCount} 条）
+              </button>
+            </div>
+          )}
+
           {/* 会话历史列表（使用 useMemo 纯组件隔离重绘） */}
           {renderedMessages}
 
@@ -1614,8 +1741,10 @@ export default function AiChatTool() {
                 {streamingContent ? (
                   <div
                     className="text-[13px] text-zinc-800 leading-relaxed space-y-3 break-words prose prose-zinc max-w-none"
+                    // 正文 HTML 只由上面的节流 effect 产出；这里不再兜底同步解析
+                    // renderMarkdown(streamingContent)，否则每次渲染都白解析一遍整篇
                     dangerouslySetInnerHTML={{
-                      __html: streamingHtml || renderMarkdown(streamingContent),
+                      __html: streamingHtml,
                     }}
                   />
                 ) : (
