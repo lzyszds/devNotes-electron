@@ -81,10 +81,9 @@ fehelper-electron/
 
 ### 添加新工具
 
-1. 在 `src/renderer/tools/` 下创建工具目录
-2. 创建 `index.html` 作为工具页面
-3. 在 `src/main/index.js` 的 `openTool` 函数中添加标题映射
-4. 在 `popup/index.html` 的 `TOOL_MAP` 中添加工具定义
+1. 在 `src/types/index.ts` 的注册表（`tools` / `standaloneModules` → `allModules`）里登记工具元数据
+2. 在 `src/components/modules/<工具目录>/` 下实现工具面板，并挂进 `DashboardLayout` 的渲染映射
+3. 侧栏 / Rail 的入口由 `allModules` 自动派生，不用再手写白名单
 
 ### 快捷键
 
