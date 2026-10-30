@@ -49,7 +49,6 @@ import {
 } from '../utils/cloudflareSync'
 
 export type SaveStatus = 'idle' | 'unsaved' | 'saving' | 'saved' | 'error'
-export type ViewMode = 'code' | 'split' | 'preview'
 export type CfSyncStatus = 'idle' | 'syncing' | 'success' | 'error'
 
 // 与 electron/preload.ts 的 OpenFilePayload 保持一致(渲染层不直接 import electron 模块)
@@ -113,12 +112,6 @@ interface NotesContextType {
   handleContentChange: (content: string) => void
   handleExport: (note?: NoteItem) => Promise<void>
   handleImport: () => Promise<void>
-  viewMode: ViewMode
-  setViewMode: (mode: ViewMode) => void
-  splitPercent: number
-  setSplitPercent: (pct: number) => void
-  statusCounter: { words: number; lines: number }
-  setStatusCounter: (counter: { words: number; lines: number }) => void
   insertText: (prefix: string, suffix?: string) => void
   registerInsertHandler: (fn: (prefix: string, suffix?: string) => void) => void
   /** 当前文档正文的「被外部换过几次」。编辑器据此决定要不要整篇重载 */
@@ -168,9 +161,6 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
   const [scope, setScope] = useState<NoteScope>({ type: 'all' })
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved')
   const [message, setMessage] = useState('已保存')
-  const [viewMode, setViewMode] = useState<ViewMode>('split')
-  const [splitPercent, setSplitPercent] = useState<number>(50)
-  const [statusCounter, setStatusCounter] = useState({ words: 0, lines: 0 })
   // 保存策略：是否自动落盘、停手多久落盘。默认关，见 notesSettings.ts
   const [notesSave, setNotesSave] = useState<NotesSaveSettings>({
     autoSaveEnabled: false,
@@ -194,6 +184,8 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
 
   const saveTimerRef = useRef<number | null>(null)
   const cfAutoSyncTimerRef = useRef<number | null>(null)
+  /** 云端推送是否正在进行：定时备份与编辑后防抖两路共用，避免并发整库序列化 */
+  const syncInFlightRef = useRef(false)
   const stateRef = useRef<NotesState>(cachedState || { notes: [], folders: [], activeId: null })
   const insertHandlerRef = useRef<((prefix: string, suffix?: string) => void) | null>(null)
   const onFileOpenNavigateRef = useRef<(() => void) | undefined>(undefined)
@@ -375,7 +367,11 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
     }
   }, [])
 
-  // 周期性定时自动备份
+  /*
+   * 周期性定时自动备份：双路（定时 / 编辑后 3s 防抖）共用一把 in-flight 锁。
+   * 笔记库大时一次推送要几秒，两路叠着跑会同时序列化整库、并发打同一个
+   * 云端接口 —— UI 卡、还被服务端限流。正在跑就跳过这一轮，下一轮自然会来。
+   */
   useEffect(() => {
     if (!cfConfig.autoBackupEnabled) return
 
@@ -389,7 +385,13 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
         cfConfig.enabled &&
         (cfConfig.workerUrl || (cfConfig.kvAccountId && cfConfig.kvNamespaceId))
       ) {
-        await pushToCloudflare(stateRef.current, cfConfig)
+        if (syncInFlightRef.current) return
+        syncInFlightRef.current = true
+        try {
+          await pushToCloudflare(stateRef.current, cfConfig)
+        } finally {
+          syncInFlightRef.current = false
+        }
       }
     }, intervalMs)
 
@@ -422,10 +424,18 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
         if (!cfConfig.enabled || !cfConfig.autoSync) return
         if (cfConfig.mode === 'worker' && !cfConfig.workerUrl) return
         if (cfConfig.mode === 'kv' && (!cfConfig.kvAccountId || !cfConfig.kvNamespaceId)) return
+        // 与定时备份共用 in-flight 锁：正在推就跳过，避免并发序列化整库 + 打爆接口
+        if (syncInFlightRef.current) return
 
         setCfSyncStatus('syncing')
         setCfSyncMessage('自动备份至 Cloudflare...')
-        const res = await pushToCloudflare(nextState, cfConfig)
+        syncInFlightRef.current = true
+        let res: SyncResult
+        try {
+          res = await pushToCloudflare(nextState, cfConfig)
+        } finally {
+          syncInFlightRef.current = false
+        }
         if (res.success) {
           setCfSyncStatus('success')
           setCfSyncMessage('已自动同步到云端')
@@ -651,6 +661,11 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
 
     setContentRevisions((rev) => {
       const updated = { ...rev }
+      // 已不存在的文档顺手摘掉：这个表原来只增不减，长期编辑上千篇后
+      // 每次 bump 都要整体复制一张越来越大的表
+      for (const id of Object.keys(updated)) {
+        if (!next.notes.some((note) => note.id === id)) delete updated[id]
+      }
       changed.forEach((id) => {
         updated[id] = (updated[id] ?? 0) + 1
       })
@@ -1465,12 +1480,6 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
       handleContentChange,
       handleExport,
       handleImport,
-      viewMode,
-      setViewMode,
-      splitPercent,
-      setSplitPercent,
-      statusCounter,
-      setStatusCounter,
       insertText,
       registerInsertHandler,
       // 保存策略与手动保存
@@ -1527,12 +1536,6 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
       handleContentChange,
       handleExport,
       handleImport,
-      viewMode,
-      setViewMode,
-      splitPercent,
-      setSplitPercent,
-      statusCounter,
-      setStatusCounter,
       insertText,
       registerInsertHandler,
       contentRevision,

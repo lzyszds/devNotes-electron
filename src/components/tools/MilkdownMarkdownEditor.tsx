@@ -168,6 +168,12 @@ const HEADING_OPTIONS: { level: number; label: string }[] = [
 /** 需要先收一个参数才能执行的命令,点击后弹出输入层 */
 type PopupKind = 'heading' | 'link' | 'image'
 
+/**
+ * 大纲重扫的延迟(ms)。打字是高频事件,跟着每次 value 变更就扫全文等于
+ * 「每敲一个键都全文遍历一次」,停手后扫的那一次才是用户真正会看的。
+ */
+const OUTLINE_REFRESH_DELAY_MS = 250
+
 /** 勾选框热区宽度(px)。方框本身 13px,留点余量;再往右就是正文了,点那儿应该是放光标 */
 const TASK_CHECKBOX_HIT_AREA = 20
 
@@ -279,6 +285,9 @@ export default function MilkdownMarkdownEditor({
   const [outlineItems, setOutlineItems] = useState<OutlineItem[]>([])
   const [outlineExpanded, setOutlineExpanded] = useState(false)
   const [outlineActive, setOutlineActive] = useState(-1)
+  /* 上一次测出的「当前章节」与标题数量:滚动测量靠它决定要不要重新逐节点量坐标 */
+  const activeHeadingRef = useRef(-1)
+  const activeHeadingSignatureRef = useRef(-1)
   const [readPercent, setReadPercent] = useState(0)
   // 滚动位置：左侧书签标记盖在滚动容器外，得靠它把标记挪到正确高度
   const [scrollTop, setScrollTop] = useState(0)
@@ -652,9 +661,20 @@ export default function MilkdownMarkdownEditor({
   )
 
   // ================= 大纲 =================
-  // 文档一变就重扫。常态收集 —— 胶囊折叠时也要显示骨架条，不能只在展开时才扫
+  /*
+   * 文档一变就重扫，但延迟 250ms 且只在停手后才真的扫。
+   *
+   * 常态收集 —— 胶囊折叠时也要显示骨架条，不能只在展开时才扫。慢的是
+   * collectOutline 本身（它要遍历整篇 ProseMirror 文档），若跟着 [value] 每次都跑，
+   * 就等于「每敲一个键都全文扫一遍」；停手 250ms 后扫的那一次足够新，
+   * 用户看大纲也不会在打字中途频繁跳。
+   */
   useEffect(() => {
-    setOutlineItems(collectOutline(editorRef.current))
+    if (!ready) return
+    const timer = window.setTimeout(() => {
+      setOutlineItems(collectOutline(editorRef.current))
+    }, OUTLINE_REFRESH_DELAY_MS)
+    return () => window.clearTimeout(timer)
   }, [value, ready])
 
   /** 取编辑器里的标题元素。DOM 顺序与 collectOutline 的条目顺序都是文档序，可以按下标一一对应 */
@@ -676,12 +696,31 @@ export default function MilkdownMarkdownEditor({
     if (!scroll) return
 
     let frame = 0
+    let lastMeasureAt = 0
     const measure = () => {
       frame = 0
+      const now = performance.now()
       const headings = collectHeadingElements(scroll)
-      const percent = readPercentOf(scroll)
-      const active = findActiveHeadingIndex(scroll, headings)
 
+      /*
+       * 「当前处在第几节」是唯一需要逐个 getBoundingClientRect 的测量：
+       * 一节一读一次，几十个标题就是几十次强制布局（reflow）。它只用于大纲高亮
+       * 与书签定位，100ms 粒度完全够用；滚动的实时手感交给同样廉价度量的
+       * readPercentOf（只读 scrollTop / scrollHeight），那条每帧都走。
+       *
+       * 只有标题元素数量变了（增删章节 / 换文档）才强制重测，否则新文档的
+       * 高亮会一直停在旧下标上。
+       */
+      let active = activeHeadingRef.current
+      const signature = headings.length
+      if (signature !== activeHeadingSignatureRef.current || now - lastMeasureAt >= 100) {
+        lastMeasureAt = now
+        activeHeadingSignatureRef.current = signature
+        active = findActiveHeadingIndex(scroll, headings)
+        activeHeadingRef.current = active
+      }
+
+      const percent = readPercentOf(scroll)
       setReadPercent(percent)
       setScrollTop(scroll.scrollTop)
       setOutlineActive(active)

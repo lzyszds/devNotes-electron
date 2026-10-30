@@ -572,8 +572,7 @@ export function readNotesStateFromLocalStorage(): NotesState | null {
  * 老版本写下的数据没有 savedAt，退回按笔记时间戳推算 —— 那套口径识别不了
  * 「删掉一篇」这类让最大值回退的改动，只对老数据生效，读一次之后就会被
  * saveNotesState 盖上新的 savedAt。
- */
-function stateFreshness(state: NotesState): number {
+ */function stateFreshness(state: NotesState): number {
   if (typeof state.savedAt === 'number') return state.savedAt
   const noteStamps = state.notes.reduce((max, note) => {
     const stamp = Math.max(note.updatedAt || 0, note.deletedAt || 0, note.folderMovedAt || 0)
@@ -590,8 +589,10 @@ export async function loadNotesState(): Promise<NotesState> {
   const fromElectron = await readFromElectron()
   const fromLocal = readNotesStateFromLocalStorage()
 
-  // 两份都有时挑新的：localStorage 是同步写的，异步 store 被打断时它反而更新。
-  // 读到新数据后如果需要纠正另一份，在后台异步落盘，不要 await 阻塞启动流程
+  // 两份都有时挑新的：localStorage 只是「退出兜底快照」，正常情况下比 store 旧；
+  // 它更新说明上次进程是被 kill 的，以它为准并补写 store。
+  // 反过来（store 已更新）**不再回写 localStorage** —— 以前这里几乎每次开机
+  // 都白付一次整库 stringify，现在这份镜像只在退出路径才更新，够用了
   if (fromElectron && fromLocal) {
     if (stateFreshness(fromLocal) > stateFreshness(fromElectron)) {
       void saveNotesState(fromLocal)
@@ -623,26 +624,19 @@ export interface NotesSaveResult {
 }
 
 /**
- * 把状态写进本机磁盘（localStorage + electron-store）。
+ * 把状态写进本机磁盘（electron-store 为主，localStorage 只做退出兜底）。
+ *
+ * 为什么不在这里同步镜像一份到 localStorage：整库 JSON.stringify 是同步的，
+ * 自动保存开着时每个停顿（1.5s）都要付一次，库到 MB 级就是明显的掉帧；
+ * 而这份镜像的唯一用途是「进程被 kill 时兜底」，真正需要的时刻只有
+ * pagehide / 窗口隐藏 / 退出 —— 那些时机由 saveNotesStateSync 同步写
+ * （见 NotesContext.flushSync），日常保存不必再背第二份。
  *
  * state 上带的 savedAt 会被忽略，由这里按写入时刻重新盖章 —— 防止调用方拿着
  * 一份旧对象「原样存回去」时把新鲜度也带成旧值。
  */
 export async function saveNotesState(state: NotesState): Promise<NotesSaveResult> {
   const payload = normalizeState({ ...state, savedAt: Date.now() })
-  /*
-   * localStorage 先写、electron-store 后写。
-   *
-   * 前者是同步的，调用返回时就已经落地；后者走 IPC + 文件写入，进程被 kill
-   * 时可能没跑完。反过来写的话，「异步那次被打断」会让磁盘上留着旧数据，
-   * 而下次启动是优先读 electron-store 的（见 loadNotesState）。
-   */
-  let localFailed = false
-  try {
-    localStorage.setItem(LEGACY_LOCAL_KEY, JSON.stringify(payload))
-  } catch {
-    localFailed = true
-  }
 
   let remoteFailed = false
   if (window.electronAPI?.storeSet) {
@@ -650,6 +644,19 @@ export async function saveNotesState(state: NotesState): Promise<NotesSaveResult
       await window.electronAPI.storeSet(STORE_KEY, payload)
     } catch {
       remoteFailed = true
+    }
+  }
+
+  /*
+   * electron-store 失败时退回同步写 localStorage：至少留一份，下次启动
+   * loadNotesState 会按 savedAt 挑它。成功路径不写，省掉整库序列化。
+   */
+  let localFailed = false
+  if (remoteFailed) {
+    try {
+      localStorage.setItem(LEGACY_LOCAL_KEY, JSON.stringify(payload))
+    } catch {
+      localFailed = true
     }
   }
 
@@ -661,6 +668,10 @@ export async function saveNotesState(state: NotesState): Promise<NotesSaveResult
  *
  * 给来不及 await 的场合用：pagehide、窗口隐藏、主进程通知退出。这些时机里
  * 异步函数的续段可能根本不会被执行，只有同步写能保证内容不丢。
+ *
+ * 日常保存不再镜像 localStorage（见 saveNotesState），所以这里就是「最后
+ * 一份同步快照」的唯一入口 —— 它写下的内容比 electron-store 新时，
+ * 下次启动 loadNotesState 会反过来用它覆盖 store。
  *
  * 返回是否写成功：配额溢出这类失败必须让调用方知道，否则它会把
  * electron-store 那次也当成「正在补写」而不去报告失败。

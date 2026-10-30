@@ -307,9 +307,92 @@ export interface EnhanceState {
 type Block = { node: ProseNode; pos: number }
 type TocItem = { text: string; level: number; pos: number }
 
-function collectHeadings(state: EditorState): TocItem[] {
+/**
+ * 装饰构建缓存 —— 打字热路径的第一道闸。
+ *
+ * 背景：`props.decorations` 在每个 transaction 都会跑一次，而一次敲键就是
+ * 一次 transaction。原实现每次都对全文档做三遍遍历（顶层块扫描 + 全文档
+ * descendants + TOC 再扫一遍），长文 + 多代码块时每按一个键都是几 ms 起步的
+ * 主线程尖峰。
+ *
+ * 缓存策略是「按顶层块的原文指纹分段命中」：
+ *  - 装饰位置天然按顶层块聚簇（每块的装饰都落在自己的 pos..pos+size 内），
+ *    所以把上次的装饰按顶层块切桶保存；
+ *  - 新文档的每个顶层块拿「类型 + 原文 + 同文块序号」做 key 查桶，命中就把
+ *    桶内装饰按 pos 差值整体平移，只有「改了的那一块」重新完整扫描；
+ *  - 涉及外观的状态（暗色、目录展开、手风琴、mermaid 源码、代码换行）作为
+ *    缓存版本号，任一变化就整体重算（这些变更本来就低频，一次全量可以接受）。
+ *
+ * 为什么用原文指纹而不是纯位置增量：块一旦被编辑，位置和后续块偏移都可能变，
+ * 指纹命中能让「在文末敲字」完全跳过前面所有块的重复扫描。
+ */
+interface DecorationBucket {
+  /** 这一段覆盖的顶层块数（命中时直接跳过这么多块，不必再扫一遍） */
+  count: number
+  /** 段内相对偏移的装饰；命中时按新段起点平移回去 */
+  decos: Decoration[]
+}
+
+interface DecorationCache {
+  version: string
+  buckets: Map<string, DecorationBucket>
+}
+
+let decorationCache: DecorationCache | null = null
+
+function decorationVersion(
+  isDark: boolean,
+  stamp: number,
+  openAccordions: string[],
+  openSources: string[],
+  tocOpen: boolean,
+  wrappedCodes: string[]
+): string {
+  return [
+    isDark ? 'd' : 'l',
+    stamp,
+    tocOpen ? 't1' : 't0',
+    [...openAccordions].sort().join(','),
+    [...openSources].sort().join(','),
+    [...wrappedCodes].sort().join(','),
+  ].join('|')
+}
+
+/*
+ * 装饰位置的坐标系转换。
+ *
+ * 缓存的桶里存的是「段内相对偏移」，命中时按新段起点平移回绝对位置。Decoration 的
+ * from/to 是 readonly 且构造函数参数全被标成 @internal（公开 d.ts 是零参签名），
+ * 没法 from 一个新的 Decoration 实例；但 ProseMirror 的 map / eq 只读
+ * `from / to / type` 三个字段，所以造一个同形对象、从原型链继承
+ * `Decoration.prototype` 即可 —— 类型上满足结构要求，运行时行为与新建实例一致。
+ * type 复用源装饰的，widget 闭包 / attrs / key 都不变，DOM 因此可以照常复用。
+ */
+function createDecoration(from: number, to: number, source: Decoration): Decoration {
+  const copy = Object.create(Decoration.prototype) as Decoration
+  Object.assign(copy, { from, to, type: (source as unknown as { type: unknown }).type })
+  return copy
+}
+
+/** 把一段「段内相对偏移」的装饰平移到 base 起的绝对位置 */
+function offsetDecoration(deco: Decoration, base: number): Decoration {
+  if (base === 0) return deco
+  return createDecoration(deco.from + base, deco.to + base, deco)
+}
+
+/** 单块指纹：类型 + 原文 + 同文序号（同文重复块各占一桶，避免互相覆盖） */
+function blockKey(node: ProseNode, text: string, ordinal: number): string {
+  return `${node.type.name}#${node.attrs.language ?? ''}#${ordinal}#${text}`
+}
+
+/*
+ * 收集全文标题（返回文档绝对位置）。两处调用：画目录卡片、点目录行跳转 ——
+ * 后者按序号现取一次，因为卡片 DOM 是常驻的、里面闭包住的 pos 早就过期了。
+ * 截断 80 条是给卡片用的（再长的目录没人看），两处规则一致才不会错行。
+ */
+function collectHeadings(doc: ProseNode): TocItem[] {
   const items: TocItem[] = []
-  state.doc.descendants((node, pos) => {
+  doc.descendants((node, pos) => {
     if (node.type.name !== 'heading') return true
     items.push({ text: node.textContent || '未命名标题', level: Number(node.attrs.level ?? 1), pos })
     return true
@@ -329,15 +412,17 @@ function collectHeadings(state: EditorState): TocItem[] {
  */
 function pushInlineContainer(
   decos: Decoration[],
-  block: Block,
+  block: { node: ProseNode; pos: number },
   lines: string[],
   type: string,
   titleRaw: string,
   icon: string,
   openAccordions: string[]
 ) {
+  const blockOffset = block.pos
   const raw = block.node.textContent
-  const start = block.pos + 1
+  // 块内相对偏移：调用方会把整块装饰平移到块的绝对位置，见 buildDecorations 的缓存分段
+  const start = blockOffset + 1
   const size = block.node.content.size
   const at = (offset: number) => start + Math.max(0, Math.min(offset, size))
 
@@ -360,7 +445,7 @@ function pushInlineContainer(
 
   // 手风琴：正文（标题行之后到闭合标记之前）可整段收起，按钮挂在标题行末尾
   const isAccordion = type === 'accordion'
-  const key = title || `${type}-${block.pos}`
+  const key = title || `${type}-${blockOffset}`
   const collapsed = isAccordion && !openAccordions.includes(key)
   if (isAccordion) {
     if (collapsed && closeFrom > titleLineEnd) {
@@ -404,7 +489,7 @@ function pushInlineContainer(
     )
   )
   decos.push(
-    Decoration.node(block.pos, block.pos + block.node.nodeSize, {
+    Decoration.node(blockOffset, blockOffset + block.node.nodeSize, {
       class: `fe-container-inline fe-container-inline--${type}`,
     })
   )
@@ -417,7 +502,12 @@ function pushInlineContainer(
  * 这里**不改文档结构** —— 只给列表挂节点装饰去画圆点与连线，
  * 再用行内装饰把 `[状态]` 藏起来、给时间与标题上色，正文因此始终可编辑。
  */
-function pushTimelineItems(decos: Decoration[], doc: ProseNode, from: number, to: number) {
+function pushTimelineItems(
+  decos: Decoration[],
+  doc: ProseNode,
+  from: number,
+  to: number
+) {
   doc.nodesBetween(from, to, (node, pos) => {
     if (node.type.name === 'bullet_list' || node.type.name === 'ordered_list') {
       decos.push(Decoration.node(pos, pos + node.nodeSize, { class: 'fe-timeline-list' }))
@@ -835,18 +925,26 @@ function createAccordionToggle(view: EditorView, key: string, collapsed: boolean
   return btn
 }
 
+/**
+ * `<details><summary>` 折叠块。
+ *
+ * head / close 与本段内正文块都以**段起点**为基准（调用方把整个 <details> 段
+ * 当成一段来缓存，段内所有块都是绝对位置减去段起点），所以这里所有位置都在
+ * 同一坐标系里算，与 pushInlineContainer 的「块内偏移」口径一致。
+ */
 function pushDetailsBlock(
   decos: Decoration[],
-  tops: Block[],
-  headIndex: number,
-  closeIndex: number,
+  block: ProseNode,
+  blockOffset: number,
+  close: ProseNode,
+  closeOffset: number,
+  bodyBlocks: { node: ProseNode; pos: number }[],
   openAccordions: string[]
 ): void {
-  const block = tops[headIndex]
-  const close = tops[closeIndex]
-  const raw = block.node.textContent
-  const start = block.pos + 1
-  const size = block.node.content.size
+  const raw = block.textContent
+  // 段内相对偏移：调用方会把整段装饰平移到段的绝对位置，见 buildDecorations 的缓存分段
+  const start = blockOffset + 1
+  const size = block.content.size
   const at = (offset: number) => start + Math.max(0, Math.min(offset, size))
 
   const titleStart = raw.indexOf('<summary>') + '<summary>'.length
@@ -854,7 +952,7 @@ function pushDetailsBlock(
   if (titleStart <= 0 || titleEnd < titleStart) return
 
   const title = raw.slice(titleStart, titleEnd).trim()
-  const key = title || `details-${block.pos}`
+  const key = title || `details-${blockOffset}`
   const collapsed = !openAccordions.includes(key)
 
   // 藏掉 `<details>` 与 `<summary>`（含中间那个换行），只留标题
@@ -870,54 +968,69 @@ function pushDetailsBlock(
   )
 
   decos.push(
-    Decoration.node(block.pos, block.pos + block.node.nodeSize, {
+    Decoration.node(blockOffset, blockOffset + block.nodeSize, {
       class: `fe-container-head fe-container-head--accordion${collapsed ? ' is-collapsed' : ''}`,
     })
   )
 
   // `</details>` 整行藏掉（留个可编辑的空位，不 display:none）
   decos.push(
-    Decoration.inline(close.pos + 1, close.pos + 1 + close.node.content.size, {
+    Decoration.inline(closeOffset + 1, closeOffset + 1 + close.content.size, {
       class: 'fe-hidden-marker',
     })
   )
   decos.push(
-    Decoration.node(close.pos, close.pos + close.node.nodeSize, {
+    Decoration.node(closeOffset, closeOffset + close.nodeSize, {
       class: `fe-container-close fe-container-close--accordion${collapsed ? ' is-collapsed' : ''}`,
     })
   )
 
   // 中间的正文段落
-  const inner: Block[] = []
-  for (let k = headIndex + 1; k < closeIndex; k += 1) inner.push(tops[k])
-  inner.forEach((body, idx) => {
+  bodyBlocks.forEach((body, idx) => {
     const classes = ['fe-container-body', 'fe-container-body--accordion']
     if (idx === 0) classes.push('fe-container-body--first')
-    if (idx === inner.length - 1) classes.push('fe-container-body--last')
+    if (idx === bodyBlocks.length - 1) classes.push('fe-container-body--last')
     if (collapsed) classes.push('is-collapsed')
     decos.push(Decoration.node(body.pos, body.pos + body.node.nodeSize, { class: classes.join(' ') }))
   })
 }
 
-function buildDecorations(
-  state: EditorState,
+/** 一个可缓存的段落：起点，以及它内部的装饰（段内相对偏移） */
+interface Segment {
+  start: number
+  decos: Decoration[]
+}
+
+/**
+ * 把一个顶层块切成「缓存段」并生成它的装饰。
+ *
+ * 之所以不按单块切：`::: note` 与收尾的 `:::`、`<details>` 与 `</details>` 之间
+ * 可能跨好几个顶层块，装饰也横跨它们（正文块的面板类、时间线的列表内装饰），
+ * 按单块存桶会在「只改正文中间一行」时把标记行与正文拆到不同桶，拼回去时顺序乱。
+ * 按段切之后，段内任一块变了就整段重算 —— 段通常只有几块，成本仍然很小。
+ */
+function buildSegment(
+  doc: ProseNode,
+  tops: Block[],
+  index: number,
   isDark: boolean,
   stamp: number,
   openAccordions: string[],
   openSources: string[],
   tocOpen: boolean,
   wrappedCodes: string[]
-): DecorationSet {
+): { segment: Segment; next: number } {
+  const start = tops[index].pos
+  const block = tops[index]
   const decos: Decoration[] = []
-  const doc = state.doc
+  const rel = (pos: number) => pos - start
+  const finish = (endIndex: number): { segment: Segment; next: number } => ({
+    segment: { start, decos },
+    next: endIndex + 1,
+  })
 
-  /* ---------- 顶层块序列：容器面板与目录只认顶层 ---------- */
-  const tops: Block[] = []
-  doc.forEach((node, offset) => tops.push({ node, pos: offset }))
-
-  for (let i = 0; i < tops.length; i += 1) {
-    const block = tops[i]
-    if (!block.node.isTextblock) continue
+  // 非文本块（代码块 / 列表 / 引用 / 表格…）直接进下面的递归分支，不必过容器判定
+  if (block.node.isTextblock) {
     const raw = block.node.textContent
 
     /*
@@ -926,16 +1039,28 @@ function buildDecorations(
      */
     if (DETAILS_HEAD_RE.test(raw)) {
       let closeAt = -1
-      for (let j = i + 1; j < tops.length; j += 1) {
+      for (let j = index + 1; j < tops.length; j += 1) {
         if (DETAILS_CLOSE_RE.test(tops[j].node.textContent)) {
           closeAt = j
           break
         }
       }
       if (closeAt !== -1) {
-        pushDetailsBlock(decos, tops, i, closeAt, openAccordions)
-        i = closeAt
-        continue
+        const close = tops[closeAt]
+        const body = tops.slice(index + 1, closeAt).map((item) => ({
+          node: item.node,
+          pos: rel(item.pos),
+        }))
+        pushDetailsBlock(
+          decos,
+          block.node,
+          rel(block.pos),
+          close.node,
+          rel(close.pos),
+          body,
+          openAccordions
+        )
+        return finish(closeAt)
       }
     }
 
@@ -951,107 +1076,119 @@ function buildDecorations(
       if (head && inlineConfig) {
         pushInlineContainer(
           decos,
-          block,
+          { node: block.node, pos: rel(block.pos) },
           lines,
           head[1].toLowerCase(),
           head[2] ?? '',
           inlineConfig.icon,
           openAccordions
         )
-        continue
+        return finish(index)
       }
     }
 
     const open = OPEN_RE.exec(raw.trim())
-    if (!open) continue
+    const type = open ? open[1].toLowerCase() : ''
+    const config = open ? CONTAINERS[type] : undefined
+    if (open && config) {
+      let end = -1
+      for (let j = index + 1; j < tops.length; j += 1) {
+        if (CLOSE_RE.test(tops[j].node.textContent.trim())) {
+          end = j
+          break
+        }
+      }
+      if (end !== -1) {
+        const close = tops[end]
+        const blockOffset = rel(block.pos)
+        const closeOffset = rel(close.pos)
+        const contentSize = block.node.content.size
+        const titleText = (open[2] ?? '').trim()
+        const bodyKey = titleText || `${type}-${blockOffset}`
+        const isAccordion = type === 'accordion'
+        const collapsed = isAccordion && !openAccordions.includes(bodyKey)
 
-    const type = open[1].toLowerCase()
-    const config = CONTAINERS[type]
-    if (!config) continue
+        // 把 `::: info ` 这段前缀藏起来，只留标题文字可编辑
+        const prefixEnd = contentSize - (open[2] ?? '').length
+        if (prefixEnd > 0) {
+          decos.push(
+            Decoration.inline(blockOffset + 1, blockOffset + 1 + prefixEnd, {
+              class: 'fe-hidden-marker',
+            })
+          )
+        }
 
-    let end = -1
-    for (let j = i + 1; j < tops.length; j += 1) {
-      if (CLOSE_RE.test(tops[j].node.textContent.trim())) {
-        end = j
-        break
+        // 行首图标
+        decos.push(
+          Decoration.widget(
+            blockOffset + 1,
+            () => {
+              const icon = document.createElement('span')
+              icon.className = 'fe-container-icon'
+              icon.innerHTML = svgIcon(config.icon)
+              return icon
+            },
+            { side: -1 }
+          )
+        )
+
+        // 手风琴：标题行末尾挂一个开合按钮（位置夹在段内，越界会让 ProseMirror 抛错）
+        if (isAccordion) {
+          const togglePos = Math.min(blockOffset + open[0].length + 1, blockOffset + contentSize)
+          decos.push(
+            Decoration.widget(togglePos, (view) => createAccordionToggle(view, bodyKey, collapsed), {
+              side: 1,
+              key: `accordion-toggle-${collapsed}`,
+            })
+          )
+        }
+
+        decos.push(
+          Decoration.node(blockOffset, blockOffset + block.node.nodeSize, {
+            class: `fe-container-head fe-container-head--${type}${collapsed ? ' is-collapsed' : ''}`,
+          })
+        )
+
+        decos.push(
+          Decoration.node(closeOffset, closeOffset + close.node.nodeSize, {
+            class: `fe-container-close fe-container-close--${type}${collapsed ? ' is-collapsed' : ''}`,
+          })
+        )
+
+        // 中间的块套上同色面板；首尾各自圆角，拼成一张整卡
+        for (let k = index + 1; k < end; k += 1) {
+          const body = tops[k]
+          const bodyPos = rel(body.pos)
+          const classes = ['fe-container-body', `fe-container-body--${type}`]
+          if (k === index + 1) classes.push('fe-container-body--first')
+          if (k === end - 1) classes.push('fe-container-body--last')
+          if (collapsed) classes.push('is-collapsed')
+          decos.push(
+            Decoration.node(bodyPos, bodyPos + body.node.nodeSize, { class: classes.join(' ') })
+          )
+        }
+
+        // 时间线：容器里的列表要逐条改造成「圆点 + 时间 + 标题」
+        if (type === 'timeline') {
+          pushTimelineItems(decos, doc, blockOffset + block.node.nodeSize, closeOffset)
+        }
+
+        return finish(end)
       }
     }
-    if (end === -1) continue
-
-    const close = tops[end]
-    const contentSize = block.node.content.size
-    const titleText = (open[2] ?? '').trim()
-    const bodyKey = titleText || `${type}-${block.pos}`
-    const isAccordion = type === 'accordion'
-    const collapsed = isAccordion && !openAccordions.includes(bodyKey)
-
-    // 把 `::: info ` 这段前缀藏起来，只留标题文字可编辑
-    const prefixEnd = contentSize - (open[2] ?? '').length
-    if (prefixEnd > 0) {
-      decos.push(
-        Decoration.inline(block.pos + 1, block.pos + 1 + prefixEnd, { class: 'fe-hidden-marker' })
-      )
-    }
-
-    // 行首图标
-    decos.push(
-      Decoration.widget(
-        block.pos + 1,
-        () => {
-          const icon = document.createElement('span')
-          icon.className = 'fe-container-icon'
-          icon.innerHTML = svgIcon(config.icon)
-          return icon
-        },
-        { side: -1 }
-      )
-    )
-
-    // 手风琴：标题行末尾挂一个开合按钮（位置夹在段内，越界会让 ProseMirror 抛错）
-    if (isAccordion) {
-      const togglePos = Math.min(block.pos + open[0].length + 1, block.pos + contentSize)
-      decos.push(
-        Decoration.widget(togglePos, (view) => createAccordionToggle(view, bodyKey, collapsed), {
-          side: 1,
-          key: `accordion-toggle-${collapsed}`,
-        })
-      )
-    }
-
-    decos.push(
-      Decoration.node(block.pos, block.pos + block.node.nodeSize, {
-        class: `fe-container-head fe-container-head--${type}${collapsed ? ' is-collapsed' : ''}`,
-      })
-    )
-
-    decos.push(
-      Decoration.node(close.pos, close.pos + close.node.nodeSize, {
-        class: `fe-container-close fe-container-close--${type}${collapsed ? ' is-collapsed' : ''}`,
-      })
-    )
-
-    // 中间的块套上同色面板；首尾各自圆角，拼成一张整卡
-    for (let k = i + 1; k < end; k += 1) {
-      const body = tops[k]
-      const classes = ['fe-container-body', `fe-container-body--${type}`]
-      if (k === i + 1) classes.push('fe-container-body--first')
-      if (k === end - 1) classes.push('fe-container-body--last')
-      if (collapsed) classes.push('is-collapsed')
-      decos.push(
-        Decoration.node(body.pos, body.pos + body.node.nodeSize, { class: classes.join(' ') })
-      )
-    }
-
-    // 时间线：容器里的列表要逐条改造成「圆点 + 时间 + 标题」
-    if (type === 'timeline') {
-      pushTimelineItems(decos, doc, block.pos + block.node.nodeSize, close.pos)
-    }
-
-    i = end
   }
 
-  /* ---------- 全文档递归：图表 / 行号 / Alert / 目录 ---------- */
-  doc.descendants((node, pos) => {
+  /*
+   * 普通块：图表 / 行号 / Alert / 目录，位置一律换算成段内相对偏移。
+   *
+   * 只递归本段这一个顶层节点（block.node.descendants 的 pos 从 0 起算），
+   * 不再扫整篇 —— 原来每敲一个键都要把全文递归一遍，正是打字卡顿的主因。
+   */
+  block.node.descendants((node, nodePos) => {
+    // +1：顶层节点自身占第一位，子节点从 1 起；段内相对偏移即 nodePos + 1
+    const relPos = nodePos + 1
+    // 目录卡片要按块内绝对位置取标题，所以传的是段起点 start
+
     // 3.1 Mermaid：代码块上方是「预览 / 源码」页签，下方是实时渲染的矢量图
     if (isMermaidBlock(node)) {
       const code = node.textContent
@@ -1060,8 +1197,8 @@ function buildDecorations(
 
       decos.push(
         Decoration.widget(
-          pos,
-          (view) => createMermaidTabs(view, key, showSource, pos, node.nodeSize),
+          relPos,
+          (view) => createMermaidTabs(view, key, showSource, relPos, node.nodeSize),
           {
             side: -1,
             key: `mermaid-tabs-${key}-${showSource}`,
@@ -1071,17 +1208,15 @@ function buildDecorations(
 
       if (showSource) {
         // 看源码时把渲染结果收起，避免同一段内容上下出现两遍
-        decos.push(
-          Decoration.node(pos, pos + node.nodeSize, { class: 'fe-mermaid-source' })
-        )
+        decos.push(Decoration.node(relPos, relPos + node.nodeSize, { class: 'fe-mermaid-source' }))
       } else {
         decos.push(
-          Decoration.node(pos, pos + node.nodeSize, {
+          Decoration.node(relPos, relPos + node.nodeSize, {
             class: 'fe-mermaid-source fe-source-hidden',
           })
         )
         decos.push(
-          Decoration.widget(pos + node.nodeSize, () => createMermaidCard(code, isDark), {
+          Decoration.widget(relPos + node.nodeSize, () => createMermaidCard(code, isDark), {
             side: 1,
             key: `mermaid-${stamp}-${key}`,
           })
@@ -1098,11 +1233,11 @@ function buildDecorations(
 
       decos.push(
         Decoration.widget(
-          pos,
+          relPos,
           (view) =>
             createCodeHeader(
               view,
-              pos,
+              relPos,
               String(node.attrs.language ?? ''),
               wrapOn,
               key,
@@ -1113,14 +1248,14 @@ function buildDecorations(
       )
       // 恒挂 fe-code-block：表头就靠它把上圆角收平，不再依赖 `+ pre` 相邻选择器
       decos.push(
-        Decoration.node(pos, pos + node.nodeSize, {
+        Decoration.node(relPos, relPos + node.nodeSize, {
           class: `fe-code-block${wrapOn ? ' fe-code-wrap' : ''}`,
         })
       )
 
       decos.push(
         Decoration.widget(
-          pos + 1,
+          relPos + 1,
           () => {
             const gutter = document.createElement('div')
             gutter.className = 'fe-code-gutter'
@@ -1149,16 +1284,18 @@ function buildDecorations(
       const config = ALERTS[alert[1].toUpperCase()]
       if (!config) return true
 
-      const markerFrom = pos + 1
+      const markerFrom = relPos + 1
       decos.push(
         Decoration.inline(markerFrom, markerFrom + alert[0].length, { class: 'fe-hidden-marker' })
       )
       decos.push(
-        Decoration.node(pos, pos + node.nodeSize, { class: `fe-alert fe-alert--${config.tone}` })
+        Decoration.node(relPos, relPos + node.nodeSize, {
+          class: `fe-alert fe-alert--${config.tone}`,
+        })
       )
       decos.push(
         Decoration.widget(
-          pos,
+          relPos,
           () => {
             const head = document.createElement('div')
             head.className = `fe-alert-head fe-alert-head--${config.tone}`
@@ -1175,12 +1312,14 @@ function buildDecorations(
     // 3.4 目录标记 `[TOC]`
     if (node.isTextblock && /^\s*\[\[?\s*toc\s*\]\]?\s*$/i.test(node.textContent)) {
       decos.push(
-        Decoration.inline(pos + 1, pos + 1 + node.content.size, { class: 'fe-hidden-marker' })
+        Decoration.inline(relPos + 1, relPos + 1 + node.content.size, {
+          class: 'fe-hidden-marker',
+        })
       )
-      decos.push(Decoration.node(pos, pos + node.nodeSize, { class: 'fe-toc-marker-block' }))
-      const items = collectHeadings(state)
+      decos.push(Decoration.node(relPos, relPos + node.nodeSize, { class: 'fe-toc-marker-block' }))
+      const items = collectHeadings(doc)
       decos.push(
-        Decoration.widget(pos + node.nodeSize, (view) => createTocCard(items, view, tocOpen), {
+        Decoration.widget(relPos + node.nodeSize, (view) => createTocCard(items, view, tocOpen), {
           side: 1,
           /*
            * key 固定成常量，既不随 tocOpen 变、也不随标题变。
@@ -1203,7 +1342,81 @@ function buildDecorations(
     return true
   })
 
-  return DecorationSet.create(doc, decos)
+  return finish(index)
+}
+
+function buildDecorations(
+  state: EditorState,
+  isDark: boolean,
+  stamp: number,
+  openAccordions: string[],
+  openSources: string[],
+  tocOpen: boolean,
+  wrappedCodes: string[]
+): DecorationSet {
+  const doc = state.doc
+
+  /* ---------- 顶层块序列：容器面板与目录只认顶层 ---------- */
+  const tops: Block[] = []
+  doc.forEach((node, offset) => tops.push({ node, pos: offset }))
+
+  const version = decorationVersion(isDark, stamp, openAccordions, openSources, tocOpen, wrappedCodes)
+  // 版本不一致说明外观状态（暗色 / 手风琴 / 换行 / 目录）变了，桶里的装饰都不能复用
+  const reusable = decorationCache && decorationCache.version === version ? decorationCache : null
+
+  const decos: Decoration[] = []
+  const buckets = new Map<string, DecorationBucket>()
+  // 同文同类型的块/段各有编号：键里不带它，复制粘贴出来的重复块会共用同一个桶
+  const seen = new Map<string, number>()
+
+  for (let i = 0; i < tops.length; ) {
+    const node = tops[i].node
+    const hits = seen.get(`${node.type.name}#${node.textContent}`) ?? 0
+    seen.set(`${node.type.name}#${node.textContent}`, hits + 1)
+
+    const hash = blockKey(node, node.textContent, hits)
+    const before = buckets.size
+    const cached = reusable?.buckets.get(hash)
+
+    if (cached) {
+      const base = tops[i].pos
+      for (const deco of cached.decos) decos.push(offsetDecoration(deco, base))
+      buckets.set(hash, cached)
+      i += cached.count
+      continue
+    }
+
+    const { segment, next } = buildSegment(
+      doc,
+      tops,
+      i,
+      isDark,
+      stamp,
+      openAccordions,
+      openSources,
+      tocOpen,
+      wrappedCodes
+    )
+    for (const deco of segment.decos) decos.push(offsetDecoration(deco, segment.start))
+    /*
+     * 仅当这段只占一个顶层块时才把桶挂到当前 hash 上：多块段（容器 / <details>）
+     * 的 hash 是按首块算的，段内任何一块变了这段就会重算，重算结果不能再写回
+     * 同一个 hash（尾部块可能已经被别的单块段占用），否则旧桶被悄悄覆盖。
+     */
+    if (next - i === 1 && buckets.size === before) {
+      buckets.set(hash, { count: 1, decos: segment.decos })
+    }
+    i = next
+  }
+
+  decorationCache = { version, buckets }
+
+  /*
+   * DecorationSet.create 会按顺序消费传进来的数组，所以这里的顺序必须与文档一致：
+   * 段按 i 递增推入，段内的相对偏移也天然递增，拼起来就是有序的。
+   * 整篇都没有结构性装饰时给空集，省掉一次空跑（纯文字笔记最常见）。
+   */
+  return decos.length === 0 ? DecorationSet.empty : DecorationSet.create(doc, decos)
 }
 
 /**
@@ -1301,7 +1514,7 @@ function createTocCard(items: TocItem[], view: EditorView, open: boolean): HTMLE
       row.addEventListener('mousedown', (event) => event.preventDefault())
       row.addEventListener('click', () => {
         // 卡片不随正文重建，行里闭包住的 pos 早就过期了 —— 按序号现取一次
-        const target = collectHeadings(view.state)[index]
+        const target = collectHeadings(view.state.doc)[index]
         if (!target) return
         const pos = Math.min(target.pos + 1, view.state.doc.content.size)
         view.dispatch(

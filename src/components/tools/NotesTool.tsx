@@ -235,10 +235,26 @@ export default function NotesTool() {
     return bookmarks[0];
   }, [bookmarks, livePosition?.heading]);
 
-  // 实时精细化统计（与右键菜单的「当前文档信息」共用同一套口径）
-  const stats = useMemo(() => computeDocStats(content), [content]);
+  /*
+   * 精细化统计（与右键菜单的「当前文档信息」共用同一套口径）。
+   *
+   * 延迟 300ms 跟随 content：computeDocStats 是几趟全文字符类正则，长文里
+   * 每敲一个键都跑一遍是纯浪费 —— 字数从上一个字跳到下一个字，没人看得出
+   * 中间的 300ms。状态栏读的始终是「停手后的准确值」。
+   * 首次渲染仍然同步算一次，打开文档时数字就是对的。
+   */
+  const [stats, setStats] = useState(() => computeDocStats(content));
+  useEffect(() => {
+    const timer = window.setTimeout(() => setStats(computeDocStats(content)), 300);
+    return () => window.clearTimeout(timer);
+  }, [content]);
 
-  // 移动端顶栏的「已保存 · N 字」胶囊靠这个总线同步，口径与底部状态栏一致
+  /*
+   * 移动端顶栏的「已保存 · N 字」胶囊靠这个总线同步，口径与底部状态栏一致。
+   *
+   * 必须等上面那次延迟统计落地再发：直接拿 content 现算会在每次按键都重新
+   * 推送一次，等于把上面省下的开销搬到总线这一侧。
+   */
   useEffect(() => publishDocStats(stats.totalWords), [stats.totalWords]);
 
   /**
