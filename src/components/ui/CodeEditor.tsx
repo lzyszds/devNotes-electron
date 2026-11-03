@@ -13,10 +13,10 @@ import { handleTextareaKeyDown } from '../../utils/textareaIndent'
  */
 
 const TOKEN_SPAN = {
-  key: 'text-sky-700 dark:text-sky-300 font-semibold',
-  string: 'text-emerald-700 dark:text-emerald-300',
-  number: 'text-brand-600 dark:text-brand-300',
-  literal: 'text-amber-600 dark:text-amber-400 font-semibold',
+  key: 'text-sky-700  font-semibold',
+  string: 'text-emerald-700 ',
+  number: 'text-brand-600 ',
+  literal: 'text-amber-600  font-semibold',
 }
 
 const escapeHtml = (text: string) =>
@@ -94,7 +94,7 @@ export default function CodeEditor({
         <div className="flex w-max min-w-full min-h-full">
           {/* 行号槽：sticky 吸附左侧，横向滚动时保持可见 */}
           <div
-            className="sticky left-0 z-10 w-9 shrink-0 select-none rounded-[0_0_0_14px] overflow-hidden text-right font-mono text-[11px] pr-2 text-slate-300 dark:text-slate-600 bg-[#FBFBFA] dark:bg-[#141821]"
+            className="sticky left-0 z-10 w-9 shrink-0 select-none rounded-[0_0_0_14px] overflow-hidden text-right font-mono text-[11px] pr-2 text-slate-300  bg-[#FBFBFA] "
             style={metrics}
           >
             <div style={{ ...metrics, paddingTop: 12 }}>
@@ -108,12 +108,12 @@ export default function CodeEditor({
           <div className="relative flex-1" style={{ minWidth: 0 }}>
             <pre
               aria-hidden
-              className="m-0 py-3 px-3.5 font-mono text-[13px] whitespace-pre pointer-events-none text-slate-700 dark:text-slate-200"
+              className="m-0 py-3 px-3.5 font-mono text-[13px] whitespace-pre pointer-events-none text-slate-700 "
               style={metrics}
               dangerouslySetInnerHTML={{ __html: highlighted + '\n' }}
             />
             {placeholder && !value && (
-              <span className="absolute top-3 left-3.5 font-mono text-[13px] text-slate-300 dark:text-slate-600 pointer-events-none" style={metrics}>
+              <span className="absolute top-3 left-3.5 font-mono text-[13px] text-slate-300  pointer-events-none" style={metrics}>
                 {placeholder}
               </span>
             )}
@@ -129,7 +129,7 @@ export default function CodeEditor({
               disabled={disabled}
               spellCheck={false}
               wrap="off"
-              className={`${textLayer} select-text overflow-hidden text-transparent caret-slate-900 dark:caret-slate-100 selection:bg-brand-500/20 selection:text-transparent ${disabled ? 'cursor-not-allowed' : ''
+              className={`${textLayer} select-text overflow-hidden text-transparent caret-slate-900  selection:bg-brand-500/20 selection:text-transparent ${disabled ? 'cursor-not-allowed' : ''
                 }`}
               style={metrics}
             />

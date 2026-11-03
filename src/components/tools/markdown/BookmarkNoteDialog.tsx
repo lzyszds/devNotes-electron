@@ -52,17 +52,17 @@ export default function BookmarkNoteDialog({
       <div
         data-state={state}
         onMouseDown={(event) => event.stopPropagation()}
-        className="fe-pop w-full max-w-sm rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xl dark:border-dark-border dark:bg-dark-panel"
+        className="fe-pop w-full max-w-sm rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xl  "
       >
         <div className="flex items-center gap-2">
-          <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-brand-500/10 text-brand-600 dark:text-brand-400">
+          <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-brand-500/10 text-brand-600 ">
             <Bookmark className="h-3.5 w-3.5" />
           </span>
           <div className="min-w-0">
-            <div className="text-[13px] font-semibold text-slate-800 dark:text-slate-100">
+            <div className="text-[13px] font-semibold text-slate-800 ">
               记下当前位置
             </div>
-            <div className="truncate text-[11px] text-slate-400 dark:text-slate-500">
+            <div className="truncate text-[11px] text-slate-400 ">
               {shown.heading} · 读到 {shown.percent}%
             </div>
           </div>
@@ -78,14 +78,14 @@ export default function BookmarkNoteDialog({
           }}
           maxLength={200}
           placeholder="写一句备注，方便以后认出来（可留空）"
-          className="mt-3 h-9 w-full rounded-[10px] border border-slate-200/80 bg-slate-50 px-3 text-[13px] text-slate-800 outline-none transition-all placeholder:text-slate-300 focus:border-brand-400 focus:ring-2 focus:ring-brand-500/10 dark:border-dark-border dark:bg-dark-hover dark:text-slate-100"
+          className="mt-3 h-9 w-full rounded-[10px] border border-slate-200/80 bg-slate-50 px-3 text-[13px] text-slate-800 outline-none transition-all placeholder:text-slate-300 focus:border-brand-400 focus:ring-2 focus:ring-brand-500/10   "
         />
 
         <div className="mt-3 flex justify-end gap-2">
           <button
             type="button"
             onClick={onCancel}
-            className="h-8 rounded-lg px-3 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-dark-hover"
+            className="h-8 rounded-lg px-3 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-100  "
           >
             取消
           </button>

@@ -94,14 +94,14 @@ export default function AiReviewPanel({ noteId, onInsert }: AiReviewPanelProps) 
       <button
         type="button"
         onClick={() => setCollapsed(false)}
-        className="fixed bottom-4 right-4 z-[75] flex items-center gap-2 rounded-xl border border-slate-200/80 bg-white px-3 py-2 shadow-xl transition-colors hover:bg-slate-50 dark:border-dark-border dark:bg-dark-panel dark:hover:bg-dark-hover"
+        className="fixed bottom-4 right-4 z-[75] flex items-center gap-2 rounded-xl border border-slate-200/80 bg-white px-3 py-2 shadow-xl transition-colors hover:bg-slate-50   "
       >
         {running ? (
-          <Loader2 className="h-3.5 w-3.5 animate-spin text-brand-600 dark:text-brand-400" />
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-brand-600 " />
         ) : (
-          <Sparkles className="h-3.5 w-3.5 text-brand-600 dark:text-brand-400" />
+          <Sparkles className="h-3.5 w-3.5 text-brand-600 " />
         )}
-        <span className="text-xs font-medium text-slate-700 dark:text-slate-200">
+        <span className="text-xs font-medium text-slate-700 ">
           {running ? `正在${task.actionLabel}…` : `AI ${task.actionLabel}`}
         </span>
         <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
@@ -110,14 +110,14 @@ export default function AiReviewPanel({ noteId, onInsert }: AiReviewPanelProps) 
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-[75] flex h-[min(70vh,560px)] w-[420px] flex-col overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-2xl dark:border-dark-border dark:bg-dark-panel">
-      <div className="flex flex-shrink-0 items-center gap-2 border-b border-slate-200/80 px-3 py-2 dark:border-dark-border">
+    <div className="fixed bottom-4 right-4 z-[75] flex h-[min(70vh,560px)] w-[420px] flex-col overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-2xl  ">
+      <div className="flex flex-shrink-0 items-center gap-2 border-b border-slate-200/80 px-3 py-2 ">
         {running ? (
-          <Loader2 className="h-3.5 w-3.5 flex-shrink-0 animate-spin text-brand-600 dark:text-brand-400" />
+          <Loader2 className="h-3.5 w-3.5 flex-shrink-0 animate-spin text-brand-600 " />
         ) : (
-          <Sparkles className="h-3.5 w-3.5 flex-shrink-0 text-brand-600 dark:text-brand-400" />
+          <Sparkles className="h-3.5 w-3.5 flex-shrink-0 text-brand-600 " />
         )}
-        <span className="min-w-0 flex-1 truncate text-xs font-semibold text-slate-800 dark:text-slate-100">
+        <span className="min-w-0 flex-1 truncate text-xs font-semibold text-slate-800 ">
           {running ? `正在${task.actionLabel}…` : `AI ${task.actionLabel}`}
         </span>
         <span className="text-[10px] tabular-nums text-slate-400">
@@ -127,7 +127,7 @@ export default function AiReviewPanel({ noteId, onInsert }: AiReviewPanelProps) 
           <button
             type="button"
             onClick={() => setCollapsed(true)}
-            className="rounded p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-dark-hover dark:hover:text-slate-200"
+            className="rounded p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700  "
           >
             <ChevronDown className="h-3.5 w-3.5" />
           </button>
@@ -136,7 +136,7 @@ export default function AiReviewPanel({ noteId, onInsert }: AiReviewPanelProps) 
           <button
             type="button"
             onClick={running ? cancelAiReview : closeAiReview}
-            className="rounded p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-dark-hover dark:hover:text-slate-200"
+            className="rounded p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700  "
           >
             <X className="h-3.5 w-3.5" />
           </button>
@@ -148,7 +148,7 @@ export default function AiReviewPanel({ noteId, onInsert }: AiReviewPanelProps) 
           <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
             原文
           </p>
-          <pre className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-slate-200/80 bg-slate-50 p-2 text-[11px] leading-relaxed text-slate-600 select-text dark:border-dark-border dark:bg-dark-bg dark:text-slate-300">
+          <pre className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-slate-200/80 bg-slate-50 p-2 text-[11px] leading-relaxed text-slate-600 select-text   ">
             {task.original}
           </pre>
         </section>
@@ -156,7 +156,7 @@ export default function AiReviewPanel({ noteId, onInsert }: AiReviewPanelProps) 
         <section className="flex min-h-0 flex-[1.2] flex-col">
           <p
             className={`mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide ${
-              running ? 'text-brand-600 dark:text-brand-400' : 'text-emerald-600 dark:text-emerald-400'
+              running ? 'text-brand-600 ' : 'text-emerald-600 '
             }`}
           >
             AI 结果
@@ -168,7 +168,7 @@ export default function AiReviewPanel({ noteId, onInsert }: AiReviewPanelProps) 
           </p>
           <pre
             ref={resultRef}
-            className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-emerald-200/80 bg-white p-2 text-[11px] leading-relaxed text-slate-800 select-text dark:border-emerald-500/30 dark:bg-dark-bg dark:text-slate-100"
+            className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-emerald-200/80 bg-white p-2 text-[11px] leading-relaxed text-slate-800 select-text   "
           >
             {running ? (
               streamed ? (
@@ -187,7 +187,7 @@ export default function AiReviewPanel({ noteId, onInsert }: AiReviewPanelProps) 
         </section>
       </div>
 
-      <div className="flex flex-shrink-0 items-center gap-2 border-t border-slate-200/80 px-3 py-2 dark:border-dark-border">
+      <div className="flex flex-shrink-0 items-center gap-2 border-t border-slate-200/80 px-3 py-2 ">
         {running ? (
           <>
             <span className="min-w-0 flex-1 truncate text-[10px] text-slate-400">
@@ -196,7 +196,7 @@ export default function AiReviewPanel({ noteId, onInsert }: AiReviewPanelProps) 
             <button
               type="button"
               onClick={cancelAiReview}
-              className="rounded-lg border border-slate-200/80 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 dark:border-dark-border dark:bg-dark-panel dark:text-slate-300 dark:hover:bg-dark-hover"
+              className="rounded-lg border border-slate-200/80 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100    "
             >
               取消
             </button>
@@ -207,7 +207,7 @@ export default function AiReviewPanel({ noteId, onInsert }: AiReviewPanelProps) 
               <button
                 type="button"
                 onClick={() => void copy()}
-                className="flex items-center gap-1 rounded-lg border border-slate-200/80 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 dark:border-dark-border dark:bg-dark-panel dark:text-slate-300 dark:hover:bg-dark-hover"
+                className="flex items-center gap-1 rounded-lg border border-slate-200/80 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100    "
               >
                 <Copy className="h-3 w-3" />
                 复制
@@ -217,7 +217,7 @@ export default function AiReviewPanel({ noteId, onInsert }: AiReviewPanelProps) 
             <button
               type="button"
               onClick={closeAiReview}
-              className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-dark-hover"
+              className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-100  "
             >
               丢弃
             </button>

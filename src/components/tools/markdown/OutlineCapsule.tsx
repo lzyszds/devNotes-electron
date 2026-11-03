@@ -170,23 +170,23 @@ export default function OutlineCapsule({
         )}
 
         <div
-          className={`absolute inset-x-0 bottom-0 z-50 flex max-h-[75%] flex-col rounded-t-2xl border-t border-slate-200 bg-white shadow-2xl transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] dark:border-dark-border dark:bg-dark-panel ${
+          className={`absolute inset-x-0 bottom-0 z-50 flex max-h-[75%] flex-col rounded-t-2xl border-t border-slate-200 bg-white shadow-2xl transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]   ${
             expanded ? 'translate-y-0' : 'translate-y-full'
           }`}
         >
-          <div className="mx-auto my-2.5 h-1 w-10 flex-shrink-0 rounded-full bg-slate-300 dark:bg-dark-hover" />
+          <div className="mx-auto my-2.5 h-1 w-10 flex-shrink-0 rounded-full bg-slate-300 " />
 
-          <div className="flex flex-shrink-0 items-center justify-between border-b border-slate-100 px-5 pb-3 dark:border-dark-border">
-            <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white">
+          <div className="flex flex-shrink-0 items-center justify-between border-b border-slate-100 px-5 pb-3 ">
+            <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900 ">
               本文目录大纲
-              <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-normal text-slate-500 dark:bg-dark-hover dark:text-slate-400">
+              <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-normal text-slate-500  ">
                 {items.length} 节
               </span>
             </h3>
             <button
               type="button"
               onClick={() => onExpandedChange(false)}
-              className="text-xs text-slate-400 active:text-slate-600 dark:active:text-slate-200"
+              className="text-xs text-slate-400 active:text-slate-600 "
             >
               完成
             </button>
@@ -203,8 +203,8 @@ export default function OutlineCapsule({
                   onClick={() => onPick(index)}
                   className={`flex w-full items-center gap-2 rounded-lg p-2.5 text-left text-xs transition-colors ${
                     active
-                      ? 'bg-brand-500/10 font-semibold text-brand-600 dark:text-brand-400'
-                      : 'text-slate-700 active:bg-slate-100 dark:text-slate-300 dark:active:bg-dark-hover'
+                      ? 'bg-brand-500/10 font-semibold text-brand-600 '
+                      : 'text-slate-700 active:bg-slate-100  '
                   }`}
                 >
                   {isTop ? (
@@ -212,13 +212,13 @@ export default function OutlineCapsule({
                       className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded text-[10px] font-bold tabular-nums ${
                         active
                           ? 'bg-brand-600 text-white'
-                          : 'bg-slate-100 text-slate-400 dark:bg-dark-hover dark:text-slate-500'
+                          : 'bg-slate-100 text-slate-400  '
                       }`}
                     >
                       {topLevelSeen[index] ? String(topLevelSeen[index]).padStart(2, '0') : ''}
                     </span>
                   ) : (
-                    <span className="ml-2 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-slate-300 dark:bg-slate-600" />
+                    <span className="ml-2 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-slate-300 " />
                   )}
                   <span className="truncate text-[13px] font-medium">{item.text}</span>
                   {bookmarkedHeadings.has(item.text.trim()) && (
@@ -231,8 +231,8 @@ export default function OutlineCapsule({
 
           {/* 移动端同样列出书签。sheet 高度是自适应的，可以放心铺满 */}
           {bookmarks && bookmarks.length > 0 && (
-            <div className="flex flex-shrink-0 flex-col border-t border-slate-100 dark:border-dark-border">
-              <div className="flex items-center gap-1 px-5 pt-2 text-[10px] font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
+            <div className="flex flex-shrink-0 flex-col border-t border-slate-100 ">
+              <div className="flex items-center gap-1 px-5 pt-2 text-[10px] font-bold uppercase tracking-wider text-brand-600 ">
                 <Bookmark className="h-2.5 w-2.5 fill-current" />
                 阅读书签
               </div>
@@ -245,13 +245,13 @@ export default function OutlineCapsule({
                         type="button"
                         disabled={stale}
                         onClick={() => onJumpBookmark?.(bookmark)}
-                        className="flex min-w-0 flex-1 flex-col items-start gap-px rounded-lg p-2 text-left active:bg-slate-100 dark:active:bg-dark-hover"
+                        className="flex min-w-0 flex-1 flex-col items-start gap-px rounded-lg p-2 text-left active:bg-slate-100 "
                       >
                         <span
                           className={`w-full truncate text-[13px] font-medium ${
                             stale
-                              ? 'text-slate-400 line-through dark:text-slate-500'
-                              : 'text-slate-700 dark:text-slate-200'
+                              ? 'text-slate-400 line-through '
+                              : 'text-slate-700 '
                           }`}
                         >
                           {bookmark.heading}
@@ -262,7 +262,7 @@ export default function OutlineCapsule({
                           )}
                         </span>
                         {bookmark.note && (
-                          <span className="w-full truncate text-[11px] text-slate-400 dark:text-slate-500">
+                          <span className="w-full truncate text-[11px] text-slate-400 ">
                             {bookmark.note}
                           </span>
                         )}
@@ -271,7 +271,7 @@ export default function OutlineCapsule({
                         type="button"
                         aria-label="删除书签"
                         onClick={() => onDeleteBookmark?.(bookmark)}
-                        className="flex-shrink-0 rounded p-1.5 text-slate-300 active:text-rose-500 dark:text-slate-600"
+                        className="flex-shrink-0 rounded p-1.5 text-slate-300 active:text-rose-500 "
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -282,12 +282,12 @@ export default function OutlineCapsule({
             </div>
           )}
 
-          <div className="flex flex-shrink-0 items-center justify-between border-t border-slate-100 px-5 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] text-[11px] text-slate-400 dark:border-dark-border dark:text-slate-500">
+          <div className="flex flex-shrink-0 items-center justify-between border-t border-slate-100 px-5 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] text-[11px] text-slate-400  ">
             <span>已读 {readPercent}%</span>
             <button
               type="button"
               onClick={onScrollTop}
-              className="flex items-center gap-1 active:text-brand-600 dark:active:text-brand-400"
+              className="flex items-center gap-1 active:text-brand-600 "
             >
               <ArrowUpToLine className="h-3 w-3" />
               置顶

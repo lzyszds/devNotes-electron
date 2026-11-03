@@ -16,6 +16,7 @@ import {
   ToolCardHeader,
   ToolNotice,
   ToolShell,
+  PreviewButton,
   type SegmentOption,
 } from "../ui";
 import {
@@ -87,7 +88,7 @@ export default function DataConvertTool() {
           type="button"
           onClick={autoDetect}
           disabled={!input.trim()}
-          className="inline-flex h-7 items-center gap-1 rounded-lg px-2.5 text-[11px] font-semibold text-brand-600 hover:bg-brand-50 disabled:opacity-40 dark:text-brand-400 dark:hover:bg-brand-500/10"
+          className="inline-flex h-7 items-center gap-1 rounded-lg px-2.5 text-[11px] font-semibold text-brand-600 hover:bg-brand-50 disabled:opacity-40  "
         >
           <Sparkles size={12} />
           自动识别输入格式
@@ -96,8 +97,8 @@ export default function DataConvertTool() {
     >
       <div className="flex flex-col gap-3.5 h-full">
         {/* 格式选择 */}
-        <div className="flex flex-wrap items-center justify-around gap-3 rounded-xl border border-slate-200/70 bg-white px-3.5 py-2.5 dark:border-dark-border dark:bg-dark-panel">
-          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+        <div className="flex flex-wrap items-center justify-around gap-3 rounded-xl border border-slate-200/70 bg-white px-3.5 py-2.5  ">
+          <span className="text-[11px] font-semibold text-slate-500 ">
             从
           </span>
           <Segmented value={from} options={FORMAT_OPTIONS} onChange={setFrom} />
@@ -105,13 +106,13 @@ export default function DataConvertTool() {
             type="button"
             onClick={swap}
             disabled={!!result.error || !result.output}
-            className="inline-flex h-7 items-center gap-1 rounded-lg bg-slate-100 px-2.5 text-[11px] font-semibold text-slate-600 hover:bg-slate-200 disabled:opacity-40 dark:bg-dark-hover dark:text-slate-300"
+            className="inline-flex h-7 items-center gap-1 rounded-lg bg-slate-100 px-2.5 text-[11px] font-semibold text-slate-600 hover:bg-slate-200 disabled:opacity-40  "
             title="把输出换到左边继续编辑"
           >
             <ArrowLeftRight size={12} />
             交换
           </button>
-          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+          <span className="text-[11px] font-semibold text-slate-500 ">
             转为
           </span>
           <Segmented value={to} options={FORMAT_OPTIONS} onChange={setTo} />
@@ -126,6 +127,7 @@ export default function DataConvertTool() {
             <ToolCardHeader
               title="输入"
               meta={input ? `${input.length} 字符` : undefined}
+              actions={<PreviewButton title="输入内容" content={() => input} disabled={!input} />}
             />
             <CodeEditor
               value={input}
@@ -139,11 +141,14 @@ export default function DataConvertTool() {
               title="输出"
               icon={Replace}
               actions={
-                <CopyButton
-                  value={() => result.output}
-                  disabled={!result.output}
-                  label="复制输出"
-                />
+                <>
+                  <PreviewButton title="输出结果" content={() => result.output} disabled={!result.output} />
+                  <CopyButton
+                    value={() => result.output}
+                    disabled={!result.output}
+                    label="复制输出"
+                  />
+                </>
               }
             />
             {result.error ? (

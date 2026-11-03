@@ -21,6 +21,7 @@ import {
   ToolCardHeader,
   ToolShell,
   ToolTag,
+  PreviewButton,
   iconButtonClass,
 } from '../ui'
 import Tooltip from '../ui/Tooltip'
@@ -150,6 +151,8 @@ export default function TextScratchpadTool() {
           actions={
             <>
               {stats.todos > 0 && <ToolTag tone="brand">{stats.todos} 条待办</ToolTag>}
+              {/* 草稿全文预览：长文时比在编辑器里翻合适 */}
+              <PreviewButton title="草稿全文" content={() => text} disabled={!text} />
               <Tooltip content="复制全文">
                 <span className="inline-flex">
                   <CopyButtonIcon text={text} />
@@ -182,7 +185,7 @@ export default function TextScratchpadTool() {
               spellCheck={false}
               disabled={!loaded}
               placeholder={EMPTY_HINT}
-              className="w-full h-full min-h-[320px] resize-none outline-none bg-transparent px-4 py-3 font-mono text-[13px] leading-6 text-slate-800 dark:text-slate-100 placeholder:text-slate-300 dark:placeholder:text-slate-600 disabled:opacity-50"
+              className="w-full h-full min-h-[320px] resize-none outline-none bg-transparent px-4 py-3 font-mono text-[13px] leading-6 text-slate-800  placeholder:text-slate-300  disabled:opacity-50"
             />
           ) : (
             <div

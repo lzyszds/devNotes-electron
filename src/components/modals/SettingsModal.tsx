@@ -11,7 +11,7 @@ import {
   X,
 } from "lucide-react";
 import type { ComponentType } from "react";
-import { usePresence } from "../../hooks/usePresence";
+import { Dialog, DialogClose, DialogContent, DialogTitle } from "../ui/shadcn/dialog";
 import GeneralPanel from "../settings/GeneralPanel";
 import ShortcutSettingsPanel from "../settings/ShortcutSettingsPanel";
 import CloudflareSyncPanel from "../settings/CloudflareSyncPanel";
@@ -101,7 +101,8 @@ export default function SettingsModal({
   onClose,
   onResetSidebarWidth,
 }: SettingsModalProps) {
-  const { mounted, state } = usePresence(open, 180);
+  /* 外壳已换 shadcn Dialog（Radix）：Esc / 点遮罩关闭 / 进出场 / 滚动锁定
+     全部由原语托管 —— 之前那份自抄 window keydown 的 Esc 监听随之删除。 */
 
   // 记录已经访问过的 section 集合
   const [visitedSections, setVisitedSections] = useState<Set<SettingsSection>>(
@@ -119,39 +120,22 @@ export default function SettingsModal({
     }
   }, [open, section]);
 
-  useEffect(() => {
-    if (!open) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, onClose]);
-
-  if (!mounted) return null;
-
   const activeMeta =
     SETTINGS_SECTIONS.find((s) => s.id === section) ?? SETTINGS_SECTIONS[0];
 
   return (
-    <div
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-      data-state={state}
-      className="fe-fade fixed inset-0 z-[60] flex items-center justify-center p-3 md:p-6 bg-black/40 backdrop-blur-2xs select-none"
-    >
-      <div
-        data-state={state}
-        className="fe-modal w-full max-w-4xl h-[92vh] max-h-[720px] bg-white rounded-2xl shadow-2xl border border-[#E6E6E3] flex flex-col overflow-hidden"
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+      <DialogContent
+        showClose={false}
+        aria-describedby={undefined}
+        className="w-full max-w-4xl h-[92vh] max-h-[720px] p-0 gap-0"
       >
         {/* 顶部标题栏 */}
         <div className="h-12 border-b border-[#E6E6E3] bg-[#F3F3F1] px-4 md:px-6 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-sm text-[#191918]">系统设置</span>
+            <DialogTitle asChild>
+              <span className="font-bold text-sm text-[#191918]">系统设置</span>
+            </DialogTitle>
             <span className="text-[#E6E6E3]">/</span>
             <span className="text-xs text-[#787774] font-medium">
               {activeMeta.label}
@@ -159,13 +143,12 @@ export default function SettingsModal({
           </div>
 
           <Tooltip content="关闭设置（Esc）">
-            <button
+            <DialogClose
               type="button"
-              onClick={onClose}
               className="w-7 h-7 rounded-full bg-white hover:bg-[#EAEAE7] border border-[#E6E6E3] flex items-center justify-center text-[#787774] hover:text-[#191918] transition-colors cursor-pointer"
             >
               <X className="w-3.5 h-3.5" />
-            </button>
+            </DialogClose>
           </Tooltip>
         </div>
 
@@ -259,7 +242,7 @@ export default function SettingsModal({
             )}
           </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

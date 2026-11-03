@@ -51,6 +51,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
     }
   ): Promise<{ ok: boolean; reason?: 'no-module' | 'no-permission' | 'failed' }> =>
     ipcRenderer.invoke('clipboard-paste', payload),
+  /** 按条目 id 粘贴图片：主进程读原图文件 → dataURL → 写剪贴板 → 粘贴目标落点 */
+  clipboardPasteImage: (
+    entryId: string
+  ): Promise<{ ok: boolean; reason?: 'no-module' | 'no-permission' | 'failed' }> =>
+    ipcRenderer.invoke('clipboard-paste-image', entryId),
+
+  /* 释放可回收内存（macOS：/usr/sbin/purge，走管理员权限弹窗） */
+  memoryRelease: (): Promise<{ ok: boolean; message: string; cancelled?: boolean }> =>
+    ipcRenderer.invoke('memory-release'),
 
   /** 采集到新内容时推送，面板不用轮询 */
   onClipboardChanged: (

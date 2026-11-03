@@ -278,6 +278,8 @@ interface Window {
     systemInfo?: () => Promise<import('./types/system').SystemHardwareInfo>
     systemProcessList?: () => Promise<import('./types/system').AppProcessMemory[]>
     systemKillProcess?: (pid: number) => Promise<{ ok: boolean; pid: number; error?: string }>
+    /** 释放可回收内存（macOS：/usr/sbin/purge，清文件缓存；用户在管理员密码框取消时 cancelled=true） */
+    memoryRelease?: () => Promise<{ ok: boolean; message: string; cancelled?: boolean }>
   }
 }
 

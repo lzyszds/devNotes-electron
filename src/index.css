@@ -9,9 +9,9 @@
  * 或自身已定位/已控溢出的按钮不受影响 —— Tailwind v3 下工具类总能赢。
  * 菜单类浮层（Select 等）都走 portal，overflow 不会裁到它们。
  */
-button {
-  position: relative;
-  overflow: hidden;
+button{
+ position: relative;
+ overflow: hidden;
 }
 
 /*
@@ -27,304 +27,272 @@ button {
  * 全家桶（Light 到 ExtraBold）能有 2MB+，为代码块的高亮字重多花这些体积不值。
  * ==========================================================================
  */
-@font-face {
-  font-family: 'JetBrains Mono';
-  src: url('/fonts/JetBrainsMono-Regular.woff2') format('woff2');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
+@font-face{
+ font-family: 'JetBrains Mono';
+ src: url('/fonts/JetBrainsMono-Regular.woff2') format('woff2');
+ font-weight: 400;
+ font-style: normal;
+ font-display: swap;
 }
 
-@font-face {
-  font-family: 'JetBrains Mono';
-  src: url('/fonts/JetBrainsMono-Bold.woff2') format('woff2');
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
+@font-face{
+ font-family: 'JetBrains Mono';
+ src: url('/fonts/JetBrainsMono-Bold.woff2') format('woff2');
+ font-weight: 700;
+ font-style: normal;
+ font-display: swap;
 }
 
-:root {
-  /*
-   * 翻译页底栏「上下滚翻」槽位的高度。
-   *
-   * 这个值必须和 CARD_FOOT 的 h-8（32px）一致：窗口取它、轨道取它的两倍。
-   * 之所以抽成变量而不是在各处写 32px：混用 h-full / h-1/2 时高度链一断，
-   * 两屏就会被压成一半高，进度行直接看不见（踩过一次）。
-   */
-  --ocr-pane: 32px;
-  color-scheme: light;
-  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Inter', 'Segoe UI', sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+:root{
+ /*
+ * 翻译页底栏「上下滚翻」槽位的高度。
+ *
+ * 这个值必须和 CARD_FOOT 的 h-8（32px）一致：窗口取它、轨道取它的两倍。
+ * 之所以抽成变量而不是在各处写 32px：混用 h-full / h-1/2 时高度链一断，
+ * 两屏就会被压成一半高，进度行直接看不见（踩过一次）。
+ */
+ --ocr-pane: 32px;
+ color-scheme: light;
+ font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Inter', 'Segoe UI', sans-serif;
+ line-height: 1.5;
+ font-weight: 400;
+ font-synthesis: none;
+ text-rendering: optimizeLegibility;
+ -webkit-font-smoothing: antialiased;
+ -moz-osx-font-smoothing: grayscale;
 
-  /*
-   * 等宽字体栈。收口成一个变量，避免十几处各写一份、改一处漏一处
-   * （此前就有五处只写了 'JetBrains Mono', monospace，没带回退，
-   * 本机没装就直掉系统默认，代码块的字形与别处对不上）。
-   *
-   * 回退链里的 Fira Code / Menlo / Consolas 是给字体文件还没加载完、
-   * 或用户环境异常时兜底的 —— font-display: swap 期间先用它们显示，
-   * 不会出现一段空白。
-   */
-  --fe-mono-font: 'JetBrains Mono', 'Fira Code', 'SF Mono', Menlo, Consolas, 'Liberation Mono',
-    monospace;
+ /*
+ * 等宽字体栈。收口成一个变量，避免十几处各写一份、改一处漏一处
+ * （此前就有五处只写了 'JetBrains Mono', monospace，没带回退，
+ * 本机没装就直掉系统默认，代码块的字形与别处对不上）。
+ *
+ * 回退链里的 Fira Code / Menlo / Consolas 是给字体文件还没加载完、
+ * 或用户环境异常时兜底的 —— font-display: swap 期间先用它们显示，
+ * 不会出现一段空白。
+ */
+ --fe-mono-font: 'JetBrains Mono', 'Fira Code', 'SF Mono', Menlo, Consolas, 'Liberation Mono',
+ monospace;
 
-  /* ================= 默认暖灰炭黑品牌色 (Notion 极简暖灰阶风格) ================= */
-  --brand-50-rgb: 243 243 241;
-  --brand-100-rgb: 234 234 231;
-  --brand-200-rgb: 212 212 208;
-  --brand-300-rgb: 168 168 162;
-  --brand-400-rgb: 120 119 116;
-  --brand-500-rgb: 46 46 46;
-  --brand-600-rgb: 28 28 28;
-  --brand-700-rgb: 22 22 22;
-  --brand-800-rgb: 18 18 18;
-  --brand-900-rgb: 12 12 12;
-  --brand-950-rgb: 0 0 0;
+ /* ================= 默认暖灰炭黑品牌色 (Notion 极简暖灰阶风格) ================= */
+ --brand-50-rgb: 243 243 241;
+ --brand-100-rgb: 234 234 231;
+ --brand-200-rgb: 212 212 208;
+ --brand-300-rgb: 168 168 162;
+ --brand-400-rgb: 120 119 116;
+ --brand-500-rgb: 46 46 46;
+ --brand-600-rgb: 28 28 28;
+ --brand-700-rgb: 22 22 22;
+ --brand-800-rgb: 18 18 18;
+ --brand-900-rgb: 12 12 12;
+ --brand-950-rgb: 0 0 0;
 
-  /*
-   * 笔记正文最大宽度。遵循 Notion 极简大留白排版 (max-w-3xl = 48rem = 768px)
-   */
-  --fe-read-max-width: 48rem;
+ /*
+ * 笔记正文最大宽度。遵循 Notion 极简大留白排版 (max-w-3xl = 48rem = 768px)
+ */
+ --fe-read-max-width: 48rem;
 
-  /* 默认深色表面备用值 (对应极简炭黑) */
-  --theme-dark-bg-rgb: 25 25 25;
-  --theme-dark-panel-rgb: 32 32 32;
-  --theme-dark-sidebar-rgb: 20 20 20;
-  --theme-dark-border-rgb: 46 46 46;
-  --theme-dark-hover-rgb: 41 41 41;
+ /* 默认深色表面备用值 (对应极简炭黑) */
+ --theme-dark-bg-rgb: 25 25 25;
+ --theme-dark-panel-rgb: 32 32 32;
+ --theme-dark-sidebar-rgb: 20 20 20;
+ --theme-dark-border-rgb: 46 46 46;
+ --theme-dark-hover-rgb: 41 41 41;
 }
 
 /* Notion 极简表格与复选框规范 */
 .notion-table,
-table {
-  border-collapse: collapse;
+table{
+ border-collapse: collapse;
 }
 
 .notion-table th,
-table th {
-  background-color: #FBFBFA;
-  border: 1px solid #E6E6E3;
-  color: #191918;
-  font-weight: 600;
-  padding: 6px 12px;
+table th{
+ background-color: #FBFBFA;
+ border: 1px solid #E6E6E3;
+ color: #191918;
+ font-weight: 600;
+ padding: 6px 12px;
 }
 
 .notion-table td,
-table td {
-  border: 1px solid #EAEAE7;
-  color: #191918;
-  padding: 6px 12px;
+table td{
+ border: 1px solid #EAEAE7;
+ color: #191918;
+ padding: 6px 12px;
 }
 
-input[type="checkbox"] {
-  accent-color: rgb(var(--brand-600-rgb, 33 131 151));
-  cursor: pointer;
-}
-
-html.dark input[type="checkbox"] {
-  accent-color: rgb(var(--brand-500-rgb, 80 189 207));
-}
-
-html.dark {
-  color-scheme: dark;
-}
-
-/* ================= 唯一的 Notion 极简暖灰阶主题 ================= */
+input[type="checkbox"]{
+ accent-color: rgb(var(--brand-600-rgb, 33 131 151));
+ cursor: pointer;
+}/* ================= 唯一的 Notion 极简暖灰阶主题 ================= */
 html,
 body,
-#root {
-  margin: 0;
-  width: 100%;
-  height: 100vh;
-  overflow: hidden;
-  background-color: #FFFFFF;
-  color: #191918;
+#root{
+ margin: 0;
+ width: 100%;
+ height: 100vh;
+ overflow: hidden;
+ background-color: #FFFFFF;
+ color: #191918;
 }
 
-body {
-  background-color: #FFFFFF;
-  color: #191918;
+body{
+ background-color: #FFFFFF;
+ color: #191918;
 }
 
 button,
 input,
 textarea,
-select {
-  font: inherit;
+select{
+ font: inherit;
 }
 
-textarea {
-  tab-size: 2;
+textarea{
+ tab-size: 2;
 }
 
 /* 极致细腻自定义滚动条 */
-::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+::-webkit-scrollbar{
+ width: 5px;
+ height: 5px;
 }
 
-::-webkit-scrollbar-track {
-  background: transparent;
+::-webkit-scrollbar-track{
+ background: transparent;
 }
 
-::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.25);
-  border-radius: 9999px;
+::-webkit-scrollbar-thumb{
+ background: rgba(148, 163, 184, 0.25);
+ border-radius: 9999px;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.45);
+::-webkit-scrollbar-thumb:hover{
+ background: rgba(148, 163, 184, 0.45);
+}/* Markdown 预览区排版增强样式 */
+.markdown-body h1{
+ font-size: 1.65rem;
+ font-weight: 800;
+ margin-bottom: 0.75rem;
+ color: inherit;
 }
 
-html.dark ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.18);
+.markdown-body h2{
+ font-size: 1.35rem;
+ font-weight: 700;
+ margin-top: 1.5rem;
+ margin-bottom: 0.5rem;
+ border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+ padding-bottom: 0.3rem;
 }
 
-html.dark ::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.35);
+.markdown-body h3{
+ font-size: 1.15rem;
+ font-weight: 600;
+ margin-top: 1.25rem;
+ margin-bottom: 0.4rem;
 }
 
-/* Markdown 预览区排版增强样式 */
-.markdown-body h1 {
-  font-size: 1.65rem;
-  font-weight: 800;
-  margin-bottom: 0.75rem;
-  color: inherit;
+.markdown-body p{
+ margin-bottom: 0.85rem;
+ line-height: 1.7;
+ font-size: 0.875rem;
 }
 
-.markdown-body h2 {
-  font-size: 1.35rem;
-  font-weight: 700;
-  margin-top: 1.5rem;
-  margin-bottom: 0.5rem;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
-  padding-bottom: 0.3rem;
+.markdown-body ul{
+ list-style-type: disc;
+ padding-left: 1.25rem;
+ margin-bottom: 0.85rem;
+ font-size: 0.875rem;
 }
 
-.markdown-body h3 {
-  font-size: 1.15rem;
-  font-weight: 600;
-  margin-top: 1.25rem;
-  margin-bottom: 0.4rem;
+.markdown-body ol{
+ list-style-type: decimal;
+ padding-left: 1.25rem;
+ margin-bottom: 0.85rem;
+ font-size: 0.875rem;
 }
 
-.markdown-body p {
-  margin-bottom: 0.85rem;
-  line-height: 1.7;
-  font-size: 0.875rem;
+.markdown-body li{
+ margin-bottom: 0.25rem;
+ line-height: 1.6;
 }
 
-.markdown-body ul {
-  list-style-type: disc;
-  padding-left: 1.25rem;
-  margin-bottom: 0.85rem;
-  font-size: 0.875rem;
+.markdown-body code:not(pre code){
+ background-color: rgb(var(--brand-500-rgb, 80 189 207) / 0.12);
+ color: rgb(var(--brand-800-rgb, 16 76 91));
+ border: 1px solid rgb(var(--brand-500-rgb, 80 189 207) / 0.25);
+ padding: 0.15rem 0.4rem;
+ border-radius: 0.375rem;
+ font-size: 0.82rem;
+ font-family: var(--fe-mono-font);
 }
 
-.markdown-body ol {
-  list-style-type: decimal;
-  padding-left: 1.25rem;
-  margin-bottom: 0.85rem;
-  font-size: 0.875rem;
+.markdown-body pre{
+ background: #0f172a;
+ color: #f8fafc;
+ padding: 1rem;
+ border-radius: 0.75rem;
+ margin-bottom: 1rem;
+ overflow-x: auto;
+ font-size: 0.8rem;
+ border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.markdown-body li {
-  margin-bottom: 0.25rem;
-  line-height: 1.6;
+.markdown-body blockquote{
+ border-left: 3px solid rgb(var(--brand-600-rgb, 33 131 151));
+ padding: 0.5rem 1rem 0.5rem 0.75rem;
+ color: #64748b;
+ margin-bottom: 0.85rem;
+ font-style: normal;
+ border-radius: 0 6px 6px 0;
+ background: #f8fafc;
 }
 
-.markdown-body code:not(pre code) {
-  background-color: rgb(var(--brand-500-rgb, 80 189 207) / 0.12);
-  color: rgb(var(--brand-800-rgb, 16 76 91));
-  border: 1px solid rgb(var(--brand-500-rgb, 80 189 207) / 0.25);
-  padding: 0.15rem 0.4rem;
-  border-radius: 0.375rem;
-  font-size: 0.82rem;
-  font-family: var(--fe-mono-font);
+.markdown-body blockquote>p{
+ margin: 0;
+ line-height: 1.6;
 }
 
-.dark .markdown-body code:not(pre code) {
-  background-color: rgb(var(--brand-500-rgb, 80 189 207) / 0.18);
-  color: rgb(var(--brand-300-rgb, 143 215 224));
-  border-color: rgb(var(--brand-500-rgb, 80 189 207) / 0.32);
-}
-
-.markdown-body pre {
-  background: #0f172a;
-  color: #f8fafc;
-  padding: 1rem;
-  border-radius: 0.75rem;
-  margin-bottom: 1rem;
-  overflow-x: auto;
-  font-size: 0.8rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.markdown-body blockquote {
-  border-left: 3px solid rgb(var(--brand-600-rgb, 33 131 151));
-  padding: 0.5rem 1rem 0.5rem 0.75rem;
-  color: #64748b;
-  margin-bottom: 0.85rem;
-  font-style: normal;
-  border-radius: 0 6px 6px 0;
-  background: #f8fafc;
-}
-
-.markdown-body blockquote>p {
-  margin: 0;
-  line-height: 1.6;
-}
-
-.dark .markdown-body blockquote {
-  border-left-color: rgb(var(--brand-500-rgb, 80 189 207));
-  background: rgba(148, 163, 184, 0.08);
-  color: #94a3b8;
-}
-
-.markdown-body table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-bottom: 1rem;
-  font-size: 0.85rem;
+.markdown-body table{
+ width: 100%;
+ border-collapse: collapse;
+ margin-bottom: 1rem;
+ font-size: 0.85rem;
 }
 
 .markdown-body th,
-.markdown-body td {
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  padding: 0.5rem 0.75rem;
+.markdown-body td{
+ border: 1px solid rgba(148, 163, 184, 0.2);
+ padding: 0.5rem 0.75rem;
 }
 
-.markdown-body th {
-  background: rgba(148, 163, 184, 0.08);
-  font-weight: 600;
+.markdown-body th{
+ background: rgba(148, 163, 184, 0.08);
+ font-weight: 600;
 }
 
-.markdown-body hr {
-  border: 0;
-  border-top: 1px solid rgba(148, 163, 184, 0.2);
-  margin: 1.5rem 0;
+.markdown-body hr{
+ border: 0;
+ border-top: 1px solid rgba(148, 163, 184, 0.2);
+ margin: 1.5rem 0;
 }
 
-.drag-region {
-  -webkit-app-region: drag;
+.drag-region{
+ -webkit-app-region: drag;
 }
 
-.no-drag {
-  -webkit-app-region: no-drag;
+.no-drag{
+ -webkit-app-region: no-drag;
 }
 
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
+.scrollbar-hide::-webkit-scrollbar{
+ display: none;
 }
 
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+.scrollbar-hide{
+ -ms-overflow-style: none;
+ scrollbar-width: none;
 }
 
 /*
@@ -334,16 +302,16 @@ html.dark ::-webkit-scrollbar-thumb:hover {
  * 塞进 420px 宽的小窗里显得又大又松。这里按小窗重新标一遍尺寸，
  * 只保留「能一眼看出结构」所需的最小样式。
  */
-.scratch-preview>*:first-child {
-  margin-top: 0;
+.scratch-preview>*:first-child{
+ margin-top: 0;
 }
 
-.scratch-preview>*:last-child {
-  margin-bottom: 0;
+.scratch-preview>*:last-child{
+ margin-bottom: 0;
 }
 
-.scratch-preview p {
-  margin: 0 0 0.6rem;
+.scratch-preview p{
+ margin: 0 0 0.6rem;
 }
 
 .scratch-preview h1,
@@ -351,642 +319,599 @@ html.dark ::-webkit-scrollbar-thumb:hover {
 .scratch-preview h3,
 .scratch-preview h4,
 .scratch-preview h5,
-.scratch-preview h6 {
-  margin: 0.9rem 0 0.5rem;
-  font-weight: 700;
-  line-height: 1.35;
-  color: #0f172a;
+.scratch-preview h6{
+ margin: 0.9rem 0 0.5rem;
+ font-weight: 700;
+ line-height: 1.35;
+ color: #0f172a;
 }
 
-.scratch-preview h1 {
-  font-size: 1.25rem;
+.scratch-preview h1{
+ font-size: 1.25rem;
 }
 
-.scratch-preview h2 {
-  font-size: 1.1rem;
+.scratch-preview h2{
+ font-size: 1.1rem;
 }
 
-.scratch-preview h3 {
-  font-size: 1rem;
+.scratch-preview h3{
+ font-size: 1rem;
 }
 
 .scratch-preview h4,
 .scratch-preview h5,
-.scratch-preview h6 {
-  font-size: 0.9rem;
-}
-
-.dark .scratch-preview h1,
-.dark .scratch-preview h2,
-.dark .scratch-preview h3,
-.dark .scratch-preview h4,
-.dark .scratch-preview h5,
-.dark .scratch-preview h6 {
-  color: #f8fafc;
+.scratch-preview h6{
+ font-size: 0.9rem;
 }
 
 .scratch-preview ul,
-.scratch-preview ol {
-  margin: 0 0 0.6rem;
-  padding-left: 1.2rem;
+.scratch-preview ol{
+ margin: 0 0 0.6rem;
+ padding-left: 1.2rem;
 }
 
-.scratch-preview ul {
-  list-style: disc;
+.scratch-preview ul{
+ list-style: disc;
 }
 
-.scratch-preview ol {
-  list-style: decimal;
+.scratch-preview ol{
+ list-style: decimal;
 }
 
-.scratch-preview li {
-  margin: 0.15rem 0;
+.scratch-preview li{
+ margin: 0.15rem 0;
 }
 
 /* 任务清单：去掉项目符号，自己画一个方框 */
-.scratch-preview ul.scratch-task {
-  list-style: none;
-  padding-left: 0.1rem;
+.scratch-preview ul.scratch-task{
+ list-style: none;
+ padding-left: 0.1rem;
 }
 
-.scratch-preview li.scratch-task-item {
-  display: flex;
-  gap: 0.4rem;
-  align-items: flex-start;
+.scratch-preview li.scratch-task-item{
+ display: flex;
+ gap: 0.4rem;
+ align-items: flex-start;
 }
 
-.scratch-preview .scratch-check {
-  width: 0.95rem;
-  height: 0.95rem;
-  margin-top: 0.25rem;
-  border-radius: 4px;
-  border: 1.5px solid #cbd5e1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.65rem;
-  line-height: 1;
-  color: #fff;
-  flex-shrink: 0;
+.scratch-preview .scratch-check{
+ width: 0.95rem;
+ height: 0.95rem;
+ margin-top: 0.25rem;
+ border-radius: 4px;
+ border: 1.5px solid #cbd5e1;
+ display: inline-flex;
+ align-items: center;
+ justify-content: center;
+ font-size: 0.65rem;
+ line-height: 1;
+ color: #fff;
+ flex-shrink: 0;
 }
 
-.scratch-preview li.is-done .scratch-check {
-  border-color: rgb(var(--brand-600-rgb, 33 131 151));
-  background: rgb(var(--brand-600-rgb, 33 131 151));
+.scratch-preview li.is-done .scratch-check{
+ border-color: rgb(var(--brand-600-rgb, 33 131 151));
+ background: rgb(var(--brand-600-rgb, 33 131 151));
 }
 
-.scratch-preview li.is-done>span:last-child {
-  color: #94a3b8;
-  text-decoration: line-through;
+.scratch-preview li.is-done>span:last-child{
+ color: #94a3b8;
+ text-decoration: line-through;
 }
 
-.dark .scratch-preview .scratch-check {
-  border-color: #475569;
+.scratch-preview blockquote{
+ margin: 0 0 0.6rem;
+ padding: 0.35rem 0.7rem;
+ border-left: 3px solid rgb(var(--brand-600-rgb, 33 131 151));
+ border-radius: 0 6px 6px 0;
+ background: #f1f5f9;
+ color: #475569;
 }
 
-.scratch-preview blockquote {
-  margin: 0 0 0.6rem;
-  padding: 0.35rem 0.7rem;
-  border-left: 3px solid rgb(var(--brand-600-rgb, 33 131 151));
-  border-radius: 0 6px 6px 0;
-  background: #f1f5f9;
-  color: #475569;
+.scratch-preview code{
+ font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+ font-size: 0.86em;
+ padding: 0.1em 0.35em;
+ border-radius: 4px;
+ background: rgba(100, 116, 139, 0.14);
 }
 
-.dark .scratch-preview blockquote {
-  background: rgba(148, 163, 184, 0.08);
-  color: #94a3b8;
+.scratch-preview pre{
+ margin: 0 0 0.6rem;
+ padding: 0.6rem 0.75rem;
+ border-radius: 8px;
+ overflow-x: auto;
+ background: #f1f5f9;
 }
 
-.scratch-preview code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.86em;
-  padding: 0.1em 0.35em;
-  border-radius: 4px;
-  background: rgba(100, 116, 139, 0.14);
+.scratch-preview pre code{
+ padding: 0;
+ background: none;
+ font-size: 0.8rem;
 }
 
-.scratch-preview pre {
-  margin: 0 0 0.6rem;
-  padding: 0.6rem 0.75rem;
-  border-radius: 8px;
-  overflow-x: auto;
-  background: #f1f5f9;
+.scratch-preview hr{
+ border: 0;
+ border-top: 1px solid rgba(148, 163, 184, 0.3);
+ margin: 0.9rem 0;
 }
 
-.dark .scratch-preview pre {
-  background: rgba(148, 163, 184, 0.1);
-}
-
-.scratch-preview pre code {
-  padding: 0;
-  background: none;
-  font-size: 0.8rem;
-}
-
-.scratch-preview hr {
-  border: 0;
-  border-top: 1px solid rgba(148, 163, 184, 0.3);
-  margin: 0.9rem 0;
-}
-
-.scratch-preview a {
-  color: rgb(var(--brand-600-rgb, 33 131 151));
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.dark .scratch-preview a {
-  color: rgb(var(--brand-400-rgb, 56 178 196));
-}
-
-/*
+.scratch-preview a{
+ color: rgb(var(--brand-600-rgb, 33 131 151));
+ text-decoration: underline;
+ text-underline-offset: 2px;
+}/*
  * 工作台级联落位：切换工具时顶栏瞬间就位，下面的卡片自上而下依次落位，
  * 每张相隔 40ms。页面本身不移动、也不交叉淡化 —— 动的是内容自己。
  */
-@keyframes tool-card-land {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
+@keyframes tool-card-land{
+ from{
+ opacity: 0;
+ transform: translateY(12px);
+ }
 
-  to {
-    opacity: 1;
-    transform: none;
-  }
+ to{
+ opacity: 1;
+ transform: none;
+ }
 }
 
-@keyframes overlay-fade-in {
-  from {
-    opacity: 0;
-  }
+@keyframes overlay-fade-in{
+ from{
+ opacity: 0;
+ }
 
-  to {
-    opacity: 1;
-  }
+ to{
+ opacity: 1;
+ }
 }
 
-@keyframes sheet-slide-in {
-  from {
-    opacity: 0;
-    transform: translateX(28px) scale(0.985);
-  }
+@keyframes sheet-slide-in{
+ from{
+ opacity: 0;
+ transform: translateX(28px) scale(0.985);
+ }
 
-  to {
-    opacity: 1;
-    transform: translateX(0) scale(1);
-  }
+ to{
+ opacity: 1;
+ transform: translateX(0) scale(1);
+ }
 }
 
-@keyframes context-menu-in {
-  from {
-    opacity: 0;
-    transform: scale(0.96) translateY(-4px);
-  }
+@keyframes context-menu-in{
+ from{
+ opacity: 0;
+ transform: scale(0.96) translateY(-4px);
+ }
 
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
+ to{
+ opacity: 1;
+ transform: scale(1) translateY(0);
+ }
 }
 
 /* 子菜单从父项右侧滑出,方向固定(left 翻转到 right 时也不影响观感) */
-@keyframes context-submenu-in {
-  from {
-    opacity: 0;
-    transform: scale(0.97) translateX(-4px);
-  }
+@keyframes context-submenu-in{
+ from{
+ opacity: 0;
+ transform: scale(0.97) translateX(-4px);
+ }
 
-  to {
-    opacity: 1;
-    transform: scale(1) translateX(0);
-  }
+ to{
+ opacity: 1;
+ transform: scale(1) translateX(0);
+ }
 }
 
-@keyframes overlay-fade-out {
-  from {
-    opacity: 1;
-  }
+@keyframes overlay-fade-out{
+ from{
+ opacity: 1;
+ }
 
-  to {
-    opacity: 0;
-  }
+ to{
+ opacity: 0;
+ }
 }
 
-@keyframes toast-in {
-  from {
-    opacity: 0;
-    transform: translateY(-6px) scale(0.97);
-  }
+@keyframes toast-in{
+ from{
+ opacity: 0;
+ transform: translateY(-6px) scale(0.97);
+ }
 
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+ to{
+ opacity: 1;
+ transform: translateY(0) scale(1);
+ }
 }
 
 /* 只做淡入:气泡可能在触发元素上方或下方,加位移方向就不对了 */
-@keyframes tooltip-in {
-  from {
-    opacity: 0;
-  }
+@keyframes tooltip-in{
+ from{
+ opacity: 0;
+ }
 
-  to {
-    opacity: 1;
-  }
+ to{
+ opacity: 1;
+ }
 }
 
-@layer components {
+@layer components{
 
-  /*
-   * 整页外壳。页面本身不做入场动画 —— 切工具是硬切，入场感由内容自己的
-   * 级联落位（.tool-cascade）负责；整页再淡一次只会让内容发虚，
-   * 而且淡入的那一瞬工作区是空的，看着像闪了一下。
-   */
-  .app-scene {
-    overflow: clip;
-    transform-origin: center center;
-  }
+ /*
+ * 整页外壳。页面本身不做入场动画 —— 切工具是硬切，入场感由内容自己的
+ * 级联落位（.tool-cascade）负责；整页再淡一次只会让内容发虚，
+ * 而且淡入的那一瞬工作区是空的，看着像闪了一下。
+ */
+ .app-scene{
+ overflow: clip;
+ transform-origin: center center;
+ }
 
-  /*
-   * 级联落位的容器：挂在直接摆着卡片的那一层上，它的每个直接子元素依次落位。
-   *
-   * 用 nth-child 排延迟而不是让外面传进来：卡片数量各工具不同，但都是「自上而下
-   * 一块块铺下去」这一个意思，排在 CSS 里各处不必各写一遍。
-   * 第 5 个往后不再加延迟 —— 再拖就成慢动作了。
-   */
-  .tool-cascade>* {
-    animation: tool-card-land 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
-  }
+ /*
+ * 级联落位的容器：挂在直接摆着卡片的那一层上，它的每个直接子元素依次落位。
+ *
+ * 用 nth-child 排延迟而不是让外面传进来：卡片数量各工具不同，但都是「自上而下
+ * 一块块铺下去」这一个意思，排在 CSS 里各处不必各写一遍。
+ * 第 5 个往后不再加延迟 —— 再拖就成慢动作了。
+ */
+ .tool-cascade>*{
+ animation: tool-card-land 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+ }
 
+ /*
+ * 翻译页底栏「上下滚翻」槽位（见 OcrProgressBar）。
+ *
+ * 位移交给 CSS transition，而不是 JS 逐帧写 transform：识别开始的那一帧
+ * 只要把 translateY 从 0 改成 -50%，浏览器就一定会补过渡，不受 React
+ * 批处理 / StrictMode 重挂 / effect 跑没跑过的影响 —— 这正是上一版
+ * 实测停在 translateY(-0.048%) 的根源。
+ *
+ * 两屏都用 .fe-ocr-pane（flex: 1），高度只由轨道（--ocr-pane × 2）决定，
+ * 窗口始终是 --ocr-pane 高，所以翻页时下方面板不会位移。
+ */
+ .fe-ocr-track{
+ transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+ will-change: transform;
+ }
 
-  /*
-   * 翻译页底栏「上下滚翻」槽位（见 OcrProgressBar）。
-   *
-   * 位移交给 CSS transition，而不是 JS 逐帧写 transform：识别开始的那一帧
-   * 只要把 translateY 从 0 改成 -50%，浏览器就一定会补过渡，不受 React
-   * 批处理 / StrictMode 重挂 / effect 跑没跑过的影响 —— 这正是上一版
-   * 实测停在 translateY(-0.048%) 的根源。
-   *
-   * 两屏都用 .fe-ocr-pane（flex: 1），高度只由轨道（--ocr-pane × 2）决定，
-   * 窗口始终是 --ocr-pane 高，所以翻页时下方面板不会位移。
-   */
-  .fe-ocr-track {
-    transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
-    will-change: transform;
-  }
+ .fe-ocr-pane{
+ height: var(--ocr-pane, 32px);
+ flex: 0 0 var(--ocr-pane, 32px);
+ overflow: hidden;
+ }
 
-  .fe-ocr-pane {
-    height: var(--ocr-pane, 32px);
-    flex: 0 0 var(--ocr-pane, 32px);
-    overflow: hidden;
-  }
+ /* 进度条宽度：跟着引擎上报走，过渡一下免得一跳一跳 */
+ .fe-ocr-fill{
+ transition: width 220ms ease-out;
+ }
 
-  /* 进度条宽度：跟着引擎上报走，过渡一下免得一跳一跳 */
-  .fe-ocr-fill {
-    transition: width 220ms ease-out;
-  }
+ /*
+ * 卡片抬起。用弹性曲线（尾段轻微过冲）而不是纯 ease —— 鼠标划过时
+ * 是「弹起来」而不是「平移上去」，这是 Raycast / Linear 手感的关键差别。
+ * 只动 transform 与阴影，不碰布局属性，所以抬起时不会引起重排。
+ */
+ .motion-lift{
+ transition:
+ transform 240ms cubic-bezier(0.34, 1.56, 0.64, 1),
+ box-shadow 240ms ease,
+ border-color 200ms ease;
+ }
 
-  /*
-   * 卡片抬起。用弹性曲线（尾段轻微过冲）而不是纯 ease —— 鼠标划过时
-   * 是「弹起来」而不是「平移上去」，这是 Raycast / Linear 手感的关键差别。
-   * 只动 transform 与阴影，不碰布局属性，所以抬起时不会引起重排。
-   */
-  .motion-lift {
-    transition:
-      transform 240ms cubic-bezier(0.34, 1.56, 0.64, 1),
-      box-shadow 240ms ease,
-      border-color 200ms ease;
-  }
+ .motion-lift:hover{
+ transform: translateY(-2px);
+ }
 
-  .motion-lift:hover {
-    transform: translateY(-2px);
-  }
+ /* Internal Dashboard Panel */
+ .tool-panel{
+ @apply rounded-xl border border-slate-100 bg-white p-6 transition-all duration-300 hover:-translate-y-[2px] hover:shadow-md hover:border-slate-200/60;
+ box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+ }
 
-  /* Internal Dashboard Panel */
-  .tool-panel {
-    @apply rounded-xl border border-slate-100 bg-white p-6 transition-all duration-300 hover:-translate-y-[2px] hover:shadow-md hover:border-slate-200/60 dark:border-dark-border dark:bg-dark-panel dark:hover:border-slate-600;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
-  }
+ /* Subtle Decorative Panel */
+ .soft-panel{
+ @apply rounded-xl border border-slate-50 bg-[#F9FAFB] transition-colors duration-200;
+ }
 
-  /* Subtle Decorative Panel */
-  .soft-panel {
-    @apply rounded-xl border border-slate-50 bg-[#F9FAFB] transition-colors duration-200;
-  }
+ /* 渐变块内缘高光（顶栏 squircle、渐变按钮共用） */
+ .inset-highlight{
+ box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+ }
 
-  /* 渐变块内缘高光（顶栏 squircle、渐变按钮共用） */
-  .inset-highlight {
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
-  }
+ /* Premium Form Inputs */
+ .tool-input{
+ @apply w-full h-9 rounded-[10px] border border-slate-200/80 bg-white px-3 text-[13px] text-slate-800 outline-none transition-all duration-200 placeholder:text-slate-300 focus:border-brand-400 focus:ring-2 focus:ring-brand-500/10;
+ }
 
-  /* Premium Form Inputs */
-  .tool-input {
-    @apply w-full h-9 rounded-[10px] border border-slate-200/80 bg-white px-3 text-[13px] text-slate-800 outline-none transition-all duration-200 placeholder:text-slate-300 focus:border-brand-400 focus:ring-2 focus:ring-brand-500/10 dark:border-dark-border dark:bg-dark-panel dark:text-slate-100 dark:placeholder:text-slate-600;
-  }
+ .tool-textarea{
+ @apply tool-input h-auto min-h-[200px] resize-none font-mono leading-6 py-3;
+ }
 
-  .tool-textarea {
-    @apply tool-input h-auto min-h-[200px] resize-none font-mono leading-6 py-3;
-  }
+ /* 滑杆：轨道细、滑块白底描边，深浅两套同一形态 */
+ .tool-range{
+ @apply w-full h-1.5 cursor-pointer appearance-none rounded-full bg-slate-200 outline-none;
+ }
 
-  /* 滑杆：轨道细、滑块白底描边，深浅两套同一形态 */
-  .tool-range {
-    @apply w-full h-1.5 cursor-pointer appearance-none rounded-full bg-slate-200 outline-none dark:bg-dark-hover;
-  }
+ .tool-range::-webkit-slider-thumb{
+ -webkit-appearance: none;
+ appearance: none;
+ width: 16px;
+ height: 16px;
+ border-radius: 9999px;
+ background: #fff;
+ border: 2px solid rgb(var(--brand-600-rgb, 33 131 151));
+ box-shadow: 0 1px 3px rgb(15 23 42 / 0.18);
+ transition: transform 150ms ease;
+ }
 
-  .tool-range::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 16px;
-    height: 16px;
-    border-radius: 9999px;
-    background: #fff;
-    border: 2px solid rgb(var(--brand-600-rgb, 33 131 151));
-    box-shadow: 0 1px 3px rgb(15 23 42 / 0.18);
-    transition: transform 150ms ease;
-  }
+ .tool-range::-webkit-slider-thumb:hover{
+ transform: scale(1.08);
+ }
 
-  .tool-range::-webkit-slider-thumb:hover {
-    transform: scale(1.08);
-  }
+ .tool-range::-moz-range-thumb{
+ width: 14px;
+ height: 14px;
+ border-radius: 9999px;
+ background: #fff;
+ border: 2px solid rgb(var(--brand-600-rgb, 33 131 151));
+ box-shadow: 0 1px 3px rgb(15 23 42 / 0.18);
+ }
 
-  .tool-range::-moz-range-thumb {
-    width: 14px;
-    height: 14px;
-    border-radius: 9999px;
-    background: #fff;
-    border: 2px solid rgb(var(--brand-600-rgb, 33 131 151));
-    box-shadow: 0 1px 3px rgb(15 23 42 / 0.18);
-  }
+ /* Action Buttons */
+ .tool-button-primary{
+ @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-brand-600 px-4 h-9 text-[13px] font-semibold text-white shadow-sm shadow-brand-600/20 transition-all duration-150 hover:bg-brand-700 active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none;
+ }
 
-  /* Action Buttons */
-  .tool-button-primary {
-    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-brand-600 px-4 h-9 text-[13px] font-semibold text-white shadow-sm shadow-brand-600/20 transition-all duration-150 hover:bg-brand-700 active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none;
-  }
+ .tool-button-secondary{
+ @apply inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-[10px] border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-600 transition-all duration-150 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none;
+ }
 
-  .tool-button-secondary {
-    @apply inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-[10px] border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-600 transition-all duration-150 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none dark:border-dark-border dark:bg-dark-panel dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-dark-hover dark:hover:text-white;
-  }
+ .tool-button-accent{
+ @apply inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-[10px] bg-sky-500 px-4 text-xs font-semibold text-white shadow-sm transition-all duration-150 hover:bg-sky-600 active:scale-[0.98];
+ }
 
-  .tool-button-accent {
-    @apply inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-[10px] bg-sky-500 px-4 text-xs font-semibold text-white shadow-sm transition-all duration-150 hover:bg-sky-600 active:scale-[0.98];
-  }
+ /*
+ * 工具页顶部紧凑标题栏（h-10）右端的操作区：按钮是从 68px 大顶栏时代传进来的
+ * （各工具自己写 h-8 / px-5），直接放进细条偏大。
+ * 这里对整个操作区做等比 zoom 收小一号——按钮、图标、间距一起缩，
+ * 免得去逐个工具改按钮尺寸。
+ */
+ .tool-topbar-actions{
+ zoom: 0.88;
+ }
 
-  /*
-   * 工具页顶部紧凑标题栏（h-10）右端的操作区：按钮是从 68px 大顶栏时代传进来的
-   * （各工具自己写 h-8 / px-5），直接放进细条偏大。
-   * 这里对整个操作区做等比 zoom 收小一号——按钮、图标、间距一起缩，
-   * 免得去逐个工具改按钮尺寸。
-   */
-  .tool-topbar-actions {
-    zoom: 0.88;
-  }
+ /* Typography & Labels */
+ .tool-label{
+ @apply block text-[11px] font-semibold text-slate-500;
+ }
 
-  /* Typography & Labels */
-  .tool-label {
-    @apply block text-[11px] font-semibold text-slate-500 dark:text-slate-400;
-  }
+ .status-note{
+ @apply rounded-xl border px-3.5 py-2.5 text-xs leading-relaxed transition-all duration-300;
+ }
 
-  .status-note {
-    @apply rounded-xl border px-3.5 py-2.5 text-xs leading-relaxed transition-all duration-300;
-  }
+ /* Tool Chips (Categories/Tags) */
+ .tool-chip{
+ @apply inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-[11px] font-bold text-slate-500 transition-all duration-200 hover:border-slate-900 hover:text-slate-900 cursor-pointer;
+ }
 
-  /* Tool Chips (Categories/Tags) */
-  .tool-chip {
-    @apply inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-[11px] font-bold text-slate-500 transition-all duration-200 hover:border-slate-900 hover:text-slate-900 cursor-pointer;
-  }
+ .history-overlay{
+ @apply absolute inset-0 z-50 overflow-hidden;
+ animation: overlay-fade-in 200ms ease-out both;
+ }
 
-  .history-overlay {
-    @apply absolute inset-0 z-50 overflow-hidden;
-    animation: overlay-fade-in 200ms ease-out both;
-  }
+ .history-overlay-backdrop{
+ @apply absolute inset-0 backdrop-blur-[3px];
+ background: rgba(15, 23, 42, 0.28);
+ }
 
-  .history-overlay-backdrop {
-    @apply absolute inset-0 backdrop-blur-[3px];
-    background: rgba(15, 23, 42, 0.28);
-  }
+ .history-overlay-panel{
+ @apply absolute inset-y-0 right-0 w-[420px] max-w-full border-l border-[#E6E6E3] bg-white flex flex-col overflow-hidden;
+ box-shadow: -16px 0 48px -12px rgba(15, 23, 42, 0.18);
+ animation: sheet-slide-in 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
+ }/*
+ * 右键菜单:portal 挂到 body 上,必须 fixed 定位。
+ *
+ * z 层级排布（同一层叠上下文里直接比大小）:
+ * 50 全屏编辑器容器 / ⌘K 指令面板
+ * 80 浮出工具条（选中文字、空行、块手柄、代码块语言）、Toast
+ * 90 自绘 Tooltip
+ * 95 右键菜单
+ * 菜单必须压在最上面 —— 它一旦被任何东西盖住就等于点不到。
+ * 早期给的 70 比浮出工具条（80）还低，光标停在空行时右键会看到
+ * 插入工具条压在菜单上，所以提到 95。
+ */
+ .context-menu{
+ @apply fixed z-[95] min-w-[176px] max-w-[280px] max-h-[min(60vh,420px)] overflow-y-auto overflow-x-hidden rounded-xl border border-slate-200/80 bg-white/[0.98] p-1 backdrop-blur-xl;
+ box-shadow: 0 16px 48px -12px rgba(15, 23, 42, 0.32);
+ animation: context-menu-in 120ms cubic-bezier(0.22, 1, 0.36, 1);
+ transform-origin: top left;
+ }
 
-  .dark .history-overlay-backdrop {
-    background: rgba(0, 0, 0, 0.65);
-  }
+ /*
+ * 限高之后的滚动条：细一条淡色，不抢菜单内容的视觉。
+ * 根菜单与子菜单面板各自滚动 —— 长列表（如笔记文件夹多的路由菜单）不再撑到满屏。
+ */
+ .context-menu::-webkit-scrollbar,
+ .context-menu-submenu::-webkit-scrollbar{
+ @apply w-1.5;
+ }
 
-  .history-overlay-panel {
-    @apply absolute inset-y-0 right-0 w-[420px] max-w-full border-l border-[#E6E6E3] bg-white flex flex-col overflow-hidden dark:border-dark-border dark:bg-[#1C1C1E];
-    box-shadow: -16px 0 48px -12px rgba(15, 23, 42, 0.18);
-    animation: sheet-slide-in 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  }
+ .context-menu::-webkit-scrollbar-thumb,
+ .context-menu-submenu::-webkit-scrollbar-thumb{
+ @apply rounded-full bg-slate-900/15;
+ }
 
-  .dark .history-overlay-panel {
-    box-shadow: -16px 0 48px -12px rgba(0, 0, 0, 0.6);
-  }
+ .context-menu::-webkit-scrollbar-track,
+ .context-menu-submenu::-webkit-scrollbar-track{
+ @apply bg-transparent;
+ }
 
-  /*
-   * 右键菜单:portal 挂到 body 上,必须 fixed 定位。
-   *
-   * z 层级排布（同一层叠上下文里直接比大小）:
-   *   50 全屏编辑器容器 / ⌘K 指令面板
-   *   80 浮出工具条（选中文字、空行、块手柄、代码块语言）、Toast
-   *   90 自绘 Tooltip
-   *   95 右键菜单
-   * 菜单必须压在最上面 —— 它一旦被任何东西盖住就等于点不到。
-   * 早期给的 70 比浮出工具条（80）还低，光标停在空行时右键会看到
-   * 插入工具条压在菜单上，所以提到 95。
-   */
-  .context-menu {
-    @apply fixed z-[95] min-w-[176px] max-w-[280px] max-h-[min(60vh,420px)] overflow-y-auto overflow-x-hidden rounded-xl border border-slate-200/80 bg-white/[0.98] p-1 backdrop-blur-xl dark:border-dark-border dark:bg-dark-panel/[0.98];
-    box-shadow: 0 16px 48px -12px rgba(15, 23, 42, 0.32);
-    animation: context-menu-in 120ms cubic-bezier(0.22, 1, 0.36, 1);
-    transform-origin: top left;
-  }
+ .context-menu-item{
+ @apply flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-[13px] font-medium text-slate-700 transition-colors duration-100;
+ }
 
-  /*
-   * 限高之后的滚动条：细一条淡色，不抢菜单内容的视觉。
-   * 根菜单与子菜单面板各自滚动 —— 长列表（如笔记文件夹多的路由菜单）不再撑到满屏。
-   */
-  .context-menu::-webkit-scrollbar,
-  .context-menu-submenu::-webkit-scrollbar {
-    @apply w-1.5;
-  }
+ .context-menu-item[data-active='true']{
+ @apply bg-slate-900/[0.06] text-slate-900;
+ }
 
-  .context-menu::-webkit-scrollbar-thumb,
-  .context-menu-submenu::-webkit-scrollbar-thumb {
-    @apply rounded-full bg-slate-900/15 dark:bg-white/20;
-  }
+ .context-menu-item[data-danger='true']{
+ @apply text-rose-600;
+ }
 
-  .context-menu::-webkit-scrollbar-track,
-  .context-menu-submenu::-webkit-scrollbar-track {
-    @apply bg-transparent;
-  }
+ .context-menu-item[data-danger='true'][data-active='true']{
+ @apply bg-rose-500/10 text-rose-600;
+ }
 
-  .context-menu-item {
-    @apply flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-[13px] font-medium text-slate-700 transition-colors duration-100 dark:text-slate-300;
-  }
+ .context-menu-item:disabled{
+ @apply cursor-default text-slate-300;
+ }
 
-  .context-menu-item[data-active='true'] {
-    @apply bg-slate-900/[0.06] text-slate-900 dark:bg-white/[0.07] dark:text-white;
-  }
+ .context-menu-icon{
+ @apply flex h-4 w-4 flex-shrink-0 items-center justify-center text-slate-400;
+ }
 
-  .context-menu-item[data-danger='true'] {
-    @apply text-rose-600 dark:text-rose-400;
-  }
+ /* 无图标项不占位,避免菜单项左侧留出空档 */
+ .context-menu-icon:empty{
+ @apply hidden;
+ }
 
-  .context-menu-item[data-danger='true'][data-active='true'] {
-    @apply bg-rose-500/10 text-rose-600 dark:bg-rose-500/[0.18] dark:text-rose-300;
-  }
+ .context-menu-label{
+ @apply flex-1 truncate;
+ }
 
-  .context-menu-item:disabled {
-    @apply cursor-default text-slate-300 dark:text-slate-600;
-  }
+ .context-menu-shortcut{
+ @apply flex-shrink-0 font-sans text-[10px] font-semibold tracking-wide text-slate-400;
+ }
 
-  .context-menu-icon {
-    @apply flex h-4 w-4 flex-shrink-0 items-center justify-center text-slate-400 dark:text-slate-500;
-  }
+ .context-menu-separator{
+ @apply my-1 h-px bg-slate-200/80;
+ }
 
-  /* 无图标项不占位,避免菜单项左侧留出空档 */
-  .context-menu-icon:empty {
-    @apply hidden;
-  }
+ /* 子菜单宿主项:relative 作为定位参考 */
+ .context-menu-submenu-host{
+ @apply relative;
+ }
 
-  .context-menu-label {
-    @apply flex-1 truncate;
-  }
+ /*
+ * 子菜单面板。必须 absolute 而不是 fixed —— 祖先 .context-menu 带 backdrop-blur,
+ * backdrop-filter 会为 fixed 后代创建包含块,用 fixed 会整体错位。
+ */
+ .context-menu-submenu{
+ @apply absolute top-0 max-h-[min(60vh,420px)] overflow-y-auto overflow-x-hidden;
+ animation: context-submenu-in 120ms cubic-bezier(0.22, 1, 0.36, 1);
+ }
 
-  .context-menu-shortcut {
-    @apply flex-shrink-0 font-sans text-[10px] font-semibold tracking-wide text-slate-400 dark:text-slate-500;
-  }
+ .context-menu-arrow{
+ @apply h-3.5 w-3.5 flex-shrink-0 text-slate-400;
+ }
 
-  .context-menu-separator {
-    @apply my-1 h-px bg-slate-200/80 dark:bg-dark-border;
-  }
+ /* 轻量提示:fixed 堆叠在右上角,完全不参与文档流 */
+ .toast-stack{
+ @apply pointer-events-none fixed right-6 top-6 z-[80] flex flex-col items-end gap-2;
+ }
 
-  /* 子菜单宿主项:relative 作为定位参考 */
-  .context-menu-submenu-host {
-    @apply relative;
-  }
+ .toast-item{
+ @apply inline-flex max-w-[280px] items-center gap-2 rounded-full border border-slate-200/80 bg-white/[0.98] px-3.5 py-1.5 text-xs font-semibold text-slate-700 backdrop-blur-xl;
+ box-shadow: 0 10px 30px -10px rgba(15, 23, 42, 0.35);
+ animation: toast-in 180ms cubic-bezier(0.22, 1, 0.36, 1);
+ }
 
-  /*
-   * 子菜单面板。必须 absolute 而不是 fixed —— 祖先 .context-menu 带 backdrop-blur,
-   * backdrop-filter 会为 fixed 后代创建包含块,用 fixed 会整体错位。
-   */
-  .context-menu-submenu {
-    @apply absolute top-0 max-h-[min(60vh,420px)] overflow-y-auto overflow-x-hidden;
-    animation: context-submenu-in 120ms cubic-bezier(0.22, 1, 0.36, 1);
-  }
+ .toast-item[data-tone='error']{
+ @apply text-rose-600;
+ }
 
-  .context-menu-arrow {
-    @apply h-3.5 w-3.5 flex-shrink-0 text-slate-400 dark:text-slate-500;
-  }
-
-  /* 轻量提示:fixed 堆叠在右上角,完全不参与文档流 */
-  .toast-stack {
-    @apply pointer-events-none fixed right-6 top-6 z-[80] flex flex-col items-end gap-2;
-  }
-
-  .toast-item {
-    @apply inline-flex max-w-[280px] items-center gap-2 rounded-full border border-slate-200/80 bg-white/[0.98] px-3.5 py-1.5 text-xs font-semibold text-slate-700 backdrop-blur-xl dark:border-dark-border dark:bg-dark-panel/[0.98] dark:text-slate-200;
-    box-shadow: 0 10px 30px -10px rgba(15, 23, 42, 0.35);
-    animation: toast-in 180ms cubic-bezier(0.22, 1, 0.36, 1);
-  }
-
-  .toast-item[data-tone='error'] {
-    @apply text-rose-600 dark:text-rose-400;
-  }
-
-  /*
-   * 悬浮提示气泡。外层容器(在 Tooltip.tsx 里)负责 fixed 定位,
-   * 这里只管外观,所以不能带定位属性 —— 带 fixed 会和外层的 top/left 打架。
-   */
-  .tooltip-bubble {
-    @apply inline-block max-w-[260px] rounded-lg border border-slate-200/80 bg-white/[0.98] px-2 py-1 text-[11px] font-medium leading-relaxed text-slate-700 backdrop-blur-xl dark:border-dark-border dark:bg-dark-panel/[0.98] dark:text-slate-200;
-    box-shadow: 0 10px 30px -10px rgba(15, 23, 42, 0.35);
-    animation: tooltip-in 120ms cubic-bezier(0.22, 1, 0.36, 1);
-  }
+ /*
+ * 悬浮提示气泡。外层容器(在 Tooltip.tsx 里)负责 fixed 定位,
+ * 这里只管外观,所以不能带定位属性 —— 带 fixed 会和外层的 top/left 打架。
+ */
+ .tooltip-bubble{
+ @apply inline-block max-w-[260px] rounded-lg border border-slate-200/80 bg-white/[0.98] px-2 py-1 text-[11px] font-medium leading-relaxed text-slate-700 backdrop-blur-xl;
+ box-shadow: 0 10px 30px -10px rgba(15, 23, 42, 0.35);
+ animation: tooltip-in 120ms cubic-bezier(0.22, 1, 0.36, 1);
+ }
 }
 
-@media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce){
 
-  .context-menu,
-  .context-menu-submenu,
-  .app-scene,
-  .tool-cascade>*,
-  .history-overlay,
-  .toast-item,
-  .tooltip-bubble,
-  .history-overlay-panel {
-    animation: none !important;
-  }
+ .context-menu,
+ .context-menu-submenu,
+ .app-scene,
+ .tool-cascade>*,
+ .history-overlay,
+ .toast-item,
+ .tooltip-bubble,
+ .history-overlay-panel{
+ animation: none !important;
+ }
 
-  .motion-lift:hover,
-  .tool-panel:hover {
-    transform: none !important;
-  }
+ .motion-lift:hover,
+ .tool-panel:hover{
+ transform: none !important;
+ }
 
-  /* 翻页是功能性的状态切换，不是装饰：保留位移，只去掉缓动 */
-  .fe-ocr-track,
-  .fe-ocr-fill {
-    transition: none;
-  }
+ /* 翻页是功能性的状态切换，不是装饰：保留位移，只去掉缓动 */
+ .fe-ocr-track,
+ .fe-ocr-fill{
+ transition: none;
+ }
 }
 
 /* ==========================================================================
-   笔记编辑器外壳（Cherry 双栏 / Milkdown 所见即所得，两个内核共用）
+ 笔记编辑器外壳（Cherry 双栏 / Milkdown 所见即所得，两个内核共用）
 
-   工具栏与状态栏已换成 React 自绘组件（src/components/tools/markdown/）。
-   Cherry 自带的那条工具栏并没有被删掉，而是「隐形但保留布局盒」：
-   它的下拉靠按钮的 offsetLeft/offsetTop 定位（内部 T$()），display:none 会让坐标归零，
-   所以只能让它不可见、不可点，不能让它的盒子消失。
-   Milkdown 没有原生工具栏，也就没有这一段。
-   ========================================================================== */
+ 工具栏与状态栏已换成 React 自绘组件（src/components/tools/markdown/）。
+ Cherry 自带的那条工具栏并没有被删掉，而是「隐形但保留布局盒」：
+ 它的下拉靠按钮的 offsetLeft/offsetTop 定位（内部 T$()），display:none 会让坐标归零，
+ 所以只能让它不可见、不可点，不能让它的盒子消失。
+ Milkdown 没有原生工具栏，也就没有这一段。
+ ========================================================================== */
 
 /* ------------------------------------------------------------ 1. 容器骨架 */
 
-.cherry-notes-editor {
-  position: relative;
-  height: 100%;
-  width: 100%;
-  box-sizing: border-box;
-  background: #ffffff;
+.cherry-notes-editor{
+ position: relative;
+ height: 100%;
+ width: 100%;
+ box-sizing: border-box;
+ background: #ffffff;
 }
 
-html.dark .cherry-notes-editor {
-  background: #12141a;
-}
-
-.cherry-notes-editor .cherry {
-  height: 100% !important;
-  width: 100% !important;
-  box-sizing: border-box;
-  /*
-   * Cherry 用 --height-toolbar 算四处几何：editor/previewer 的 calc(100% - …)、
-   * .cherry-toolbar 的 min-height、.cherry-sidebar 与 .cherry-flex-toc 的 top。
-   * 原生工具栏已被移出文档流（见下），这里一并归零，四处数学一次对齐。
-   */
-  --height-toolbar: 0px;
-  --sidebar-list-height: 0px;
-  border: none !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
+.cherry-notes-editor .cherry{
+ height: 100% !important;
+ width: 100% !important;
+ box-sizing: border-box;
+ /*
+ * Cherry 用 --height-toolbar 算四处几何：editor/previewer 的 calc(100% - …)、
+ * .cherry-toolbar 的 min-height、.cherry-sidebar 与 .cherry-flex-toc 的 top。
+ * 原生工具栏已被移出文档流（见下），这里一并归零，四处数学一次对齐。
+ */
+ --height-toolbar: 0px;
+ --sidebar-list-height: 0px;
+ border: none !important;
+ border-radius: 0 !important;
+ box-shadow: none !important;
 }
 
 /* ---------------------------------------------- 2. 隐形原生工具栏（Cherry） */
 
-.cherry-notes-editor .cherry-toolbar {
-  position: absolute !important;
-  top: 0 !important;
-  left: 0 !important;
-  width: 100% !important;
-  height: 0 !important;
-  min-height: 0 !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  border: 0 !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
-  background: transparent !important;
-  overflow: visible !important;
-  z-index: 0 !important;
-  /* 关键：visibility 而不是 display —— 前者保留布局盒，下拉锚点才算得出来 */
-  visibility: hidden !important;
-  pointer-events: none !important;
+.cherry-notes-editor .cherry-toolbar{
+ position: absolute !important;
+ top: 0 !important;
+ left: 0 !important;
+ width: 100% !important;
+ height: 0 !important;
+ min-height: 0 !important;
+ padding: 0 !important;
+ margin: 0 !important;
+ border: 0 !important;
+ border-radius: 0 !important;
+ box-shadow: none !important;
+ background: transparent !important;
+ overflow: visible !important;
+ z-index: 0 !important;
+ /* 关键：visibility 而不是 display —— 前者保留布局盒，下拉锚点才算得出来 */
+ visibility: hidden !important;
+ pointer-events: none !important;
 }
 
 /*
@@ -994,207 +919,126 @@ html.dark .cherry-notes-editor {
  * 在编辑区与预览区内部恢复文本选中,右键菜单的「复制选中」才有意义。
  */
 .cherry-notes-editor .cherry-editor,
-.cherry-notes-editor .cherry-previewer {
-  user-select: text !important;
-  -webkit-user-select: text !important;
+.cherry-notes-editor .cherry-previewer{
+ user-select: text !important;
+ -webkit-user-select: text !important;
 }
 
 /* Milkdown 笔记编辑器容器(所见即所得内核)。
-   Milkdown 就是一块 ProseMirror,Milkdown 自己不带任何视觉样式,
-   所以这里只给骨架,排版与配色见第 6、8 节 */
-.milkdown-notes-editor {
-  position: relative;
-  height: 100%;
-  width: 100%;
-  box-sizing: border-box;
-  background: #ffffff;
-}
-
-html.dark .milkdown-notes-editor {
-  background: #12141a;
-}
-
-/* 同 cherry-notes-editor:在外层 select-none 之下恢复正文与所有子节点的文本选中 */
+ Milkdown 就是一块 ProseMirror,Milkdown 自己不带任何视觉样式,
+ 所以这里只给骨架,排版与配色见第 6、8 节 */
+.milkdown-notes-editor{
+ position: relative;
+ height: 100%;
+ width: 100%;
+ box-sizing: border-box;
+ background: #ffffff;
+}/* 同 cherry-notes-editor:在外层 select-none 之下恢复正文与所有子节点的文本选中 */
 .milkdown-notes-editor .milkdown-content,
-.milkdown-notes-editor .milkdown-content * {
-  user-select: text !important;
-  -webkit-user-select: text !important;
+.milkdown-notes-editor .milkdown-content *{
+ user-select: text !important;
+ -webkit-user-select: text !important;
 }
 
 /* ==========================================================================
-   4. Cherry 换肤
-   选择器带 html 前缀是为了压过第三方自带的 .cherry.theme__default / .cherry.theme__dark
-   —— 那两个也是 (0,2,0)，只靠文档顺序不可靠，加一级元素选择器就稳定胜出。
-   ========================================================================== */
+ 4. Cherry 换肤
+ 选择器带 html 前缀是为了压过第三方自带的 .cherry.theme__default / .cherry.theme__dark
+ —— 那两个也是 (0,2,0)，只靠文档顺序不可靠，加一级元素选择器就稳定胜出。
+ ========================================================================== */
 
-html .cherry-notes-editor .cherry {
-  --base-font-color: #334155;
-  --base-sub-font-color: #64748b;
-  --base-border-color: #e2e8f0;
-  --base-editor-bg: #ffffff;
-  --base-previewer-bg: #ffffff;
-  --primary-color: rgb(var(--brand-600-rgb, 33 131 151));
-  --secondary-color: rgba(var(--brand-500-rgb, 80 189 207), 0.1);
+html .cherry-notes-editor .cherry{
+ --base-font-color: #334155;
+ --base-sub-font-color: #64748b;
+ --base-border-color: #e2e8f0;
+ --base-editor-bg: #ffffff;
+ --base-previewer-bg: #ffffff;
+ --primary-color: rgb(var(--brand-600-rgb, 33 131 151));
+ --secondary-color: rgba(var(--brand-500-rgb, 80 189 207), 0.1);
 
-  /* 第三方引用了却从未定义的变量（var() 静默失效），这里补齐 */
-  --color-link-hover: rgb(var(--brand-700-rgb, 22 99 116));
-  --color-primary-hover: rgb(var(--brand-700-rgb, 22 99 116));
-  --radius-xs: 4px;
-  --border-color: var(--base-border-color);
-  --bg-color-lighter: #f8fafc;
-  --full-width-color: #cbd5e1;
-  --md-text-color: var(--base-font-color);
+ /* 第三方引用了却从未定义的变量（var() 静默失效），这里补齐 */
+ --color-link-hover: rgb(var(--brand-700-rgb, 22 99 116));
+ --color-primary-hover: rgb(var(--brand-700-rgb, 22 99 116));
+ --radius-xs: 4px;
+ --border-color: var(--base-border-color);
+ --bg-color-lighter: #f8fafc;
+ --full-width-color: #cbd5e1;
+ --md-text-color: var(--base-font-color);
 
-  /* 工具栏 / 下拉 / 气泡（原生工具栏虽已隐形，下拉与气泡仍要好看） */
-  --toolbar-bg: #ffffff;
-  --toolbar-btn-color: #64748b;
-  --toolbar-btn-hover-color: #0f172a;
-  --toolbar-btn-hover-bg: #f1f5f9;
-  --toolbar-btn-active-bg: rgba(var(--brand-500-rgb, 80 189 207), 0.12);
-  --dropdown-bg: #ffffff;
-  --dropdown-item-color: #475569;
-  --dropdown-item-hover-bg: #f1f5f9;
-  --dropdown-item-hover-color: #0f172a;
-  --dropdown-item-active-bg: rgba(var(--brand-500-rgb, 80 189 207), 0.12);
-  --dropdown-item-active-color: rgb(var(--brand-600-rgb, 33 131 151));
-  --bubble-bg: #ffffff;
+ /* 工具栏 / 下拉 / 气泡（原生工具栏虽已隐形，下拉与气泡仍要好看） */
+ --toolbar-bg: #ffffff;
+ --toolbar-btn-color: #64748b;
+ --toolbar-btn-hover-color: #0f172a;
+ --toolbar-btn-hover-bg: #f1f5f9;
+ --toolbar-btn-active-bg: rgba(var(--brand-500-rgb, 80 189 207), 0.12);
+ --dropdown-bg: #ffffff;
+ --dropdown-item-color: #475569;
+ --dropdown-item-hover-bg: #f1f5f9;
+ --dropdown-item-hover-color: #0f172a;
+ --dropdown-item-active-bg: rgba(var(--brand-500-rgb, 80 189 207), 0.12);
+ --dropdown-item-active-color: rgb(var(--brand-600-rgb, 33 131 151));
+ --bubble-bg: #ffffff;
 
-  /* 编辑区（CodeMirror 6）。Cherry 只把语法映射到 header/url/comment 三个桶 */
-  --editor-header-color: #0f172a;
-  --editor-comment-color: #94a3b8;
-  --editor-quote-color: rgb(var(--brand-600-rgb, 33 131 151));
-  --editor-string-color: #334155;
-  --editor-link-color: rgb(var(--brand-600-rgb, 33 131 151));
-  --editor-url-color: rgb(var(--brand-500-rgb, 80 189 207));
-  --editor-v2-color: rgb(var(--brand-600-rgb, 33 131 151));
-  --editor-v3-color: rgb(var(--brand-300-rgb, 143 215 224));
-  --editor-keyword-color: #334155;
-  --editor-cursor-color: rgb(var(--brand-600-rgb, 33 131 151));
-  --editor-selection-bg: rgba(var(--brand-500-rgb, 80 189 207), 0.2);
-  --editor-line-number-color: #cbd5e1;
-  --editor-active-line-bg: #f8fafc;
+ /* 编辑区（CodeMirror 6）。Cherry 只把语法映射到 header/url/comment 三个桶 */
+ --editor-header-color: #0f172a;
+ --editor-comment-color: #94a3b8;
+ --editor-quote-color: rgb(var(--brand-600-rgb, 33 131 151));
+ --editor-string-color: #334155;
+ --editor-link-color: rgb(var(--brand-600-rgb, 33 131 151));
+ --editor-url-color: rgb(var(--brand-500-rgb, 80 189 207));
+ --editor-v2-color: rgb(var(--brand-600-rgb, 33 131 151));
+ --editor-v3-color: rgb(var(--brand-300-rgb, 143 215 224));
+ --editor-keyword-color: #334155;
+ --editor-cursor-color: rgb(var(--brand-600-rgb, 33 131 151));
+ --editor-selection-bg: rgba(var(--brand-500-rgb, 80 189 207), 0.2);
+ --editor-line-number-color: #cbd5e1;
+ --editor-active-line-bg: #f8fafc;
 
-  /* 预览排版 */
-  --md-heading-color: #0f172a;
-  --md-paragraph-color: #334155;
-  --md-link-color: rgb(var(--brand-600-rgb, 33 131 151));
-  --md-link-hover-color: rgb(var(--brand-700-rgb, 22 99 116));
-  --md-inline-code-color: rgb(var(--brand-700-rgb, 22 99 116));
-  --md-inline-code-bg: rgba(var(--brand-500-rgb, 80 189 207), 0.08);
-  --md-blockquote-bg: rgba(var(--brand-500-rgb, 80 189 207), 0.04);
-  --md-blockquote-border: rgb(var(--brand-500-rgb, 80 189 207));
-  --md-blockquote-color: #64748b;
-  --md-table-border: #e2e8f0;
-  --md-hr-border: #e2e8f0;
-  --md-toc-bg: #ffffff;
-  --md-toc-border-color: #e2e8f0;
-  --md-toc-link-color: #475569;
-  --md-toc-link-hover-bg: #f1f5f9;
-  --md-toc-link-active-bg: rgba(var(--brand-500-rgb, 80 189 207), 0.12);
-  --md-toc-indicator-color: #cbd5e1;
-  --md-toc-indicator-hover-color: rgb(var(--brand-600-rgb, 33 131 151));
+ /* 预览排版 */
+ --md-heading-color: #0f172a;
+ --md-paragraph-color: #334155;
+ --md-link-color: rgb(var(--brand-600-rgb, 33 131 151));
+ --md-link-hover-color: rgb(var(--brand-700-rgb, 22 99 116));
+ --md-inline-code-color: rgb(var(--brand-700-rgb, 22 99 116));
+ --md-inline-code-bg: rgba(var(--brand-500-rgb, 80 189 207), 0.08);
+ --md-blockquote-bg: rgba(var(--brand-500-rgb, 80 189 207), 0.04);
+ --md-blockquote-border: rgb(var(--brand-500-rgb, 80 189 207));
+ --md-blockquote-color: #64748b;
+ --md-table-border: #e2e8f0;
+ --md-hr-border: #e2e8f0;
+ --md-toc-bg: #ffffff;
+ --md-toc-border-color: #e2e8f0;
+ --md-toc-link-color: #475569;
+ --md-toc-link-hover-bg: #f1f5f9;
+ --md-toc-link-active-bg: rgba(var(--brand-500-rgb, 80 189 207), 0.12);
+ --md-toc-indicator-color: #cbd5e1;
+ --md-toc-indicator-hover-color: rgb(var(--brand-600-rgb, 33 131 151));
 
-  --drag-border-color: #e2e8f0;
-  --timeline-line-color: #e2e8f0;
-  --timeline-doing-color: rgb(var(--brand-600-rgb, 33 131 151));
-  --timeline-doing-shadow-color: rgba(79, 70, 229, 0.2);
-  --timeline-doing-pulse-from: rgba(79, 70, 229, 0.35);
-  --timeline-doing-pulse-to: rgba(79, 70, 229, 0);
-  --accordion-summary-bg: #4f46e5;
-  --accordion-summary-hover-bg: #4338ca;
-  --mermaid-container-border: #e2e8f0;
-}
-
-html.dark .cherry-notes-editor .cherry {
-  --base-font-color: #cbd5e1;
-  --base-sub-font-color: #94a3b8;
-  --base-border-color: #232733;
-  --base-editor-bg: #12141a;
-  --base-previewer-bg: #12141a;
-  --primary-color: rgb(var(--brand-500-rgb, 80 189 207));
-  --secondary-color: rgba(var(--brand-500-rgb, 80 189 207), 0.16);
-
-  --color-link-hover: rgb(var(--brand-400-rgb, 111 202 216));
-  --color-primary-hover: rgb(var(--brand-400-rgb, 111 202 216));
-  --border-color: var(--base-border-color);
-  --bg-color-lighter: #1b1f2b;
-  --full-width-color: #475569;
-  --md-text-color: var(--base-font-color);
-
-  --toolbar-bg: #12141a;
-  --toolbar-btn-color: #94a3b8;
-  --toolbar-btn-hover-color: #ffffff;
-  --toolbar-btn-hover-bg: #1b1f2b;
-  --toolbar-btn-active-bg: rgba(var(--brand-500-rgb, 80 189 207), 0.18);
-  --dropdown-bg: #171a21;
-  --dropdown-item-color: #cbd5e1;
-  --dropdown-item-hover-bg: #1b1f2b;
-  --dropdown-item-hover-color: #ffffff;
-  --dropdown-item-active-bg: rgba(var(--brand-500-rgb, 80 189 207), 0.18);
-  --dropdown-item-active-color: rgb(var(--brand-400-rgb, 111 202 216));
-  --bubble-bg: #171a21;
-
-  --editor-header-color: #e2e8f0;
-  --editor-comment-color: #64748b;
-  --editor-quote-color: rgb(var(--brand-400-rgb, 111 202 216));
-  --editor-string-color: #cbd5e1;
-  --editor-link-color: rgb(var(--brand-400-rgb, 111 202 216));
-  --editor-url-color: rgb(var(--brand-400-rgb, 111 202 216));
-  --editor-v2-color: rgb(var(--brand-400-rgb, 111 202 216));
-  --editor-v3-color: rgb(var(--brand-600-rgb, 33 131 151));
-  --editor-keyword-color: #cbd5e1;
-  --editor-cursor-color: rgb(var(--brand-400-rgb, 111 202 216));
-  --editor-selection-bg: rgba(var(--brand-500-rgb, 80 189 207), 0.25);
-  --editor-line-number-color: #475569;
-  --editor-active-line-bg: #171a21;
-
-  --md-heading-color: #f1f5f9;
-  --md-paragraph-color: #cbd5e1;
-  --md-link-color: rgb(var(--brand-400-rgb, 111 202 216));
-  --md-link-hover-color: rgb(var(--brand-300-rgb, 143 215 224));
-  --md-inline-code-color: rgb(var(--brand-300-rgb, 143 215 224));
-  --md-inline-code-bg: rgba(var(--brand-500-rgb, 80 189 207), 0.15);
-  --md-blockquote-bg: rgba(255, 255, 255, 0.035);
-  --md-blockquote-border: rgb(var(--brand-500-rgb, 80 189 207));
-  --md-blockquote-color: #94a3b8;
-  --md-table-border: rgba(255, 255, 255, 0.08);
-  --md-hr-border: rgba(255, 255, 255, 0.08);
-  --md-toc-bg: #12141a;
-  --md-toc-border-color: #232733;
-  --md-toc-link-color: #cbd5e1;
-  --md-toc-link-hover-bg: #1b1f2b;
-  --md-toc-link-active-bg: rgba(var(--brand-500-rgb, 80 189 207), 0.18);
-  --md-toc-indicator-color: #334155;
-  --md-toc-indicator-hover-color: #818cf8;
-
-  --drag-border-color: #232733;
-  --timeline-line-color: #232733;
-  --timeline-doing-color: #818cf8;
-  --timeline-doing-shadow-color: rgba(129, 140, 248, 0.2);
-  --timeline-doing-pulse-from: rgba(129, 140, 248, 0.35);
-  --timeline-doing-pulse-to: rgba(129, 140, 248, 0);
-  --accordion-summary-bg: #4f46e5;
-  --accordion-summary-hover-bg: #6366f1;
-  --mermaid-container-border: #232733;
-}
-
-/* --------------------------------------------------------------------------
-   5. Cherry 硬编码补刀
-   下面这些在第三方样式表里是写死的字面值，变量管不到，只能按选择器覆盖。
-   -------------------------------------------------------------------------- */
+ --drag-border-color: #e2e8f0;
+ --timeline-line-color: #e2e8f0;
+ --timeline-doing-color: rgb(var(--brand-600-rgb, 33 131 151));
+ --timeline-doing-shadow-color: rgba(79, 70, 229, 0.2);
+ --timeline-doing-pulse-from: rgba(79, 70, 229, 0.35);
+ --timeline-doing-pulse-to: rgba(79, 70, 229, 0);
+ --accordion-summary-bg: #4f46e5;
+ --accordion-summary-hover-bg: #4338ca;
+ --mermaid-container-border: #e2e8f0;
+}/* --------------------------------------------------------------------------
+ 5. Cherry 硬编码补刀
+ 下面这些在第三方样式表里是写死的字面值，变量管不到，只能按选择器覆盖。
+ -------------------------------------------------------------------------- */
 
 /* 预览区：右侧原留 45px 是给 TOC 侧栏让位的，现在侧栏浮在内容之上，留着只是白边。
-   内边距同样要除以倍率——这一层在缩放层内部（见第 21 节 zoom 施加于 .cherry），
-   而右侧胶囊浮在缩放层之外、物理宽度恒定，不抵消就会随倍率变形。 */
-.cherry-notes-editor .cherry-previewer {
-  padding: calc(28px / var(--editor-zoom, 1)) calc(40px / var(--editor-zoom, 1)) calc(96px / var(--editor-zoom, 1)) !important;
-  border-left: 1px solid var(--base-border-color) !important;
+ 内边距同样要除以倍率——这一层在缩放层内部（见第 21 节 zoom 施加于 .cherry），
+ 而右侧胶囊浮在缩放层之外、物理宽度恒定，不抵消就会随倍率变形。 */
+.cherry-notes-editor .cherry-previewer{
+ padding: calc(28px / var(--editor-zoom, 1)) calc(40px / var(--editor-zoom, 1)) calc(96px / var(--editor-zoom, 1)) !important;
+ border-left: 1px solid var(--base-border-color) !important;
 }
 
 /* 编辑区：.cm-lineWrapping 就是 CM6 的 .cm-content */
 .cherry-notes-editor .cherry .cm-editor .cm-content,
-.cherry-notes-editor .cherry .cm-editor .cm-lineWrapping {
-  padding: calc(24px / var(--editor-zoom, 1)) calc(28px / var(--editor-zoom, 1)) calc(96px / var(--editor-zoom, 1)) !important;
+.cherry-notes-editor .cherry .cm-editor .cm-lineWrapping{
+ padding: calc(24px / var(--editor-zoom, 1)) calc(28px / var(--editor-zoom, 1)) calc(96px / var(--editor-zoom, 1)) !important;
 }
 
 .cherry-notes-editor .cherry-markdown h1,
@@ -1202,209 +1046,205 @@ html.dark .cherry-notes-editor .cherry {
 .cherry-notes-editor .cherry-markdown h3,
 .cherry-notes-editor .cherry-markdown h4,
 .cherry-notes-editor .cherry-markdown h5,
-.cherry-notes-editor .cherry-markdown h6 {
-  font-weight: 600 !important;
-  line-height: 1.3 !important;
-  margin-top: 1.6em !important;
-  margin-bottom: 0.6em !important;
+.cherry-notes-editor .cherry-markdown h6{
+ font-weight: 600 !important;
+ line-height: 1.3 !important;
+ margin-top: 1.6em !important;
+ margin-bottom: 0.6em !important;
 }
 
-.cherry-notes-editor .cherry-markdown h1 {
-  margin-top: 0 !important;
+.cherry-notes-editor .cherry-markdown h1{
+ margin-top: 0 !important;
 }
 
 /* 代码块的底色与字色交给「设置 → 通用 → 代码块主题」选出的主题（Cherry 会把它写到
-   .cherry 的 data-code-block-theme 上），这里只统一外壳：圆角、内边距、字号。
-   Cherry 的主题把背景同时设在 code[class*=language-] 与 pre[class*=language-] 上，
-   所以 padding 留在 pre 上，内边距区域自然带主题底色。
-   边框用中性半透明色，深浅主题下都看得见。 */
-.cherry-notes-editor .cherry-markdown pre {
-  border: 1px solid rgba(127, 127, 127, 0.18) !important;
-  border-radius: 10px !important;
-  padding: 16px !important;
-  font-size: 12.5px !important;
-  line-height: 1.65 !important;
+ .cherry 的 data-code-block-theme 上），这里只统一外壳：圆角、内边距、字号。
+ Cherry 的主题把背景同时设在 code[class*=language-] 与 pre[class*=language-] 上，
+ 所以 padding 留在 pre 上，内边距区域自然带主题底色。
+ 边框用中性半透明色，深浅主题下都看得见。 */
+.cherry-notes-editor .cherry-markdown pre{
+ border: 1px solid rgba(127, 127, 127, 0.18) !important;
+ border-radius: 10px !important;
+ padding: 16px !important;
+ font-size: 12.5px !important;
+ line-height: 1.65 !important;
 }
 
 /* 下拉：Cherry 默认 width:130px + margin-left:-60px，把 left 当中心线用。
-   dispatch.ts 里的锚点校正按「左边缘」语义重算，所以这里要把中心线语义抹平。 */
-.cherry-notes-editor .cherry-dropdown {
-  width: auto !important;
-  min-width: 152px !important;
-  margin-left: 0 !important;
-  padding: 4px !important;
-  border-radius: 12px !important;
-  border: 1px solid var(--base-border-color) !important;
-  box-shadow: 0 12px 32px -8px rgba(15, 23, 42, 0.18), 0 2px 8px -2px rgba(15, 23, 42, 0.08) !important;
+ dispatch.ts 里的锚点校正按「左边缘」语义重算，所以这里要把中心线语义抹平。 */
+.cherry-notes-editor .cherry-dropdown{
+ width: auto !important;
+ min-width: 152px !important;
+ margin-left: 0 !important;
+ padding: 4px !important;
+ border-radius: 12px !important;
+ border: 1px solid var(--base-border-color) !important;
+ box-shadow: 0 12px 32px -8px rgba(15, 23, 42, 0.18), 0 2px 8px -2px rgba(15, 23, 42, 0.08) !important;
 }
 
-.cherry-notes-editor .cherry-dropdown-item {
-  border-radius: 8px !important;
-  font-size: 12.5px !important;
-  min-height: 30px !important;
-  line-height: 1.5 !important;
-  margin: 1px 2px !important;
-  width: calc(100% - 4px) !important;
+.cherry-notes-editor .cherry-dropdown-item{
+ border-radius: 8px !important;
+ font-size: 12.5px !important;
+ min-height: 30px !important;
+ line-height: 1.5 !important;
+ margin: 1px 2px !important;
+ width: calc(100% - 4px) !important;
 }
 
 /* --------------------------------------------------------------------------
-   TOC（大纲浮层）
-   原生样式是配 Cherry 默认皮肤的，落到本项目里处处打架：条目挂 5px 灰块（深色下
-   还会翻成橙色）、文字纯黑、头部虚线分隔、:hover 时宽度从 160px 突跳到 260px，
-   外加一条 transition: all 把 top/height 也一起过渡。这里按全站设计语言重做，
-   配色接上 --md-toc-* 那组变量。
-   注意原生的 display 声明会被下面带 !important 的规则盖掉（两个箭头、两个模式的
-   可见性），所以凡是靠 display 切换的地方都在这里显式写清两个方向。
-   -------------------------------------------------------------------------- */
+ TOC（大纲浮层）
+ 原生样式是配 Cherry 默认皮肤的，落到本项目里处处打架：条目挂 5px 灰块（深色下
+ 还会翻成橙色）、文字纯黑、头部虚线分隔、:hover 时宽度从 160px 突跳到 260px，
+ 外加一条 transition: all 把 top/height 也一起过渡。这里按全站设计语言重做，
+ 配色接上 --md-toc-* 那组变量。
+ 注意原生的 display 声明会被下面带 !important 的规则盖掉（两个箭头、两个模式的
+ 可见性），所以凡是靠 display 切换的地方都在这里显式写清两个方向。
+ -------------------------------------------------------------------------- */
 
 /* 展开态：贴边的安静卡片。用 flex 让高度随条目收缩，只有两三个标题时不会撑成一条空白 */
-.cherry-notes-editor .cherry-flex-toc {
-  top: 8px !important;
-  right: 8px !important;
-  margin-right: 0 !important;
-  height: auto !important;
-  max-height: calc(100% - 16px) !important;
+.cherry-notes-editor .cherry-flex-toc{
+ top: 8px !important;
+ right: 8px !important;
+ margin-right: 0 !important;
+ height: auto !important;
+ max-height: calc(100% - 16px) !important;
 
-  display: flex !important;
-  flex-direction: column !important;
-  width: 208px !important;
-  /* 钉死宽度，压掉原生 :hover 的 160 → 260 突跳 */
-  background: var(--md-toc-bg) !important;
-  border: 1px solid var(--md-toc-border-color) !important;
-  border-radius: 12px !important;
-  box-shadow: 0 10px 30px -12px rgba(15, 23, 42, 0.25), 0 2px 6px -2px rgba(15, 23, 42, 0.08) !important;
-  transition: width 0.2s ease, background-color 0.2s ease !important;
+ display: flex !important;
+ flex-direction: column !important;
+ width: 208px !important;
+ /* 钉死宽度，压掉原生 :hover 的 160 → 260 突跳 */
+ background: var(--md-toc-bg) !important;
+ border: 1px solid var(--md-toc-border-color) !important;
+ border-radius: 12px !important;
+ box-shadow: 0 10px 30px -12px rgba(15, 23, 42, 0.25), 0 2px 6px -2px rgba(15, 23, 42, 0.08) !important;
+ transition: width 0.2s ease, background-color 0.2s ease !important;
 }
 
-html.dark .cherry-notes-editor .cherry-flex-toc {
-  box-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.02) !important;
-}
-
-.cherry-notes-editor .cherry-flex-toc .cherry-toc-head {
-  flex: 0 0 auto;
-  display: flex !important;
-  align-items: center;
-  height: 36px;
-  padding: 0 6px 0 12px !important;
-  border-bottom: 1px solid var(--md-toc-border-color) !important;
-  /* 原生是虚线 */
+.cherry-notes-editor .cherry-flex-toc .cherry-toc-head{
+ flex: 0 0 auto;
+ display: flex !important;
+ align-items: center;
+ height: 36px;
+ padding: 0 6px 0 12px !important;
+ border-bottom: 1px solid var(--md-toc-border-color) !important;
+ /* 原生是虚线 */
 }
 
 /* 标题改成全站统一的 label 风格（小号 + 字距 + 次级灰），原生是主色粗体 */
-.cherry-notes-editor .cherry-flex-toc .cherry-toc-head .cherry-toc-title {
-  flex: 1;
-  min-width: 0;
-  padding-left: 0 !important;
-  font-size: 11px !important;
-  font-weight: 600 !important;
-  letter-spacing: 0.08em;
-  color: var(--base-sub-font-color) !important;
+.cherry-notes-editor .cherry-flex-toc .cherry-toc-head .cherry-toc-title{
+ flex: 1;
+ min-width: 0;
+ padding-left: 0 !important;
+ font-size: 11px !important;
+ font-weight: 600 !important;
+ letter-spacing: 0.08em;
+ color: var(--base-sub-font-color) !important;
 }
 
 /* 展开/收起箭头：原生是绝对定位顶在右上角的裸图标，改成规整的 24px 方形按钮 */
-.cherry-notes-editor .cherry-flex-toc .cherry-toc-head i {
-  position: static !important;
-  display: inline-flex !important;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  padding: 0 !important;
-  border-radius: 6px;
-  font-size: 12px;
-  line-height: 1;
-  color: var(--base-sub-font-color) !important;
-  transition: background-color 0.15s ease, color 0.15s ease;
+.cherry-notes-editor .cherry-flex-toc .cherry-toc-head i{
+ position: static !important;
+ display: inline-flex !important;
+ align-items: center;
+ justify-content: center;
+ width: 24px;
+ height: 24px;
+ padding: 0 !important;
+ border-radius: 6px;
+ font-size: 12px;
+ line-height: 1;
+ color: var(--base-sub-font-color) !important;
+ transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-.cherry-notes-editor .cherry-flex-toc .cherry-toc-head i:hover {
-  background: var(--md-toc-link-hover-bg) !important;
-  color: var(--md-toc-indicator-hover-color) !important;
+.cherry-notes-editor .cherry-flex-toc .cherry-toc-head i:hover{
+ background: var(--md-toc-link-hover-bg) !important;
+ color: var(--md-toc-indicator-hover-color) !important;
 }
 
 /* 两个箭头谁可见由模式决定。上面的 display 带了 !important，会盖掉原生那条
-   .ch-icon-chevronsLeft { display: none }，因此这里两个方向都要显式写出来。 */
+ .ch-icon-chevronsLeft{ display: none }，因此这里两个方向都要显式写出来。 */
 .cherry-notes-editor .cherry-flex-toc:not(.cherry-flex-toc__pure) .cherry-toc-head .ch-icon-chevronsRight,
-.cherry-notes-editor .cherry-flex-toc.cherry-flex-toc__pure .cherry-toc-head .ch-icon-chevronsLeft {
-  display: inline-flex !important;
+.cherry-notes-editor .cherry-flex-toc.cherry-flex-toc__pure .cherry-toc-head .ch-icon-chevronsLeft{
+ display: inline-flex !important;
 }
 
 .cherry-notes-editor .cherry-flex-toc:not(.cherry-flex-toc__pure) .cherry-toc-head .ch-icon-chevronsLeft,
-.cherry-notes-editor .cherry-flex-toc.cherry-flex-toc__pure .cherry-toc-head .ch-icon-chevronsRight {
-  display: none !important;
+.cherry-notes-editor .cherry-flex-toc.cherry-flex-toc__pure .cherry-toc-head .ch-icon-chevronsRight{
+ display: none !important;
 }
 
-.cherry-notes-editor .cherry-flex-toc .cherry-toc-list {
-  flex: 1 1 auto;
-  min-height: 0;
-  height: auto !important;
-  /* 原生按 40px 的头部算出来的死高度，改成跟着 flex 走 */
-  padding: 6px 6px 8px !important;
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
+.cherry-notes-editor .cherry-flex-toc .cherry-toc-list{
+ flex: 1 1 auto;
+ min-height: 0;
+ height: auto !important;
+ /* 原生按 40px 的头部算出来的死高度，改成跟着 flex 走 */
+ padding: 6px 6px 8px !important;
+ overflow-y: auto !important;
+ overflow-x: hidden !important;
 }
 
-.cherry-notes-editor .cherry-flex-toc .cherry-toc-list .cherry-toc-one-a {
-  display: block !important;
-  height: 26px !important;
-  line-height: 26px !important;
-  margin-bottom: 1px !important;
-  padding: 0 8px !important;
-  border: none !important;
-  border-left: 2px solid transparent !important;
-  /* 原生是 5px 的灰块，深色下还会变橙 */
-  border-radius: 6px;
-  font-size: 12px !important;
-  font-weight: 400 !important;
-  color: var(--md-toc-link-color) !important;
-  white-space: nowrap !important;
-  /* 原生的 break-all 会把省略号顶掉 */
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease !important;
+.cherry-notes-editor .cherry-flex-toc .cherry-toc-list .cherry-toc-one-a{
+ display: block !important;
+ height: 26px !important;
+ line-height: 26px !important;
+ margin-bottom: 1px !important;
+ padding: 0 8px !important;
+ border: none !important;
+ border-left: 2px solid transparent !important;
+ /* 原生是 5px 的灰块，深色下还会变橙 */
+ border-radius: 6px;
+ font-size: 12px !important;
+ font-weight: 400 !important;
+ color: var(--md-toc-link-color) !important;
+ white-space: nowrap !important;
+ /* 原生的 break-all 会把省略号顶掉 */
+ overflow: hidden !important;
+ text-overflow: ellipsis !important;
+ transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease !important;
 }
 
 /* 层级：原生是 10/20/40/60/80 的 padding 递增，跨度太大且没有引导线，收成每级 +10 */
-.cherry-notes-editor .cherry-flex-toc .cherry-toc-list .cherry-toc-one-a__1 {
-  padding-left: 8px !important;
-  font-weight: 600 !important;
+.cherry-notes-editor .cherry-flex-toc .cherry-toc-list .cherry-toc-one-a__1{
+ padding-left: 8px !important;
+ font-weight: 600 !important;
 }
 
-.cherry-notes-editor .cherry-flex-toc .cherry-toc-list .cherry-toc-one-a__2 {
-  padding-left: 18px !important;
+.cherry-notes-editor .cherry-flex-toc .cherry-toc-list .cherry-toc-one-a__2{
+ padding-left: 18px !important;
 }
 
-.cherry-notes-editor .cherry-flex-toc .cherry-toc-list .cherry-toc-one-a__3 {
-  padding-left: 28px !important;
+.cherry-notes-editor .cherry-flex-toc .cherry-toc-list .cherry-toc-one-a__3{
+ padding-left: 28px !important;
 }
 
-.cherry-notes-editor .cherry-flex-toc .cherry-toc-list .cherry-toc-one-a__4 {
-  padding-left: 38px !important;
+.cherry-notes-editor .cherry-flex-toc .cherry-toc-list .cherry-toc-one-a__4{
+ padding-left: 38px !important;
 }
 
-.cherry-notes-editor .cherry-flex-toc .cherry-toc-list .cherry-toc-one-a__5 {
-  padding-left: 48px !important;
+.cherry-notes-editor .cherry-flex-toc .cherry-toc-list .cherry-toc-one-a__5{
+ padding-left: 48px !important;
 }
 
 /* 悬停只铺底，左侧指示条留给「当前」——否则鼠标划过时一片蓝色在跳 */
-.cherry-notes-editor .cherry-flex-toc .cherry-toc-list .cherry-toc-one-a:hover {
-  background: var(--md-toc-link-hover-bg) !important;
-  color: var(--md-toc-link-color) !important;
+.cherry-notes-editor .cherry-flex-toc .cherry-toc-list .cherry-toc-one-a:hover{
+ background: var(--md-toc-link-hover-bg) !important;
+ color: var(--md-toc-link-color) !important;
 }
 
 /* 必须排在 :hover 之后：两者特异度相同，靠顺序决出胜负 */
-.cherry-notes-editor .cherry-flex-toc .cherry-toc-list .cherry-toc-one-a.current {
-  background: var(--md-toc-link-active-bg) !important;
-  border-left-color: var(--md-toc-indicator-hover-color) !important;
-  color: var(--md-toc-indicator-hover-color) !important;
-  font-weight: 600 !important;
+.cherry-notes-editor .cherry-flex-toc .cherry-toc-list .cherry-toc-one-a.current{
+ background: var(--md-toc-link-active-bg) !important;
+ border-left-color: var(--md-toc-indicator-hover-color) !important;
+ color: var(--md-toc-indicator-hover-color) !important;
+ font-weight: 600 !important;
 }
 
 /* 标题若在引用块里，原生缀一个小箭头；跟着文字一起收敛 */
-.cherry-notes-editor .cherry-flex-toc .cherry-toc-list .cherry-toc-one-a .cherry-toc-in-blockquote {
-  font-size: 0.85em !important;
-  color: var(--md-toc-indicator-color) !important;
-  opacity: 0.8;
+.cherry-notes-editor .cherry-flex-toc .cherry-toc-list .cherry-toc-one-a .cherry-toc-in-blockquote{
+ font-size: 0.85em !important;
+ color: var(--md-toc-indicator-color) !important;
+ opacity: 0.8;
 }
 
 /*
@@ -1412,131 +1252,103 @@ html.dark .cherry-notes-editor .cherry-flex-toc {
  * （行内 height，只有 !important 压得住），粗细不一看着像噪点。
  * 这里拉平成等高的细圆角刻度条，悬停/当前那一条变长变亮，整体像一条章节标尺。
  */
-.cherry-notes-editor .cherry-flex-toc.cherry-flex-toc__pure {
-  width: 34px !important;
-  background: transparent !important;
-  border-color: transparent !important;
-  box-shadow: none !important;
+.cherry-notes-editor .cherry-flex-toc.cherry-flex-toc__pure{
+ width: 34px !important;
+ background: transparent !important;
+ border-color: transparent !important;
+ box-shadow: none !important;
 }
 
-.cherry-notes-editor .cherry-flex-toc.cherry-flex-toc__pure .cherry-toc-head {
-  height: 30px;
-  padding: 0 !important;
-  justify-content: center;
-  border-bottom-color: transparent !important;
+.cherry-notes-editor .cherry-flex-toc.cherry-flex-toc__pure .cherry-toc-head{
+ height: 30px;
+ padding: 0 !important;
+ justify-content: center;
+ border-bottom-color: transparent !important;
 }
 
-.cherry-notes-editor .cherry-flex-toc.cherry-flex-toc__pure .cherry-toc-list {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 0 !important;
+.cherry-notes-editor .cherry-flex-toc.cherry-flex-toc__pure .cherry-toc-list{
+ display: flex;
+ flex-direction: column;
+ align-items: center;
+ gap: 4px;
+ padding: 4px 0 !important;
 }
 
-.cherry-notes-editor .cherry-flex-toc.cherry-flex-toc__pure .cherry-toc-list .cherry-toc-one-a {
-  flex: 0 0 auto;
-  width: 14px !important;
-  height: 3px !important;
-  min-height: 3px !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  border: none !important;
-  border-radius: 9999px !important;
-  background: var(--md-toc-indicator-color) !important;
-  font-size: 0 !important;
-  /* 原生靠 width: 0 藏文字，这里直接把字号抹平 */
-  line-height: 0 !important;
-  transition: width 0.15s ease, background-color 0.15s ease !important;
+.cherry-notes-editor .cherry-flex-toc.cherry-flex-toc__pure .cherry-toc-list .cherry-toc-one-a{
+ flex: 0 0 auto;
+ width: 14px !important;
+ height: 3px !important;
+ min-height: 3px !important;
+ margin: 0 !important;
+ padding: 0 !important;
+ border: none !important;
+ border-radius: 9999px !important;
+ background: var(--md-toc-indicator-color) !important;
+ font-size: 0 !important;
+ /* 原生靠 width: 0 藏文字，这里直接把字号抹平 */
+ line-height: 0 !important;
+ transition: width 0.15s ease, background-color 0.15s ease !important;
 }
 
 .cherry-notes-editor .cherry-flex-toc.cherry-flex-toc__pure .cherry-toc-list .cherry-toc-one-a:hover,
-.cherry-notes-editor .cherry-flex-toc.cherry-flex-toc__pure .cherry-toc-list .cherry-toc-one-a.current {
-  width: 22px !important;
-  background: var(--md-toc-indicator-hover-color) !important;
+.cherry-notes-editor .cherry-flex-toc.cherry-flex-toc__pure .cherry-toc-list .cherry-toc-one-a.current{
+ width: 22px !important;
+ background: var(--md-toc-indicator-hover-color) !important;
 }
 
 /* 分栏中缝：平时是一条 5px 透明热区，拖动时才显形 */
-.cherry-notes-editor .cherry-drag.cherry-drag--show {
-  background: #6366f1 !important;
-  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.35) !important;
+.cherry-notes-editor .cherry-drag.cherry-drag--show{
+ background: #6366f1 !important;
+ box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.35) !important;
 }
 
 /* ==========================================================================
-   6. Milkdown 换肤
-   Milkdown 自带的样式只有 prosemirror.css 那点骨架(定位、断词、gapcursor)，
-   全部观感都在这里定。
-   注意 .milkdown-content 就是 contenteditable 本身 —— 所见即所得下编辑区与
-   「预览」是同一块 DOM，所以这一节既管编辑也管阅读，第 8 节的共用排版会再叠上来。
-   ========================================================================== */
+ 6. Milkdown 换肤
+ Milkdown 自带的样式只有 prosemirror.css 那点骨架(定位、断词、gapcursor)，
+ 全部观感都在这里定。
+ 注意 .milkdown-content 就是 contenteditable 本身 —— 所见即所得下编辑区与
+ 「预览」是同一块 DOM，所以这一节既管编辑也管阅读，第 8 节的共用排版会再叠上来。
+ ========================================================================== */
 
 /* 画布：留白与限宽对齐 Cherry 的预览侧，让两种模式切换时正文的版心不跳 */
-.milkdown-notes-editor .milkdown-scroll {
-  background: #ffffff;
-}
-
-html.dark .milkdown-notes-editor .milkdown-scroll {
-  background: #12141a;
-}
-
-/* 不限宽：所见即所得是单栏内核，正文铺满整个编辑区。
-   左侧留白比右侧宽，是给块操作手柄预留的通道 —— 手柄固定挂在编辑区左边缘起
-   20px 处（见 .fehelper-block-handle 那段），塞不进这条留白就会压到正文上。
-   把左内边距改回与右侧相同之前，先确认手柄还放得下。 */
+.milkdown-notes-editor .milkdown-scroll{
+ background: #ffffff;
+}/* 不限宽：所见即所得是单栏内核，正文铺满整个编辑区。
+ 左侧留白比右侧宽，是给块操作手柄预留的通道 —— 手柄固定挂在编辑区左边缘起
+ 20px 处（见 .fehelper-block-handle 那段），塞不进这条留白就会压到正文上。
+ 把左内边距改回与右侧相同之前，先确认手柄还放得下。 */
 /*
  * 内边距一律用 `calc(Npx / var(--editor-zoom, 1))` 写成——因为这一层处在缩放层内部
  * （见第 21 节，zoom 施加在 .milkdown-scroll 上），裸写的 px 会跟着倍率一起被放大。
  * 而右侧大纲胶囊是**浮层**、在缩放层外面，物理宽度恒定不变，两边就对不上了：
- *   倍率 < 100% → 留白被压窄，撑不住胶囊，正文末尾几个字被浮层盖住；
- *   倍率 > 100% → 留白被放大，白空一大块，上下留白也会空出巨缝。
+ * 倍率 < 100% → 留白被压窄，撑不住胶囊，正文末尾几个字被浮层盖住；
+ * 倍率 > 100% → 留白被放大，白空一大块，上下留白也会空出巨缝。
  * 除以倍率之后，渲染出来的物理留白恒为设定的值，与胶囊、手柄永远对得上。
  */
-.milkdown-notes-editor .milkdown-content {
-  box-sizing: border-box;
-  min-height: 100%;
-  padding: calc(28px / var(--editor-zoom, 1)) calc(60px / var(--editor-zoom, 1)) calc(96px / var(--editor-zoom, 1)) calc(48px / var(--editor-zoom, 1));
-  /* contenteditable 聚焦时浏览器会给一圈默认描边，在全站观感里很突兀 */
-  outline: none;
-  caret-color: rgb(var(--brand-600-rgb, 33 131 151));
-}
-
-html.dark .milkdown-notes-editor .milkdown-content {
-  caret-color: rgb(var(--brand-400-rgb, 111 202 216));
-}
-
-/* ================= 选中文本高亮 ================= */
+.milkdown-notes-editor .milkdown-content{
+ box-sizing: border-box;
+ min-height: 100%;
+ padding: calc(28px / var(--editor-zoom, 1)) calc(60px / var(--editor-zoom, 1)) calc(96px / var(--editor-zoom, 1)) calc(48px / var(--editor-zoom, 1));
+ /* contenteditable 聚焦时浏览器会给一圈默认描边，在全站观感里很突兀 */
+ outline: none;
+ caret-color: rgb(var(--brand-600-rgb, 33 131 151));
+}/* ================= 选中文本高亮 ================= */
 /*
  * 只用字面量颜色，不再走 CSS 变量。
  * 之前写过 rgba(var(--brand-500-rgb), 0.25) —— 变量是空格分隔的 "80 189 207"，
  * 塞进逗号版的 rgba() 里整条声明会被判非法、静默失效，选区因此完全没有底色。
  * 8 位 hex 与 var 两行叠加也只是徒增变数，这里退回最稳的形式。
  */
-::selection {
-  background-color: rgba(186, 186, 186, 0.42);
-  color: inherit;
-}
-
-html.dark ::selection {
-  background-color: rgba(255, 255, 255, 0.3);
-  color: inherit;
-}
-
-/* 编辑器内再声明一次：第三方样式表（Cherry 等）也动过 ::selection，用更高特异度压住 */
+::selection{
+ background-color: rgba(186, 186, 186, 0.42);
+ color: inherit;
+}/* 编辑器内再声明一次：第三方样式表（Cherry 等）也动过 ::selection，用更高特异度压住 */
 .milkdown-content ::selection,
 .milkdown-notes-editor ::selection,
-.cherry-notes-editor ::selection {
-  background-color: rgba(186, 186, 186, 0.42);
-  color: inherit;
-}
-
-html.dark .milkdown-content ::selection,
-html.dark .milkdown-notes-editor ::selection,
-html.dark .cherry-notes-editor ::selection {
-  background-color: rgba(56, 189, 248, 0.3);
-  color: inherit;
-}
-
-/* ProseMirror 块级节点选中高亮轮廓 */
+.cherry-notes-editor ::selection{
+ background-color: rgba(186, 186, 186, 0.42);
+ color: inherit;
+}/* ProseMirror 块级节点选中高亮轮廓 */
 /*
  * 节点被整体选中（NodeSelection）时的提示。
  *
@@ -1545,10 +1357,10 @@ html.dark .cherry-notes-editor ::selection {
  * 那时浏览器本身已经在正文上画了一层选区高亮，再叠一圈醒目轮廓就成了「多个边框」。
  */
 .milkdown-notes-editor .milkdown-content img.ProseMirror-selectednode,
-.milkdown-notes-editor .milkdown-content hr.ProseMirror-selectednode {
-  outline: 2px solid rgb(var(--brand-500-rgb, 80 189 207));
-  outline-offset: 2px;
-  border-radius: 6px;
+.milkdown-notes-editor .milkdown-content hr.ProseMirror-selectednode{
+ outline: 2px solid rgb(var(--brand-500-rgb, 80 189 207));
+ outline-offset: 2px;
+ border-radius: 6px;
 }
 
 /*
@@ -1564,28 +1376,28 @@ html.dark .cherry-notes-editor ::selection {
  * 只作用于 Milkdown：双栏那边的列表标记归 Cherry 自带的样式表管，这里不去插手，
  * 免得跟它的 ::before 画法叠成两个标记。
  */
-.milkdown-notes-editor .milkdown-content ul {
-  list-style-type: disc;
+.milkdown-notes-editor .milkdown-content ul{
+ list-style-type: disc;
 }
 
-.milkdown-notes-editor .milkdown-content ul ul {
-  list-style-type: circle;
+.milkdown-notes-editor .milkdown-content ul ul{
+ list-style-type: circle;
 }
 
-.milkdown-notes-editor .milkdown-content ul ul ul {
-  list-style-type: square;
+.milkdown-notes-editor .milkdown-content ul ul ul{
+ list-style-type: square;
 }
 
-.milkdown-notes-editor .milkdown-content ol {
-  list-style-type: decimal;
+.milkdown-notes-editor .milkdown-content ol{
+ list-style-type: decimal;
 }
 
-.milkdown-notes-editor .milkdown-content ol ol {
-  list-style-type: lower-alpha;
+.milkdown-notes-editor .milkdown-content ol ol{
+ list-style-type: lower-alpha;
 }
 
-.milkdown-notes-editor .milkdown-content ol ol ol {
-  list-style-type: lower-roman;
+.milkdown-notes-editor .milkdown-content ol ol ol{
+ list-style-type: lower-roman;
 }
 
 /*
@@ -1593,41 +1405,41 @@ html.dark .cherry-notes-editor ::selection {
  * 没有任何内置样式，不补的话就是一行普通列表项。
  * 方框用 ::before 画，点击切换由编辑器里的 taskListClickPlugin 接管。
  */
-.milkdown-notes-editor .milkdown-content li[data-item-type='task'] {
-  position: relative;
-  list-style: none;
-  padding-left: 1.6em;
+.milkdown-notes-editor .milkdown-content li[data-item-type='task']{
+ position: relative;
+ list-style: none;
+ padding-left: 1.6em;
 }
 
-.milkdown-notes-editor .milkdown-content li[data-item-type='task']::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0.42em;
-  width: 14px;
-  height: 14px;
-  box-sizing: border-box;
-  border: 1.5px solid #cbd5e1;
-  border-radius: 4px;
-  background-color: transparent;
-  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
-    background-color 0.2s ease,
-    border-color 0.2s ease;
+.milkdown-notes-editor .milkdown-content li[data-item-type='task']::before{
+ content: '';
+ position: absolute;
+ left: 0;
+ top: 0.42em;
+ width: 14px;
+ height: 14px;
+ box-sizing: border-box;
+ border: 1.5px solid #cbd5e1;
+ border-radius: 4px;
+ background-color: transparent;
+ transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+ background-color 0.2s ease,
+ border-color 0.2s ease;
 }
 
-.milkdown-notes-editor .milkdown-content li[data-item-type='task']:hover::before {
-  border-color: rgb(var(--brand-500-rgb, 80 189 207));
+.milkdown-notes-editor .milkdown-content li[data-item-type='task']:hover::before{
+ border-color: rgb(var(--brand-500-rgb, 80 189 207));
 }
 
-.milkdown-notes-editor .milkdown-content li[data-item-type='task'][data-checked='true']::before {
-  border-color: rgb(var(--brand-600-rgb, 33 131 151));
-  /* 勾用内联 SVG，省一个图标依赖；%23 是 # 的转义 */
-  background-color: rgb(var(--brand-600-rgb, 33 131 151));
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23ffffff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5l3 3 6-6'/%3E%3C/svg%3E");
-  background-size: 11px 11px;
-  background-position: center;
-  background-repeat: no-repeat;
-  transform: scale(1.06);
+.milkdown-notes-editor .milkdown-content li[data-item-type='task'][data-checked='true']::before{
+ border-color: rgb(var(--brand-600-rgb, 33 131 151));
+ /* 勾用内联 SVG，省一个图标依赖；%23 是 # 的转义 */
+ background-color: rgb(var(--brand-600-rgb, 33 131 151));
+ background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23ffffff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5l3 3 6-6'/%3E%3C/svg%3E");
+ background-size: 11px 11px;
+ background-position: center;
+ background-repeat: no-repeat;
+ transform: scale(1.06);
 }
 
 /*
@@ -1640,34 +1452,19 @@ html.dark .cherry-notes-editor ::selection {
  * 动画改由 text-decoration-color 承担：未勾选时线是透明的，
  * 勾选后过渡到实色 —— 同样是「划出来」的观感，且不多占一层盒子。
  */
-.milkdown-notes-editor .milkdown-content li[data-item-type='task']>p:first-child {
-  text-decoration-line: line-through;
-  text-decoration-color: transparent;
-  text-decoration-thickness: 1.5px;
-  transition: text-decoration-color 0.32s cubic-bezier(0.16, 1, 0.3, 1),
-    color 0.3s ease, opacity 0.3s ease;
+.milkdown-notes-editor .milkdown-content li[data-item-type='task']>p:first-child{
+ text-decoration-line: line-through;
+ text-decoration-color: transparent;
+ text-decoration-thickness: 1.5px;
+ transition: text-decoration-color 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+ color 0.3s ease, opacity 0.3s ease;
 }
 
-.milkdown-notes-editor .milkdown-content li[data-item-type='task'][data-checked='true']>p:first-child {
-  text-decoration-color: #94a3b8;
-  color: #94a3b8;
-  opacity: 0.65;
-}
-
-html.dark .milkdown-notes-editor .milkdown-content li[data-item-type='task'][data-checked='true']>p:first-child {
-  text-decoration-color: #64748b;
-}
-
-html.dark .milkdown-notes-editor .milkdown-content li[data-item-type='task']::before {
-  border-color: #3b4152;
-}
-
-html.dark .milkdown-notes-editor .milkdown-content li[data-item-type='task'][data-checked='true']::before {
-  border-color: rgb(var(--brand-500-rgb, 80 189 207));
-  background-color: rgb(var(--brand-500-rgb, 80 189 207));
-}
-
-/*
+.milkdown-notes-editor .milkdown-content li[data-item-type='task'][data-checked='true']>p:first-child{
+ text-decoration-color: #94a3b8;
+ color: #94a3b8;
+ opacity: 0.65;
+}/*
  * 代码块的配色来自 shiki（即「设置 → 通用 → 代码块主题」选的档位）。
  *
  * shiki 的装饰把主题的底色与基础字色写成两个 CSS 变量挂在 <pre> 上
@@ -1678,143 +1475,120 @@ html.dark .milkdown-notes-editor .milkdown-content li[data-item-type='task'][dat
  * 底色落在 code 而不是 pre：边框、圆角、内边距都在 code 上，
  * 底色若铺在 pre 上，圆角四周会露出方形的底色边角。
  */
-.milkdown-notes-editor .milkdown-content pre {
-  margin: 0 0 1em;
-  background-color: transparent;
-  border: 0;
-  padding: 0;
-  /* prosemirror.css 把 pre 设成 pre-wrap，代码块会被自动折行，这里改回横向滚动 */
-  white-space: pre;
+.milkdown-notes-editor .milkdown-content pre{
+ margin: 0 0 1em;
+ background-color: transparent;
+ border: 0;
+ padding: 0;
+ /* prosemirror.css 把 pre 设成 pre-wrap，代码块会被自动折行，这里改回横向滚动 */
+ white-space: pre;
 }
 
-.milkdown-notes-editor .milkdown-content pre>code {
-  display: block;
-  border: 1px solid rgba(127, 127, 127, 0.16);
-  border-radius: 10px;
-  padding: 16px 18px;
-  overflow-x: auto;
-  font-family: var(--fe-mono-font);
-  font-size: 13px;
-  line-height: 1.68;
-  /* 变量由 shiki 的节点装饰写在 pre 上，这里继承下来。
-     兜底值给透明/inherit：装饰还没算出来（首帧异步）时不至于闪一块黑底 */
-  background-color: var(--prosemirror-highlight-bg, transparent);
-  color: var(--prosemirror-highlight, inherit);
+.milkdown-notes-editor .milkdown-content pre>code{
+ display: block;
+ border: 1px solid rgba(127, 127, 127, 0.16);
+ border-radius: 10px;
+ padding: 16px 18px;
+ overflow-x: auto;
+ font-family: var(--fe-mono-font);
+ font-size: 13px;
+ line-height: 1.68;
+ /* 变量由 shiki 的节点装饰写在 pre 上，这里继承下来。
+ 兜底值给透明/inherit：装饰还没算出来（首帧异步）时不至于闪一块黑底 */
+ background-color: var(--prosemirror-highlight-bg, transparent);
+ color: var(--prosemirror-highlight, inherit);
 }
 
 /* 查找替换的命中高亮。
-   用 Decoration.inline 加的类，落在文本节点外裹的那层 span 上，是个行内元素 ——
-   不要给 padding-vertical，会把行高撑歪；圆角也只做视觉上的柔化。 */
-.milkdown-notes-editor .md-search-hit {
-  background-color: rgba(250, 204, 21, 0.35);
-  border-radius: 2px;
-  box-shadow: 0 0 0 1px rgba(250, 204, 21, 0.5);
+ 用 Decoration.inline 加的类，落在文本节点外裹的那层 span 上，是个行内元素 ——
+ 不要给 padding-vertical，会把行高撑歪；圆角也只做视觉上的柔化。 */
+.milkdown-notes-editor .md-search-hit{
+ background-color: rgba(250, 204, 21, 0.35);
+ border-radius: 2px;
+ box-shadow: 0 0 0 1px rgba(250, 204, 21, 0.5);
 }
 
-.milkdown-notes-editor .md-search-hit--current {
-  background-color: rgba(249, 115, 22, 0.45);
-  box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.7);
-}
-
-/* 深色下黄色底会把黑字压得更沉，改用半透明暖色叠加即可 */
-.dark .milkdown-notes-editor .md-search-hit {
-  background-color: rgba(250, 204, 21, 0.22);
-  box-shadow: 0 0 0 1px rgba(250, 204, 21, 0.3);
-}
-
-.dark .milkdown-notes-editor .md-search-hit--current {
-  background-color: rgba(249, 115, 22, 0.35);
-  box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.55);
-}
-
-/* 内联 HTML（<mark>/<sup>/<sub> 等）经 NodeView 渲染出来的元素。
-   标签本身由浏览器给默认样式，这里只补本项目需要的观感。 */
+.milkdown-notes-editor .md-search-hit--current{
+ background-color: rgba(249, 115, 22, 0.45);
+ box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.7);
+}/* 内联 HTML（<mark>/<sup>/<sub> 等）经 NodeView 渲染出来的元素。
+ 标签本身由浏览器给默认样式，这里只补本项目需要的观感。 */
 .milkdown-notes-editor .milkdown-content sup,
-.milkdown-notes-editor .milkdown-content sub {
-  font-size: 0.75em;
-  line-height: 0;
+.milkdown-notes-editor .milkdown-content sub{
+ font-size: 0.75em;
+ line-height: 0;
 }
 
 .milkdown-notes-editor .milkdown-content mark,
 .cherry-notes-editor .cherry-markdown mark,
-mark {
-  background-color: #fef08a !important;
-  color: #854d0e !important;
-  border-radius: 4px;
-  padding: 0.12em 0.35em;
-  margin: 0 0.15em;
-  font-weight: 500;
-  box-shadow: 0 1px 2px rgba(234, 179, 8, 0.15);
-}
-
-html.dark .milkdown-notes-editor .milkdown-content mark,
-html.dark .cherry-notes-editor .cherry-markdown mark,
-html.dark mark {
-  background-color: rgba(250, 204, 21, 0.28) !important;
-  color: #fef08a !important;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-}
-
-/* 认不出的 HTML 片段：不装成正文，明确标出「这里是原始代码」 */
-.milkdown-notes-editor .milkdown-content .md-html-raw {
-  font-family: var(--fe-mono-font);
-  font-size: 0.85em;
-  color: var(--md-toc-indicator-color);
-  border-bottom: 1px dashed currentColor;
+mark{
+ background-color: #fef08a !important;
+ color: #854d0e !important;
+ border-radius: 4px;
+ padding: 0.12em 0.35em;
+ margin: 0 0.15em;
+ font-weight: 500;
+ box-shadow: 0 1px 2px rgba(234, 179, 8, 0.15);
+}/* 认不出的 HTML 片段：不装成正文，明确标出「这里是原始代码」 */
+.milkdown-notes-editor .milkdown-content .md-html-raw{
+ font-family: var(--fe-mono-font);
+ font-size: 0.85em;
+ color: var(--md-toc-indicator-color);
+ border-bottom: 1px dashed currentColor;
 }
 
 /* 块操作手柄（光标在哪一行就浮在那一行最左侧）。
-   与下面两条浮条同源：TooltipProvider 不带样式表，显隐完全靠它写在容器上的
-   data-show，位置则由 floating-ui 写一组内联 left/top。
+ 与下面两条浮条同源：TooltipProvider 不带样式表，显隐完全靠它写在容器上的
+ data-show，位置则由 floating-ui 写一组内联 left/top。
 
-   ⚠️ 同样**不能**收进 .milkdown-notes-editor 作用域 —— Provider 会把容器搬到
-   document.body 下，脱离编辑区之后作用域选择器就匹配不上了（早期用
-   @milkdown/plugin/block 时容器是挂在编辑区里的，所以那时带作用域是对的）。
+ ⚠️ 同样**不能**收进 .milkdown-notes-editor 作用域 —— Provider 会把容器搬到
+ document.body 下，脱离编辑区之后作用域选择器就匹配不上了（早期用
+ @milkdown/plugin/block 时容器是挂在编辑区里的，所以那时带作用域是对的）。
 
-   display 默认就是 none、只认 true：容器挂上到 data-show 被写上之间有一段空档，
-   按「无属性即隐藏」处理才不会闪一下。
+ display 默认就是 none、只认 true：容器挂上到 data-show 被写上之间有一段空档，
+ 按「无属性即隐藏」处理才不会闪一下。
 
-   横向位置由组件里的 pinLeft 钉死（编辑区左边缘 +20px，落在正文 48px 的左留白里），
-   纵向跟着光标那一行。竖排后整条宽度 20px 出头，正好塞得下 —— 若改成横排，
-   floating-ui 默认带的 flip() 会把整条翻到右侧并被 .milkdown-scroll 的 overflow 裁掉。 */
-.fehelper-block-handle {
-  position: fixed;
-  top: 0;
-  left: 0;
-  display: none;
+ 横向位置由组件里的 pinLeft 钉死（编辑区左边缘 +20px，落在正文 48px 的左留白里），
+ 纵向跟着光标那一行。竖排后整条宽度 20px 出头，正好塞得下 —— 若改成横排，
+ floating-ui 默认带的 flip() 会把整条翻到右侧并被 .milkdown-scroll 的 overflow 裁掉。 */
+.fehelper-block-handle{
+ position: fixed;
+ top: 0;
+ left: 0;
+ display: none;
 }
 
-.fehelper-block-handle[data-show='true'] {
-  display: block;
+.fehelper-block-handle[data-show='true']{
+ display: block;
 }
 
 /* ==========================================================================
-   6.2 浮出工具条（选中文字后 / 光标落在空行时）
+ 6.2 浮出工具条（选中文字后 / 光标落在空行时）
 
-   Provider 由 @milkdown/plugin-tooltip 提供，它不带任何样式表，显隐完全靠
-   写在容器上的 data-show 属性，定位则是 floating-ui 写上来的一组内联 left/top。
+ Provider 由 @milkdown/plugin-tooltip 提供，它不带任何样式表，显隐完全靠
+ 写在容器上的 data-show 属性，定位则是 floating-ui 写上来的一组内联 left/top。
 
-   ⚠️ 这里的类名**不能**收进 .milkdown-notes-editor 作用域：Provider 会把这个容器
-   appendChild 到 document.body 下，脱离编辑区之后作用域选择器就匹配不上了。
-   同理，它必须用 fixed 定位 —— 挂在 body 下还能拿到视口坐标，与 posToDOMRect
-   给出的选区矩形才是同一套坐标系。
+ ⚠️ 这里的类名**不能**收进 .milkdown-notes-editor 作用域：Provider 会把这个容器
+ appendChild 到 document.body 下，脱离编辑区之后作用域选择器就匹配不上了。
+ 同理，它必须用 fixed 定位 —— 挂在 body 下还能拿到视口坐标，与 posToDOMRect
+ 给出的选区矩形才是同一套坐标系。
 
-   z-index 取 80：高过全屏容器（z-50）和编辑区内的各浮层（z-20 ~ z-40），
-   低于自绘 Tooltip（z-90），免得浮条把悬停提示压住。
+ z-index 取 80：高过全屏容器（z-50）和编辑区内的各浮层（z-20 ~ z-40），
+ 低于自绘 Tooltip（z-90），免得浮条把悬停提示压住。
 
-   display 默认就是 none、只认 true，与块手柄同款 —— 容器挂上到 data-show
-   被写上之间有一段空档，按「无属性即隐藏」处理才不会闪一下。
-   ========================================================================== */
-.fehelper-floating-bar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: 80;
-  display: none;
+ display 默认就是 none、只认 true，与块手柄同款 —— 容器挂上到 data-show
+ 被写上之间有一段空档，按「无属性即隐藏」处理才不会闪一下。
+ ========================================================================== */
+.fehelper-floating-bar{
+ position: fixed;
+ top: 0;
+ left: 0;
+ z-index: 80;
+ display: none;
 }
 
-.fehelper-floating-bar[data-show='true'] {
-  display: block;
+.fehelper-floating-bar[data-show='true']{
+ display: block;
 }
 
 /*
@@ -1823,49 +1597,45 @@ html.dark mark {
  *
  * 层级取 85：压过两条浮条（80），低于自绘 Tooltip（90）—— 按钮上的提示要能盖住它。
  */
-.fehelper-table-tools {
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: 85;
-  display: none;
+.fehelper-table-tools{
+ position: fixed;
+ top: 0;
+ left: 0;
+ z-index: 85;
+ display: none;
 }
 
-.fehelper-table-tools[data-show='true'] {
-  display: block;
+.fehelper-table-tools[data-show='true']{
+ display: block;
 }
 
 /* ==========================================================================
-   7. 编辑区等宽字体（两个内核统一）
-   ========================================================================== */
+ 7. 编辑区等宽字体（两个内核统一）
+ ========================================================================== */
 
 html .cherry-notes-editor .cherry .cm-editor,
 html .cherry-notes-editor .cherry .cm-editor .cm-scroller,
-html .cherry-notes-editor .cherry .cm-editor .cm-content {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
+html .cherry-notes-editor .cherry .cm-editor .cm-content{
+ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
 }
 
 html .milkdown-notes-editor .milkdown-content pre,
-html .milkdown-notes-editor .milkdown-content pre>code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
+html .milkdown-notes-editor .milkdown-content pre>code{
+ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
 }
 
 /* ==========================================================================
-   8. 正文排版（两个内核共用一份，特异度 (0,2,1) 稳赢第三方的 (0,1,1)）
-   Cherry 侧作用在预览区；Milkdown 侧作用在编辑区本身 ——
-   所见即所得下编辑与阅读是同一块 DOM，没有第二份要区分。
-   ========================================================================== */
+ 8. 正文排版（两个内核共用一份，特异度 (0,2,1) 稳赢第三方的 (0,1,1)）
+ Cherry 侧作用在预览区；Milkdown 侧作用在编辑区本身 ——
+ 所见即所得下编辑与阅读是同一块 DOM，没有第二份要区分。
+ ========================================================================== */
 
-:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) {
-  font-size: 15px;
-  line-height: 1.75;
-  color: #334155;
-  word-break: break-word;
-  letter-spacing: -0.01em;
-}
-
-html.dark :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) {
-  color: #cbd5e1;
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content){
+ font-size: 15px;
+ line-height: 1.75;
+ color: #334155;
+ word-break: break-word;
+ letter-spacing: -0.01em;
 }
 
 :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) h1,
@@ -1873,254 +1643,201 @@ html.dark :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .mil
 :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) h3,
 :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) h4,
 :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) h5,
-:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) h6 {
-  font-weight: 600;
-  line-height: 1.35;
-  color: #0f172a;
-  margin: 1.5em 0 0.6em;
-  border-bottom: 0;
-  padding-bottom: 0;
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) h6{
+ font-weight: 600;
+ line-height: 1.35;
+ color: #0f172a;
+ margin: 1.5em 0 0.6em;
+ border-bottom: 0;
+ padding-bottom: 0;
+}
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) h1{
+ font-size: 30px;
+ font-weight: 700;
+ line-height: 1.25;
+ letter-spacing: -0.025em;
+ margin-top: 0;
+ margin-bottom: 0.8em;
+ color: #191918;
 }
 
-html.dark :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) :is(h1, h2, h3, h4, h5, h6) {
-  color: #f1f5f9;
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) h2{
+ font-size: 1.42em;
+ font-weight: 650;
+ line-height: 1.32;
+ letter-spacing: -0.018em;
+ border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+ padding-bottom: 0.35em;
+ margin-top: 1.6em;
+ margin-bottom: 0.6em;
 }
 
-:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) h1 {
-  font-size: 30px;
-  font-weight: 700;
-  line-height: 1.25;
-  letter-spacing: -0.025em;
-  margin-top: 0;
-  margin-bottom: 0.8em;
-  color: #191918;
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) h3{
+ font-size: 1.2em;
+ font-weight: 600;
+ line-height: 1.38;
+ letter-spacing: -0.01em;
+ margin-top: 1.4em;
+ margin-bottom: 0.5em;
 }
 
-:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) h2 {
-  font-size: 1.42em;
-  font-weight: 650;
-  line-height: 1.32;
-  letter-spacing: -0.018em;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.22);
-  padding-bottom: 0.35em;
-  margin-top: 1.6em;
-  margin-bottom: 0.6em;
-}
-
-:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) h3 {
-  font-size: 1.2em;
-  font-weight: 600;
-  line-height: 1.38;
-  letter-spacing: -0.01em;
-  margin-top: 1.4em;
-  margin-bottom: 0.5em;
-}
-
-:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) h4 {
-  font-size: 1.05em;
-  font-weight: 600;
-  margin-top: 1.2em;
-  margin-bottom: 0.4em;
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) h4{
+ font-size: 1.05em;
+ font-weight: 600;
+ margin-top: 1.2em;
+ margin-bottom: 0.4em;
 }
 
 :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) h5,
-:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) h6 {
-  font-size: 0.92em;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  color: #64748b;
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) h6{
+ font-size: 0.92em;
+ font-weight: 600;
+ letter-spacing: 0.03em;
+ text-transform: uppercase;
+ color: #64748b;
 }
-
-html.dark :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) h2 {
-  border-bottom-color: rgba(255, 255, 255, 0.08);
-}
-
-:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) p {
-  margin: 0 0 1em;
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) p{
+ margin: 0 0 1em;
 }
 
 :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) ul,
-:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) ol {
-  margin: 0 0 1em;
-  padding-left: 1.5em;
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) ol{
+ margin: 0 0 1em;
+ padding-left: 1.5em;
 }
 
-:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) li {
-  margin-bottom: 0.3em;
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) li{
+ margin-bottom: 0.3em;
 }
 
-:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) blockquote {
-  margin: 0 0 1.2em;
-  padding: 10px 18px 10px 16px;
-  border-left: 3.5px solid rgb(var(--brand-600-rgb, 33 131 151));
-  border-radius: 0 8px 8px 0;
-  background: rgba(var(--brand-500-rgb, 80 189 207), 0.05);
-  color: #475569;
-  font-style: normal;
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) blockquote{
+ margin: 0 0 1.2em;
+ padding: 10px 18px 10px 16px;
+ border-left: 3.5px solid rgb(var(--brand-600-rgb, 33 131 151));
+ border-radius: 0 8px 8px 0;
+ background: rgba(var(--brand-500-rgb, 80 189 207), 0.05);
+ color: #475569;
+ font-style: normal;
 }
 
 /* 消除引用块内部段落的底部外边距，使文字在引用框内垂直严格居中 */
-:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) blockquote>p {
-  margin: 0;
-  line-height: 1.65;
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) blockquote>p{
+ margin: 0;
+ line-height: 1.65;
 }
 
-:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) blockquote>p+p {
-  margin-top: 0.5em;
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) blockquote>p+p{
+ margin-top: 0.5em;
 }
 
-:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) blockquote> :first-child {
-  margin-top: 0 !important;
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) blockquote> :first-child{
+ margin-top: 0 !important;
 }
 
-:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) blockquote> :last-child {
-  margin-bottom: 0 !important;
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) blockquote> :last-child{
+ margin-bottom: 0 !important;
+}
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) code:not(pre code){
+ background-color: #f1f5f9;
+ background-color: rgb(var(--brand-500-rgb, 80 189 207) / 0.12);
+ color: rgb(var(--brand-800-rgb, 16 76 91));
+ border: 1px solid rgba(148, 163, 184, 0.28);
+ border-color: rgb(var(--brand-500-rgb, 80 189 207) / 0.25);
+ border-radius: 6px;
+ padding: 0.16em 0.45em;
+ margin: 0 0.2em;
+ font-size: 0.88em;
+ font-family: var(--fe-mono-font);
+ box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) a{
+ color: rgb(var(--brand-600-rgb, 33 131 151));
+ text-decoration: none;
+ cursor: pointer;
+ border-bottom: 1px solid rgba(var(--brand-500-rgb, 80 189 207), 0.35);
+ transition: color 0.15s ease, border-color 0.15s ease;
 }
 
-html.dark :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) blockquote {
-  border-left-color: rgb(var(--brand-500-rgb, 80 189 207));
-  background: rgba(255, 255, 255, 0.035);
-  color: #94a3b8;
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) a:hover{
+ color: rgb(var(--brand-700-rgb, 22 99 116));
+ border-bottom-color: currentColor;
+}:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) img{
+ max-width: 100%;
+ border-radius: 8px;
 }
 
-:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) code:not(pre code) {
-  background-color: #f1f5f9;
-  background-color: rgb(var(--brand-500-rgb, 80 189 207) / 0.12);
-  color: rgb(var(--brand-800-rgb, 16 76 91));
-  border: 1px solid rgba(148, 163, 184, 0.28);
-  border-color: rgb(var(--brand-500-rgb, 80 189 207) / 0.25);
-  border-radius: 6px;
-  padding: 0.16em 0.45em;
-  margin: 0 0.2em;
-  font-size: 0.88em;
-  font-family: var(--fe-mono-font);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) table{
+ width: 100%;
+ border-collapse: collapse;
+ margin: 0 0 1.3em;
+ font-size: 0.92em;
 }
 
-html.dark :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) code:not(pre code) {
-  background-color: #161c28;
-  background-color: rgb(var(--brand-500-rgb, 80 189 207) / 0.18);
-  color: rgb(var(--brand-300-rgb, 143 215 224));
-  border-color: rgb(var(--brand-500-rgb, 80 189 207) / 0.32);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) :is(th, td){
+ border: 1px solid #e2e8f0;
+ padding: 0.6em 0.85em;
+ text-align: left;
 }
 
-:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) a {
-  color: rgb(var(--brand-600-rgb, 33 131 151));
-  text-decoration: none;
-  cursor: pointer;
-  border-bottom: 1px solid rgba(var(--brand-500-rgb, 80 189 207), 0.35);
-  transition: color 0.15s ease, border-color 0.15s ease;
+:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) th{
+ background: rgba(148, 163, 184, 0.07);
+ font-weight: 600;
+ letter-spacing: 0.02em;
+}:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) hr{
+ border: 0;
+ height: 1px;
+ background: linear-gradient(to right, transparent, rgba(148, 163, 184, 0.35), transparent);
+ margin: 2.2em 0;
 }
-
-:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) a:hover {
-  color: rgb(var(--brand-700-rgb, 22 99 116));
-  border-bottom-color: currentColor;
-}
-
-html.dark :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) a {
-  color: rgb(var(--brand-400-rgb, 111 202 216));
-  border-bottom-color: rgba(var(--brand-400-rgb, 111 202 216), 0.35);
-}
-
-html.dark :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) a:hover {
-  color: rgb(var(--brand-300-rgb, 143 215 224));
-  border-bottom-color: currentColor;
-}
-
-:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) img {
-  max-width: 100%;
-  border-radius: 8px;
-}
-
-:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) table {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 0 0 1.3em;
-  font-size: 0.92em;
-}
-
-:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) :is(th, td) {
-  border: 1px solid #e2e8f0;
-  padding: 0.6em 0.85em;
-  text-align: left;
-}
-
-:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) th {
-  background: rgba(148, 163, 184, 0.07);
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-
-html.dark :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) :is(th, td) {
-  border-color: rgba(255, 255, 255, 0.08);
-}
-
-html.dark :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) th {
-  background: rgba(255, 255, 255, 0.035);
-}
-
-:is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) hr {
-  border: 0;
-  height: 1px;
-  background: linear-gradient(to right, transparent, rgba(148, 163, 184, 0.35), transparent);
-  margin: 2.2em 0;
-}
-
-html.dark :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .milkdown-content) hr {
-  background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.12), transparent);
-}
-
 /* ==========================================================================
-   9. 阅读限宽
-   Cherry 的 .cherry-previewer 自己就是 .cherry-markdown（同一个元素、也是滚动容器），
-   直接给它设 max-width 会破坏分栏，所以改成给它的每个直接子块限宽再居中 ——
-   这样拖中缝改变宽度时也始终是「内容不超过 --fe-read-max-width」。
-   Milkdown 侧是给 .milkdown-content 整体限宽，见 16.1。
-   ========================================================================== */
+ 9. 阅读限宽
+ Cherry 的 .cherry-previewer 自己就是 .cherry-markdown（同一个元素、也是滚动容器），
+ 直接给它设 max-width 会破坏分栏，所以改成给它的每个直接子块限宽再居中 ——
+ 这样拖中缝改变宽度时也始终是「内容不超过 --fe-read-max-width」。
+ Milkdown 侧是给 .milkdown-content 整体限宽，见 16.1。
+ ========================================================================== */
 
-.cherry-notes-editor .cherry-previewer>*:not(.cherry-previewer-codeBlock-click-handler):not(.cherry-previewer-codeBlock-hover-handler) {
-  max-width: var(--fe-read-max-width);
-  margin-left: auto;
-  margin-right: auto;
-  /*
-   * 长文档性能关键：视口外元素自动跳过布局与绘制（Skip Layout & Paint）。
-   * 无论文档有 1000 个段落还是几十张图片，切入时只计算屏幕可见的开头几段，
-   * 彻底消除万字长文档切入时的丢帧与卡顿！
-   */
-  content-visibility: auto;
-  contain-intrinsic-size: 0 36px;
+.cherry-notes-editor .cherry-previewer>*:not(.cherry-previewer-codeBlock-click-handler):not(.cherry-previewer-codeBlock-hover-handler){
+ max-width: var(--fe-read-max-width);
+ margin-left: auto;
+ margin-right: auto;
+ /*
+ * 长文档性能关键：视口外元素自动跳过布局与绘制（Skip Layout & Paint）。
+ * 无论文档有 1000 个段落还是几十张图片，切入时只计算屏幕可见的开头几段，
+ * 彻底消除万字长文档切入时的丢帧与卡顿！
+ */
+ content-visibility: auto;
+ contain-intrinsic-size: 0 36px;
 }
 
 /* 重型块（代码块、表格、图片容器）预留更高占位，平滑滚动 */
 .cherry-notes-editor .cherry-previewer pre,
 .cherry-notes-editor .cherry-previewer table,
 .cherry-notes-editor .cherry-previewer figure,
-.cherry-notes-editor .cherry-previewer .cherry-image-container {
-  contain-intrinsic-size: 0 160px;
+.cherry-notes-editor .cherry-previewer .cherry-image-container{
+ contain-intrinsic-size: 0 160px;
 }
 
 /* 图片性能加速：开启 GPU 独立合成层，解码不占死主线程，视口外图片跳过重排 */
 .cherry-notes-editor .cherry-previewer img,
-.milkdown-notes-editor .milkdown-content img {
-  content-visibility: auto;
-  contain-intrinsic-size: 300px 200px;
-  max-width: 100%;
-  height: auto;
-  transform: translateZ(0);
+.milkdown-notes-editor .milkdown-content img{
+ content-visibility: auto;
+ contain-intrinsic-size: 300px 200px;
+ max-width: 100%;
+ height: auto;
+ transform: translateZ(0);
 }
 
 /* ==========================================================================
-   10. 富文本增强（容器面板 / Alert / 目录 / Mermaid 图表 / 代码行号）
+ 10. 富文本增强（容器面板 / Alert / 目录 / Mermaid 图表 / 代码行号）
 
-   这些元素全部由 ProseMirror 装饰器产出（见 utils/milkdownEnhance.ts），
-   所以 DOM 由编辑器托管，这里只负责外观。
-   ========================================================================== */
+ 这些元素全部由 ProseMirror 装饰器产出（见 utils/milkdownEnhance.ts），
+ 所以 DOM 由编辑器托管，这里只负责外观。
+ ========================================================================== */
 
 /* 语法标记（::: info、[!NOTE]、[TOC]）隐藏：只藏视觉，不动文档结构 */
-.fe-hidden-marker {
-  display: none;
+.fe-hidden-marker{
+ display: none;
 }
 
 /* ---------------------------------------------------------- 10.1 代码行号 */
@@ -2130,82 +1847,65 @@ html.dark :is(.cherry-notes-editor .cherry-markdown, .milkdown-notes-editor .mil
  * ⚠️ 漏了这条，它会一路向上找定位祖先，最后挂到 .milkdown-notes-editor 上 ——
  * 表现就是行号跑到整个编辑区的左上角排成一列，跟正文并排显示。
  */
-.milkdown-notes-editor .milkdown-content pre {
-  position: relative;
+.milkdown-notes-editor .milkdown-content pre{
+ position: relative;
 }
 
-.milkdown-notes-editor .milkdown-content pre .fe-code-gutter {
-  position: absolute;
-  top: 16px;
-  left: 0;
-  width: 40px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  padding-right: 10px;
-  border-right: 1px solid rgba(148, 163, 184, 0.18);
-  user-select: none;
-  pointer-events: none;
-  font-family: var(--fe-mono-font);
-  font-size: 12px;
-  line-height: 1.68;
-  color: #94a3b8;
-  opacity: 0.75;
-}
-
-html.dark .milkdown-notes-editor .milkdown-content pre .fe-code-gutter {
-  border-right-color: rgba(255, 255, 255, 0.07);
-  color: #64748b;
-}
-
-/* 有行号时给正文让出轨道 */
-.milkdown-notes-editor .milkdown-content pre:has(.fe-code-gutter)>code {
-  padding-left: 52px !important;
+.milkdown-notes-editor .milkdown-content pre .fe-code-gutter{
+ position: absolute;
+ top: 16px;
+ left: 0;
+ width: 40px;
+ display: flex;
+ flex-direction: column;
+ align-items: flex-end;
+ padding-right: 10px;
+ border-right: 1px solid rgba(148, 163, 184, 0.18);
+ user-select: none;
+ pointer-events: none;
+ font-family: var(--fe-mono-font);
+ font-size: 12px;
+ line-height: 1.68;
+ color: #94a3b8;
+ opacity: 0.75;
+}/* 有行号时给正文让出轨道 */
+.milkdown-notes-editor .milkdown-content pre:has(.fe-code-gutter)>code{
+ padding-left: 52px !important;
 }
 
 /* ---------------------------------------------------------- 10.2 Mermaid 图表 */
-.fe-mermaid-card {
-  margin: 0.4em 0 1.4em;
-  padding: 14px 18px 18px;
-  border-radius: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  background: #f8fafc;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
-  user-select: none;
-  overflow-x: auto;
+.fe-mermaid-card{
+ margin: 0.4em 0 1.4em;
+ padding: 14px 18px 18px;
+ border-radius: 12px;
+ border: 1px solid rgba(148, 163, 184, 0.2);
+ background: #f8fafc;
+ box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+ user-select: none;
+ overflow-x: auto;
 }
 
-html.dark .fe-mermaid-card {
-  border-color: rgba(255, 255, 255, 0.07);
-  background: #12151e;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+.fe-mermaid-badge{
+ font-size: 10.5px;
+ font-family: var(--fe-mono-font);
+ font-weight: 600;
+ color: #64748b;
+ margin-bottom: 10px;
 }
 
-.fe-mermaid-badge {
-  font-size: 10.5px;
-  font-family: var(--fe-mono-font);
-  font-weight: 600;
-  color: #64748b;
-  margin-bottom: 10px;
+.fe-mermaid-body{
+ display: flex;
+ justify-content: center;
 }
 
-html.dark .fe-mermaid-badge {
-  color: #94a3b8;
+.fe-mermaid-body svg{
+ max-width: 100%;
+ height: auto;
 }
 
-.fe-mermaid-body {
-  display: flex;
-  justify-content: center;
-}
-
-.fe-mermaid-body svg {
-  max-width: 100%;
-  height: auto;
-}
-
-.fe-mermaid-error {
-  font-size: 12px;
-  color: #94a3b8;
+.fe-mermaid-error{
+ font-size: 12px;
+ color: #94a3b8;
 }
 
 /* ---------------------------------------------------------- 10.3 容器面板 ::: */
@@ -2227,204 +1927,145 @@ html.dark .fe-mermaid-badge {
 .fe-container-head,
 .fe-container-body,
 .fe-container-close,
-.fe-container-inline {
-  --fe-tone: rgb(var(--brand-600-rgb, 33 131 151));
-  /*
-   * 卡片底色**不能是纯白** —— 正文背景就是 #ffffff，白底画在白底上等于不存在，
-   * 只剩一条边框线，看着像「透明」。
-   * 取一档极浅的冷灰：比正文暗一点点，卡片轮廓就立起来了，又不至于变成色块。
-   */
-  --fe-bg: #fafbfc;
-  --fe-border: rgba(148, 163, 184, 0.32);
-  margin: 0 !important;
+.fe-container-inline{
+ --fe-tone: rgb(var(--brand-600-rgb, 33 131 151));
+ /*
+ * 卡片底色**不能是纯白** —— 正文背景就是 #ffffff，白底画在白底上等于不存在，
+ * 只剩一条边框线，看着像「透明」。
+ * 取一档极浅的冷灰：比正文暗一点点，卡片轮廓就立起来了，又不至于变成色块。
+ */
+ --fe-bg: #fafbfc;
+ --fe-border: rgba(148, 163, 184, 0.32);
+ margin: 0 !important;
 }
 
-html.dark .fe-container-head,
-html.dark .fe-container-body,
-html.dark .fe-container-close,
-html.dark .fe-container-inline {
-  /* 深色下反过来 —— 正文底是 #12141a，卡片要比它亮一档 */
-  --fe-bg: rgba(255, 255, 255, 0.035);
-  --fe-border: rgba(255, 255, 255, 0.1);
+.fe-container-head{
+ margin-top: 1.4em !important;
+ padding: 10px 14px !important;
+ /* 左右与上边描线，下边不画 —— 与 body 接缝处不能有线 */
+ border: 1px solid var(--fe-border);
+ border-bottom: 0;
+ border-radius: 10px 10px 0 0;
+ background: var(--fe-bg);
+ font-size: 13px !important;
+ font-weight: 600 !important;
+ line-height: 1.6 !important;
+ /* 标题不再整行走语义色：只有图标保留，正文用常规字色 */
+ color: #3f3f46 !important;
+}/* 图标保留语义色，并压暗一档 —— 纯饱和的原色扎眼，与「克制」的调子不符 */
+.fe-container-icon{
+ margin-right: 7px;
+ font-size: 13px;
+ color: var(--fe-tone);
+ filter: saturate(0.9);
 }
 
-.fe-container-head {
-  margin-top: 1.4em !important;
-  padding: 10px 14px !important;
-  /* 左右与上边描线，下边不画 —— 与 body 接缝处不能有线 */
-  border: 1px solid var(--fe-border);
-  border-bottom: 0;
-  border-radius: 10px 10px 0 0;
-  background: var(--fe-bg);
-  font-size: 13px !important;
-  font-weight: 600 !important;
-  line-height: 1.6 !important;
-  /* 标题不再整行走语义色：只有图标保留，正文用常规字色 */
-  color: #3f3f46 !important;
+.fe-container-body{
+ padding: 4px 14px !important;
+ border-left: 1px solid var(--fe-border);
+ border-right: 1px solid var(--fe-border);
+ background: var(--fe-bg);
+ font-size: 13.5px !important;
+ line-height: 1.7 !important;
+ color: #52525b;
 }
 
-html.dark .fe-container-head {
-  color: #e4e4e7 !important;
+.fe-container-body--first{
+ padding-top: 8px !important;
 }
 
-/* 图标保留语义色，并压暗一档 —— 纯饱和的原色扎眼，与「克制」的调子不符 */
-.fe-container-icon {
-  margin-right: 7px;
-  font-size: 13px;
-  color: var(--fe-tone);
-  filter: saturate(0.9);
-}
-
-.fe-container-body {
-  padding: 4px 14px !important;
-  border-left: 1px solid var(--fe-border);
-  border-right: 1px solid var(--fe-border);
-  background: var(--fe-bg);
-  font-size: 13.5px !important;
-  line-height: 1.7 !important;
-  color: #52525b;
-}
-
-html.dark .fe-container-body {
-  color: #a1a1aa;
-}
-
-.fe-container-body--first {
-  padding-top: 8px !important;
-}
-
-.fe-container-body--last {
-  padding-bottom: 8px !important;
+.fe-container-body--last{
+ padding-bottom: 8px !important;
 }
 
 /* 闭合标记参与卡片收口：淡化成一条安静的底边，仍可点击编辑 */
-.fe-container-close {
-  margin-bottom: 1.4em !important;
-  padding: 2px 14px !important;
-  border: 1px solid var(--fe-border);
-  border-top: 0;
-  border-radius: 0 0 10px 10px;
-  background: var(--fe-bg);
-  font-size: 10px !important;
-  line-height: 1.4 !important;
-  font-family: var(--fe-mono-font);
-  color: var(--fe-tone) !important;
-  opacity: 0.4;
+.fe-container-close{
+ margin-bottom: 1.4em !important;
+ padding: 2px 14px !important;
+ border: 1px solid var(--fe-border);
+ border-top: 0;
+ border-radius: 0 0 10px 10px;
+ background: var(--fe-bg);
+ font-size: 10px !important;
+ line-height: 1.4 !important;
+ font-family: var(--fe-mono-font);
+ color: var(--fe-tone) !important;
+ opacity: 0.4;
 }
 
 /* primary：Cherry 面板的默认类型（认不出的类型也回落到它）——
-   Milkdown 侧补上这一种，用 Cherry 原生按钮插出来的面板才不会显示成裸文本 */
+ Milkdown 侧补上这一种，用 Cherry 原生按钮插出来的面板才不会显示成裸文本 */
 .fe-container-head--primary,
 .fe-container-body--primary,
 .fe-container-close--primary,
-.fe-container-inline--primary {
-  --fe-tone: #64748b;
-  /* 底色不再按色调分：统一走基础规则的 --fe-bg（浅色纯白 / 深色微亮） */
+.fe-container-inline--primary{
+ --fe-tone: #64748b;
+ /* 底色不再按色调分：统一走基础规则的 --fe-bg（浅色纯白 / 深色微亮） */
 }
 
 .fe-container-head--info,
 .fe-container-body--info,
 .fe-container-close--info,
-.fe-container-inline--info {
-  --fe-tone: #0284c7;
+.fe-container-inline--info{
+ --fe-tone: #0284c7;
 }
 
 .fe-container-head--note,
 .fe-container-body--note,
 .fe-container-close--note,
-.fe-container-inline--note {
-  --fe-tone: #6366f1;
+.fe-container-inline--note{
+ --fe-tone: #6366f1;
 }
 
 .fe-container-head--tip,
 .fe-container-body--tip,
 .fe-container-close--tip,
-.fe-container-inline--tip {
-  --fe-tone: #059669;
+.fe-container-inline--tip{
+ --fe-tone: #059669;
 }
 
 .fe-container-head--success,
 .fe-container-body--success,
 .fe-container-close--success,
-.fe-container-inline--success {
-  --fe-tone: #10b981;
+.fe-container-inline--success{
+ --fe-tone: #10b981;
 }
 
 .fe-container-head--warning,
 .fe-container-body--warning,
 .fe-container-close--warning,
-.fe-container-inline--warning {
-  --fe-tone: #d97706;
+.fe-container-inline--warning{
+ --fe-tone: #d97706;
 }
 
 .fe-container-head--danger,
 .fe-container-body--danger,
 .fe-container-close--danger,
-.fe-container-inline--danger {
-  --fe-tone: #e11d48;
+.fe-container-inline--danger{
+ --fe-tone: #e11d48;
 }
 
 .fe-container-head--accordion,
 .fe-container-body--accordion,
 .fe-container-close--accordion,
-.fe-container-inline--accordion {
-  --fe-tone: #64748b;
-}
-
-html.dark .fe-container-head--primary,
-html.dark .fe-container-body--primary,
-html.dark .fe-container-close--primary,
-.fe-container-inline--primary {
-  --fe-tone: #94a3b8;
-}
-
-html.dark .fe-container-head--info,
-html.dark .fe-container-body--info,
-html.dark .fe-container-close--info,
-.fe-container-inline--info {
-  --fe-tone: #38bdf8;
-}
-
-html.dark .fe-container-head--note,
-html.dark .fe-container-body--note,
-html.dark .fe-container-close--note,
-.fe-container-inline--note {
-  --fe-tone: #818cf8;
-}
-
-html.dark .fe-container-head--tip,
-html.dark .fe-container-body--tip,
-html.dark .fe-container-close--tip,
-.fe-container-inline--tip {
-  --fe-tone: #34d399;
-}
-
-html.dark .fe-container-head--success,
-html.dark .fe-container-body--success,
-html.dark .fe-container-close--success,
-.fe-container-inline--success {
-  --fe-tone: #34d399;
-}
-
-html.dark .fe-container-head--warning,
-html.dark .fe-container-body--warning,
-html.dark .fe-container-close--warning,
-.fe-container-inline--warning {
-  --fe-tone: #fbbf24;
-}
-
-html.dark .fe-container-head--danger,
-html.dark .fe-container-body--danger,
-html.dark .fe-container-close--danger,
-.fe-container-inline--danger {
-  --fe-tone: #fb7185;
-}
-
-html.dark .fe-container-head--accordion,
-html.dark .fe-container-body--accordion,
-html.dark .fe-container-close--accordion,
-.fe-container-inline--accordion {
-  --fe-tone: #94a3b8;
+.fe-container-inline--accordion{
+ --fe-tone: #64748b;
+}.fe-container-inline--primary{
+ --fe-tone: #94a3b8;
+}.fe-container-inline--info{
+ --fe-tone: #38bdf8;
+}.fe-container-inline--note{
+ --fe-tone: #818cf8;
+}.fe-container-inline--tip{
+ --fe-tone: #34d399;
+}.fe-container-inline--success{
+ --fe-tone: #34d399;
+}.fe-container-inline--warning{
+ --fe-tone: #fbbf24;
+}.fe-container-inline--danger{
+ --fe-tone: #fb7185;
+}.fe-container-inline--accordion{
+ --fe-tone: #94a3b8;
 }
 
 /* ---------------------------------------------------------- 10.4 GitHub Alert */
@@ -2436,209 +2077,139 @@ html.dark .fe-container-close--accordion,
  * 地方它就是一条普通引用），如果在这里画成一张彩色卡片，反而比容器面板还重，
  * 两种语法的视觉权重就颠倒了。
  */
-.fe-alert-head {
-  --fe-tone: #0284c7;
-  margin: 1.4em 0 0;
-  /* 上下留白交给行高：标题只占一行，靠 padding 撑高会显得笨重 */
-  padding: 2px 0 2px 14px;
-  border-left: 2px solid var(--fe-tone);
-  font-size: 11.5px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  color: var(--fe-tone);
-  user-select: none;
+.fe-alert-head{
+ --fe-tone: #0284c7;
+ margin: 1.4em 0 0;
+ /* 上下留白交给行高：标题只占一行，靠 padding 撑高会显得笨重 */
+ padding: 2px 0 2px 14px;
+ border-left: 2px solid var(--fe-tone);
+ font-size: 11.5px;
+ font-weight: 700;
+ letter-spacing: 0.02em;
+ color: var(--fe-tone);
+ user-select: none;
 }
 
-.fe-alert-icon {
-  margin-right: 5px;
+.fe-alert-icon{
+ margin-right: 5px;
 }
 
-.milkdown-notes-editor .milkdown-content blockquote.fe-alert {
-  margin: 0 0 1.4em !important;
-  padding: 2px 0 2px 14px !important;
-  border-left: 2px solid var(--fe-tone) !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  color: #52525b !important;
-  font-style: normal;
-}
-
-html.dark .milkdown-notes-editor .milkdown-content blockquote.fe-alert {
-  background: transparent !important;
-  color: #a1a1aa !important;
+.milkdown-notes-editor .milkdown-content blockquote.fe-alert{
+ margin: 0 0 1.4em !important;
+ padding: 2px 0 2px 14px !important;
+ border-left: 2px solid var(--fe-tone) !important;
+ border-radius: 0 !important;
+ background: transparent !important;
+ color: #52525b !important;
+ font-style: normal;
 }
 
 .fe-alert--tip,
-.fe-alert-head--tip {
-  --fe-tone: #059669;
+.fe-alert-head--tip{
+ --fe-tone: #059669;
 }
 
 .fe-alert--important,
-.fe-alert-head--important {
-  --fe-tone: #7c3aed;
+.fe-alert-head--important{
+ --fe-tone: #7c3aed;
 }
 
 .fe-alert--warning,
-.fe-alert-head--warning {
-  --fe-tone: #d97706;
+.fe-alert-head--warning{
+ --fe-tone: #d97706;
 }
 
 .fe-alert--caution,
-.fe-alert-head--caution {
-  --fe-tone: #e11d48;
+.fe-alert-head--caution{
+ --fe-tone: #e11d48;
+}/* ---------------------------------------------------------- 10.5 目录卡片 */
+.fe-toc-marker-block{
+ margin: 0 !important;
+ padding: 0 !important;
+ line-height: 0 !important;
+ font-size: 0 !important;
 }
 
-html.dark .milkdown-notes-editor .milkdown-content blockquote.fe-alert--tip {
-  background: rgba(52, 211, 153, 0.06) !important;
+.fe-toc-card{
+ margin: 0.6em 0 1.4em;
+ padding: 14px 16px;
+ border-radius: 12px;
+ border: 1px solid rgba(148, 163, 184, 0.2);
+ background: rgba(148, 163, 184, 0.05);
+ user-select: none;
 }
 
-html.dark .milkdown-notes-editor .milkdown-content blockquote.fe-alert--important {
-  background: rgba(167, 139, 250, 0.06) !important;
+.fe-toc-head{
+ display: flex;
+ align-items: center;
+ justify-content: space-between;
+ font-size: 12px;
+ font-weight: 700;
+ color: #334155;
 }
 
-html.dark .milkdown-notes-editor .milkdown-content blockquote.fe-alert--warning {
-  background: rgba(251, 191, 36, 0.06) !important;
+.fe-toc-count{
+ font-size: 10px;
+ font-family: var(--fe-mono-font);
+ font-weight: 500;
+ color: #94a3b8;
 }
 
-html.dark .milkdown-notes-editor .milkdown-content blockquote.fe-alert--caution {
-  background: rgba(251, 113, 133, 0.06) !important;
+.fe-toc-list{
+ max-height: 300px;
+ overflow-y: auto;
 }
 
-html.dark .fe-alert--note,
-html.dark .fe-alert-head--note {
-  --fe-tone: #38bdf8;
+.fe-toc-item{
+ padding: 3px 6px;
+ border-radius: 6px;
+ font-size: 12.5px;
+ color: #475569;
+ cursor: pointer;
+ transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-html.dark .fe-alert--tip,
-html.dark .fe-alert-head--tip {
-  --fe-tone: #34d399;
+.fe-toc-item:hover{
+ background: rgba(var(--brand-500-rgb, 80 189 207), 0.12);
+ color: rgb(var(--brand-700-rgb, 22 99 116));
 }
 
-html.dark .fe-alert--important,
-html.dark .fe-alert-head--important {
-  --fe-tone: #a78bfa;
+.fe-toc-item--1{
+ font-weight: 700;
+ color: #1e293b;
 }
 
-html.dark .fe-alert--warning,
-html.dark .fe-alert-head--warning {
-  --fe-tone: #fbbf24;
+.fe-toc-item--2{
+ padding-left: 16px;
+ font-weight: 600;
 }
 
-html.dark .fe-alert--caution,
-html.dark .fe-alert-head--caution {
-  --fe-tone: #fb7185;
+.fe-toc-item--3{
+ padding-left: 30px;
 }
 
-/* ---------------------------------------------------------- 10.5 目录卡片 */
-.fe-toc-marker-block {
-  margin: 0 !important;
-  padding: 0 !important;
-  line-height: 0 !important;
-  font-size: 0 !important;
+.fe-toc-item--4{
+ padding-left: 44px;
+ opacity: 0.85;
 }
 
-.fe-toc-card {
-  margin: 0.6em 0 1.4em;
-  padding: 14px 16px;
-  border-radius: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  background: rgba(148, 163, 184, 0.05);
-  user-select: none;
+.fe-toc-empty{
+ font-size: 12px;
+ color: #94a3b8;
 }
 
-html.dark .fe-toc-card {
-  border-color: rgba(255, 255, 255, 0.07);
-  background: rgba(255, 255, 255, 0.025);
-}
-
-.fe-toc-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 12px;
-  font-weight: 700;
-  color: #334155;
-}
-
-html.dark .fe-toc-head {
-  border-bottom-color: rgba(255, 255, 255, 0.07);
-  color: #cbd5e1;
-}
-
-.fe-toc-count {
-  font-size: 10px;
-  font-family: var(--fe-mono-font);
-  font-weight: 500;
-  color: #94a3b8;
-}
-
-.fe-toc-list {
-  max-height: 300px;
-  overflow-y: auto;
-}
-
-.fe-toc-item {
-  padding: 3px 6px;
-  border-radius: 6px;
-  font-size: 12.5px;
-  color: #475569;
-  cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease;
-}
-
-html.dark .fe-toc-item {
-  color: #94a3b8;
-}
-
-.fe-toc-item:hover {
-  background: rgba(var(--brand-500-rgb, 80 189 207), 0.12);
-  color: rgb(var(--brand-700-rgb, 22 99 116));
-}
-
-html.dark .fe-toc-item:hover {
-  color: rgb(var(--brand-300-rgb, 143 215 224));
-}
-
-.fe-toc-item--1 {
-  font-weight: 700;
-  color: #1e293b;
-}
-
-html.dark .fe-toc-item--1 {
-  color: #e2e8f0;
-}
-
-.fe-toc-item--2 {
-  padding-left: 16px;
-  font-weight: 600;
-}
-
-.fe-toc-item--3 {
-  padding-left: 30px;
-}
-
-.fe-toc-item--4 {
-  padding-left: 44px;
-  opacity: 0.85;
-}
-
-.fe-toc-empty {
-  font-size: 12px;
-  color: #94a3b8;
-}
-
-.fe-container-head.is-collapsed {
-  border-radius: 10px;
+.fe-container-head.is-collapsed{
+ border-radius: 10px;
 }
 
 .fe-container-body.is-collapsed,
-.fe-container-close.is-collapsed {
-  display: none;
+.fe-container-close.is-collapsed{
+ display: none;
 }
 
 /* ==========================================================================
-   15. 右侧悬浮大纲（OutlineCapsule）
-   ========================================================================== */
+ 15. 右侧悬浮大纲（OutlineCapsule）
+ ========================================================================== */
 
 /*
  * 跳到某一节 / 某条书签时闪一下，方便确认落在了哪。
@@ -2650,21 +2221,21 @@ html.dark .fe-toc-item--1 {
  * 中段（40%）保持满色而不是一路淡出：直接 from→to 的线性淡出，视觉上
  * 有一半时间已经淡到快看不见了，等于「闪得不够久」。
  */
-@keyframes fe-outline-flash {
-  0% {
-    background-color: rgba(var(--brand-500-rgb, 80 189 207), 0.28);
-    box-shadow: inset 3px 0 0 0 rgb(var(--brand-500-rgb, 80 189 207));
-  }
+@keyframes fe-outline-flash{
+ 0%{
+ background-color: rgba(var(--brand-500-rgb, 80 189 207), 0.28);
+ box-shadow: inset 3px 0 0 0 rgb(var(--brand-500-rgb, 80 189 207));
+ }
 
-  40% {
-    background-color: rgba(var(--brand-500-rgb, 80 189 207), 0.22);
-    box-shadow: inset 3px 0 0 0 rgb(var(--brand-500-rgb, 80 189 207));
-  }
+ 40%{
+ background-color: rgba(var(--brand-500-rgb, 80 189 207), 0.22);
+ box-shadow: inset 3px 0 0 0 rgb(var(--brand-500-rgb, 80 189 207));
+ }
 
-  100% {
-    background-color: transparent;
-    box-shadow: inset 3px 0 0 0 transparent;
-  }
+ 100%{
+ background-color: transparent;
+ box-shadow: inset 3px 0 0 0 transparent;
+ }
 }
 
 /*
@@ -2674,9 +2245,9 @@ html.dark .fe-toc-item--1 {
  * 用 animation 而不是 transition：加 class 时自动播，摘 class 时自动停，
  * 不需要元素两侧各写一份状态。
  */
-.fe-outline-flash {
-  animation: fe-outline-flash 900ms ease-out;
-  border-radius: 6px;
+.fe-outline-flash{
+ animation: fe-outline-flash 900ms ease-out;
+ border-radius: 6px;
 }
 
 /*
@@ -2688,8 +2259,8 @@ html.dark .fe-toc-item--1 {
  * 取 56px = 工具栏 40px + 16px 呼吸空间。
  */
 .milkdown-notes-editor .fe-outline-flash,
-.cherry-notes-editor .fe-outline-flash {
-  scroll-margin-top: 56px;
+.cherry-notes-editor .fe-outline-flash{
+ scroll-margin-top: 56px;
 }
 
 /*
@@ -2713,25 +2284,25 @@ html.dark .fe-toc-item--1 {
  *
  * 这里同样要除以倍率：手机上的阅读倍率照样会缩放到这一层。
  */
-@media (max-width: 767px) {
-  .milkdown-notes-editor .milkdown-content {
-    padding: calc(16px / var(--editor-zoom, 1)) calc(14px / var(--editor-zoom, 1)) calc(72px / var(--editor-zoom, 1));
-  }
+@media (max-width: 767px){
+ .milkdown-notes-editor .milkdown-content{
+ padding: calc(16px / var(--editor-zoom, 1)) calc(14px / var(--editor-zoom, 1)) calc(72px / var(--editor-zoom, 1));
+ }
 
-  .cherry-notes-editor .cherry-previewer {
-    padding: calc(16px / var(--editor-zoom, 1)) calc(14px / var(--editor-zoom, 1)) calc(72px / var(--editor-zoom, 1)) !important;
-  }
+ .cherry-notes-editor .cherry-previewer{
+ padding: calc(16px / var(--editor-zoom, 1)) calc(14px / var(--editor-zoom, 1)) calc(72px / var(--editor-zoom, 1)) !important;
+ }
 
-  .cherry-notes-editor .cherry .cm-editor .cm-content,
-  .cherry-notes-editor .cherry .cm-editor .cm-lineWrapping {
-    padding: calc(16px / var(--editor-zoom, 1)) calc(14px / var(--editor-zoom, 1)) calc(72px / var(--editor-zoom, 1)) !important;
-  }
+ .cherry-notes-editor .cherry .cm-editor .cm-content,
+ .cherry-notes-editor .cherry .cm-editor .cm-lineWrapping{
+ padding: calc(16px / var(--editor-zoom, 1)) calc(14px / var(--editor-zoom, 1)) calc(72px / var(--editor-zoom, 1)) !important;
+ }
 
-  /* 触屏没有 mousemove，手柄本就不会出现；显式关掉，
-     免得它万一冒出来压到收窄后的正文上 */
-  .fehelper-block-handle {
-    display: none !important;
-  }
+ /* 触屏没有 mousemove，手柄本就不会出现；显式关掉，
+ 免得它万一冒出来压到收窄后的正文上 */
+ .fehelper-block-handle{
+ display: none !important;
+ }
 }
 
 /* ---------------------------------------------------------- 10.7 紧凑容器 ::: （整块在一个段落里） */
@@ -2739,26 +2310,20 @@ html.dark .fe-toc-item--1 {
  * CommonMark 会把 `::: info 标题` / 内容 / `:::` 三行并成同一个段落，
  * 所以面板是套在段落本身上的，标题靠 inline 装饰单独上色。
  */
-.milkdown-notes-editor .milkdown-content p.fe-container-inline {
-  margin: 1.2em 0 !important;
-  padding: 10px 14px !important;
-  /* 与主容器同一套：细边框 + 白底，不再用 4px 粗色条 */
-  border: 1px solid var(--fe-border);
-  border-radius: 10px;
-  background: var(--fe-bg);
-  font-size: 13.5px !important;
-  line-height: 1.7 !important;
-  color: #52525b;
-}
-
-html.dark .milkdown-notes-editor .milkdown-content p.fe-container-inline {
-  color: #a1a1aa;
-}
-
-/* 行内形态没有独立的图标位，标题靠语义色做区分 —— 这里保留上色 */
-.milkdown-notes-editor .milkdown-content .fe-container-title {
-  font-weight: 600;
-  color: var(--fe-tone);
+.milkdown-notes-editor .milkdown-content p.fe-container-inline{
+ margin: 1.2em 0 !important;
+ padding: 10px 14px !important;
+ /* 与主容器同一套：细边框 + 白底，不再用 4px 粗色条 */
+ border: 1px solid var(--fe-border);
+ border-radius: 10px;
+ background: var(--fe-bg);
+ font-size: 13.5px !important;
+ line-height: 1.7 !important;
+ color: #52525b;
+}/* 行内形态没有独立的图标位，标题靠语义色做区分 —— 这里保留上色 */
+.milkdown-notes-editor .milkdown-content .fe-container-title{
+ font-weight: 600;
+ color: var(--fe-tone);
 }
 
 /* ---------------------------------------------------------- 10.8 时间线 ::: timeline */
@@ -2767,200 +2332,163 @@ html.dark .milkdown-notes-editor .milkdown-content p.fe-container-inline {
  * 这里不改文档结构，只用 CSS 把列表画成「圆点 + 竖线 + 时间/标题」。
  */
 .milkdown-notes-editor .milkdown-content ul.fe-timeline-list,
-.milkdown-notes-editor .milkdown-content ol.fe-timeline-list {
-  list-style: none;
-  padding-left: 0;
-  margin: 0.35em 0 0;
+.milkdown-notes-editor .milkdown-content ol.fe-timeline-list{
+ list-style: none;
+ padding-left: 0;
+ margin: 0.35em 0 0;
 }
 
-.milkdown-notes-editor .milkdown-content li.fe-timeline-item {
-  --fe-tone: #64748b;
-  position: relative;
-  list-style: none;
-  padding-left: 22px;
-  padding-bottom: 16px;
+.milkdown-notes-editor .milkdown-content li.fe-timeline-item{
+ --fe-tone: #64748b;
+ position: relative;
+ list-style: none;
+ padding-left: 22px;
+ padding-bottom: 16px;
 }
 
 /* 竖线：最后一条不再往下延伸 */
-.milkdown-notes-editor .milkdown-content li.fe-timeline-item::before {
-  content: '';
-  position: absolute;
-  left: 5px;
-  top: 14px;
-  bottom: -2px;
-  width: 2px;
-  border-radius: 1px;
-  background: rgba(148, 163, 184, 0.35);
+.milkdown-notes-editor .milkdown-content li.fe-timeline-item::before{
+ content: '';
+ position: absolute;
+ left: 5px;
+ top: 14px;
+ bottom: -2px;
+ width: 2px;
+ border-radius: 1px;
+ background: rgba(148, 163, 184, 0.35);
 }
 
-.milkdown-notes-editor .milkdown-content li.fe-timeline-item:last-child {
-  padding-bottom: 2px;
+.milkdown-notes-editor .milkdown-content li.fe-timeline-item:last-child{
+ padding-bottom: 2px;
 }
 
-.milkdown-notes-editor .milkdown-content li.fe-timeline-item:last-child::before {
-  display: none;
+.milkdown-notes-editor .milkdown-content li.fe-timeline-item:last-child::before{
+ display: none;
 }
 
 /* 圆点：用 ::after 叠在竖线上，带一圈底色描边把它从线里"抠"出来 */
-.milkdown-notes-editor .milkdown-content li.fe-timeline-item::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 5px;
-  width: 12px;
-  height: 12px;
-  box-sizing: border-box;
-  border-radius: 50%;
-  background: var(--fe-tone);
+.milkdown-notes-editor .milkdown-content li.fe-timeline-item::after{
+ content: '';
+ position: absolute;
+ left: 0;
+ top: 5px;
+ width: 12px;
+ height: 12px;
+ box-sizing: border-box;
+ border-radius: 50%;
+ background: var(--fe-tone);
 }
 
-.milkdown-notes-editor .milkdown-content .fe-timeline-time {
-  font-family: var(--fe-mono-font);
-  font-size: 11.5px;
-  font-weight: 600;
-  color: var(--fe-tone);
-  margin-right: 8px;
+.milkdown-notes-editor .milkdown-content .fe-timeline-time{
+ font-family: var(--fe-mono-font);
+ font-size: 11.5px;
+ font-weight: 600;
+ color: var(--fe-tone);
+ margin-right: 8px;
 }
 
-.milkdown-notes-editor .milkdown-content .fe-timeline-title {
-  font-weight: 600;
-  color: #1e293b;
+.milkdown-notes-editor .milkdown-content .fe-timeline-title{
+ font-weight: 600;
+ color: #1e293b;
+}/* 状态配色（与 Cherry 的 done / doing / todo / error 对齐） */
+.milkdown-notes-editor .milkdown-content li.fe-timeline-item--done{
+ --fe-tone: #10b981;
 }
 
-html.dark .milkdown-notes-editor .milkdown-content .fe-timeline-title {
-  color: #e2e8f0;
+.milkdown-notes-editor .milkdown-content li.fe-timeline-item--doing{
+ --fe-tone: #0284c7;
 }
 
-/* 状态配色（与 Cherry 的 done / doing / todo / error 对齐） */
-.milkdown-notes-editor .milkdown-content li.fe-timeline-item--done {
-  --fe-tone: #10b981;
+.milkdown-notes-editor .milkdown-content li.fe-timeline-item--warning{
+ --fe-tone: #d97706;
 }
 
-.milkdown-notes-editor .milkdown-content li.fe-timeline-item--doing {
-  --fe-tone: #0284c7;
+.milkdown-notes-editor .milkdown-content li.fe-timeline-item--error{
+ --fe-tone: #e11d48;
 }
 
-.milkdown-notes-editor .milkdown-content li.fe-timeline-item--warning {
-  --fe-tone: #d97706;
-}
-
-.milkdown-notes-editor .milkdown-content li.fe-timeline-item--error {
-  --fe-tone: #e11d48;
-}
-
-.milkdown-notes-editor .milkdown-content li.fe-timeline-item--todo {
-  --fe-tone: #94a3b8;
+.milkdown-notes-editor .milkdown-content li.fe-timeline-item--todo{
+ --fe-tone: #94a3b8;
 }
 
 /* ---------------------------------------------------------- 10.9 图表块的「预览 / 源码」页签 */
-.fe-mermaid-tabs {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  margin-top: 1.4em;
-  width: fit-content;
-  padding: 2px;
-  border-radius: 9px 9px 0 0;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  border-bottom: 0;
-  background: rgba(148, 163, 184, 0.07);
-  user-select: none;
+.fe-mermaid-tabs{
+ display: flex;
+ align-items: center;
+ gap: 2px;
+ margin-top: 1.4em;
+ width: fit-content;
+ padding: 2px;
+ border-radius: 9px 9px 0 0;
+ border: 1px solid rgba(148, 163, 184, 0.2);
+ border-bottom: 0;
+ background: rgba(148, 163, 184, 0.07);
+ user-select: none;
 }
 
-html.dark .fe-mermaid-tabs {
-  border-color: rgba(255, 255, 255, 0.07);
-  background: rgba(255, 255, 255, 0.03);
+.fe-mermaid-tab{
+ padding: 3px 12px;
+ border: 0;
+ border-radius: 7px;
+ background: transparent;
+ font-size: 11.5px;
+ font-weight: 600;
+ color: #64748b;
+ cursor: pointer;
+ transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-.fe-mermaid-tab {
-  padding: 3px 12px;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
-  font-size: 11.5px;
-  font-weight: 600;
-  color: #64748b;
-  cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease;
+.fe-mermaid-tab:hover{
+ color: #334155;
 }
 
-.fe-mermaid-tab:hover {
-  color: #334155;
-}
-
-html.dark .fe-mermaid-tab {
-  color: #94a3b8;
-}
-
-html.dark .fe-mermaid-tab:hover {
-  color: #cbd5e1;
-}
-
-.fe-mermaid-tab.is-active {
-  background: #ffffff;
-  color: rgb(var(--brand-700-rgb, 22 99 116));
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
-}
-
-html.dark .fe-mermaid-tab.is-active {
-  background: #1b1f2b;
-  color: rgb(var(--brand-300-rgb, 143 215 224));
-}
-
-/*
+.fe-mermaid-tab.is-active{
+ background: #ffffff;
+ color: rgb(var(--brand-700-rgb, 22 99 116));
+ box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}/*
  * 「删除该图表」。用 margin-left:auto 推到页签栏最右端：页签天天点、删除偶尔点，
  * 隔开一段距离免得误触。常驻可见而不是 hover 才浮现 —— 这一栏本来就两三个元素，
  * 藏着反而找不到。
  */
-.fe-mermaid-tab-delete {
-  display: flex;
-  align-items: center;
-  margin-left: auto;
-  padding: 3px 7px;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
-  color: #94a3b8;
-  cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease;
+.fe-mermaid-tab-delete{
+ display: flex;
+ align-items: center;
+ margin-left: auto;
+ padding: 3px 7px;
+ border: 0;
+ border-radius: 7px;
+ background: transparent;
+ color: #94a3b8;
+ cursor: pointer;
+ transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-.fe-mermaid-tab-delete:hover {
-  background: rgba(239, 68, 68, 0.1);
-  color: #e11d48;
+.fe-mermaid-tab-delete:hover{
+ background: rgba(239, 68, 68, 0.1);
+ color: #e11d48;
+}/* 图表源码块：预览态整个隐去；源码态把上下外边距收掉，紧贴页签 */
+.milkdown-notes-editor .milkdown-content pre.fe-source-hidden{
+ display: none !important;
 }
 
-html.dark .fe-mermaid-tab-delete {
-  color: #64748b;
-}
-
-html.dark .fe-mermaid-tab-delete:hover {
-  background: rgba(239, 68, 68, 0.16);
-  color: #fb7185;
-}
-
-/* 图表源码块：预览态整个隐去；源码态把上下外边距收掉，紧贴页签 */
-.milkdown-notes-editor .milkdown-content pre.fe-source-hidden {
-  display: none !important;
-}
-
-.milkdown-notes-editor .milkdown-content pre.fe-mermaid-source {
-  margin-top: 0 !important;
-  border-radius: 0 0 10px 10px;
+.milkdown-notes-editor .milkdown-content pre.fe-mermaid-source{
+ margin-top: 0 !important;
+ border-radius: 0 0 10px 10px;
 }
 
 /* 页签与卡片本身是一体的，卡片不再另起上边距 */
-.fe-mermaid-card {
-  margin-top: 0 !important;
-  border-radius: 0 0 12px 12px;
+.fe-mermaid-card{
+ margin-top: 0 !important;
+ border-radius: 0 0 12px 12px;
 }
 
 /* ==========================================================================
-   16. 设计评审落地：版式节奏、表格、键帽、Callout、代码块
+ 16. 设计评审落地：版式节奏、表格、键帽、Callout、代码块
 
-   下面这些覆盖规则一律追加在文件末尾 —— 与第 8 节的正交排版特异度相同，
-   靠文档顺序取胜，不额外堆 !important。
-   ========================================================================== */
+ 下面这些覆盖规则一律追加在文件末尾 —— 与第 8 节的正交排版特异度相同，
+ 靠文档顺序取胜，不额外堆 !important。
+ ========================================================================== */
 
 /* ---------------------------------------------------------- 16.1 版心与行长 */
 /*
@@ -2972,31 +2500,31 @@ html.dark .fe-mermaid-tab-delete:hover {
  * 左右内边距不动：块手柄按 view.dom 的左边缘定位（BlockHandle 的 pinLeftOfEditor），
  * 而 view.dom 正是 .milkdown-content 本身，所以居中后手柄会跟着内容一起走。
  */
-.milkdown-notes-editor .milkdown-content {
-  max-width: var(--fe-read-max-width);
-  margin-inline: auto;
+.milkdown-notes-editor .milkdown-content{
+ max-width: var(--fe-read-max-width);
+ margin-inline: auto;
 }
 
 /* ---------------------------------------------------------- 16.2 垂直节奏 */
 /* 大章节前给足留白，与小节拉开差距，快速滚动时结构感才清晰 */
 .milkdown-notes-editor .milkdown-content h1,
-.cherry-notes-editor .cherry-markdown h1 {
-  margin-top: 0;
-  margin-bottom: 1.4rem;
+.cherry-notes-editor .cherry-markdown h1{
+ margin-top: 0;
+ margin-bottom: 1.4rem;
 }
 
 .milkdown-notes-editor .milkdown-content h2,
-.cherry-notes-editor .cherry-markdown h2 {
-  margin-top: 1.75rem;
-  /* 60px */
-  margin-bottom: 1rem;
+.cherry-notes-editor .cherry-markdown h2{
+ margin-top: 1.75rem;
+ /* 60px */
+ margin-bottom: 1rem;
 }
 
 .milkdown-notes-editor .milkdown-content h3,
-.cherry-notes-editor .cherry-markdown h3 {
-  margin-top: 2rem;
-  /* 32px */
-  margin-bottom: 0.7rem;
+.cherry-notes-editor .cherry-markdown h3{
+ margin-top: 2rem;
+ /* 32px */
+ margin-bottom: 0.7rem;
 }
 
 .milkdown-notes-editor .milkdown-content h4,
@@ -3004,14 +2532,14 @@ html.dark .fe-mermaid-tab-delete:hover {
 .milkdown-notes-editor .milkdown-content h6,
 .cherry-notes-editor .cherry-markdown h4,
 .cherry-notes-editor .cherry-markdown h5,
-.cherry-notes-editor .cherry-markdown h6 {
-  margin-top: 1.4rem;
-  margin-bottom: 0.5rem;
+.cherry-notes-editor .cherry-markdown h6{
+ margin-top: 1.4rem;
+ margin-bottom: 0.5rem;
 }
 
 .milkdown-notes-editor .milkdown-content p,
-.cherry-notes-editor .cherry-markdown p {
-  margin-bottom: 0.9rem;
+.cherry-notes-editor .cherry-markdown p{
+ margin-bottom: 0.9rem;
 }
 
 /* ---------------------------------------------------------- 16.3 表格：去竖线 */
@@ -3024,34 +2552,34 @@ html.dark .fe-mermaid-tab-delete:hover {
  * 用 padding 撑高度只会把每格撑成方块，既笨重又浪费纵向空间。
  */
 .milkdown-notes-editor .milkdown-content table,
-.cherry-notes-editor .cherry-markdown table {
-  /*
-   * 用 separate 而不是 collapse：collapse 下圆角与边框会被相邻单元格吃掉，
-   * 表格四角磨不出圆来（各浏览器的合并模型都不认单个格子的圆角）。
-   * separate + border-spacing: 0 视觉上与 collapse 等价，但保住了圆角能力。
-   */
-  border-collapse: separate;
-  border-spacing: 0;
-  /* 圆角外框要裁掉内部溢出的背景，否则表头色块会从圆角里方方地冒出来 */
-  overflow: hidden;
-  border: 1px solid rgba(148, 163, 184, 0.28);
-  border-radius: 10px;
-  margin: 0 0 1.2em;
-  /* 表格自身的字号略小于正文：表里多是短词条，与正文同号会显得吵 */
-  font-size: 14px;
-  line-height: 1.5;
+.cherry-notes-editor .cherry-markdown table{
+ /*
+ * 用 separate 而不是 collapse：collapse 下圆角与边框会被相邻单元格吃掉，
+ * 表格四角磨不出圆来（各浏览器的合并模型都不认单个格子的圆角）。
+ * separate + border-spacing: 0 视觉上与 collapse 等价，但保住了圆角能力。
+ */
+ border-collapse: separate;
+ border-spacing: 0;
+ /* 圆角外框要裁掉内部溢出的背景，否则表头色块会从圆角里方方地冒出来 */
+ overflow: hidden;
+ border: 1px solid rgba(148, 163, 184, 0.28);
+ border-radius: 10px;
+ margin: 0 0 1.2em;
+ /* 表格自身的字号略小于正文：表里多是短词条，与正文同号会显得吵 */
+ font-size: 14px;
+ line-height: 1.5;
 }
 
 .milkdown-notes-editor .milkdown-content th,
 .milkdown-notes-editor .milkdown-content td,
 .cherry-notes-editor .cherry-markdown th,
-.cherry-notes-editor .cherry-markdown td {
-  /* 只剩内部横线：外框由 table 统一画，格子自己不要再描边 */
-  border: 0 !important;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.22) !important;
-  padding: 0.42em 0.8em;
-  text-align: left;
-  vertical-align: top;
+.cherry-notes-editor .cherry-markdown td{
+ /* 只剩内部横线：外框由 table 统一画，格子自己不要再描边 */
+ border: 0 !important;
+ border-bottom: 1px solid rgba(148, 163, 184, 0.22) !important;
+ padding: 0.42em 0.8em;
+ text-align: left;
+ vertical-align: top;
 }
 
 /*
@@ -3062,128 +2590,92 @@ html.dark .fe-mermaid-tab-delete:hover {
  * 透明度压得很低：这是辅助对齐的纹理，不该抢过内容本身。
  */
 .milkdown-notes-editor .milkdown-content tbody tr:nth-child(even) td,
-.cherry-notes-editor .cherry-markdown tbody tr:nth-child(even) td {
-  background: rgba(148, 163, 184, 0.055);
+.cherry-notes-editor .cherry-markdown tbody tr:nth-child(even) td{
+ background: rgba(148, 163, 184, 0.055);
 }
 
 .milkdown-notes-editor .milkdown-content th,
-.cherry-notes-editor .cherry-markdown th {
-  /* 表头用品牌色：极浅的品牌底色 + 品牌色文字，与正文的视觉体系连起来 */
-  background: rgba(var(--brand-50-rgb, 239 250 251), 0.9) !important;
-  color: rgb(var(--brand-700-rgb, 21 103 120));
-  font-size: 12.5px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  /* 表头是标签不是内容，行高压得比表体更紧一些 */
-  padding-top: 0.36em;
-  padding-bottom: 0.36em;
-  white-space: nowrap;
-  /* 表头下沿的分隔线加重一档，与数据行区分开 */
-  border-bottom: 1px solid rgba(var(--brand-500-rgb, 80 189 207), 0.25) !important;
+.cherry-notes-editor .cherry-markdown th{
+ /* 表头用品牌色：极浅的品牌底色 + 品牌色文字，与正文的视觉体系连起来 */
+ background: rgba(var(--brand-50-rgb, 239 250 251), 0.9) !important;
+ color: rgb(var(--brand-700-rgb, 21 103 120));
+ font-size: 12.5px;
+ font-weight: 600;
+ letter-spacing: 0.02em;
+ /* 表头是标签不是内容，行高压得比表体更紧一些 */
+ padding-top: 0.36em;
+ padding-bottom: 0.36em;
+ white-space: nowrap;
+ /* 表头下沿的分隔线加重一档，与数据行区分开 */
+ border-bottom: 1px solid rgba(var(--brand-500-rgb, 80 189 207), 0.25) !important;
 }
 
 /* 单元格里的 <p> 由编辑器生成，会把正文的段间距带进来 —— 清掉 */
 .milkdown-notes-editor .milkdown-content th>p,
 .milkdown-notes-editor .milkdown-content td>p,
 .cherry-notes-editor .cherry-markdown th>p,
-.cherry-notes-editor .cherry-markdown td>p {
-  margin: 0 !important;
+.cherry-notes-editor .cherry-markdown td>p{
+ margin: 0 !important;
 }
 
 .milkdown-notes-editor .milkdown-content tbody tr:last-child td,
-.cherry-notes-editor .cherry-markdown tbody tr:last-child td {
-  border-bottom: 0 !important;
-}
-
-/* 深色：表头改成低透明度的品牌色，太亮会在一片深底上刺眼 */
-html.dark .milkdown-notes-editor .milkdown-content th,
-html.dark .cherry-notes-editor .cherry-markdown th {
-  background: rgba(var(--brand-500-rgb, 80 189 207), 0.12) !important;
-  color: rgb(var(--brand-300-rgb, 150 220 232));
-  border-bottom-color: rgba(var(--brand-500-rgb, 80 189 207), 0.22) !important;
-}
-
-/* 深色斑马纹：白色的低透明度比灰色的更自然，灰色在深底上会发脏 */
-html.dark .milkdown-notes-editor .milkdown-content tbody tr:nth-child(even) td,
-html.dark .cherry-notes-editor .cherry-markdown tbody tr:nth-child(even) td {
-  background: rgba(255, 255, 255, 0.028);
-}
-
-html.dark .milkdown-notes-editor .milkdown-content table,
-html.dark .cherry-notes-editor .cherry-markdown table {
-  border-color: rgba(255, 255, 255, 0.1);
-}
-
-html.dark .milkdown-notes-editor .milkdown-content td,
-html.dark .cherry-notes-editor .cherry-markdown td {
-  border-bottom-color: rgba(255, 255, 255, 0.08) !important;
-}
-
-/* ---------------------------------------------------------- 16.4 键帽 <kbd> */
+.cherry-notes-editor .cherry-markdown tbody tr:last-child td{
+ border-bottom: 0 !important;
+}/* ---------------------------------------------------------- 16.4 键帽 <kbd> */
 /*
  * 快捷键原先写成行内代码，被品牌色染成一片高饱和胶囊，抢了正文的信息层级。
  * 改用 <kbd> 渲染成扁平键帽：浅灰底 + 浅边框 + 底部一道实边模拟按键厚度。
  */
 .milkdown-notes-editor .milkdown-content kbd,
-.cherry-notes-editor .cherry-markdown kbd {
-  display: inline-block;
-  padding: 0.1em 0.42em;
-  border: 1px solid #e5e7eb;
-  border-bottom-width: 2px;
-  border-radius: 5px;
-  background: #f3f4f6;
-  box-shadow: 0 1px 0 #cbd5e1;
-  font-family: var(--fe-mono-font);
-  font-size: 0.82em;
-  font-weight: 600;
-  line-height: 1.35;
-  color: #374151;
-  vertical-align: baseline;
-}
-
-html.dark .milkdown-notes-editor .milkdown-content kbd,
-html.dark .cherry-notes-editor .cherry-markdown kbd {
-  border-color: rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.07);
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
-  color: #cbd5e1;
-}
-
-/* ---------------------------------------------------------- 16.5 代码块排版 */
+.cherry-notes-editor .cherry-markdown kbd{
+ display: inline-block;
+ padding: 0.1em 0.42em;
+ border: 1px solid #e5e7eb;
+ border-bottom-width: 2px;
+ border-radius: 5px;
+ background: #f3f4f6;
+ box-shadow: 0 1px 0 #cbd5e1;
+ font-family: var(--fe-mono-font);
+ font-size: 0.82em;
+ font-weight: 600;
+ line-height: 1.35;
+ color: #374151;
+ vertical-align: baseline;
+}/* ---------------------------------------------------------- 16.5 代码块排版 */
 /* 行高放到 1.7、边框压淡一点，深色块在浅色主题下不至于像一块死黑 */
-.milkdown-notes-editor .milkdown-content pre>code {
-  line-height: 1.7;
-  border-color: rgba(127, 127, 127, 0.14);
+.milkdown-notes-editor .milkdown-content pre>code{
+ line-height: 1.7;
+ border-color: rgba(127, 127, 127, 0.14);
 }
 
-.cherry-notes-editor .cherry-markdown pre {
-  line-height: 1.7 !important;
+.cherry-notes-editor .cherry-markdown pre{
+ line-height: 1.7 !important;
 }
 
 /* ==========================================================================
-   17. Callout / Alert 统一设计语言，目录折叠，矢量图标
-   ========================================================================== */
+ 17. Callout / Alert 统一设计语言，目录折叠，矢量图标
+ ========================================================================== */
 
 /* ---------------------------------------------------------- 17.1 矢量图标 */
-.fe-ico {
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
-  display: inline-block;
-  vertical-align: -0.15em;
+.fe-ico{
+ width: 14px;
+ height: 14px;
+ flex-shrink: 0;
+ display: inline-block;
+ vertical-align: -0.15em;
 }
 
-.fe-container-icon {
-  display: inline-flex;
-  align-items: center;
-  margin-right: 7px;
-  color: var(--fe-tone, #64748b);
+.fe-container-icon{
+ display: inline-flex;
+ align-items: center;
+ margin-right: 7px;
+ color: var(--fe-tone, #64748b);
 }
 
-.fe-alert-icon {
-  display: inline-flex;
-  align-items: center;
-  margin-right: 7px;
+.fe-alert-icon{
+ display: inline-flex;
+ align-items: center;
+ margin-right: 7px;
 }
 
 /* ---------------------------------------------------------- 17.2 柔化配色 */
@@ -3196,14 +2688,14 @@ html.dark .cherry-notes-editor .cherry-markdown kbd {
 .fe-container-body--info,
 .fe-container-close--info,
 .fe-alert--note,
-.fe-alert-head--note {
-  --fe-tone: #3b6ea5;
+.fe-alert-head--note{
+ --fe-tone: #3b6ea5;
 }
 
 .fe-container-head--note,
 .fe-container-body--note,
-.fe-container-close--note {
-  --fe-tone: #4f6b9c;
+.fe-container-close--note{
+ --fe-tone: #4f6b9c;
 }
 
 .fe-container-head--tip,
@@ -3213,110 +2705,62 @@ html.dark .cherry-notes-editor .cherry-markdown kbd {
 .fe-container-body--success,
 .fe-container-close--success,
 .fe-alert--tip,
-.fe-alert-head--tip {
-  --fe-tone: #2f855a;
+.fe-alert-head--tip{
+ --fe-tone: #2f855a;
 }
 
 .fe-container-head--warning,
 .fe-container-body--warning,
 .fe-container-close--warning,
 .fe-alert--warning,
-.fe-alert-head--warning {
-  --fe-tone: #b7791f;
+.fe-alert-head--warning{
+ --fe-tone: #b7791f;
 }
 
 .fe-container-head--danger,
 .fe-container-body--danger,
 .fe-container-close--danger,
 .fe-alert--caution,
-.fe-alert-head--caution {
-  --fe-tone: #c2557a;
+.fe-alert-head--caution{
+ --fe-tone: #c2557a;
 }
 
 .fe-alert--important,
-.fe-alert-head--important {
-  --fe-tone: #7c6bb0;
-}
-
-html.dark .fe-container-head--info,
-html.dark .fe-container-body--info,
-html.dark .fe-container-close--info,
-html.dark .fe-alert--note,
-html.dark .fe-alert-head--note {
-  --fe-tone: #7cb3e0;
-}
-
-html.dark .fe-container-head--note,
-html.dark .fe-container-body--note,
-html.dark .fe-container-close--note {
-  --fe-tone: #93a9d6;
-}
-
-html.dark .fe-container-head--tip,
-html.dark .fe-container-body--tip,
-html.dark .fe-container-close--tip,
-html.dark .fe-container-head--success,
-html.dark .fe-container-body--success,
-html.dark .fe-container-close--success,
-html.dark .fe-alert--tip,
-html.dark .fe-alert-head--tip {
-  --fe-tone: #7fd1a6;
-}
-
-html.dark .fe-container-head--warning,
-html.dark .fe-container-body--warning,
-html.dark .fe-container-close--warning,
-html.dark .fe-alert--warning,
-html.dark .fe-alert-head--warning {
-  --fe-tone: #e5c07b;
-}
-
-html.dark .fe-container-head--danger,
-html.dark .fe-container-body--danger,
-html.dark .fe-container-close--danger,
-html.dark .fe-alert--caution,
-html.dark .fe-alert-head--caution {
-  --fe-tone: #e79ab5;
-}
-
-html.dark .fe-alert--important,
-html.dark .fe-alert-head--important {
-  --fe-tone: #b3a3e0;
-}
-
-/* ---------------------------------------------------------- 17.3 内边距 */
+.fe-alert-head--important{
+ --fe-tone: #7c6bb0;
+}/* ---------------------------------------------------------- 17.3 内边距 */
 /*
  * 容器面板走「白底细边框」，内边距按卡片给；
  * Alert 走「只剩一根左侧竖线」，内边距压到最小 —— 它的表头只有一行小字，
  * 上下各 11px 是给彩色卡片配的，放在细线形态上会显得松垮。
  */
-.fe-container-head {
-  padding: 10px 14px !important;
-  font-size: 13px !important;
-  line-height: 1.6 !important;
+.fe-container-head{
+ padding: 10px 14px !important;
+ font-size: 13px !important;
+ line-height: 1.6 !important;
 }
 
-.fe-container-body {
-  padding: 4px 14px !important;
+.fe-container-body{
+ padding: 4px 14px !important;
 }
 
-.fe-container-body--first {
-  padding-top: 8px !important;
+.fe-container-body--first{
+ padding-top: 8px !important;
 }
 
-.fe-container-body--last {
-  padding-bottom: 8px !important;
+.fe-container-body--last{
+ padding-bottom: 8px !important;
 }
 
-.fe-alert-head {
-  padding: 2px 0 2px 14px;
-  font-size: 11.5px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+.fe-alert-head{
+ padding: 2px 0 2px 14px;
+ font-size: 11.5px;
+ font-weight: 700;
+ letter-spacing: 0.02em;
 }
 
-.milkdown-notes-editor .milkdown-content blockquote.fe-alert {
-  padding: 2px 0 2px 14px !important;
+.milkdown-notes-editor .milkdown-content blockquote.fe-alert{
+ padding: 2px 0 2px 14px !important;
 }
 
 /* ---------------------------------------------------------- 17.4 目录：折叠胶囊 */
@@ -3325,34 +2769,28 @@ html.dark .fe-alert-head--important {
  * 它是块级 widget，会被塞进一个匿名的整行盒里 —— 只写 display: inline-flex
  * 挡不住被拉满，结果就是一条横贯整行的圆角长条，而不是一颗胶囊。
  */
-.fe-toc-title {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+.fe-toc-title{
+ display: inline-flex;
+ align-items: center;
+ gap: 6px;
 }
 
-.fe-toc-collapse {
-  padding: 2px 8px;
-  border: 1px solid rgba(148, 163, 184, 0.24);
-  border-radius: 6px;
-  background: transparent;
-  font-size: 10.5px;
-  font-weight: 600;
-  color: #94a3b8;
-  cursor: pointer;
-  transition: color 0.15s ease, border-color 0.15s ease;
+.fe-toc-collapse{
+ padding: 2px 8px;
+ border: 1px solid rgba(148, 163, 184, 0.24);
+ border-radius: 6px;
+ background: transparent;
+ font-size: 10.5px;
+ font-weight: 600;
+ color: #94a3b8;
+ cursor: pointer;
+ transition: color 0.15s ease, border-color 0.15s ease;
 }
 
-.fe-toc-collapse:hover {
-  border-color: currentColor;
-  color: #475569;
-}
-
-html.dark .fe-toc-collapse:hover {
-  color: #cbd5e1;
-}
-
-/* ---------------------------------------------------------- 17.5 代码块常驻表头 */
+.fe-toc-collapse:hover{
+ border-color: currentColor;
+ color: #475569;
+}/* ---------------------------------------------------------- 17.5 代码块常驻表头 */
 /*
  * 每块一个，挂在代码块正上方：左侧语言（可点开切换），右侧自动换行与复制。
  * 与下方代码块拼成一张卡，所以接缝处不收圆角。
@@ -3362,91 +2800,84 @@ html.dark .fe-toc-collapse:hover {
  * 这里写死一个灰调在浅色主题下会和代码块对不上。下面的 background 只是兜底 ——
  * 首帧（内联样式还没写上）或读不到变量时才会露出来。
  */
-.fe-code-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 5px 8px 5px 12px;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  border-bottom: 0;
-  border-radius: 10px 10px 0 0;
-  background: rgba(148, 163, 184, 0.07);
-  user-select: none;
+.fe-code-header{
+ display: flex;
+ align-items: center;
+ justify-content: space-between;
+ gap: 12px;
+ padding: 5px 8px 5px 12px;
+ border: 1px solid rgba(148, 163, 184, 0.2);
+ border-bottom: 0;
+ border-radius: 10px 10px 0 0;
+ background: rgba(148, 163, 184, 0.07);
+ user-select: none;
+}/* 表头正下方的代码块去掉上外边距，两者拼成一张卡 */
+.milkdown-notes-editor .milkdown-content .fe-code-header+pre{
+ margin-top: 0;
+ border-radius: 0 0 10px 10px;
 }
 
-html.dark .fe-code-header {
-  border-color: rgba(255, 255, 255, 0.07);
-  background: rgba(255, 255, 255, 0.03);
+.fe-code-lang{
+ display: inline-flex;
+ align-items: center;
+ gap: 6px;
+ padding: 3px 8px;
+ border: 0;
+ border-radius: 7px;
+ background: transparent;
+ font-family: var(--fe-mono-font);
+ font-size: 11.5px;
+ font-weight: 600;
+ /* 颜色继承表头 —— 表头按主题底色算出了一份合适的文字色（见 syncCodeHeaderTone） */
+ color: inherit;
+ /* 压在深色代码块上时，纯透明底不明显，给一层半透明白让悬停有反馈 */
+ cursor: pointer;
+ transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-/* 表头正下方的代码块去掉上外边距，两者拼成一张卡 */
-.milkdown-notes-editor .milkdown-content .fe-code-header+pre {
-  margin-top: 0;
-  border-radius: 0 0 10px 10px;
+.fe-code-lang:hover{
+ background: rgba(255, 255, 255, 0.14);
 }
 
-.fe-code-lang {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 8px;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
-  font-family: var(--fe-mono-font);
-  font-size: 11.5px;
-  font-weight: 600;
-  /* 颜色继承表头 —— 表头按主题底色算出了一份合适的文字色（见 syncCodeHeaderTone） */
-  color: inherit;
-  /* 压在深色代码块上时，纯透明底不明显，给一层半透明白让悬停有反馈 */
-  cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease;
-}
-
-.fe-code-lang:hover {
-  background: rgba(255, 255, 255, 0.14);
-}
-
-.fe-code-lang .fe-ico:last-child {
-  width: 11px;
-  height: 11px;
-  opacity: 0.6;
+.fe-code-lang .fe-ico:last-child{
+ width: 11px;
+ height: 11px;
+ opacity: 0.6;
 }
 
 /* 深色主题下不再单独覆盖：底色与文字色都跟随代码块主题（可能仍是浅色主题） */
 
-.fe-code-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 2px;
+.fe-code-header-actions{
+ display: flex;
+ align-items: center;
+ gap: 2px;
 }
 
-.fe-code-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 9px;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
-  font-size: 11.5px;
-  font-weight: 500;
-  color: inherit;
-  /* 与语言按钮同一档：未悬停时略淡，让右侧的操作区退到信息层级之后 */
-  opacity: 0.75;
-  cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+.fe-code-action{
+ display: inline-flex;
+ align-items: center;
+ gap: 5px;
+ padding: 3px 9px;
+ border: 0;
+ border-radius: 7px;
+ background: transparent;
+ font-size: 11.5px;
+ font-weight: 500;
+ color: inherit;
+ /* 与语言按钮同一档：未悬停时略淡，让右侧的操作区退到信息层级之后 */
+ opacity: 0.75;
+ cursor: pointer;
+ transition: background-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
 }
 
-.fe-code-action:hover {
-  background: rgba(255, 255, 255, 0.14);
-  opacity: 1;
+.fe-code-action:hover{
+ background: rgba(255, 255, 255, 0.14);
+ opacity: 1;
 }
 
-.fe-code-action.is-on {
-  background: rgba(255, 255, 255, 0.16);
-  opacity: 1;
+.fe-code-action.is-on{
+ background: rgba(255, 255, 255, 0.16);
+ opacity: 1;
 }
 
 /*
@@ -3456,28 +2887,28 @@ html.dark .fe-code-header {
  * 绿色在深底上对比不足、在小字号下几乎看不清。改成提亮 + 加粗，
  * 配合图标换成对勾，在任何底色上都成立。
  */
-.fe-code-action.is-done {
-  opacity: 1;
-  font-weight: 600;
+.fe-code-action.is-done{
+ opacity: 1;
+ font-weight: 600;
 }
 
 /* 语言下拉。fixed 才不会被 .milkdown-scroll 的 overflow 裁掉 */
-.fe-code-lang-menu {
-  position: fixed;
-  z-index: 96;
-  display: flex;
-  flex-direction: column;
-  width: 152px;
-  max-height: 288px;
-  overflow: hidden;
-  border: 1px solid rgba(148, 163, 184, 0.24);
-  border-radius: 10px;
-  background: #ffffff;
-  box-shadow: 0 16px 40px -12px rgba(15, 23, 42, 0.3);
+.fe-code-lang-menu{
+ position: fixed;
+ z-index: 96;
+ display: flex;
+ flex-direction: column;
+ width: 152px;
+ max-height: 288px;
+ overflow: hidden;
+ border: 1px solid rgba(148, 163, 184, 0.24);
+ border-radius: 10px;
+ background: #ffffff;
+ box-shadow: 0 16px 40px -12px rgba(15, 23, 42, 0.3);
 }
 
-.fe-code-lang-menu[hidden] {
-  display: none;
+.fe-code-lang-menu[hidden]{
+ display: none;
 }
 
 /*
@@ -3487,115 +2918,86 @@ html.dark .fe-code-header {
  * 也没有语言名那一列 code，所以补一点上下留白 —— 语言菜单的 padding
  * 是留给列表滚动的，这里直接铺满会显得贴边。
  */
-.fe-code-theme-menu {
-  padding: 5px;
-  max-height: none;
-  /*
-   * 这颗菜单贴按钮**右**边缘对齐（见 milkdownEnhance 里的定位），
-   * 而语言菜单的 transform-origin 是 top left —— 不改的话，
-   * 入场时那下缩放会从左上角展开、视觉上往右甩一下。
-   */
-  transform-origin: top right;
+.fe-code-theme-menu{
+ padding: 5px;
+ max-height: none;
+ /*
+ * 这颗菜单贴按钮**右**边缘对齐（见 milkdownEnhance 里的定位），
+ * 而语言菜单的 transform-origin 是 top left —— 不改的话，
+ * 入场时那下缩放会从左上角展开、视觉上往右甩一下。
+ */
+ transform-origin: top right;
 }
 
 /* 指路行：这颗按钮只给常用档，完整清单还在设置里 */
-.fe-code-theme-hint {
-  margin-top: 4px;
-  padding: 6px 8px 2px;
-  border-top: 1px solid rgba(148, 163, 184, 0.2);
-  font-size: 11px;
-  line-height: 1.5;
-  color: #94a3b8;
+.fe-code-theme-hint{
+ margin-top: 4px;
+ padding: 6px 8px 2px;
+ border-top: 1px solid rgba(148, 163, 184, 0.2);
+ font-size: 11px;
+ line-height: 1.5;
+ color: #94a3b8;
 }
 
-html.dark .fe-code-theme-hint {
-  border-top-color: rgba(255, 255, 255, 0.08);
-  color: #64748b;
+.fe-code-lang-search{
+ margin: 6px 6px 4px;
+ padding: 4px 8px;
+ border: 1px solid rgba(148, 163, 184, 0.24);
+ border-radius: 7px;
+ background: rgba(148, 163, 184, 0.07);
+ font-size: 11.5px;
+ color: #334155;
+ outline: none;
 }
 
-html.dark .fe-code-lang-menu {
-  border-color: rgba(255, 255, 255, 0.1);
-  background: #12141a;
+.fe-code-lang-search:focus{
+ border-color: rgb(var(--brand-500-rgb, 80 189 207));
 }
 
-.fe-code-lang-search {
-  margin: 6px 6px 4px;
-  padding: 4px 8px;
-  border: 1px solid rgba(148, 163, 184, 0.24);
-  border-radius: 7px;
-  background: rgba(148, 163, 184, 0.07);
-  font-size: 11.5px;
-  color: #334155;
-  outline: none;
+.fe-code-lang-list{
+ flex: 1;
+ overflow-y: auto;
+ padding: 0 5px 6px;
 }
 
-.fe-code-lang-search:focus {
-  border-color: rgb(var(--brand-500-rgb, 80 189 207));
+.fe-code-lang-option{
+ display: flex;
+ align-items: center;
+ justify-content: space-between;
+ gap: 10px;
+ width: 100%;
+ padding: 5px 8px;
+ border: 0;
+ border-radius: 6px;
+ background: transparent;
+ font-size: 12px;
+ text-align: left;
+ color: #334155;
+ cursor: pointer;
 }
 
-html.dark .fe-code-lang-search {
-  background: rgba(255, 255, 255, 0.05);
-  color: #e2e8f0;
+.fe-code-lang-option:hover{
+ background: rgba(148, 163, 184, 0.14);
 }
 
-.fe-code-lang-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 0 5px 6px;
+.fe-code-lang-option.is-active{
+ background: rgba(var(--brand-500-rgb, 80 189 207), 0.14);
+ color: rgb(var(--brand-700-rgb, 22 99 116));
+ font-weight: 600;
 }
 
-.fe-code-lang-option {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  width: 100%;
-  padding: 5px 8px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  font-size: 12px;
-  text-align: left;
-  color: #334155;
-  cursor: pointer;
+.fe-code-lang-option code{
+ font-family: var(--fe-mono-font);
+ font-size: 10px;
+ color: #94a3b8;
+}/* 开了自动换行的代码块：长行折行而不是横向滚动 */
+.milkdown-notes-editor .milkdown-content pre.fe-code-wrap{
+ white-space: pre-wrap !important;
 }
 
-.fe-code-lang-option:hover {
-  background: rgba(148, 163, 184, 0.14);
-}
-
-.fe-code-lang-option.is-active {
-  background: rgba(var(--brand-500-rgb, 80 189 207), 0.14);
-  color: rgb(var(--brand-700-rgb, 22 99 116));
-  font-weight: 600;
-}
-
-.fe-code-lang-option code {
-  font-family: var(--fe-mono-font);
-  font-size: 10px;
-  color: #94a3b8;
-}
-
-html.dark .fe-code-lang-option {
-  color: #cbd5e1;
-}
-
-html.dark .fe-code-lang-option:hover {
-  background: rgba(255, 255, 255, 0.08);
-}
-
-html.dark .fe-code-lang-option.is-active {
-  color: rgb(var(--brand-300-rgb, 143 215 224));
-}
-
-/* 开了自动换行的代码块：长行折行而不是横向滚动 */
-.milkdown-notes-editor .milkdown-content pre.fe-code-wrap {
-  white-space: pre-wrap !important;
-}
-
-.milkdown-notes-editor .milkdown-content pre.fe-code-wrap>code {
-  white-space: pre-wrap !important;
-  overflow-x: hidden;
+.milkdown-notes-editor .milkdown-content pre.fe-code-wrap>code{
+ white-space: pre-wrap !important;
+ overflow-x: hidden;
 }
 
 /* ---------------------------------------------------------- 17.6 容器与标注精修 */
@@ -3610,23 +3012,23 @@ html.dark .fe-code-lang-option.is-active {
  * 再用一个明确的负偏移把盒中心顶到汉字中线上 —— 开合按钮用的是同一个值。
  */
 .fe-container-icon,
-.fe-alert-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  /* 方盒比原先 14px 的图标宽出 2px，左右各收 2px，图标到文字的间距不变 */
-  margin-left: -2px;
-  margin-right: 5px;
-  vertical-align: -1.5px;
-  /* 推导见 .fe-accordion-toggle */
+.fe-alert-icon{
+ display: inline-flex;
+ align-items: center;
+ justify-content: center;
+ width: 18px;
+ height: 18px;
+ /* 方盒比原先 14px 的图标宽出 2px，左右各收 2px，图标到文字的间距不变 */
+ margin-left: -2px;
+ margin-right: 5px;
+ vertical-align: -1.5px;
+ /* 推导见 .fe-accordion-toggle */
 }
 
 .fe-container-icon .fe-ico,
-.fe-alert-icon .fe-ico {
-  display: block;
-  vertical-align: 0;
+.fe-alert-icon .fe-ico{
+ display: block;
+ vertical-align: 0;
 }
 
 /*
@@ -3636,90 +3038,90 @@ html.dark .fe-code-lang-option.is-active {
  * 两者在同一篇文档里会前后出现，留白不一致会看着一胖一瘦。
  * 字号与字重同样跟主容器的标题走（13.5 / 600）。
  */
-.milkdown-notes-editor .milkdown-content p.fe-container-inline {
-  padding: 10px 14px !important;
-  line-height: 1.7 !important;
+.milkdown-notes-editor .milkdown-content p.fe-container-inline{
+ padding: 10px 14px !important;
+ line-height: 1.7 !important;
 }
 
-.milkdown-notes-editor .milkdown-content .fe-container-title {
-  font-weight: 600;
-  font-size: 13px;
-  letter-spacing: 0.01em;
+.milkdown-notes-editor .milkdown-content .fe-container-title{
+ font-weight: 600;
+ font-size: 13px;
+ letter-spacing: 0.01em;
 }
 
 /* 标注卡片的头与正文之间贴紧些，别留一大段空白 */
-.milkdown-notes-editor .milkdown-content blockquote.fe-alert>p:first-child {
-  margin-top: 0 !important;
+.milkdown-notes-editor .milkdown-content blockquote.fe-alert>p:first-child{
+ margin-top: 0 !important;
 }
 
-.milkdown-notes-editor .milkdown-content blockquote.fe-alert> :last-child {
-  margin-bottom: 0 !important;
+.milkdown-notes-editor .milkdown-content blockquote.fe-alert> :last-child{
+ margin-bottom: 0 !important;
 }
 
 /* ==========================================================================
-   18. 手风琴开关与展开动画
+ 18. 手风琴开关与展开动画
 
-   前两版开关都失败在同一个地方 —— 想给它一个「看得见的容身处」
-   （先是描边小方块，后来是灰底胶囊），结果就是一个灰盒子杵在彩色标题行里，
-   比它要提示的内容还抢眼。折叠指示器本该是安静的：裸箭头，用卡片主色，
-   平时半透明，hover 才浮出一层同色淡底把点击区交代清楚。
-   ========================================================================== */
+ 前两版开关都失败在同一个地方 —— 想给它一个「看得见的容身处」
+ （先是描边小方块，后来是灰底胶囊），结果就是一个灰盒子杵在彩色标题行里，
+ 比它要提示的内容还抢眼。折叠指示器本该是安静的：裸箭头，用卡片主色，
+ 平时半透明，hover 才浮出一层同色淡底把点击区交代清楚。
+ ========================================================================== */
 
-.fe-accordion-toggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  margin-left: 7px;
-  padding: 0;
-  border: 0;
-  border-radius: 5px;
-  background: transparent;
-  color: inherit;
-  /* 跟随卡片主色 */
-  cursor: pointer;
-  /*
-   * 与 17.6 的容器图标共用同一条中线。
-   *
-   * 这里只能用绝对长度，em 会踩两个坑：
-   *   1. <button> 不继承字号（Chrome 给的是 13.3333px），em 的基准与标题对不上；
-   *   2. 真正要对齐的目标 —— 汉字字形中线在基线之上 5.5px —— 是**绝对**量，
-   *      不随字号线性缩放，写 em 反而算不对。
-   *
-   * 5.5px 从哪来：middle 的参照线是「基线 + x-height/2」，那是**西文**小写字母的中线，
-   * 只有 3.7px，汉字（em 方框）的中线比它高近 2px，图标于是一整行往下沉。
-   * 而 inline-flex 盒的基线取的是内容底边（18px 盒里 14px 图标居中，距盒底 2px），
-   * 负值是在那条线上继续往下量，两个偏移合起来才是最终落点。
-   *
-   * 标题字号写死在 13.5px，所以这个值不会漂。
-   */
-  vertical-align: -1.5px;
-  opacity: 0.5;
-  transition: opacity 0.16s ease, background-color 0.16s ease,
-    transform 0.26s cubic-bezier(0.34, 1.4, 0.64, 1);
-  /* 收起：箭头指右 */
-  transform: rotate(-90deg);
+.fe-accordion-toggle{
+ display: inline-flex;
+ align-items: center;
+ justify-content: center;
+ width: 18px;
+ height: 18px;
+ margin-left: 7px;
+ padding: 0;
+ border: 0;
+ border-radius: 5px;
+ background: transparent;
+ color: inherit;
+ /* 跟随卡片主色 */
+ cursor: pointer;
+ /*
+ * 与 17.6 的容器图标共用同一条中线。
+ *
+ * 这里只能用绝对长度，em 会踩两个坑：
+ * 1. <button> 不继承字号（Chrome 给的是 13.3333px），em 的基准与标题对不上；
+ * 2. 真正要对齐的目标 —— 汉字字形中线在基线之上 5.5px —— 是**绝对**量，
+ * 不随字号线性缩放，写 em 反而算不对。
+ *
+ * 5.5px 从哪来：middle 的参照线是「基线 + x-height/2」，那是**西文**小写字母的中线，
+ * 只有 3.7px，汉字（em 方框）的中线比它高近 2px，图标于是一整行往下沉。
+ * 而 inline-flex 盒的基线取的是内容底边（18px 盒里 14px 图标居中，距盒底 2px），
+ * 负值是在那条线上继续往下量，两个偏移合起来才是最终落点。
+ *
+ * 标题字号写死在 13.5px，所以这个值不会漂。
+ */
+ vertical-align: -1.5px;
+ opacity: 0.5;
+ transition: opacity 0.16s ease, background-color 0.16s ease,
+ transform 0.26s cubic-bezier(0.34, 1.4, 0.64, 1);
+ /* 收起：箭头指右 */
+ transform: rotate(-90deg);
 }
 
-.fe-accordion-toggle .fe-ico {
-  width: 14px;
-  height: 14px;
+.fe-accordion-toggle .fe-ico{
+ width: 14px;
+ height: 14px;
 }
 
 /* hover 表头整行时也给箭头提亮，暗示这里可以点 */
 .fe-container-head:hover .fe-accordion-toggle,
-.fe-accordion-toggle:hover {
-  opacity: 1;
+.fe-accordion-toggle:hover{
+ opacity: 1;
 }
 
-.fe-accordion-toggle:hover {
-  background: color-mix(in srgb, currentColor 14%, transparent);
+.fe-accordion-toggle:hover{
+ background: color-mix(in srgb, currentColor 14%, transparent);
 }
 
 /* 展开：箭头指下 */
-.fe-accordion-toggle.is-open {
-  transform: rotate(0deg);
+.fe-accordion-toggle.is-open{
+ transform: rotate(0deg);
 }
 
 /*
@@ -3731,186 +3133,174 @@ html.dark .fe-code-lang-option.is-active {
  * 进入方向由 @starting-style 给出起始值（这是它唯一的用途）。
  */
 .milkdown-notes-editor .milkdown-content .fe-container-body,
-.milkdown-notes-editor .milkdown-content .fe-container-close {
-  opacity: 1;
-  transform: translateY(0);
-  transition: opacity 0.26s ease, transform 0.26s cubic-bezier(0.22, 1, 0.36, 1),
-    display 0.26s allow-discrete;
+.milkdown-notes-editor .milkdown-content .fe-container-close{
+ opacity: 1;
+ transform: translateY(0);
+ transition: opacity 0.26s ease, transform 0.26s cubic-bezier(0.22, 1, 0.36, 1),
+ display 0.26s allow-discrete;
 }
 
 .milkdown-notes-editor .milkdown-content .fe-container-body.is-collapsed,
-.milkdown-notes-editor .milkdown-content .fe-container-close.is-collapsed {
-  display: none;
-  opacity: 0;
-  transform: translateY(-6px);
+.milkdown-notes-editor .milkdown-content .fe-container-close.is-collapsed{
+ display: none;
+ opacity: 0;
+ transform: translateY(-6px);
 }
 
-@starting-style {
+@starting-style{
 
-  .milkdown-notes-editor .milkdown-content .fe-container-body:not(.is-collapsed),
-  .milkdown-notes-editor .milkdown-content .fe-container-close:not(.is-collapsed) {
-    opacity: 0;
-    transform: translateY(-6px);
-  }
+ .milkdown-notes-editor .milkdown-content .fe-container-body:not(.is-collapsed),
+ .milkdown-notes-editor .milkdown-content .fe-container-close:not(.is-collapsed){
+ opacity: 0;
+ transform: translateY(-6px);
+ }
 }
 
 /* 手风琴收起时标题行要补齐下方圆角，这个变化同样给个过渡 */
 .milkdown-notes-editor .milkdown-content p.fe-container-inline,
-.milkdown-notes-editor .milkdown-content .fe-container-head {
-  transition: border-radius 0.24s ease;
+.milkdown-notes-editor .milkdown-content .fe-container-head{
+ transition: border-radius 0.24s ease;
 }
 
 /* ---------------------------------------------------------- 18.1 图表入场 */
 /* 图表是异步渲染的，出来时淡入一下，别硬生生地闪出来 */
-@keyframes fe-fade-rise {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
+@keyframes fe-fade-rise{
+ from{
+ opacity: 0;
+ transform: translateY(6px);
+ }
 
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+ to{
+ opacity: 1;
+ transform: translateY(0);
+ }
 }
 
-.fe-mermaid-card {
-  animation: fe-fade-rise 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+.fe-mermaid-card{
+ animation: fe-fade-rise 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 /* SVG 由 mermaid 异步填进来，单独再淡入一次 */
-.fe-mermaid-body svg {
-  animation: fe-fade-rise 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+.fe-mermaid-body svg{
+ animation: fe-fade-rise 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 /* ---------------------------------------------------------- 18.2 语言菜单 */
 /* 菜单是 fixed 定位后一次性显隐的，加个轻量的缩放淡入 */
-@keyframes fe-menu-in {
-  from {
-    opacity: 0;
-    transform: translateY(-4px) scale(0.97);
-  }
+@keyframes fe-menu-in{
+ from{
+ opacity: 0;
+ transform: translateY(-4px) scale(0.97);
+ }
 
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+ to{
+ opacity: 1;
+ transform: translateY(0) scale(1);
+ }
 }
 
-.fe-code-lang-menu {
-  animation: fe-menu-in 0.16s cubic-bezier(0.22, 1, 0.36, 1);
-  transform-origin: top left;
+.fe-code-lang-menu{
+ animation: fe-menu-in 0.16s cubic-bezier(0.22, 1, 0.36, 1);
+ transform-origin: top left;
 }
 
 /* ---------------------------------------------------------- 18.4 代码块表头 */
 .fe-code-lang,
-.fe-code-action {
-  transition: background-color 0.16s ease, color 0.16s ease,
-    transform 0.16s cubic-bezier(0.34, 1.4, 0.64, 1);
+.fe-code-action{
+ transition: background-color 0.16s ease, color 0.16s ease,
+ transform 0.16s cubic-bezier(0.34, 1.4, 0.64, 1);
 }
 
-.fe-code-action:active {
-  transform: scale(0.95);
+.fe-code-action:active{
+ transform: scale(0.95);
 }
 
 /* 复制成功时对勾弹一下，比单纯换字更有反馈 */
-@keyframes fe-pop {
-  0% {
-    transform: scale(0.6);
-    opacity: 0.4;
-  }
+@keyframes fe-pop{
+ 0%{
+ transform: scale(0.6);
+ opacity: 0.4;
+ }
 
-  60% {
-    transform: scale(1.15);
-  }
+ 60%{
+ transform: scale(1.15);
+ }
 
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
+ 100%{
+ transform: scale(1);
+ opacity: 1;
+ }
 }
 
-.fe-code-action.is-done .fe-ico {
-  animation: fe-pop 0.28s cubic-bezier(0.34, 1.4, 0.64, 1);
+.fe-code-action.is-done .fe-ico{
+ animation: fe-pop 0.28s cubic-bezier(0.34, 1.4, 0.64, 1);
 }
 
 /* ---------------------------------------------------------- 18.5 尊重减少动效偏好 */
-@media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce){
 
-  .fe-mermaid-card,
-  .fe-mermaid-body svg,
-  .fe-code-lang-menu,
-  .fe-code-action.is-done .fe-ico {
-    animation: none !important;
-  }
+ .fe-mermaid-card,
+ .fe-mermaid-body svg,
+ .fe-code-lang-menu,
+ .fe-code-action.is-done .fe-ico{
+ animation: none !important;
+ }
 
-  .fe-accordion-toggle,
-  .fe-toc-collapse,
-  .fe-code-action,
-  .milkdown-notes-editor .milkdown-content .fe-container-body,
-  .milkdown-notes-editor .milkdown-content .fe-container-close {
-    transition: none !important;
-  }
+ .fe-accordion-toggle,
+ .fe-toc-collapse,
+ .fe-code-action,
+ .milkdown-notes-editor .milkdown-content .fe-container-body,
+ .milkdown-notes-editor .milkdown-content .fe-container-close{
+ transition: none !important;
+ }
 }
 
 /* 开合按钮也做成安静的裸文字，别抢表头的注意力 */
-.fe-toc-collapse {
-  border-color: transparent;
-  background: transparent;
+.fe-toc-collapse{
+ border-color: transparent;
+ background: transparent;
 }
 
-.fe-toc-collapse:hover {
-  border-color: rgba(148, 163, 184, 0.35);
-  background: rgba(148, 163, 184, 0.1);
-  color: #334155;
-}
-
-html.dark .fe-toc-collapse:hover {
-  border-color: rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.07);
-  color: #e2e8f0;
-}
-
-/* ---------------------------------------------------------- 18.7 目录表头与正文的分隔 */
+.fe-toc-collapse:hover{
+ border-color: rgba(148, 163, 184, 0.35);
+ background: rgba(148, 163, 184, 0.1);
+ color: #334155;
+}/* ---------------------------------------------------------- 18.7 目录表头与正文的分隔 */
 /*
  * 分隔线挂在**正文顶部**，不挂在表头底部。
  * 收起时正文整块撤下，表头的盒子纹丝不动 —— 也就没有「收起时标题条猛地缩一截」的跳动。
  */
-.fe-toc-body {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid rgba(148, 163, 184, 0.2);
-  opacity: 1;
-  transform: translateY(0);
-  transition: opacity 0.26s ease, transform 0.26s cubic-bezier(0.22, 1, 0.36, 1),
-    display 0.26s allow-discrete;
+.fe-toc-body{
+ margin-top: 10px;
+ padding-top: 10px;
+ border-top: 1px solid rgba(148, 163, 184, 0.2);
+ opacity: 1;
+ transform: translateY(0);
+ transition: opacity 0.26s ease, transform 0.26s cubic-bezier(0.22, 1, 0.36, 1),
+ display 0.26s allow-discrete;
 }
 
-html.dark .fe-toc-body {
-  border-top-color: rgba(255, 255, 255, 0.08);
+.fe-toc-card.is-collapsed .fe-toc-body{
+ display: none;
+ opacity: 0;
+ transform: translateY(-4px);
 }
 
-.fe-toc-card.is-collapsed .fe-toc-body {
-  display: none;
-  opacity: 0;
-  transform: translateY(-4px);
-}
-
-@starting-style {
-  .fe-toc-card:not(.is-collapsed) .fe-toc-body {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
+@starting-style{
+ .fe-toc-card:not(.is-collapsed) .fe-toc-body{
+ opacity: 0;
+ transform: translateY(-4px);
+ }
 }
 
 /* 表头在开合之间不该有任何位移 */
-.fe-toc-card .fe-toc-head {
-  transition: none;
+.fe-toc-card .fe-toc-head{
+ transition: none;
 }
 
 /* ==========================================================================
-   19. 代码块：表头衔接与行号对齐
-   ========================================================================== */
+ 19. 代码块：表头衔接与行号对齐
+ ========================================================================== */
 
 /*
  * 表头与代码块拼成一张卡。
@@ -3919,14 +3309,14 @@ html.dark .fe-toc-body {
  * 表头是块级 widget，ProseMirror 插进 DOM 后的相邻关系不该被当作稳定契约。
  * 改成给代码块自身挂 `fe-code-block` 类（见 milkdownEnhance.ts），直接命中。
  */
-.milkdown-notes-editor .milkdown-content pre.fe-code-block {
-  margin-top: 0 !important;
+.milkdown-notes-editor .milkdown-content pre.fe-code-block{
+ margin-top: 0 !important;
 }
 
-.milkdown-notes-editor .milkdown-content pre.fe-code-block>code {
-  /* 上圆角交还表头，接缝处不留自己的边框 */
-  border-radius: 0 0 10px 10px;
-  border-top: 0;
+.milkdown-notes-editor .milkdown-content pre.fe-code-block>code{
+ /* 上圆角交还表头，接缝处不留自己的边框 */
+ border-radius: 0 0 10px 10px;
+ border-top: 0;
 }
 
 /*
@@ -3937,54 +3327,54 @@ html.dark .fe-toc-body {
  * 看上去像「行号标错了」。这里把行高抽成一个变量，两边共用，
  * 字体大小仍可不同（行号略小更好看），但行盒高度必须一致。
  */
-.milkdown-notes-editor .milkdown-content pre {
-  --fe-code-line-height: 22px;
+.milkdown-notes-editor .milkdown-content pre{
+ --fe-code-line-height: 22px;
 }
 
-.milkdown-notes-editor .milkdown-content pre>code {
-  line-height: var(--fe-code-line-height);
+.milkdown-notes-editor .milkdown-content pre>code{
+ line-height: var(--fe-code-line-height);
 }
 
-.milkdown-notes-editor .milkdown-content pre .fe-code-gutter {
-  line-height: var(--fe-code-line-height);
+.milkdown-notes-editor .milkdown-content pre .fe-code-gutter{
+ line-height: var(--fe-code-line-height);
 }
 
 /* ==========================================================================
-   20. 「上 bar + 下 panel」的接缝统一收口
-   
-   这一类问题的成因完全相同：上方是表头/页签，下方是正文面板，
-   但面板自己还带着上圆角（有时还有上边距）—— 于是接缝处露出背景，
-   看起来就是「一道缝 + 圆角各圆各的」。
+ 20. 「上 bar + 下 panel」的接缝统一收口
 
-   统一规则：bar 收上圆角并去掉下边框，紧随其后的 panel 收下圆角、去上边框、去上边距。
-   ========================================================================== */
+ 这一类问题的成因完全相同：上方是表头/页签，下方是正文面板，
+ 但面板自己还带着上圆角（有时还有上边距）—— 于是接缝处露出背景，
+ 看起来就是「一道缝 + 圆角各圆各的」。
+
+ 统一规则：bar 收上圆角并去掉下边框，紧随其后的 panel 收下圆角、去上边框、去上边距。
+ ========================================================================== */
 
 /* ---------------------------------------------------------- 20.1 图表页签 */
 /* 占满整行（与代码块表头一致），不再缩成一颗胶囊 */
-.fe-mermaid-tabs {
-  width: 100%;
-  border-radius: 10px 10px 0 0;
+.fe-mermaid-tabs{
+ width: 100%;
+ border-radius: 10px 10px 0 0;
 }
 
 /* 页签下方是「源码」块时 */
-.milkdown-notes-editor .milkdown-content pre.fe-mermaid-source {
-  margin-top: 0 !important;
+.milkdown-notes-editor .milkdown-content pre.fe-mermaid-source{
+ margin-top: 0 !important;
 }
 
-.milkdown-notes-editor .milkdown-content pre.fe-mermaid-source>code {
-  border-radius: 0 0 10px 10px;
-  border-top: 0;
+.milkdown-notes-editor .milkdown-content pre.fe-mermaid-source>code{
+ border-radius: 0 0 10px 10px;
+ border-top: 0;
 }
 
 /* 页签下方是渲染好的图表卡片时 */
-.fe-mermaid-card {
-  margin-top: 0 !important;
-  border-radius: 0 0 10px 10px !important;
+.fe-mermaid-card{
+ margin-top: 0 !important;
+ border-radius: 0 0 10px 10px !important;
 }
 
 /* 代码块表头同样收成 10px，与页签一致 */
-.fe-code-header {
-  border-radius: 10px 10px 0 0;
+.fe-code-header{
+ border-radius: 10px 10px 0 0;
 }
 
 /* ---------------------------------------------------------- 20.2 容器面板接缝复核 */
@@ -3995,9 +3385,9 @@ html.dark .fe-toc-body {
  */
 .fe-container-head,
 .fe-container-body,
-.fe-container-close {
-  padding-left: 16px !important;
-  padding-right: 16px !important;
+.fe-container-close{
+ padding-left: 16px !important;
+ padding-right: 16px !important;
 }
 
 /* ---------------------------------------------------------- 20.2 标注卡片 */
@@ -4009,558 +3399,555 @@ html.dark .fe-toc-body {
 
 /* ---------------------------------------------------------- 20.3 目录卡片 */
 /* 表头与列表同处一张卡，圆角只由卡片本身给 */
-.fe-toc-card {
-  border-radius: 12px;
+.fe-toc-card{
+ border-radius: 12px;
 }
 
 /* ==========================================================================
-   21. 画面缩放只作用于正文
+ 21. 画面缩放只作用于正文
 
-   倍率由 NotesTool 以 --editor-zoom 变量放在编辑区外壳上，这里只施加到**内容容器**：
-   - .milkdown-scroll 是所见即所得的滚动容器，工具栏与右侧大纲都在它外面
-   - .cherry 内部含编辑器与预览区，Cherry 的原生工具栏已隐形、不占高度
+ 倍率由 NotesTool 以 --editor-zoom 变量放在编辑区外壳上，这里只施加到**内容容器**：
+ - .milkdown-scroll 是所见即所得的滚动容器，工具栏与右侧大纲都在它外面
+ - .cherry 内部含编辑器与预览区，Cherry 的原生工具栏已隐形、不占高度
 
-   为什么不把 zoom 直接放在编辑区外壳上：那会把格式工具栏、大纲胶囊一起放大 ——
-   它们是「工具」，不该跟着正文的阅读倍率走。
-   ========================================================================== */
+ 为什么不把 zoom 直接放在编辑区外壳上：那会把格式工具栏、大纲胶囊一起放大 ——
+ 它们是「工具」，不该跟着正文的阅读倍率走。
+ ========================================================================== */
 
 .milkdown-notes-editor .milkdown-scroll,
-.cherry-notes-editor .cherry {
-  zoom: var(--editor-zoom, 1);
+.cherry-notes-editor .cherry{
+ zoom: var(--editor-zoom, 1);
 }
 
 /* ==========================================================================
-   22. 浮层动效：进出成对
+ 22. 浮层动效：进出成对
 
-   此前所有浮层都只有「进入」动画 —— 因为 React 是同步卸载的，open 一变 false
-   节点当场消失，退出动画没机会跑。配合 hooks/usePresence.ts（它负责把卸载推迟到
-   动画结束），这里补齐每一组的**退出关键帧**。
+ 此前所有浮层都只有「进入」动画 —— 因为 React 是同步卸载的，open 一变 false
+ 节点当场消失，退出动画没机会跑。配合 hooks/usePresence.ts（它负责把卸载推迟到
+ 动画结束），这里补齐每一组的**退出关键帧**。
 
-   约定：组件上挂 `data-state="closed"` 表示「正在收起」，退出动画挂在这个状态上，
-   并用 forwards 停在末帧，避免卸载前闪回原状。
-   ========================================================================== */
+ 约定：组件上挂 `data-state="closed"` 表示「正在收起」，退出动画挂在这个状态上，
+ 并用 forwards 停在末帧，避免卸载前闪回原状。
+ ========================================================================== */
 
 /* ---------------------------------------------------------- 22.1 关键帧 */
 /* 小浮层：菜单、下拉、快捷键提示、编辑器弹层 */
-@keyframes pop-in {
-  from {
-    opacity: 0;
-    transform: scale(0.96) translateY(-4px);
-  }
+@keyframes pop-in{
+ from{
+ opacity: 0;
+ transform: scale(0.96) translateY(-4px);
+ }
 
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
+ to{
+ opacity: 1;
+ transform: scale(1) translateY(0);
+ }
 }
 
-@keyframes pop-out {
-  from {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
+@keyframes pop-out{
+ from{
+ opacity: 1;
+ transform: scale(1) translateY(0);
+ }
 
-  to {
-    opacity: 0;
-    transform: scale(0.97) translateY(-3px);
-  }
+ to{
+ opacity: 0;
+ transform: scale(0.97) translateY(-3px);
+ }
 }
 
 /* 遮罩与整屏淡入淡出 */
-@keyframes fade-soft-in {
-  from {
-    opacity: 0;
-  }
+@keyframes fade-soft-in{
+ from{
+ opacity: 0;
+ }
 
-  to {
-    opacity: 1;
-  }
+ to{
+ opacity: 1;
+ }
 }
 
-@keyframes fade-soft-out {
-  from {
-    opacity: 1;
-  }
+@keyframes fade-soft-out{
+ from{
+ opacity: 1;
+ }
 
-  to {
-    opacity: 0;
-  }
+ to{
+ opacity: 0;
+ }
 }
 
 /* 对话框本体：比小浮层幅度大一点，从下方浮起 */
-@keyframes modal-in {
-  from {
-    opacity: 0;
-    transform: translateY(10px) scale(0.98);
-  }
+@keyframes modal-in{
+ from{
+ opacity: 0;
+ transform: translateY(10px) scale(0.98);
+ }
 
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+ to{
+ opacity: 1;
+ transform: translateY(0) scale(1);
+ }
 }
 
-@keyframes modal-out {
-  from {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+@keyframes modal-out{
+ from{
+ opacity: 1;
+ transform: translateY(0) scale(1);
+ }
 
-  to {
-    opacity: 0;
-    transform: translateY(8px) scale(0.985);
-  }
+ to{
+ opacity: 0;
+ transform: translateY(8px) scale(0.985);
+ }
 }
 
 /* 从右侧滑入的面板 */
-@keyframes sheet-in {
-  from {
-    opacity: 0;
-    transform: translateX(28px) scale(0.985);
-  }
+@keyframes sheet-in{
+ from{
+ opacity: 0;
+ transform: translateX(28px) scale(0.985);
+ }
 
-  to {
-    opacity: 1;
-    transform: translateX(0) scale(1);
-  }
+ to{
+ opacity: 1;
+ transform: translateX(0) scale(1);
+ }
 }
 
-@keyframes sheet-out {
-  from {
-    opacity: 1;
-    transform: translateX(0) scale(1);
-  }
+@keyframes sheet-out{
+ from{
+ opacity: 1;
+ transform: translateX(0) scale(1);
+ }
 
-  to {
-    opacity: 0;
-    transform: translateX(24px) scale(0.99);
-  }
+ to{
+ opacity: 0;
+ transform: translateX(24px) scale(0.99);
+ }
 }
 
 /* 角标提示：从上方落下 */
-@keyframes toast-in {
-  from {
-    opacity: 0;
-    transform: translateY(-6px) scale(0.97);
-  }
+@keyframes toast-in{
+ from{
+ opacity: 0;
+ transform: translateY(-6px) scale(0.97);
+ }
 
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+ to{
+ opacity: 1;
+ transform: translateY(0) scale(1);
+ }
 }
 
-@keyframes toast-out {
-  from {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+@keyframes toast-out{
+ from{
+ opacity: 1;
+ transform: translateY(0) scale(1);
+ }
 
-  to {
-    opacity: 0;
-    transform: translateY(-6px) scale(0.97);
-  }
+ to{
+ opacity: 0;
+ transform: translateY(-6px) scale(0.97);
+ }
 }
 
 /* 悬停提示：只做淡入淡出。气泡可能在触发元素上方或下方，加位移方向就不对了 */
-@keyframes tip-in {
-  from {
-    opacity: 0;
-  }
+@keyframes tip-in{
+ from{
+ opacity: 0;
+ }
 
-  to {
-    opacity: 1;
-  }
+ to{
+ opacity: 1;
+ }
 }
 
-@keyframes tip-out {
-  from {
-    opacity: 1;
-  }
+@keyframes tip-out{
+ from{
+ opacity: 1;
+ }
 
-  to {
-    opacity: 0;
-  }
+ to{
+ opacity: 0;
+ }
 }
 
 /* ---------------------------------------------------------- 22.2 通用类 */
 /* 组件挂上这三个之一，再给 data-state 即可拥有成对的进出动画 */
-.fe-pop {
-  animation: pop-in 160ms cubic-bezier(0.22, 1, 0.36, 1);
+.fe-pop{
+ animation: pop-in 160ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.fe-pop[data-state='closed'] {
-  animation: pop-out 130ms cubic-bezier(0.4, 0, 1, 1) forwards;
-  pointer-events: none;
+.fe-pop[data-state='closed']{
+ animation: pop-out 130ms cubic-bezier(0.4, 0, 1, 1) forwards;
+ pointer-events: none;
 }
 
-.fe-fade {
-  animation: fade-soft-in 180ms ease-out;
+.fe-fade{
+ animation: fade-soft-in 180ms ease-out;
 }
 
-.fe-fade[data-state='closed'] {
-  animation: fade-soft-out 150ms ease-in forwards;
-  pointer-events: none;
+.fe-fade[data-state='closed']{
+ animation: fade-soft-out 150ms ease-in forwards;
+ pointer-events: none;
 }
 
-.fe-modal {
-  animation: modal-in 200ms cubic-bezier(0.22, 1, 0.36, 1);
+.fe-modal{
+ animation: modal-in 200ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.fe-modal[data-state='closed'] {
-  animation: modal-out 160ms cubic-bezier(0.4, 0, 1, 1) forwards;
-  pointer-events: none;
+.fe-modal[data-state='closed']{
+ animation: modal-out 160ms cubic-bezier(0.4, 0, 1, 1) forwards;
+ pointer-events: none;
 }
 
-.fe-sheet {
-  animation: sheet-in 240ms cubic-bezier(0.22, 1, 0.36, 1);
+.fe-sheet{
+ animation: sheet-in 240ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.fe-sheet[data-state='closed'] {
-  animation: sheet-out 180ms cubic-bezier(0.4, 0, 1, 1) forwards;
-  pointer-events: none;
+.fe-sheet[data-state='closed']{
+ animation: sheet-out 180ms cubic-bezier(0.4, 0, 1, 1) forwards;
+ pointer-events: none;
 }
 
 /* ---------------------------------------------------------- 22.3 既有类接上退出态 */
 /* 右键菜单与子菜单 */
-.context-menu[data-state='closed'] {
-  animation: pop-out 130ms cubic-bezier(0.4, 0, 1, 1) forwards;
-  /* 收起期间节点还在 DOM 里，必须让它彻底不吃事件 —— 否则这 130ms 内的
-     一次点击会落到正在淡出的菜单项上，等于「关掉了还替用户选了一项」 */
-  pointer-events: none;
+.context-menu[data-state='closed']{
+ animation: pop-out 130ms cubic-bezier(0.4, 0, 1, 1) forwards;
+ /* 收起期间节点还在 DOM 里，必须让它彻底不吃事件 —— 否则这 130ms 内的
+ 一次点击会落到正在淡出的菜单项上，等于「关掉了还替用户选了一项」 */
+ pointer-events: none;
 }
 
-.context-menu-submenu[data-state='closed'] {
-  animation: pop-out 120ms cubic-bezier(0.4, 0, 1, 1) forwards;
-  pointer-events: none;
+.context-menu-submenu[data-state='closed']{
+ animation: pop-out 120ms cubic-bezier(0.4, 0, 1, 1) forwards;
+ pointer-events: none;
 }
 
 /* 角标提示 */
-.toast-item[data-state='closed'] {
-  animation: toast-out 150ms cubic-bezier(0.4, 0, 1, 1) forwards;
+.toast-item[data-state='closed']{
+ animation: toast-out 150ms cubic-bezier(0.4, 0, 1, 1) forwards;
 }
 
 /* 悬停提示。退出时保持它原本的定位，所以不能动 transform */
-.tooltip-bubble[data-state='closed'] {
-  animation: tip-out 110ms ease-in forwards;
+.tooltip-bubble[data-state='closed']{
+ animation: tip-out 110ms ease-in forwards;
 }
 
 /* 历史浮层（从右侧滑入的那张面板） */
-.history-overlay[data-state='closed'] {
-  animation: overlay-fade-out 160ms ease-in forwards;
+.history-overlay[data-state='closed']{
+ animation: overlay-fade-out 160ms ease-in forwards;
 }
 
-.history-overlay-panel[data-state='closed'] {
-  animation: sheet-out 180ms cubic-bezier(0.4, 0, 1, 1) forwards;
+.history-overlay-panel[data-state='closed']{
+ animation: sheet-out 180ms cubic-bezier(0.4, 0, 1, 1) forwards;
 }
 
 /* ---------------------------------------------------------- 22.4 减少动效 */
-@media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce){
 
-  .fe-pop,
-  .fe-fade,
-  .fe-modal,
-  .fe-sheet,
-  .fe-pop[data-state='closed'],
-  .fe-fade[data-state='closed'],
-  .fe-modal[data-state='closed'],
-  .fe-sheet[data-state='closed'],
-  .context-menu[data-state='closed'],
-  .context-menu-submenu[data-state='closed'],
-  .toast-item[data-state='closed'],
-  .tooltip-bubble[data-state='closed'],
-  .history-overlay[data-state='closed'],
-  .history-overlay-panel[data-state='closed'] {
-    animation: none !important;
-  }
+ .fe-pop,
+ .fe-fade,
+ .fe-modal,
+ .fe-sheet,
+ .fe-pop[data-state='closed'],
+ .fe-fade[data-state='closed'],
+ .fe-modal[data-state='closed'],
+ .fe-sheet[data-state='closed'],
+ .context-menu[data-state='closed'],
+ .context-menu-submenu[data-state='closed'],
+ .toast-item[data-state='closed'],
+ .tooltip-bubble[data-state='closed'],
+ .history-overlay[data-state='closed'],
+ .history-overlay-panel[data-state='closed']{
+ animation: none !important;
+ }
 }
 
 /* ==========================================================================
-   23. 属性驱动浮层的进出动画（data-show）
+ 23. 属性驱动浮层的进出动画（data-show）
 
-   块手柄与各条浮出工具条的显隐**不是 React state**，而是 @milkdown 的
-   TooltipProvider 直接写在宿主元素上的 `data-show` 属性 —— 值一变，
-   元素就在 display:none / block 之间瞬切，usePresence 那套用不上。
+ 块手柄与各条浮出工具条的显隐**不是 React state**，而是 @milkdown 的
+ TooltipProvider 直接写在宿主元素上的 `data-show` 属性 —— 值一变，
+ 元素就在 display:none / block 之间瞬切，usePresence 那套用不上。
 
-   这里改用 `transition-behavior: allow-discrete` 让 display 也参与过渡：
-   元素会保留到动画跑完才真正撤下，于是「淡出 + 轻微位移」对属性驱动同样成立。
-   进入方向的起始值由 @starting-style 给出。
+ 这里改用 `transition-behavior: allow-discrete` 让 display 也参与过渡：
+ 元素会保留到动画跑完才真正撤下，于是「淡出 + 轻微位移」对属性驱动同样成立。
+ 进入方向的起始值由 @starting-style 给出。
 
-   ⚠️ 只动 opacity 与 transform，不碰 floating-ui 写进来的内联 left/top。
-   ========================================================================== */
+ ⚠️ 只动 opacity 与 transform，不碰 floating-ui 写进来的内联 left/top。
+ ========================================================================== */
 
 .fehelper-block-handle,
-.fehelper-floating-bar {
-  opacity: 0;
-  transition: opacity 140ms ease, display 140ms allow-discrete;
+.fehelper-floating-bar{
+ opacity: 0;
+ transition: opacity 140ms ease, display 140ms allow-discrete;
 }
 
 .fehelper-block-handle[data-show='true'],
-.fehelper-floating-bar[data-show='true'] {
-  opacity: 1;
+.fehelper-floating-bar[data-show='true']{
+ opacity: 1;
 }
 
-@starting-style {
+@starting-style{
 
-  .fehelper-block-handle[data-show='true'],
-  .fehelper-floating-bar[data-show='true'] {
-    opacity: 0;
-  }
+ .fehelper-block-handle[data-show='true'],
+ .fehelper-floating-bar[data-show='true']{
+ opacity: 0;
+ }
 }
 
-@media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce){
 
-  .fehelper-block-handle,
-  .fehelper-floating-bar {
-    transition: none !important;
-  }
+ .fehelper-block-handle,
+ .fehelper-floating-bar{
+ transition: none !important;
+ }
 }
 
 /* ==========================================================================
-   24. 全局去掉焦点轮廓
+ 24. 全局去掉焦点轮廓
 
-   此前是逐个元素打 Tailwind 的 `outline-none`，漏一个就冒一圈默认蓝框 ——
-   全站自绘控件多，靠逐处标注既容易漏也难维护。这里用通配选择器一次兜住。
+ 此前是逐个元素打 Tailwind 的 `outline-none`，漏一个就冒一圈默认蓝框 ——
+ 全站自绘控件多，靠逐处标注既容易漏也难维护。这里用通配选择器一次兜住。
 
-   写在文件末尾、但**不会误伤语义性轮廓**：`*` 的特异度是 0，
-   任何具体规则都压得过它。例如图片 / 分割线被整体选中时那圈
-   `.ProseMirror-selectednode` 轮廓（特异度 0,3,1）依然生效 ——
-   那是「选中了什么」的提示，不是焦点环，该留。
+ 写在文件末尾、但**不会误伤语义性轮廓**：`*` 的特异度是 0，
+ 任何具体规则都压得过它。例如图片 / 分割线被整体选中时那圈
+ `.ProseMirror-selectednode` 轮廓（特异度 0,3,1）依然生效 ——
+ 那是「选中了什么」的提示，不是焦点环，该留。
 
-   ⚠️ 代价：键盘 Tab 时不再有位置提示。本项目以鼠标与快捷键为主操作方式，
-   这个取舍是可接受的；若哪天要补回来，在这条后面加一条 `:focus-visible` 即可。
-   ========================================================================== */
+ ⚠️ 代价：键盘 Tab 时不再有位置提示。本项目以鼠标与快捷键为主操作方式，
+ 这个取舍是可接受的；若哪天要补回来，在这条后面加一条 `:focus-visible` 即可。
+ ========================================================================== */
 
 *,
 *::before,
-*::after {
-  outline: none;
+*::after{
+ outline: none;
 }
 
 /* ==========================================================================
-   25. 全屏预览
+ 25. 全屏预览
 
-   预览态本身只做两件事，都不在这里：
-   - 铺满视口：NotesTool 根节点上的 `fe-preview fixed inset-0 z-[70]`
-   - 整体等比放大：复用第 21 节的 --editor-zoom，倍率由 NotesTool 按预览层宽度现算
+ 预览态本身只做两件事，都不在这里：
+ - 铺满视口：NotesTool 根节点上的 `fe-preview fixed inset-0 z-[70]`
+ - 整体等比放大：复用第 21 节的 --editor-zoom，倍率由 NotesTool 按预览层宽度现算
 
-   之所以一个 zoom 就能同时把「宽度」和「字号」放大：CSS zoom 会把该子树的内部
-   坐标系按倍率缩小，于是 max-width: var(--fe-read-max-width) 与正文那套 px 字号
-   处在同一套坐标系里，吃的是同一个倍率。版心和字同步变大，留白按比例缩减。
-   ========================================================================== */
+ 之所以一个 zoom 就能同时把「宽度」和「字号」放大：CSS zoom 会把该子树的内部
+ 坐标系按倍率缩小，于是 max-width: var(--fe-read-max-width) 与正文那套 px 字号
+ 处在同一套坐标系里，吃的是同一个倍率。版心和字同步变大，留白按比例缩减。
+ ========================================================================== */
 
 /*
  * 纯预览态下左侧没有编辑区了，Cherry 那条中缝分隔线成了贴着屏幕边的一条孤线。
  * 原规则在「5. Cherry 硬编码补刀」里（.cherry-notes-editor .cherry-previewer），
  * 两边都是 !important，靠这里多一级类名压过去。
  */
-.fe-preview .cherry-notes-editor .cherry-previewer {
-  border-left: none !important;
+.fe-preview .cherry-notes-editor .cherry-previewer{
+ border-left: none !important;
 }
-
-
-
 
 /* 输入类控件自带描边，焦点环收到内侧、免得贴着卡片边缘被裁掉 */
 input:focus-visible,
 textarea:focus-visible,
-select:focus-visible {
-  outline-offset: -1px;
+select:focus-visible{
+ outline-offset: -1px;
 }
 
 /* --------------------------------------------------- 26.2 复制按钮的形态反馈
 
-   Copy 图标原地旋出、Check 旋入，两者叠在同一个网格格里做交叉。
-   不改变按钮尺寸（两层等大同心），所以标题条不会因为一次点击抖一下。 */
+ Copy 图标原地旋出、Check 旋入，两者叠在同一个网格格里做交叉。
+ 不改变按钮尺寸（两层等大同心），所以标题条不会因为一次点击抖一下。 */
 
-.copy-morph-stack {
-  display: inline-grid;
-  place-items: center;
+.copy-morph-stack{
+ display: inline-grid;
+ place-items: center;
 }
 
-.copy-morph-stack>* {
-  grid-area: 1 / 1;
+.copy-morph-stack>*{
+ grid-area: 1 / 1;
 }
 
 .copy-morph-out,
-.copy-morph-in {
-  transition:
-    opacity 150ms cubic-bezier(0.22, 1, 0.36, 1),
-    transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
+.copy-morph-in{
+ transition:
+ opacity 150ms cubic-bezier(0.22, 1, 0.36, 1),
+ transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.copy-morph-in {
-  opacity: 0;
-  transform: scale(0.4) rotate(-30deg);
+.copy-morph-in{
+ opacity: 0;
+ transform: scale(0.4) rotate(-30deg);
 }
 
-[data-copied='true'] .copy-morph-out {
-  opacity: 0;
-  transform: scale(0.4) rotate(30deg);
+[data-copied='true'] .copy-morph-out{
+ opacity: 0;
+ transform: scale(0.4) rotate(30deg);
 }
 
-[data-copied='true'] .copy-morph-in {
-  opacity: 1;
-  transform: none;
+[data-copied='true'] .copy-morph-in{
+ opacity: 1;
+ transform: none;
 }
 
 /* ------------------------------------------------------ 26.3 数字滚动机
 
-   体积、字符数这类「转换前后的数值」不要瞬变：数字从旧值滚到新值，
-   到位时轻微放大一下，给一个「落定」的触感。 */
-@keyframes fe-count-land {
-  0% {
-    transform: scale(1);
-  }
+ 体积、字符数这类「转换前后的数值」不要瞬变：数字从旧值滚到新值，
+ 到位时轻微放大一下，给一个「落定」的触感。 */
+@keyframes fe-count-land{
+ 0%{
+ transform: scale(1);
+ }
 
-  45% {
-    transform: scale(1.09);
-  }
+ 45%{
+ transform: scale(1.09);
+ }
 
-  100% {
-    transform: scale(1);
-  }
+ 100%{
+ transform: scale(1);
+ }
 }
 
-.fe-count {
-  display: inline-block;
-  font-variant-numeric: tabular-nums;
+.fe-count{
+ display: inline-block;
+ font-variant-numeric: tabular-nums;
 }
 
-.fe-count[data-landing='true'] {
-  animation: fe-count-land 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+.fe-count[data-landing='true']{
+ animation: fe-count-land 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 /* --------------------------------------------------- 26.4 拖放区的呼吸感
 
-   三处一起变：整块放大 1.8%、虚线边框收成实线并透出品牌色底、
-   四角浮起一层随呼吸明灭的柔光。放下时由 JS 打一帧 data-landing，
-   触发一次「落入盒子」的下沉回弹。 */
+ 三处一起变：整块放大 1.8%、虚线边框收成实线并透出品牌色底、
+ 四角浮起一层随呼吸明灭的柔光。放下时由 JS 打一帧 data-landing，
+ 触发一次「落入盒子」的下沉回弹。 */
 
-.drop-zone {
-  transition:
-    transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1),
-    border-color 200ms ease,
-    background-color 200ms ease,
-    box-shadow 260ms ease;
+.drop-zone{
+ transition:
+ transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1),
+ border-color 200ms ease,
+ background-color 200ms ease,
+ box-shadow 260ms ease;
 }
 
-.drop-zone[data-drag='true'] {
-  transform: scale(1.018);
-  border-color: rgb(var(--brand-500-rgb, 80 189 207) / 0.85);
-  background-color: rgb(var(--brand-500-rgb, 80 189 207) / 0.06);
-  box-shadow:
-    0 0 0 4px rgb(var(--brand-500-rgb, 80 189 207) / 0.1),
-    0 18px 40px -22px rgb(var(--brand-600-rgb, 33 131 151) / 0.55);
-  animation: fe-drop-breathe 1600ms ease-in-out infinite;
+.drop-zone[data-drag='true']{
+ transform: scale(1.018);
+ border-color: rgb(var(--brand-500-rgb, 80 189 207) / 0.85);
+ background-color: rgb(var(--brand-500-rgb, 80 189 207) / 0.06);
+ box-shadow:
+ 0 0 0 4px rgb(var(--brand-500-rgb, 80 189 207) / 0.1),
+ 0 18px 40px -22px rgb(var(--brand-600-rgb, 33 131 151) / 0.55);
+ animation: fe-drop-breathe 1600ms ease-in-out infinite;
 }
 
-@keyframes fe-drop-breathe {
+@keyframes fe-drop-breathe{
 
-  0%,
-  100% {
-    box-shadow:
-      0 0 0 4px rgb(var(--brand-500-rgb, 80 189 207) / 0.08),
-      0 18px 40px -22px rgb(var(--brand-600-rgb, 33 131 151) / 0.45);
-  }
+ 0%,
+ 100%{
+ box-shadow:
+ 0 0 0 4px rgb(var(--brand-500-rgb, 80 189 207) / 0.08),
+ 0 18px 40px -22px rgb(var(--brand-600-rgb, 33 131 151) / 0.45);
+ }
 
-  50% {
-    box-shadow:
-      0 0 0 7px rgb(var(--brand-500-rgb, 80 189 207) / 0.14),
-      0 18px 40px -18px rgb(var(--brand-600-rgb, 33 131 151) / 0.6);
-  }
+ 50%{
+ box-shadow:
+ 0 0 0 7px rgb(var(--brand-500-rgb, 80 189 207) / 0.14),
+ 0 18px 40px -18px rgb(var(--brand-600-rgb, 33 131 151) / 0.6);
+ }
 }
 
 /* 松手那一刻：迅速内缩再弹回原尺寸，像东西落进盒底 */
-@keyframes fe-drop-land {
-  0% {
-    transform: scale(1.018);
-  }
+@keyframes fe-drop-land{
+ 0%{
+ transform: scale(1.018);
+ }
 
-  28% {
-    transform: scale(0.985);
-  }
+ 28%{
+ transform: scale(0.985);
+ }
 
-  62% {
-    transform: scale(1.006);
-  }
+ 62%{
+ transform: scale(1.006);
+ }
 
-  100% {
-    transform: scale(1);
-  }
+ 100%{
+ transform: scale(1);
+ }
 }
 
-.drop-zone[data-landing='true'] {
-  animation: fe-drop-land 340ms cubic-bezier(0.34, 1.56, 0.64, 1);
+.drop-zone[data-landing='true']{
+ animation: fe-drop-land 340ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 /* 拖拽区内的图标：悬停/拖入时轻轻上浮，跟着整块一起「迎上来」 */
-.drop-zone .drop-zone-icon {
-  transition: transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
+.drop-zone .drop-zone-icon{
+ transition: transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.drop-zone[data-drag='true'] .drop-zone-icon {
-  transform: translateY(-3px) scale(1.06);
+.drop-zone[data-drag='true'] .drop-zone-icon{
+ transform: translateY(-3px) scale(1.06);
 }
 
 /* ------------------------------------------------ 26.5 内容落位（轻量级）
 
-   比 .tool-cascade 更轻的一档：用于「空状态 → 有内容」这种局部切换，
-   0.32s 淡入上浮 6px，不排队、不延迟。 */
-@keyframes fe-rise-in {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
+ 比 .tool-cascade 更轻的一档：用于「空状态 → 有内容」这种局部切换，
+ 0.32s 淡入上浮 6px，不排队、不延迟。 */
+@keyframes fe-rise-in{
+ from{
+ opacity: 0;
+ transform: translateY(6px);
+ }
 
-  to {
-    opacity: 1;
-    transform: none;
-  }
+ to{
+ opacity: 1;
+ transform: none;
+ }
 }
 
-.fe-rise {
-  animation: fe-rise-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+.fe-rise{
+ animation: fe-rise-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 /* 26.6 减少动效：本节所有位移/缩放一律停掉，只保留焦点环（那是功能不是装饰） */
-@media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce){
 
-  .copy-morph-out,
-  .copy-morph-in {
-    transition: opacity 120ms ease !important;
-  }
+ .copy-morph-out,
+ .copy-morph-in{
+ transition: opacity 120ms ease !important;
+ }
 
-  .copy-morph-in,
-  [data-copied='true'] .copy-morph-out {
-    transform: none !important;
-  }
+ .copy-morph-in,
+ [data-copied='true'] .copy-morph-out{
+ transform: none !important;
+ }
 
-  .fe-count[data-landing='true'],
-  .drop-zone[data-landing='true'],
-  .fe-rise {
-    animation: none !important;
-  }
+ .fe-count[data-landing='true'],
+ .drop-zone[data-landing='true'],
+ .fe-rise{
+ animation: none !important;
+ }
 
-  .drop-zone,
-  .drop-zone .drop-zone-icon {
-    transition: border-color 200ms ease, background-color 200ms ease !important;
-  }
+ .drop-zone,
+ .drop-zone .drop-zone-icon{
+ transition: border-color 200ms ease, background-color 200ms ease !important;
+ }
 
-  .drop-zone[data-drag='true'] {
-    transform: none !important;
-    animation: none !important;
-  }
+ .drop-zone[data-drag='true']{
+ transform: none !important;
+ animation: none !important;
+ }
 }
 
-@keyframes tool-tab-press {
-  from {
-    transform: scaleX(0);
-  }
+@keyframes tool-tab-press{
+ from{
+ transform: scaleX(0);
+ }
 
-  to {
-    transform: scaleX(1);
-  }
+ to{
+ transform: scaleX(1);
+ }
 }
 /* ================= 智聊消息渲染性能 ================= */
 
@@ -4572,7 +3959,7 @@ select:focus-visible {
  * 的消息跳过布局与绘制，只有滚进视口的才真正排版；contain-intrinsic-size
  * 提供屏外占位高度，避免滚动条总高在估算与实测之间来回跳。
  */
-.fe-chat-msg {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 120px;
+.fe-chat-msg{
+ content-visibility: auto;
+ contain-intrinsic-size: auto 120px;
 }

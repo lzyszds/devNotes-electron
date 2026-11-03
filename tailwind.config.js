@@ -1,9 +1,16 @@
+import tailwindcssAnimate from 'tailwindcss-animate'
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
+  /*
+   * darkMode: 'class' 保留（prune-dark.mjs 已把全部 dark: 死样式清零），
+   * 将来若恢复暗色， dressing直接走 shadcn 的语义 token —— semantic 只需要
+   * 在 .dark 上覆写一组 HSL 变量即可，不用再回到两套字面量并存的老路。
+   */
   darkMode: 'class',
   theme: {
     extend: {
@@ -38,16 +45,6 @@ export default {
           900: 'rgb(var(--brand-900-rgb, 13 57 69) / <alpha-value>)',
           950: 'rgb(var(--brand-950-rgb, 8 39 48) / <alpha-value>)',
         },
-        /*
-         * 深色模式表面色板：随深色主题（极夜/东京暗夜/德古拉/幽静深林/暮色暖咖）自适应调整
-         */
-        dark: {
-          bg: 'rgb(var(--theme-dark-bg-rgb, 9 10 15) / <alpha-value>)',
-          panel: 'rgb(var(--theme-dark-panel-rgb, 18 20 26) / <alpha-value>)',
-          sidebar: 'rgb(var(--theme-dark-sidebar-rgb, 14 16 21) / <alpha-value>)',
-          border: 'rgb(var(--theme-dark-border-rgb, 35 39 51) / <alpha-value>)',
-          hover: 'rgb(var(--theme-dark-hover-rgb, 27 31 43) / <alpha-value>)',
-        },
         // 与 brand 同源，保持一致
         primary: {
           50: 'rgb(var(--brand-50-rgb, 239 250 251) / <alpha-value>)',
@@ -62,12 +59,6 @@ export default {
           900: 'rgb(var(--brand-900-rgb, 13 57 69) / <alpha-value>)',
           950: 'rgb(var(--brand-950-rgb, 8 39 48) / <alpha-value>)',
         },
-        /*
-         * 点缀色 = logo 的青蓝 #50BDCF，精确落在 500 档。
-         * 只用在品牌标识处（侧栏 logo、首屏、载入态），不做大面积主色 ——
-         * 青色系天生亮度高，#50BDCF 上压白字只有 2.2:1，撑不起主按钮，
-         * 所以需要青底白字时统一退到 600 档（#218397，4.4:1），700 留给 hover。
-         */
         logo: {
           50: '#effafb',
           100: '#dbf3f5',
@@ -80,7 +71,46 @@ export default {
           800: '#104c5b',
           900: '#0d3945',
           950: '#082730',
-        }
+        },
+        /*
+         * shadcn 语义 token：数值逐项映射自当前设计（notion-warm 暖灰系 + brand 青），
+         * 因此 shadcn 原语组件（Dialog/Button/Dropdown…）会直接长成本应用的模样，
+         * 这就是「全局换 shadcn 而 UI 无差异」的关键 —— 换内核不换皮。
+         * 新代码无法直接判断语义名时仍可用 warm.* 直写，两条路颜色同源。
+         */
+        border: '#E6E6E3',
+        input: '#E6E6E3',
+        ring: '#218397',
+        background: '#FFFFFF',
+        foreground: '#191918',
+        primary: {
+          DEFAULT: '#1C1C1C',
+          foreground: '#FFFFFF',
+        },
+        secondary: {
+          DEFAULT: '#FBFBFA',
+          foreground: '#191918',
+        },
+        muted: {
+          DEFAULT: '#FBFBFA',
+          foreground: '#787774',
+        },
+        accent: {
+          DEFAULT: '#F3F3F1',
+          foreground: '#191918',
+        },
+        destructive: {
+          DEFAULT: '#e11d48',
+          foreground: '#FFFFFF',
+        },
+        popover: {
+          DEFAULT: '#FFFFFF',
+          foreground: '#191918',
+        },
+        card: {
+          DEFAULT: '#FFFFFF',
+          foreground: '#191918',
+        },
       },
       fontFamily: {
         mono: ['JetBrains Mono', 'Fira Code', 'Menlo', 'Consolas', 'monospace'],
@@ -94,8 +124,53 @@ export default {
       boxShadow: {
         '2xs': '0 1px 2px 0 rgb(0 0 0 / 0.04)',
         xs: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
-      }
+      },
+      /*
+       * shadcn 原语的进出动画。Radix 自带 Presence（退出动画播完才真正卸载），
+       * 所以 data-[state=closed] 这几个 keyframe 是真实生效的，不需要再配
+       * usePresence 那套手动挂卸机制。
+       *
+       * ⚠️ 关键帧必须自带 translate(-50%, -50%)：DialogContent 用
+       * left/top-1/2 + translate 居中，而 CSS 动画期间 transform 会整条
+       * 覆盖静态声明 —— 若关键帧只写 scale，动画被后台节流冻结在首帧时
+       * （Electron 窗口被遮挡 / 标签页后台），拼合的 translate 就会丢失，
+       * 弹窗原地钉在 (50%,50%) 向右下铺出去。fill-mode 不救这个：暂停就是没有终态。
+       */
+      keyframes: {
+        'overlay-show': {
+          from: { opacity: '0' },
+          to: { opacity: '1' },
+        },
+        'overlay-hide': {
+          from: { opacity: '1' },
+          to: { opacity: '0' },
+        },
+        'content-show': {
+          from: { opacity: '0', transform: 'translate(-50%, -50%) scale(0.97) translateY(4px)' },
+          to: { opacity: '1', transform: 'translate(-50%, -50%) scale(1) translateY(0)' },
+        },
+        'content-hide': {
+          from: { opacity: '1', transform: 'translate(-50%, -50%) scale(1) translateY(0)' },
+          to: { opacity: '0', transform: 'translate(-50%, -50%) scale(0.97) translateY(4px)' },
+        },
+        'popover-show': {
+          from: { opacity: '0', transform: 'scale(0.96) translateY(-3px)' },
+          to: { opacity: '1', transform: 'scale(1) translateY(0)' },
+        },
+        'popover-hide': {
+          from: { opacity: '1', transform: 'scale(1) translateY(0)' },
+          to: { opacity: '0', transform: 'scale(0.96) translateY(-3px)' },
+        },
+      },
+      animation: {
+        'overlay-show': 'overlay-show 180ms cubic-bezier(0.22,1,0.36,1)',
+        'overlay-hide': 'overlay-hide 150ms ease-in',
+        'content-show': 'content-show 180ms cubic-bezier(0.22,1,0.36,1)',
+        'content-hide': 'content-hide 150ms ease-in',
+        'popover-show': 'popover-show 140ms cubic-bezier(0.22,1,0.36,1)',
+        'popover-hide': 'popover-hide 120ms ease-in',
+      },
     },
   },
-  plugins: [],
+  plugins: [tailwindcssAnimate],
 }

@@ -42,7 +42,7 @@ type ViewModeSwitchProps = {
 
 export default function ViewModeSwitch({ value, onChange }: ViewModeSwitchProps) {
   return (
-    <div className="flex items-center gap-0.5 rounded-lg border border-slate-200/70 bg-slate-100/80 p-0.5 dark:border-dark-border dark:bg-dark-hover">
+    <div className="flex items-center gap-0.5 rounded-lg border border-slate-200/70 bg-slate-100/80 p-0.5  ">
       {VIEW_ITEMS.map((item) => {
         const active = item.key === value
         const Icon = item.icon
@@ -55,8 +55,8 @@ export default function ViewModeSwitch({ value, onChange }: ViewModeSwitchProps)
               data-view-mode={item.key}
               className={`flex items-center justify-center rounded-md p-1 transition-colors ${
                 active
-                  ? 'bg-white text-slate-900 shadow-2xs dark:bg-dark-panel dark:text-white'
-                  : 'text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-white'
+                  ? 'bg-white text-slate-900 shadow-2xs  '
+                  : 'text-slate-400 hover:text-slate-700  '
               }`}
             >
               <Icon className="h-3.5 w-3.5" />

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Copy,
   History,
@@ -8,6 +8,7 @@ import {
 import {
   BTN,
   CARD_BODY,
+  PreviewButton,
   ToolCard,
   ToolCardHeader,
   ToolHistoryOverlay,
@@ -128,6 +129,110 @@ function rgbToOklch({ r, g, b }: RGBA): string {
   return `oklch(${lightness} ${chroma} ${hsl.h})`
 }
 
+/* ---------------- 自绘选色器用的 HSV 换算 ---------------- */
+
+interface HSV {
+  h: number
+  /** 0~1 */
+  s: number
+  /** 0~1 */
+  v: number
+}
+
+/**
+ * rgbToHsv：SV 面板要的是「色调 × 饱和度 × 明度」坐标系，与 rgbToHsl 的
+ * 明度口径不同（v=max 而 l=max+min)/2），不能混用。
+ */
+function rgbToHsv({ r, g, b }: RGBA): HSV {
+  const rn = r / 255
+  const gn = g / 255
+  const bn = b / 255
+  const max = Math.max(rn, gn, bn)
+  const min = Math.min(rn, gn, bn)
+  const d = max - min
+  let h = 0
+  if (max !== min) {
+    switch (max) {
+      case rn:
+        h = ((gn - bn) / d + (gn < bn ? 6 : 0)) / 6
+        break
+      case gn:
+        h = ((bn - rn) / d + 2) / 6
+        break
+      default:
+        h = ((rn - gn) / d + 4) / 6
+    }
+  }
+  return {
+    h: Math.round(h * 360),
+    s: Math.round((max === 0 ? 0 : d / max) * 1000) / 1000,
+    v: Math.round(max * 1000) / 1000,
+  }
+}
+
+/** hue 环向取模，别让 -2 之类悄悄溜进渐变计算 */
+function hsvToRgb(h: number, s: number, v: number): RGBA {
+  const hh = ((h % 360) + 360) % 360
+  const i = Math.floor(hh / 60) % 6
+  const f = hh / 60 - Math.floor(hh / 60)
+  const p = v * (1 - s)
+  const q = v * (1 - f * s)
+  const t = v * (1 - (1 - f) * s)
+  const table = [
+    [v, t, p],
+    [q, v, p],
+    [p, v, t],
+    [p, q, v],
+    [v, p, q],
+    [t, p, v],
+  ][i]
+  return { r: Math.round(table[0] * 255), g: Math.round(table[1] * 255), b: Math.round(table[2] * 255), a: 1 }
+}
+
+/**
+ * 选色控件统一的「按针拖拽解算」：pointer capture 后持续回调 x/y ∈ [0,1]。
+ *
+ * 用 pointer capture 而不是 mouse 事件：鼠标拖出控件边界、触屏滑动都天然
+ * 继续取值，不用再各写一套 window 级 mousemove/leave 清理。三个控件
+ * （SV 面板 / 色相条 / 透明度条）共用同一套交互语义。
+ */
+function useAreaDrag(onUpdate: (x: number, y: number) => void) {
+  const areaRef = useRef<HTMLDivElement>(null)
+  const draggingRef = useRef(false)
+
+  const update = useCallback(
+    (e: React.PointerEvent) => {
+      const rect = areaRef.current?.getBoundingClientRect()
+      if (!rect || rect.width === 0 || rect.height === 0) return
+      const x = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width))
+      const y = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height))
+      onUpdate(x, y)
+    },
+    [onUpdate],
+  )
+
+  return {
+    areaRef,
+    handlers: {
+      onPointerDown: (e: React.PointerEvent) => {
+        e.preventDefault()
+        draggingRef.current = true
+        areaRef.current?.setPointerCapture(e.pointerId)
+        update(e)
+      },
+      onPointerMove: (e: React.PointerEvent) => {
+        if (draggingRef.current) update(e)
+      },
+      onPointerUp: (e: React.PointerEvent) => {
+        draggingRef.current = false
+        if (areaRef.current?.hasPointerCapture(e.pointerId)) {
+          areaRef.current.releasePointerCapture(e.pointerId)
+        }
+      },
+    },
+  }
+}
+
 /* 预设调色板 */
 const PALETTE_PRESETS = [
   { name: 'Indigo', hex: '#4F46E5' },
@@ -158,6 +263,8 @@ export default function ColorPaletteTool() {
   const [color, setColor] = useState<RGBA>({ r: 79, g: 70, b: 229, a: 1 })
   const [hexInput, setHexInput] = useState('#4F46E5')
   const [showHistory, setShowHistory] = useState(false)
+  /* 自绘选色器用的 HSV 坐标（SV 面板 / 色相条直接驱动它） */
+  const [hsv, setHsv] = useState<HSV>(() => rgbToHsv({ r: 79, g: 70, b: 229, a: 1 }))
 
   // 阴影调节器状态
   const [shadowX, setShadowX] = useState(0)
@@ -174,8 +281,7 @@ export default function ColorPaletteTool() {
     onUse: (item) => {
       const parsed = hexToRgba(item.data)
       if (parsed) {
-        setColor(parsed)
-        setHexInput(rgbToHex(parsed))
+        updateColor(parsed)
       }
       setShowHistory(false)
     },
@@ -210,7 +316,43 @@ export default function ColorPaletteTool() {
     setColor(next)
     const nextHex = rgbToHex(next)
     setHexInput(nextHex)
+    // 同步 HSV：SV 面板/色相条要能从任何入口（hex 输入/预设/吸管/历史）反向驱动
+    setHsv((prev) => {
+      const nextHsv = rgbToHsv(next)
+      // 灰阶色没有色相信息（h=0），保住用户此前选的色相，面板才不会跳成红色
+      return nextHsv.s > 0 ? nextHsv : { ...nextHsv, h: prev.h }
+    })
   }, [])
+
+  // SV / 色相条驱动：从 HSV 反推回 RGB 与 hex 全套状态
+  const applyHsv = useCallback(
+    (next: HSV) => {
+      setHsv(next)
+      const rgb = hsvToRgb(next.h, next.s, next.v)
+      const withAlpha = { ...rgb, a: color.a }
+      setColor(withAlpha)
+      setHexInput(rgbToHex(withAlpha))
+    },
+    [color.a],
+  )
+
+  // 三个选色控件的拖拽解算：SV 是二维（x=s, y=v 反向），色相/透明度是一维
+  const svArea = useAreaDrag(
+    useCallback((x: number, y: number) => applyHsv({ h: hsv.h, s: x, v: 1 - y }), [applyHsv, hsv.h]),
+  )
+  const hueArea = useAreaDrag(
+    useCallback((x: number) => applyHsv({ h: Math.round(x * 360), s: hsv.s, v: hsv.v }), [
+      applyHsv,
+      hsv.s,
+      hsv.v,
+    ]),
+  )
+  const alphaArea = useAreaDrag(
+    useCallback(
+      (x: number) => updateColor({ ...color, a: Math.round(x * 100) / 100 }),
+      [color, updateColor],
+    ),
+  )
 
   // 保存到历史（防抖）
   useEffect(() => {
@@ -299,6 +441,22 @@ export default function ColorPaletteTool() {
               title="颜色调节与转换"
               actions={
                 <div className="flex items-center gap-1.5">
+                  {/* 四种格式的转换值 + 阴影 CSS，一键全文预览 */}
+                  <PreviewButton
+                    title="颜色格式与阴影 CSS"
+                    content={() =>
+                      [
+                        `HEX    ${hexValue}`,
+                        `RGB    ${rgbValue}`,
+                        `HSL    ${hslValue}`,
+                        `OKLCH  ${oklchValue}`,
+                        '',
+                        `阴影 CSS:
+${shadowCss}`,
+                      ].join('\n')
+                    }
+                    source={hexValue}
+                  />
                   {'EyeDropper' in (typeof window !== 'undefined' ? window : {}) && (
                     <button
                       type="button"
@@ -313,34 +471,89 @@ export default function ColorPaletteTool() {
               }
             />
             <div className={CARD_BODY}>
-              {/* 大色块展示与原生选择器 */}
-              <div className="flex gap-4 items-center mb-4">
-                <div className="relative w-24 h-24 rounded-2xl border border-[#E6E6E3] shadow-inner overflow-hidden shrink-0 group">
-                  {/* 透明网格棋盘底图 */}
+              {/*
+                自绘选色区：SV 面板 + 色相条 + 透明度条。
+                此前这里嵌了个隐形 <input type="color">，弹的是 macOS 原生色盘 ——
+                全屏抢焦点、远景与应用完全两套语言，就是「颜色选择器太难看」的根源。
+                现已整个拿掉，屏幕吸管（右上角）继续保留。
+              */}
+              <div className="space-y-2.5">
+                {/* SV 面板：横轴饱和度、纵轴明度（自下而上加深） */}
+                <div
+                  ref={svArea.areaRef}
+                  {...svArea.handlers}
+                  className="relative h-36 rounded-xl border border-[#E6E6E3] touch-none cursor-crosshair"
+                  style={{
+                    background: `linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, hsl(${hsv.h}, 100%, 50%))`,
+                  }}
+                >
+                  {/* 拾取指针：白圈嵌当前色，双影圈是防白面板上隐形 */}
                   <div
-                    className="absolute inset-0 bg-[linear-gradient(45deg,#EFEFEF_25%,transparent_25%),linear-gradient(-45deg,#EFEFEF_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#EFEFEF_75%),linear-gradient(-45deg,transparent_75%,#EFEFEF_75%)] bg-[size:16px_16px] bg-[position:0_0,0_8px,8px_-8px,-8px_0]"
+                    className="absolute w-4 h-4 -translate-x-2 -translate-y-2 rounded-full border-2 border-white shadow-[0_0_0_1px_rgba(0,0,0,0.25)] pointer-events-none"
+                    style={{
+                      left: `${(hsv.s * 100).toFixed(2)}%`,
+                      top: `${((1 - hsv.v) * 100).toFixed(2)}%`,
+                      backgroundColor: `rgb(${color.r}, ${color.g}, ${color.b})`,
+                    }}
                   />
-                  {/* 实际色彩层 */}
+                </div>
+
+                {/* 色相条：红-黄-绿-青-蓝-品红 环 */}
+                <div
+                  ref={hueArea.areaRef}
+                  {...hueArea.handlers}
+                  className="relative h-3.5 rounded-full touch-none cursor-pointer border border-[#E6E6E3]"
+                  style={{
+                    background:
+                      'linear-gradient(to right, #ff0000 0%, #ffff00 16.6%, #00ff00 33.3%, #00ffff 50%, #0000ff 66.6%, #ff00ff 83.3%, #ff0000 100%)',
+                  }}
+                >
+                  <div
+                    className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full border-2 border-white shadow-[0_0_0_1px_rgba(0,0,0,0.25)] pointer-events-none"
+                    style={{
+                      left: `${((hsv.h / 360) * 100).toFixed(2)}%`,
+                      backgroundColor: `hsl(${hsv.h}, 100%, 50%)`,
+                    }}
+                  />
+                </div>
+
+                {/* 透明度条：棋盘底 + 到当前色的横向渐变 */}
+                <div className="flex items-center gap-2.5">
+                  <div
+                    ref={alphaArea.areaRef}
+                    {...alphaArea.handlers}
+                    className="relative flex-1 h-3.5 rounded-full touch-none cursor-pointer border border-[#E6E6E3] overflow-hidden"
+                  >
+                    <div className="absolute inset-0 bg-[linear-gradient(45deg,#EFEFEF_25%,transparent_25%),linear-gradient(-45deg,#EFEFEF_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#EFEFEF_75%),linear-gradient(-45deg,transparent_75%,#EFEFEF_75%)] bg-[size:8px_8px] bg-[position:0_0,0_4px,4px_-4px,-4px_0]" />
+                    <div
+                      className="absolute inset-0"
+                      style={{ background: `linear-gradient(to right, transparent, rgb(${color.r}, ${color.g}, ${color.b}))` }}
+                    />
+                    <div
+                      className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full border-2 border-white shadow-[0_0_0_1px_rgba(0,0,0,0.25)] pointer-events-none"
+                      style={{
+                        left: `${(color.a * 100).toFixed(1)}%`,
+                        backgroundColor: rgbValue,
+                      }}
+                    />
+                  </div>
+                  <span className="text-xs font-mono text-[#787774] w-10 text-right shrink-0">
+                    {Math.round(color.a * 100)}%
+                  </span>
+                </div>
+              </div>
+
+              {/* 大色块预览（含 Alpha 棋盘） + HEX 输入 */}
+              <div className="flex gap-3 items-center mt-3.5">
+                <div className="relative w-12 h-12 rounded-xl border border-[#E6E6E3] overflow-hidden shrink-0">
+                  <div className="absolute inset-0 bg-[linear-gradient(45deg,#EFEFEF_25%,transparent_25%),linear-gradient(-45deg,#EFEFEF_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#EFEFEF_75%),linear-gradient(-45deg,transparent_75%,#EFEFEF_75%)] bg-[size:12px_12px] bg-[position:0_0,0_6px,6px_-6px,-6px_0]" />
                   <div
                     className="absolute inset-0 transition-colors"
                     style={{ backgroundColor: rgbValue }}
                   />
-                  <input
-                    type="color"
-                    value={hexValue.slice(0, 7)}
-                    onChange={(e) => {
-                      const next = hexToRgba(e.target.value)
-                      if (next) updateColor({ ...next, a: color.a })
-                    }}
-                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                    title="点击调出色盘"
-                  />
-                  <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none text-white text-[10px] font-medium">
-                    选色
-                  </div>
                 </div>
 
-                <div className="flex-1 space-y-2">
+                <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-semibold text-[#787774] w-12 shrink-0">HEX</span>
                     <input
@@ -349,27 +562,10 @@ export default function ColorPaletteTool() {
                       onChange={(e) => {
                         setHexInput(e.target.value)
                         const parsed = hexToRgba(e.target.value)
-                        if (parsed) setColor(parsed)
+                        if (parsed) updateColor(parsed)
                       }}
                       className="flex-1 h-8 px-2.5 rounded-lg border border-[#E6E6E3] text-xs font-mono text-[#191918] bg-white outline-none focus:border-[#1C1C1C]"
                     />
-                  </div>
-
-                  {/* 透明度滑动条 */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-[#787774] w-12 shrink-0">Alpha</span>
-                    <input
-                      type="range"
-                      min={0}
-                      max={1}
-                      step={0.01}
-                      value={color.a}
-                      onChange={(e) => updateColor({ ...color, a: parseFloat(e.target.value) })}
-                      className="flex-1 h-1.5 accent-[#1C1C1C] cursor-pointer"
-                    />
-                    <span className="text-xs font-mono text-[#787774] w-10 text-right">
-                      {Math.round(color.a * 100)}%
-                    </span>
                   </div>
                 </div>
               </div>

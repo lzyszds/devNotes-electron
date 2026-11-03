@@ -26,14 +26,14 @@ export default function EditorZoom() {
   const atMax = zoom >= ZOOM_MAX
 
   return (
-    <div className="flex flex-shrink-0 items-center gap-0.5 rounded-lg border border-slate-200/70 bg-slate-100/80 p-0.5 dark:border-dark-border dark:bg-dark-hover">
+    <div className="flex flex-shrink-0 items-center gap-0.5 rounded-lg border border-slate-200/70 bg-slate-100/80 p-0.5  ">
       <Tooltip content={`缩小 (⌘-)`}>
         <button
           type="button"
           onClick={() => stepZoom(-ZOOM_STEP)}
           disabled={atMin}
           aria-label="缩小"
-          className="flex h-5 w-5 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 disabled:pointer-events-none disabled:opacity-35 dark:hover:bg-dark-hover dark:hover:text-slate-200"
+          className="flex h-5 w-5 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 disabled:pointer-events-none disabled:opacity-35  "
         >
           <Minus className="h-3 w-3" />
         </button>
@@ -44,10 +44,10 @@ export default function EditorZoom() {
           type="button"
           onClick={resetZoom}
           aria-label={`当前缩放 ${zoom}%，点击恢复 100%`}
-          className={`w-7 rounded-md py-0.5 text-center font-mono text-[10.5px] tabular-nums transition-colors hover:bg-slate-100 dark:hover:bg-dark-hover ${
+          className={`w-7 rounded-md py-0.5 text-center font-mono text-[10.5px] tabular-nums transition-colors hover:bg-slate-100  ${
             zoom === 100
-              ? 'text-slate-400 dark:text-slate-500'
-              : 'font-semibold text-brand-600 dark:text-brand-400'
+              ? 'text-slate-400 '
+              : 'font-semibold text-brand-600 '
           }`}
         >
           {zoom}%
@@ -60,7 +60,7 @@ export default function EditorZoom() {
           onClick={() => stepZoom(ZOOM_STEP)}
           disabled={atMax}
           aria-label="放大"
-          className="flex h-5 w-5 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 disabled:pointer-events-none disabled:opacity-35 dark:hover:bg-dark-hover dark:hover:text-slate-200"
+          className="flex h-5 w-5 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 disabled:pointer-events-none disabled:opacity-35  "
         >
           <Plus className="h-3 w-3" />
         </button>

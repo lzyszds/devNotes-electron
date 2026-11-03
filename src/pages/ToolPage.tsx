@@ -114,7 +114,12 @@ const KeepAliveItem = React.memo(
     return (
       <div
         className={`absolute inset-0 flex flex-col overflow-hidden ${
-          isActive ? 'visible z-10' : 'invisible z-0 pointer-events-none'
+          /* 关闭态用 display:none（hidden）而不是 visibility：visibility 可被
+             后代自己的 visible 类反写穿透 —— 快速切换 / lazy chunk 加载窗口期
+             曾出现过「上一页工具透出来」的残影（后果是一个页面叠出两套 UI）。
+             display:none 对后代无条件生效，且隐藏期间不参与绘制与命中；
+             组件状态（编辑器实例、输入草稿）依旧完整保留在内存里。 */
+          isActive ? 'visible z-10' : 'hidden'
         }`}
         aria-hidden={!isActive}
       >

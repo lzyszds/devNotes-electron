@@ -9,6 +9,7 @@ import {
   Settings,
   Cloud,
   Boxes,
+  ClipboardList,
   FileText,
   FileCode2,
   Folder,
@@ -38,6 +39,7 @@ import { useShortcutSettings } from "../../hooks/useShortcutSettings";
 import {
   eventToAccelerator,
   isRecordingShortcut,
+  SHORTCUT_BINDINGS,
 } from "../../utils/shortcutSettings";
 import { subscribeAppSettings } from "../../utils/settingsBus";
 import {
@@ -89,6 +91,25 @@ interface DashboardLayoutProps {
   onOpenStats: () => void;
   /** 只计账不导航（草稿纸开独立小窗这类「用了但不切页」的调用） */
   onTallyTool?: (id: string) => void;
+}
+
+/*
+ * 内核自己拥有键主权的应用内键。
+ *
+ * Milkdown 内核（preset-commonmark）天生绑着 Mod-b（加粗）与 Mod-e（行内代码），
+ * Cherry 双栏源码模式的 CodeMirror 同款 —— 它们只 preventDefault，不冒泡给谁
+ * 罗马字根判断。布局层的监听也在同一个 window 上，焦点在编辑器里时再拦一遍
+ * 这两个键就是双发：⌘B 同时「加粗 + 收文档目录」、⌘E 同时「切行内代码 + 弹导出」。
+ * 所以这两条在编辑器内让位给内核。⌘S 内核没绑，保存键不受影响：
+ * 用户在笔记页编辑途中按 ⌘S，保存照常发生（这正是他该有的预期）。
+ */
+const EDITOR_OWNED_APP_KEYS = new Set<string>(["toggle-sidebar", "export-note"]);
+
+/** 焦点是否落在笔记编辑器（Milkdown / Cherry 任一内核）里 */
+function isFocusInsideNotesEditor(): boolean {
+  const active = document.activeElement as HTMLElement | null;
+  if (!active) return false;
+  return Boolean(active.closest?.(".milkdown-notes-editor, .cherry-notes-editor"));
 }
 
 export default function DashboardLayout({
@@ -165,6 +186,11 @@ export default function DashboardLayout({
     notes,
     handleSelect: handleSelectNote,
     setScope,
+    // ⌘S / ⌘N / ⌘E 三个应用内动作键在布局层就能闭环：保存走 context 的统一入口，
+    // 新建与导出本来就是纯 context 操作，不需要等编辑器自己再接一遍键盘
+    saveNow,
+    handleCreate: handleCreateNote,
+    handleExport,
   } = useNotes();
 
   // 就地重命名文档标题
@@ -505,9 +531,13 @@ export default function DashboardLayout({
   const [isCmdOpen, setIsCmdOpen] = useState(false);
   const [cmdSearch, setCmdSearch] = useState("");
   const cmdInputRef = useRef<HTMLInputElement>(null);
+  /** ⌘K 打开前的焦点元素。剪贴板这类「填回输入框」的入口靠它还原落点 ——
+      不然面板自己的搜索框占住焦点，选中一条就不知道该贴给谁了 */
+  const cmdOpenedFromRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (isCmdOpen) {
+      cmdOpenedFromRef.current = document.activeElement as HTMLElement | null;
       setTimeout(() => cmdInputRef.current?.focus(), 50);
     }
   }, [isCmdOpen]);
@@ -523,7 +553,7 @@ export default function DashboardLayout({
     icon?: ComponentType<{ className?: string }>;
     name: string;
     description: string;
-    kind: "模块" | "笔记" | "片段" | "设置" | "即时计算" | "即时换算";
+    kind: "模块" | "笔记" | "片段" | "设置" | "即时计算" | "即时换算" | "小窗";
     run: () => void;
     isQuickAction?: boolean;
     badge?: string;
@@ -599,8 +629,29 @@ export default function DashboardLayout({
         run: () => openTool(m.id),
       }));
 
-    // 空搜索只铺大路由；笔记/片段全量铺开反而是噪音
-    if (!q) return moduleItems;
+    /*
+     * 剪贴板面板不是 allModules 成员（独立小窗），这里补一条直达入口 ——
+     * 否则应用内只能靠 Alt+Shift+V 这颗全局键呼它，用户在设置页里想贴条
+     * 剪贴板内容时根本不知道从哪把面板拿出来。
+     */
+    const clipboardItem: CmdItem = {
+      key: "open-clipboard-panel",
+      icon: ClipboardList,
+      name: "剪贴板历史",
+      description: "呼出剪贴板面板，选中一条直接填回焦点所在的输入框",
+      kind: "小窗",
+      run: () => {
+        setIsCmdOpen(false);
+        // 先把焦点还给 ⌘K 打开前的那个输入框，再唤面板 —— 面板是 non-activating
+        // 的不会抢焦点，但 ⌘K 自己的搜索框占过焦点，不还原的话「填回输入框」
+        // 就没有落点了
+        cmdOpenedFromRef.current?.focus?.();
+        window.electronAPI?.clipboardOpen?.();
+      },
+    };
+
+    // 空搜索铺大路由 + 剪贴板面板；笔记/片段全量铺开反而是噪音
+    if (!q) return [clipboardItem, ...moduleItems];
 
     const noteItems: CmdItem[] = notes
       .filter((n) => !n.deletedAt)
@@ -700,6 +751,10 @@ export default function DashboardLayout({
     return [
       ...(quickItem ? [quickItem] : []),
       ...moduleItems,
+      // 剪贴板面板走关键字匹配（搜「剪贴板」或「clipboard」能直达）
+      ...(('剪贴板历史'.toLowerCase().includes(q) || 'clipboard'.includes(q))
+        ? [clipboardItem]
+        : []),
       ...noteItems,
       ...snippetItems,
       ...settingItems,
@@ -711,35 +766,10 @@ export default function DashboardLayout({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (isRecordingShortcut()) return;
-      const keyCombo = eventToAccelerator(e);
+      // 按住不放的自动重复不响应：⌘N 连起的会是一串新笔记，其余动作重复执行也无意义
+      if (e.repeat) return;
 
-      // ⌘K 全局搜索
-      if (
-        (e.metaKey || e.ctrlKey) &&
-        e.key.toLowerCase() === "k" &&
-        !e.shiftKey &&
-        !e.altKey
-      ) {
-        e.preventDefault();
-        setIsCmdOpen((prev) => !prev);
-        return;
-      }
-
-      // ⌘B 折叠侧栏
-      if (
-        (e.metaKey || e.ctrlKey) &&
-        e.key.toLowerCase() === "b" &&
-        !e.shiftKey &&
-        !e.altKey
-      ) {
-        e.preventDefault();
-        // 翻译与智聊页面锁死不允许展开
-        if (isTranslateActive || isAiChatActive) return;
-        setIsSidebarOpen((prev) => !prev);
-        return;
-      }
-
-      // ⌥⌘D 展开/收起二级目录
+      // ⌥⌘D 展开/收起二级目录（不占 SHORTCUT_BINDINGS，没有设置入口，单独判）
       if ((e.metaKey || e.ctrlKey) && e.altKey && e.key.toLowerCase() === "d") {
         e.preventDefault();
         // 翻译与智聊页面锁死不允许展开
@@ -748,36 +778,104 @@ export default function DashboardLayout({
         return;
       }
 
-      // ⌘, 设置
-      if (
-        (e.metaKey || e.ctrlKey) &&
-        e.key === "," &&
-        !e.shiftKey &&
-        !e.altKey
-      ) {
-        e.preventDefault();
-        openSettings("general");
-        return;
-      }
+      const keyCombo = eventToAccelerator(e);
+      if (!keyCombo) return;
 
-      // 用户自定义工具快捷键
-      for (const [toolId, shortcut] of Object.entries(shortcutMap)) {
-        if (shortcut && keyCombo === shortcut) {
-          e.preventDefault();
-          onOpenTool(toolId);
-          if (toolId === "text-translate" || toolId === "ai-chat") {
-            setIsSidebarOpen(false);
-          } else {
+      /*
+       * 命中哪条绑定就执行哪条**动作**，而不是把 id 当工具去开。
+       *
+       * 旧实现把整张 shortcutMap 轮询后直接 onOpenTool(id)——那是「工具快捷键」
+       * 时代的写法，但绑定表里大部分是动作型 id（save-note / new-note / export-note…），
+       * 它们在模块表里查无此项，openTool 会落到工具箱默认页：表现就是笔记页
+       * 按 ⌘S 想保存，人被踹到工具页面，保存也从来没发生。
+       *
+       * 只认应用内键：全局键归主进程；顺带把「跨 scope 录成同一个键」时
+       * 全局条目（排在表序前面）把同串应用内键整条吞掉的问题也排掉了 ——
+       * 设置界面的冲突检测按 scope 分组（findConflicts），不会警告这种情况。
+       *
+       * openSettings / showToast 内部只依赖稳定的 setState（同 ⌘K 那个 useMemo 的
+       * 注释），刻意不列进依赖。
+       */
+      const hit = Object.entries(shortcutMap).find(
+        ([id, accelerator]) =>
+          accelerator &&
+          keyCombo === accelerator &&
+          SHORTCUT_BINDINGS.find((b) => b.id === id)?.scope === "app",
+      );
+      if (!hit) return;
+      const [bindingId] = hit;
+      const binding = SHORTCUT_BINDINGS.find((b) => b.id === bindingId);
+      if (!binding) return;
+
+      // 编辑器键表里自有键主的两条：焦点在编辑器内时让位给内核，防止双发
+      if (EDITOR_OWNED_APP_KEYS.has(bindingId) && isFocusInsideNotesEditor()) return;
+
+      e.preventDefault();
+      switch (bindingId) {
+        // ⌘K 全局搜索
+        case "command-palette":
+          setIsCmdOpen((prev) => !prev);
+          return;
+
+        // ⌘B 折叠侧栏
+        case "toggle-sidebar":
+          // 翻译与智聊页面锁死不允许展开
+          if (isTranslateActive || isAiChatActive) return;
+          setIsSidebarOpen((prev) => !prev);
+          return;
+
+        case "open-settings":
+          openSettings("general");
+          return;
+
+        case "cloud-sync-settings":
+          openSettings("cloud-sync");
+          return;
+
+        // ⌘S 保存当前笔记：走 context 的统一入口，状态栏会给出已存/失败反馈。
+        // 没有未保存改动时 saveNow 自己返回 clean，不打扰状态栏
+        case "save-note":
+          void saveNow();
+          return;
+
+        // ⌘N 新建笔记：别的模块下先切回笔记页再创建（与快捷键说明「其他模块下会先切过去」一致）
+        case "new-note": {
+          if (!isMarkdownActive) {
+            onOpenTool("markdown-notes");
             setIsSidebarOpen(true);
           }
+          handleCreateNote();
           return;
         }
+
+        // ⌘E 导出当前笔记为 .md
+        case "export-note":
+          if (activeNote) void handleExport(activeNote);
+          else showToast("当前没有可导出的笔记", "default");
+          return;
+
+        default:
+          // 兜底：存储里可能残留已下线绑定的键值（如旧版 toggle-theme），
+          // 但它们已不在 SHORTCUT_BINDINGS 里，上面按表过滤后到这里只会是
+          // 上面 case 没覆盖的未接线动作 —— 保持不响应，绝不模拟「打开同名工具」切页
+          return;
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [shortcutMap, onOpenTool, isTranslateActive, isAiChatActive]);
+  }, [
+    shortcutMap,
+    onOpenTool,
+    isMarkdownActive,
+    isTranslateActive,
+    isAiChatActive,
+    activeNote,
+    saveNow,
+    handleCreateNote,
+    handleExport,
+    showToast,
+  ]);
 
   // 面包屑当前分类名称
   const currentCategoryName = useMemo(() => {

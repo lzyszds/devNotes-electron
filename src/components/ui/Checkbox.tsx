@@ -79,15 +79,15 @@ export const Checkbox = React.forwardRef<
             : 'h-4 w-4 rounded-[5px]'
         } ${
           // 边框与背景色：未选中与选中状态
-          'border-slate-300 bg-white hover:border-slate-400 dark:border-dark-border dark:bg-dark-panel/90 dark:hover:border-slate-600'
+          'border-slate-300 bg-white hover:border-slate-400   '
         } ${
           // 选中 / 半选时的品牌色高亮
-          'data-[state=checked]:bg-brand-600 data-[state=checked]:border-brand-600 data-[state=checked]:text-white dark:data-[state=checked]:bg-brand-500 dark:data-[state=checked]:border-brand-500'
+          'data-[state=checked]:bg-brand-600 data-[state=checked]:border-brand-600 data-[state=checked]:text-white  '
         } ${
-          'data-[state=indeterminate]:bg-brand-600 data-[state=indeterminate]:border-brand-600 data-[state=indeterminate]:text-white dark:data-[state=indeterminate]:bg-brand-500 dark:data-[state=indeterminate]:border-brand-500'
+          'data-[state=indeterminate]:bg-brand-600 data-[state=indeterminate]:border-brand-600 data-[state=indeterminate]:text-white  '
         } ${
           // 聚焦光圈：聚焦时微拟物光晕
-          'focus-visible:ring-2 focus-visible:ring-brand-500/25 focus-visible:ring-offset-1 dark:focus-visible:ring-offset-dark-panel'
+          'focus-visible:ring-2 focus-visible:ring-brand-500/25 focus-visible:ring-offset-1 '
         } ${className}`}
         {...props}
       >
@@ -128,15 +128,15 @@ export const Checkbox = React.forwardRef<
         <div className="min-w-0 flex-1">
           {label && (
             <span
-              className={`block text-xs font-semibold leading-normal text-slate-700 dark:text-slate-200 transition-colors ${
-                disabled ? 'cursor-not-allowed' : 'cursor-pointer hover:text-slate-900 dark:hover:text-white'
+              className={`block text-xs font-semibold leading-normal text-slate-700  transition-colors ${
+                disabled ? 'cursor-not-allowed' : 'cursor-pointer hover:text-slate-900 '
               }`}
             >
               {label}
             </span>
           )}
           {description && (
-            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5 leading-relaxed">
+            <p className="text-[11px] text-slate-400  mt-0.5 leading-relaxed">
               {description}
             </p>
           )}

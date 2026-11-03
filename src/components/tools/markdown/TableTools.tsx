@@ -121,13 +121,13 @@ export default function TableTools({ editor, providerRef }: TableToolsProps) {
   if (!inCell) return null
 
   return renderPortal(
-    <div className="flex items-center gap-1 rounded-lg border border-slate-200/80 bg-white/95 p-1 shadow-lg backdrop-blur-xl dark:border-dark-border dark:bg-dark-panel/95">
+    <div className="flex items-center gap-1 rounded-lg border border-slate-200/80 bg-white/95 p-1 shadow-lg backdrop-blur-xl  ">
       <Tooltip content="在当前行下方插入一行" placement="top">
         <button
           type="button"
           onClick={() => run(addRowAfterCommand)}
           aria-label="插入行"
-          className="flex h-6 w-6 items-center justify-center rounded-md text-slate-400 transition-all duration-150 hover:scale-105 hover:bg-brand-500/10 hover:text-brand-600 dark:hover:text-brand-400"
+          className="flex h-6 w-6 items-center justify-center rounded-md text-slate-400 transition-all duration-150 hover:scale-105 hover:bg-brand-500/10 hover:text-brand-600 "
         >
           <Rows3 className="h-3.5 w-3.5" />
         </button>
@@ -137,7 +137,7 @@ export default function TableTools({ editor, providerRef }: TableToolsProps) {
           type="button"
           onClick={() => run(addColAfterCommand)}
           aria-label="插入列"
-          className="flex h-6 w-6 items-center justify-center rounded-md text-slate-400 transition-all duration-150 hover:scale-105 hover:bg-brand-500/10 hover:text-brand-600 dark:hover:text-brand-400"
+          className="flex h-6 w-6 items-center justify-center rounded-md text-slate-400 transition-all duration-150 hover:scale-105 hover:bg-brand-500/10 hover:text-brand-600 "
         >
           <Columns3 className="h-3.5 w-3.5" />
         </button>

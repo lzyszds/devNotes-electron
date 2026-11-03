@@ -46,8 +46,8 @@ export default function Switch({
         isSm ? 'h-5 w-9 p-0.5' : 'h-6 w-11 p-0.5'
       } ${
         checked
-          ? 'bg-brand-600 dark:bg-brand-500'
-          : 'bg-slate-200 hover:bg-slate-300/80 dark:bg-slate-700 dark:hover:bg-slate-600'
+          ? 'bg-brand-600 '
+          : 'bg-slate-200 hover:bg-slate-300/80  '
       }`}
     >
       <span
@@ -81,7 +81,7 @@ export default function Switch({
       <div className="min-w-0 flex-1">
         {label && (
           <span
-            className={`block text-xs font-semibold text-slate-800 dark:text-slate-200 ${
+            className={`block text-xs font-semibold text-slate-800  ${
               disabled ? 'cursor-not-allowed' : 'cursor-pointer'
             }`}
           >

@@ -112,8 +112,8 @@ function CopyChip({
       disabled={disabled}
       className={`inline-flex h-6 shrink-0 items-center gap-1 rounded-md px-2 text-[11px] font-semibold transition-colors disabled:pointer-events-none disabled:opacity-40 ${
         copied
-          ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400'
-          : 'bg-slate-100 text-slate-600 hover:bg-brand-50 hover:text-brand-600 dark:bg-dark-hover dark:text-slate-300 dark:hover:bg-brand-500/10 dark:hover:text-brand-400'
+          ? 'bg-emerald-50 text-emerald-600  '
+          : 'bg-slate-100 text-slate-600 hover:bg-brand-50 hover:text-brand-600    '
       }`}
     >
       {copied ? <Check size={12} strokeWidth={2.6} /> : <Copy size={12} />}
@@ -719,11 +719,11 @@ export default function ImageConvertTool() {
 
             {source ? (
               <div className="p-4 flex gap-4 items-center">
-                <div className="w-24 h-24 rounded-xl overflow-hidden shrink-0 flex items-center justify-center bg-slate-50 dark:bg-dark-bg/40 ring-1 ring-slate-200/60 dark:ring-dark-border">
+                <div className="w-24 h-24 rounded-xl overflow-hidden shrink-0 flex items-center justify-center bg-slate-50  ring-1 ring-slate-200/60 ">
                   <img src={source.url} alt="源图" className="max-w-full max-h-full object-contain" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[13px] font-semibold text-slate-800 dark:text-slate-100 truncate">
+                  <p className="text-[13px] font-semibold text-slate-800  truncate">
                     {source.file.name}
                   </p>
                   <p className={`${META} mt-1.5`}>
@@ -734,7 +734,7 @@ export default function ImageConvertTool() {
                     {scalePercent !== 100 && ` · ${scalePercent}%`}
                   </p>
                   {source.isVector && (
-                    <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-1">
+                    <p className="text-[11px] text-emerald-600  mt-1">
                       矢量源：放大导出不会失真，可放心拉大尺寸
                     </p>
                   )}
@@ -748,17 +748,17 @@ export default function ImageConvertTool() {
                 data-landing={landing || undefined}
                 className={`drop-zone m-4 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-2 py-10 px-6 ${
                   dragging
-                    ? 'border-brand-400 bg-brand-50/60 dark:border-brand-500/50 dark:bg-brand-500/10'
-                    : 'border-slate-200 dark:border-dark-border hover:border-brand-300 hover:bg-slate-50/60 dark:hover:bg-dark-hover/40'
+                    ? 'border-brand-400 bg-brand-50/60  '
+                    : 'border-slate-200  hover:border-brand-300 hover:bg-slate-50/60 '
                 }`}
               >
-                <span className="drop-zone-icon w-12 h-12 rounded-full bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400 flex items-center justify-center">
+                <span className="drop-zone-icon w-12 h-12 rounded-full bg-brand-50  text-brand-600  flex items-center justify-center">
                   <Upload size={20} />
                 </span>
-                <span className="text-[13px] font-semibold text-slate-700 dark:text-slate-200">
+                <span className="text-[13px] font-semibold text-slate-700 ">
                   把图片拖进来，或点击选择
                 </span>
-                <span className="text-[11px] text-slate-400 dark:text-slate-500">
+                <span className="text-[11px] text-slate-400 ">
                   也可以直接 Ctrl / ⌘ + V 粘贴剪贴板里的图片
                 </span>
               </button>
@@ -799,9 +799,9 @@ export default function ImageConvertTool() {
             }
           />
 
-          <div className="relative p-6 min-h-[240px] flex items-center justify-center bg-slate-50/50 dark:bg-dark-bg/30">
+          <div className="relative p-6 min-h-[240px] flex items-center justify-center bg-slate-50/50 ">
             {converting && (
-              <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/60 dark:bg-dark-bg/50">
+              <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/60 ">
                 <Loader2 size={20} className="animate-spin text-brand-500" />
               </div>
             )}
@@ -834,7 +834,7 @@ export default function ImageConvertTool() {
                   </span>
                 </div>
               ) : (
-                <span className="text-xs text-slate-400 dark:text-slate-500">正在转换…</span>
+                <span className="text-xs text-slate-400 ">正在转换…</span>
               )
             ) : (
               <ToolEmpty
@@ -888,20 +888,20 @@ export default function ImageConvertTool() {
               <div className="flex flex-col gap-2">
                 <span className={SECTION_LABEL}>目标格式</span>
                 <Segmented value={format} options={formatOptions} onChange={setFormat} />
-                <p className="text-[11px] text-slate-400 dark:text-slate-500">{activeFormat.hint}</p>
+                <p className="text-[11px] text-slate-400 ">{activeFormat.hint}</p>
               </div>
 
               {/* 目标体积：只对有损格式有意义，PNG 无损压不到指定大小 */}
               {activeFormat.lossy && (
                 <div className="flex flex-col gap-2">
                   <span className={SECTION_LABEL}>目标体积</span>
-                  <label className="flex items-center gap-3 rounded-xl border border-slate-200/70 dark:border-dark-border bg-slate-50/70 dark:bg-dark-hover/40 pl-3 pr-2.5 py-2 cursor-text">
+                  <label className="flex items-center gap-3 rounded-xl border border-slate-200/70  bg-slate-50/70  pl-3 pr-2.5 py-2 cursor-text">
                     <Zap
                       size={15}
                       className={`shrink-0 ${
                         Number(targetKb) > 0
-                          ? 'text-brand-600 dark:text-brand-400'
-                          : 'text-slate-400 dark:text-slate-500'
+                          ? 'text-brand-600 '
+                          : 'text-slate-400 '
                       }`}
                     />
                     <input
@@ -911,13 +911,13 @@ export default function ImageConvertTool() {
                       disabled={!source}
                       onChange={(event) => setTargetKb(event.target.value)}
                       placeholder="留空表示不限制"
-                      className="flex-1 min-w-0 bg-transparent outline-none text-[13px] font-medium text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 tabular-nums disabled:cursor-not-allowed"
+                      className="flex-1 min-w-0 bg-transparent outline-none text-[13px] font-medium text-slate-800  placeholder:text-slate-400  tabular-nums disabled:cursor-not-allowed"
                     />
-                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 shrink-0">
+                    <span className="text-xs font-semibold text-slate-500  shrink-0">
                       KB
                     </span>
                   </label>
-                  <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                  <p className="text-[11px] text-slate-400 ">
                     填了数值就自动帮你压到这个大小：先降画质，还不够再等比缩尺寸
                   </p>
                 </div>
@@ -932,8 +932,8 @@ export default function ImageConvertTool() {
                       onClick={() => setLockRatio(!lockRatio)}
                       className={`inline-flex items-center gap-1 h-6 px-2 rounded-md text-[10px] font-semibold transition-colors ${
                         lockRatio
-                          ? 'bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400'
-                          : 'bg-slate-100 text-slate-500 dark:bg-dark-hover dark:text-slate-400'
+                          ? 'bg-brand-50 text-brand-600  '
+                          : 'bg-slate-100 text-slate-500  '
                       }`}
                     >
                       {lockRatio ? <Link2 size={11} /> : <Link2Off size={11} />}
@@ -943,8 +943,8 @@ export default function ImageConvertTool() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <label className="flex-1 flex items-center gap-2 rounded-lg border border-slate-200/70 dark:border-dark-border bg-slate-50/70 dark:bg-dark-hover/40 pl-2.5 pr-2 py-1.5 min-w-0">
-                    <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500 shrink-0">
+                  <label className="flex-1 flex items-center gap-2 rounded-lg border border-slate-200/70  bg-slate-50/70  pl-2.5 pr-2 py-1.5 min-w-0">
+                    <span className="text-[11px] font-medium text-slate-400  shrink-0">
                       宽
                     </span>
                     <input
@@ -953,13 +953,13 @@ export default function ImageConvertTool() {
                       value={targetWidth || ''}
                       disabled={!source}
                       onChange={(event) => changeWidth(Number(event.target.value))}
-                      className="flex-1 min-w-0 bg-transparent outline-none text-[13px] font-medium text-slate-800 dark:text-slate-100 tabular-nums disabled:cursor-not-allowed"
+                      className="flex-1 min-w-0 bg-transparent outline-none text-[13px] font-medium text-slate-800  tabular-nums disabled:cursor-not-allowed"
                     />
-                    <span className="text-[11px] text-slate-400 dark:text-slate-500 shrink-0">px</span>
+                    <span className="text-[11px] text-slate-400  shrink-0">px</span>
                   </label>
-                  <span className="text-slate-300 dark:text-slate-600 text-xs shrink-0">×</span>
-                  <label className="flex-1 flex items-center gap-2 rounded-lg border border-slate-200/70 dark:border-dark-border bg-slate-50/70 dark:bg-dark-hover/40 pl-2.5 pr-2 py-1.5 min-w-0">
-                    <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500 shrink-0">
+                  <span className="text-slate-300  text-xs shrink-0">×</span>
+                  <label className="flex-1 flex items-center gap-2 rounded-lg border border-slate-200/70  bg-slate-50/70  pl-2.5 pr-2 py-1.5 min-w-0">
+                    <span className="text-[11px] font-medium text-slate-400  shrink-0">
                       高
                     </span>
                     <input
@@ -968,9 +968,9 @@ export default function ImageConvertTool() {
                       value={targetHeight || ''}
                       disabled={!source}
                       onChange={(event) => changeHeight(Number(event.target.value))}
-                      className="flex-1 min-w-0 bg-transparent outline-none text-[13px] font-medium text-slate-800 dark:text-slate-100 tabular-nums disabled:cursor-not-allowed"
+                      className="flex-1 min-w-0 bg-transparent outline-none text-[13px] font-medium text-slate-800  tabular-nums disabled:cursor-not-allowed"
                     />
-                    <span className="text-[11px] text-slate-400 dark:text-slate-500 shrink-0">px</span>
+                    <span className="text-[11px] text-slate-400  shrink-0">px</span>
                   </label>
                 </div>
 
@@ -983,7 +983,7 @@ export default function ImageConvertTool() {
                       className={`inline-flex items-center h-6 px-2 rounded-md text-[10px] font-semibold transition-colors disabled:opacity-40 disabled:pointer-events-none ${
                         activePreset === preset.label
                           ? 'bg-brand-600 text-white'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-dark-hover dark:text-slate-300 dark:hover:bg-dark-border'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200   '
                       }`}
                     >
                       {preset.label}
@@ -993,10 +993,10 @@ export default function ImageConvertTool() {
 
                 <div className="flex flex-col gap-2 pt-0.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                    <span className="text-[11px] font-medium text-slate-500 ">
                       等比缩放
                     </span>
-                    <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-200 tabular-nums">
+                    <span className="text-[11px] font-semibold text-slate-700  tabular-nums">
                       {scalePercent}%
                     </span>
                   </div>
@@ -1018,7 +1018,7 @@ export default function ImageConvertTool() {
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center justify-between">
                     <span className={SECTION_LABEL}>画质</span>
-                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 tabular-nums">
+                    <span className="text-xs font-semibold text-slate-700  tabular-nums">
                       {quality}%
                     </span>
                   </div>
@@ -1031,7 +1031,7 @@ export default function ImageConvertTool() {
                     onChange={(event) => setQuality(Number(event.target.value))}
                     className="tool-range"
                   />
-                  <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                  <p className="text-[11px] text-slate-400 ">
                     80 ~ 90 通常看不出差别，体积却能小一大截
                     {Number(targetKb) > 0 && '；已指定目标体积，压缩时会自动下调'}
                   </p>
@@ -1040,7 +1040,7 @@ export default function ImageConvertTool() {
 
               {/* 背景色：不支持透明的格式才有意义 */}
               {!activeFormat.alpha && (
-                <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-200/70 dark:border-dark-border bg-slate-50/70 dark:bg-dark-hover/40 pl-2.5 pr-3 py-2 cursor-pointer">
+                <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-200/70  bg-slate-50/70  pl-2.5 pr-3 py-2 cursor-pointer">
                   <span className="flex items-center gap-2.5">
                     <input
                       type="color"
@@ -1048,11 +1048,11 @@ export default function ImageConvertTool() {
                       onChange={(event) => setBgColor(event.target.value)}
                       className="w-7 h-7 rounded-lg border-0 bg-transparent cursor-pointer p-0"
                     />
-                    <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                    <span className="text-xs font-medium text-slate-600 ">
                       背景填充色
                     </span>
                   </span>
-                  <span className="text-[11px] font-mono text-slate-400 dark:text-slate-500">
+                  <span className="text-[11px] font-mono text-slate-400 ">
                     {bgColor}
                   </span>
                 </label>

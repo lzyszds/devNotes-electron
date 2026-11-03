@@ -87,7 +87,7 @@ function SwatchGrid({
     // 拦住 mousedown，否则点色块会让编辑区失焦、选区随即消失
     <div
       onMouseDown={(event) => event.preventDefault()}
-      className="mb-1 grid grid-cols-8 gap-1 rounded-lg border border-slate-200/80 bg-white p-1.5 shadow-lg dark:border-dark-border dark:bg-dark-panel"
+      className="mb-1 grid grid-cols-8 gap-1 rounded-lg border border-slate-200/80 bg-white p-1.5 shadow-lg  "
     >
       {colors.map((color) => (
         <button
@@ -96,7 +96,7 @@ function SwatchGrid({
           title={color}
           onClick={() => onPick(color)}
           style={{ backgroundColor: color }}
-          className="h-4 w-4 rounded border border-black/10 transition-transform hover:scale-110 dark:border-white/20"
+          className="h-4 w-4 rounded border border-black/10 transition-transform hover:scale-110 "
         />
       ))}
     </div>
@@ -357,7 +357,7 @@ export default function SelectionToolbar({
           {panel === 'size' && (
             <div
               onMouseDown={(event) => event.preventDefault()}
-              className="mb-1 flex items-center gap-0.5 rounded-lg border border-slate-200/80 bg-white px-1 py-0.5 shadow-lg dark:border-dark-border dark:bg-dark-panel"
+              className="mb-1 flex items-center gap-0.5 rounded-lg border border-slate-200/80 bg-white px-1 py-0.5 shadow-lg  "
             >
               {FONT_SIZES.map((item) => (
                 <button
@@ -365,7 +365,7 @@ export default function SelectionToolbar({
                   type="button"
                   title={`${item.label}（${item.px}px）`}
                   onClick={() => pickSize(item.px)}
-                  className="rounded-md px-2 py-1 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-dark-hover dark:hover:text-white"
+                  className="rounded-md px-2 py-1 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900   "
                 >
                   <span style={{ fontSize: `${Math.round(item.px * 0.7)}px` }}>{item.label}</span>
                 </button>
@@ -382,7 +382,7 @@ export default function SelectionToolbar({
               // 方向随浮条变（见上），间距的 mb/mt 也跟着换；限高防止长内容撑出窗口
               className={`${
                 panel === 'ai' ? 'mt-1' : 'mb-1'
-              } max-h-[min(60vh,320px)] w-[260px] overflow-y-auto rounded-lg border border-slate-200/80 bg-white p-1 shadow-lg dark:border-dark-border dark:bg-dark-panel`}
+              } max-h-[min(60vh,320px)] w-[260px] overflow-y-auto rounded-lg border border-slate-200/80 bg-white p-1 shadow-lg  `}
             >
               {NOTE_AI_ACTIONS.map((action) => {
                 const busy = aiRunning === action.id
@@ -401,15 +401,15 @@ export default function SelectionToolbar({
                         if (action.needsInput && !aiInput.trim()) return
                         void runAi(action, aiInput.trim())
                       }}
-                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-slate-100 disabled:opacity-60 dark:hover:bg-dark-hover"
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-slate-100 disabled:opacity-60 "
                     >
                       {busy ? (
-                        <Loader2 className="h-3.5 w-3.5 flex-shrink-0 animate-spin text-brand-600 dark:text-brand-400" />
+                        <Loader2 className="h-3.5 w-3.5 flex-shrink-0 animate-spin text-brand-600 " />
                       ) : (
-                        <Sparkles className="h-3.5 w-3.5 flex-shrink-0 text-brand-600 dark:text-brand-400" />
+                        <Sparkles className="h-3.5 w-3.5 flex-shrink-0 text-brand-600 " />
                       )}
                       <span className="flex flex-col">
-                        <span className="text-xs font-medium text-slate-800 dark:text-slate-100">
+                        <span className="text-xs font-medium text-slate-800 ">
                           {action.label}
                         </span>
                         <span className="text-[10px] text-slate-400">{action.hint}</span>
@@ -430,7 +430,7 @@ export default function SelectionToolbar({
                             }
                           }}
                           placeholder={action.inputPlaceholder}
-                          className="w-full rounded-md border border-slate-200 px-2 py-1 text-xs outline-none focus:border-brand-500 dark:border-dark-border dark:bg-dark-bg dark:text-white"
+                          className="w-full rounded-md border border-slate-200 px-2 py-1 text-xs outline-none focus:border-brand-500   "
                         />
                       </div>
                     )}

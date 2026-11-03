@@ -195,16 +195,16 @@ export default function ToolHistoryOverlay<T = unknown>({
         onClick={(e) => e.stopPropagation()}
       >
         {/* 顶部标题栏（h-[52px]） */}
-        <div className="h-[52px] px-4 border-b border-[#E6E6E3] dark:border-dark-border bg-white dark:bg-[#1C1C1E] flex items-center justify-between shrink-0 select-none">
+        <div className="h-[52px] px-4 border-b border-[#E6E6E3]  bg-white  flex items-center justify-between shrink-0 select-none">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-7 h-7 rounded-lg bg-[#F3F3F1] dark:bg-[#2C2C2E] border border-[#E6E6E3]/80 dark:border-[#38383C] flex items-center justify-center text-[#191918] dark:text-[#E0E0DE] shrink-0">
+            <div className="w-7 h-7 rounded-lg bg-[#F3F3F1]  border border-[#E6E6E3]/80  flex items-center justify-center text-[#191918]  shrink-0">
               <History size={15} />
             </div>
             <div className="flex items-center gap-2 min-w-0">
-              <h3 className="text-[13px] font-semibold text-[#191918] dark:text-[#EDEDED] truncate">
+              <h3 className="text-[13px] font-semibold text-[#191918]  truncate">
                 {title}
               </h3>
-              <span className="text-[10px] font-mono font-medium px-1.5 py-0.5 rounded-full bg-[#F3F3F1] dark:bg-[#2C2C2E] text-[#787774] dark:text-[#9B9A97]">
+              <span className="text-[10px] font-mono font-medium px-1.5 py-0.5 rounded-full bg-[#F3F3F1]  text-[#787774] ">
                 {items.length}
               </span>
             </div>
@@ -215,8 +215,8 @@ export default function ToolHistoryOverlay<T = unknown>({
             {items.length > 0 && (
               <>
                 {confirmClear ? (
-                  <div className="flex items-center gap-1.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 px-2 py-0.5 rounded-md">
-                    <span className="text-[11px] font-medium text-rose-600 dark:text-rose-400">
+                  <div className="flex items-center gap-1.5 bg-rose-50  border border-rose-200  px-2 py-0.5 rounded-md">
+                    <span className="text-[11px] font-medium text-rose-600 ">
                       确定清空?
                     </span>
                     <button
@@ -225,15 +225,15 @@ export default function ToolHistoryOverlay<T = unknown>({
                         onClear()
                         setConfirmClear(false)
                       }}
-                      className="text-[11px] font-semibold text-rose-600 dark:text-rose-400 hover:underline px-1 py-0.5 cursor-pointer"
+                      className="text-[11px] font-semibold text-rose-600  hover:underline px-1 py-0.5 cursor-pointer"
                     >
                       确定
                     </button>
-                    <span className="text-rose-300 dark:text-rose-700">|</span>
+                    <span className="text-rose-300 ">|</span>
                     <button
                       type="button"
                       onClick={() => setConfirmClear(false)}
-                      className="text-[11px] text-[#787774] hover:text-[#191918] dark:hover:text-white px-1 py-0.5 cursor-pointer"
+                      className="text-[11px] text-[#787774] hover:text-[#191918]  px-1 py-0.5 cursor-pointer"
                     >
                       取消
                     </button>
@@ -242,7 +242,7 @@ export default function ToolHistoryOverlay<T = unknown>({
                   <button
                     type="button"
                     onClick={() => setConfirmClear(true)}
-                    className="text-xs font-medium text-[#787774] hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 px-2 py-1 rounded-md transition-colors flex items-center gap-1 cursor-pointer"
+                    className="text-xs font-medium text-[#787774] hover:text-rose-600 hover:bg-rose-50  px-2 py-1 rounded-md transition-colors flex items-center gap-1 cursor-pointer"
                   >
                     <Trash2 size={12} />
                     <span>清空</span>
@@ -257,7 +257,7 @@ export default function ToolHistoryOverlay<T = unknown>({
                 type="button"
                 onClick={onClose}
                 aria-label="关闭"
-                className="h-7 w-7 rounded-md flex items-center justify-center text-[#787774] hover:text-[#191918] dark:hover:text-[#EDEDED] hover:bg-[#F3F3F1] dark:hover:bg-[#2C2C2E] transition-colors cursor-pointer"
+                className="h-7 w-7 rounded-md flex items-center justify-center text-[#787774] hover:text-[#191918]  hover:bg-[#F3F3F1]  transition-colors cursor-pointer"
               >
                 <X size={15} />
               </button>
@@ -267,7 +267,7 @@ export default function ToolHistoryOverlay<T = unknown>({
 
         {/* 搜索过滤栏（有条目时展示） */}
         {items.length > 0 && (
-          <div className="px-3.5 py-2 border-b border-[#E6E6E3] dark:border-dark-border bg-[#FBFBFA]/80 dark:bg-[#1E1E20]/80 flex items-center gap-2 shrink-0">
+          <div className="px-3.5 py-2 border-b border-[#E6E6E3]  bg-[#FBFBFA]/80  flex items-center gap-2 shrink-0">
             <div className="relative flex-1">
               <Search
                 size={13}
@@ -278,14 +278,14 @@ export default function ToolHistoryOverlay<T = unknown>({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="搜索历史记录..."
-                className="w-full h-7 pl-8 pr-7 text-xs bg-white dark:bg-[#252528] border border-[#E6E6E3] dark:border-[#333336] rounded-md text-[#191918] dark:text-[#EDEDED] placeholder-[#787774]/60 outline-none focus:border-[#1C1C1C] dark:focus:border-[#66666B] transition-colors"
+                className="w-full h-7 pl-8 pr-7 text-xs bg-white  border border-[#E6E6E3]  rounded-md text-[#191918]  placeholder-[#787774]/60 outline-none focus:border-[#1C1C1C]  transition-colors"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
                   aria-label="清除搜索"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[#787774] hover:text-[#191918] dark:hover:text-white p-0.5 cursor-pointer"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[#787774] hover:text-[#191918]  p-0.5 cursor-pointer"
                 >
                   <X size={12} />
                 </button>
@@ -300,17 +300,17 @@ export default function ToolHistoryOverlay<T = unknown>({
         )}
 
         {/* 主列表滚动区 */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#FBFBFA] dark:bg-[#171718] select-none">
+        <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#FBFBFA]  select-none">
           {items.length === 0 ? (
             /* 全空状态 */
             <div className="flex flex-col items-center justify-center py-24 text-center px-6">
-              <div className="w-12 h-12 rounded-2xl bg-white dark:bg-[#252528] border border-[#E6E6E3] dark:border-[#38383C] flex items-center justify-center text-[#787774] dark:text-[#9B9A97] shadow-2xs mb-3">
+              <div className="w-12 h-12 rounded-2xl bg-white  border border-[#E6E6E3]  flex items-center justify-center text-[#787774]  shadow-2xs mb-3">
                 <Clock size={20} className="opacity-70" />
               </div>
-              <p className="text-xs font-semibold text-[#191918] dark:text-[#EDEDED] mb-1">
+              <p className="text-xs font-semibold text-[#191918]  mb-1">
                 {emptyText}
               </p>
-              <p className="text-[11px] text-[#787774] dark:text-[#888884] max-w-[220px] leading-relaxed">
+              <p className="text-[11px] text-[#787774]  max-w-[220px] leading-relaxed">
                 在此工具中执行的操作与生成记录会自动保存在这里，方便随时回填。
               </p>
             </div>
@@ -318,13 +318,13 @@ export default function ToolHistoryOverlay<T = unknown>({
             /* 搜索无匹配状态 */
             <div className="flex flex-col items-center justify-center py-16 text-center px-6">
               <Search size={22} className="text-[#787774]/50 mb-2" />
-              <p className="text-xs font-medium text-[#191918] dark:text-[#EDEDED] mb-1">
+              <p className="text-xs font-medium text-[#191918]  mb-1">
                 未找到与「{searchQuery}」相关的记录
               </p>
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
-                className="text-xs text-brand-600 dark:text-brand-400 hover:underline cursor-pointer mt-1"
+                className="text-xs text-brand-600  hover:underline cursor-pointer mt-1"
               >
                 清除搜索条件
               </button>
@@ -352,23 +352,23 @@ export default function ToolHistoryOverlay<T = unknown>({
                   }}
                   onContextMenu={(e) => onItemContextMenu?.(e, item)}
                   onClick={() => onPick(item)}
-                  className="group relative p-3 rounded-xl bg-white dark:bg-[#222225] border border-[#E6E6E3] dark:border-[#2E2E32] hover:border-[#1C1C1C]/30 dark:hover:border-[#4E4E54] hover:shadow-xs transition-all duration-150 cursor-pointer flex flex-col gap-2"
+                  className="group relative p-3 rounded-xl bg-white  border border-[#E6E6E3]  hover:border-[#1C1C1C]/30  hover:shadow-xs transition-all duration-150 cursor-pointer flex flex-col gap-2"
                 >
                   {/* 顶部标题 / 内容预览 */}
                   <div className="min-w-0 pr-1">
                     {renderItemTitle ? (
-                      <div className="text-[13px] font-medium text-[#191918] dark:text-[#EDEDED] break-all leading-snug">
+                      <div className="text-[13px] font-medium text-[#191918]  break-all leading-snug">
                         {renderItemTitle(item)}
                       </div>
                     ) : (
                       <>
                         {item.title && (
-                          <div className="text-[13px] font-semibold text-[#191918] dark:text-[#EDEDED] truncate mb-1">
+                          <div className="text-[13px] font-semibold text-[#191918]  truncate mb-1">
                             {item.title}
                           </div>
                         )}
                         <div
-                          className={`text-xs text-[#52525B] dark:text-[#A1A1AA] line-clamp-2 leading-relaxed break-all ${
+                          className={`text-xs text-[#52525B]  line-clamp-2 leading-relaxed break-all ${
                             isCodeLike(textContent) ? 'font-mono' : ''
                           }`}
                         >
@@ -379,10 +379,10 @@ export default function ToolHistoryOverlay<T = unknown>({
                   </div>
 
                   {/* 底部信息栏与操作条 */}
-                  <div className="flex items-center justify-between pt-1 border-t border-[#F3F3F1] dark:border-[#2C2C2E] gap-2">
+                  <div className="flex items-center justify-between pt-1 border-t border-[#F3F3F1]  gap-2">
                     {/* 相对时间与完整时间悬浮 Tooltip */}
                     <Tooltip content={exactTime}>
-                      <div className="flex items-center gap-1 text-[11px] text-[#787774] dark:text-[#888884] tabular-nums font-mono">
+                      <div className="flex items-center gap-1 text-[11px] text-[#787774]  tabular-nums font-mono">
                         <Clock size={11} className="opacity-70" />
                         <span>{relativeTime}</span>
                       </div>
@@ -401,8 +401,8 @@ export default function ToolHistoryOverlay<T = unknown>({
                           aria-label="复制"
                           className={`h-6 w-6 rounded flex items-center justify-center transition-colors cursor-pointer ${
                             isCopied
-                              ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40'
-                              : 'text-[#787774] hover:text-[#191918] dark:hover:text-[#EDEDED] hover:bg-[#F3F3F1] dark:hover:bg-[#2C2C2E]'
+                              ? 'text-emerald-600 bg-emerald-50 '
+                              : 'text-[#787774] hover:text-[#191918]  hover:bg-[#F3F3F1] '
                           }`}
                         >
                           {isCopied ? <Check size={12} /> : <Copy size={12} />}
@@ -416,7 +416,7 @@ export default function ToolHistoryOverlay<T = unknown>({
                             type="button"
                             onClick={() => onDelete(item.id)}
                             aria-label="删除"
-                            className="h-6 w-6 rounded flex items-center justify-center text-[#787774] hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                            className="h-6 w-6 rounded flex items-center justify-center text-[#787774] hover:text-rose-600 hover:bg-rose-50  transition-colors cursor-pointer"
                           >
                             <Trash2 size={12} />
                           </button>
@@ -427,7 +427,7 @@ export default function ToolHistoryOverlay<T = unknown>({
                       <button
                         type="button"
                         onClick={() => onPick(item)}
-                        className="inline-flex items-center gap-1 h-6 px-2 rounded-md bg-[#1C1C1C] dark:bg-white text-white dark:text-[#191918] text-[11px] font-medium hover:bg-neutral-800 dark:hover:bg-neutral-200 active:scale-95 transition shadow-2xs cursor-pointer ml-0.5"
+                        className="inline-flex items-center gap-1 h-6 px-2 rounded-md bg-[#1C1C1C]  text-white  text-[11px] font-medium hover:bg-neutral-800  active:scale-95 transition shadow-2xs cursor-pointer ml-0.5"
                       >
                         <CornerUpLeft size={11} />
                         <span>回填</span>
@@ -441,15 +441,15 @@ export default function ToolHistoryOverlay<T = unknown>({
         </div>
 
         {/* 底部辅助说明栏 */}
-        <div className="h-9 px-4 border-t border-[#E6E6E3] dark:border-dark-border bg-white dark:bg-[#1C1C1E] flex items-center justify-between text-[11px] text-[#787774] dark:text-[#888884] shrink-0 select-none">
+        <div className="h-9 px-4 border-t border-[#E6E6E3]  bg-white  flex items-center justify-between text-[11px] text-[#787774]  shrink-0 select-none">
           <div className="flex items-center gap-1.5 truncate">
-            <kbd className="px-1.5 py-0.5 rounded bg-[#F3F3F1] dark:bg-[#2C2C2E] border border-[#E6E6E3]/60 dark:border-[#38383C] text-[10px] font-mono leading-none">
+            <kbd className="px-1.5 py-0.5 rounded bg-[#F3F3F1]  border border-[#E6E6E3]/60  text-[10px] font-mono leading-none">
               Esc
             </kbd>
             <span>关闭</span>
-            <span className="text-[#D0D0CD] dark:text-[#38383C]">·</span>
+            <span className="text-[#D0D0CD] ">·</span>
             <span>单击回填</span>
-            <span className="text-[#D0D0CD] dark:text-[#38383C]">·</span>
+            <span className="text-[#D0D0CD] ">·</span>
             <span>右键菜单</span>
           </div>
           <span className="font-mono tabular-nums shrink-0 ml-2">

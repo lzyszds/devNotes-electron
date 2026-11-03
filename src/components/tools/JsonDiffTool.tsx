@@ -25,6 +25,7 @@ import {
   ToolHistoryOverlay,
   ToolShell,
   ToolTag,
+  PreviewButton,
   iconButtonClass,
 } from "../ui";
 import type { SegmentOption } from "../ui";
@@ -59,17 +60,17 @@ const KIND_STYLE: Record<DiffKind, { label: string; icon: LucideIcon; cls: strin
   added: {
     label: "新增",
     icon: Plus,
-    cls: "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400",
+    cls: "bg-emerald-50 text-emerald-600  ",
   },
   removed: {
     label: "删除",
     icon: Minus,
-    cls: "bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400",
+    cls: "bg-rose-50 text-rose-600  ",
   },
   changed: {
     label: "修改",
     icon: Pencil,
-    cls: "bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400",
+    cls: "bg-amber-50 text-amber-600  ",
   },
 };
 
@@ -211,7 +212,7 @@ function JsonSidePanel({
       <CodeEditor value={text} onChange={onChange} placeholder={placeholder} />
       {state.status === "error" && (
         <div
-          className="shrink-0 truncate border-t border-amber-200/60 bg-amber-50/60 px-3.5 py-2 text-[11px] text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300"
+          className="shrink-0 truncate border-t border-amber-200/60 bg-amber-50/60 px-3.5 py-2 text-[11px] text-amber-700   "
           title={state.message}
         >
           {state.message}
@@ -225,7 +226,7 @@ function ValueCell({ text, tint }: { text: string | null; tint: string }) {
   return (
     <div
       className={`break-all px-3 py-2 ${tint} ${
-        text === null ? "text-slate-300 dark:text-slate-600" : "text-slate-600 dark:text-slate-300"
+        text === null ? "text-slate-300 " : "text-slate-600 "
       }`}
       title={text ?? undefined}
     >
@@ -240,19 +241,19 @@ function DiffRow({ entry }: { entry: DiffEntry }) {
 
   const leftTint =
     entry.kind === "removed"
-      ? "bg-rose-50/70 dark:bg-rose-500/10"
+      ? "bg-rose-50/70 "
       : entry.kind === "changed"
-        ? "bg-amber-50/70 dark:bg-amber-500/10"
+        ? "bg-amber-50/70 "
         : "";
   const rightTint =
     entry.kind === "added"
-      ? "bg-emerald-50/70 dark:bg-emerald-500/10"
+      ? "bg-emerald-50/70 "
       : entry.kind === "changed"
-        ? "bg-amber-50/70 dark:bg-amber-500/10"
+        ? "bg-amber-50/70 "
         : "";
 
   return (
-    <div className="grid grid-cols-[72px_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)] font-mono text-[12px] transition-colors hover:bg-slate-50/60 dark:hover:bg-dark-hover/40">
+    <div className="grid grid-cols-[72px_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)] font-mono text-[12px] transition-colors hover:bg-slate-50/60 ">
       <div className="px-3 py-2">
         <span
           className={`inline-flex h-5 items-center gap-1 rounded-md px-1.5 font-sans text-[10px] font-semibold ${style.cls}`}
@@ -261,7 +262,7 @@ function DiffRow({ entry }: { entry: DiffEntry }) {
           {style.label}
         </span>
       </div>
-      <div className="break-all px-3 py-2 font-medium text-slate-800 dark:text-slate-100">
+      <div className="break-all px-3 py-2 font-medium text-slate-800 ">
         {entry.path}
       </div>
       <ValueCell
@@ -406,19 +407,19 @@ export default function JsonDiffTool() {
 
     return (
       <div className="flex-1 min-h-0 overflow-auto">
-        <div className="sticky top-0 z-10 grid grid-cols-[72px_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)] border-b border-slate-100 bg-slate-50 text-[11px] font-semibold text-slate-400 dark:border-dark-border dark:bg-dark-hover dark:text-slate-500">
+        <div className="sticky top-0 z-10 grid grid-cols-[72px_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)] border-b border-slate-100 bg-slate-50 text-[11px] font-semibold text-slate-400   ">
           <div className="px-3 py-2">类型</div>
           <div className="px-3 py-2">路径</div>
           <div className="px-3 py-2">原始 JSON（左）</div>
           <div className="px-3 py-2">比对 JSON（右）</div>
         </div>
-        <div className="divide-y divide-slate-100 dark:divide-dark-border">
+        <div className="divide-y divide-slate-100 ">
           {shown.map((entry, index) => (
             <DiffRow key={`${entry.path}-${index}`} entry={entry} />
           ))}
         </div>
         {visibleEntries.length > MAX_ROWS && (
-          <div className="px-3 py-3 text-center text-[11px] text-slate-400 dark:text-slate-500">
+          <div className="px-3 py-3 text-center text-[11px] text-slate-400 ">
             仅显示前 {MAX_ROWS} 条，完整结果请使用「复制差异报告」
           </div>
         )}
@@ -448,7 +449,7 @@ export default function JsonDiffTool() {
             onClick={() => setShowHistory(!showHistory)}
             className={`tool-button-secondary h-8 ${
               showHistory
-                ? "ring-2 ring-brand-500/20 border-brand-200 text-brand-600 dark:border-brand-500/40 dark:text-brand-400"
+                ? "ring-2 ring-brand-500/20 border-brand-200 text-brand-600  "
                 : ""
             }`}
           >
@@ -471,7 +472,7 @@ export default function JsonDiffTool() {
               setLeftInput("");
               setRightInput("");
             }}
-            className="tool-button-secondary h-8 text-rose-500 hover:text-rose-600 hover:bg-rose-50 border-rose-100 dark:text-rose-400 dark:border-rose-500/30 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
+            className="tool-button-secondary h-8 text-rose-500 hover:text-rose-600 hover:bg-rose-50 border-rose-100    "
           >
             <Trash2 size={15} />
             <span>清空</span>
@@ -524,6 +525,11 @@ export default function JsonDiffTool() {
               diff && totalDiffs > 0 ? (
                 <>
                   <Segmented value={filter} onChange={setFilter} options={filterOptions} />
+                  <PreviewButton
+                    title="差异报告"
+                    content={report}
+                    source={`${totalDiffs} 处差异`}
+                  />
                   <CopyButton value={report} label="复制差异报告" />
                 </>
               ) : undefined

@@ -121,10 +121,10 @@ export default function ScratchpadApp() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-white dark:bg-dark-bg text-slate-900 dark:text-slate-100 overflow-hidden">
+    <div className="flex flex-col h-screen bg-white  text-slate-900  overflow-hidden">
       {/* 标题条：整条可拖动，按钮都在 no-drag 里 */}
       <header
-        className="drag-region flex items-center gap-1.5 pl-2.5 pr-1.5 h-9 shrink-0 bg-slate-50 dark:bg-dark-panel border-b border-slate-200/80 dark:border-dark-border"
+        className="drag-region flex items-center gap-1.5 pl-2.5 pr-1.5 h-9 shrink-0 bg-slate-50  border-b border-slate-200/80 "
         onDoubleClick={(e) => {
           if ((e.target as HTMLElement).closest('.no-drag')) return
           togglePin()
@@ -133,7 +133,7 @@ export default function ScratchpadApp() {
         <span className="w-4 h-4 rounded bg-amber-400/90 shadow-inner shrink-0" />
         <span className="text-[11px] font-bold tracking-tight truncate">草稿纸</span>
 
-        <span className="text-[10px] text-slate-400 dark:text-slate-500 truncate ml-1">
+        <span className="text-[10px] text-slate-400  truncate ml-1">
           {savedAt ? `已保存 ${new Date(savedAt).toLocaleTimeString()}` : '自动保存'}
         </span>
 
@@ -145,8 +145,8 @@ export default function ScratchpadApp() {
               onClick={togglePin}
               className={`inline-flex items-center justify-center h-6 w-6 rounded-md transition-colors ${
                 pinned
-                  ? 'text-brand-600 bg-brand-50 dark:text-brand-400 dark:bg-brand-500/15'
-                  : 'text-slate-400 hover:bg-slate-200/60 dark:hover:bg-dark-hover'
+                  ? 'text-brand-600 bg-brand-50  '
+                  : 'text-slate-400 hover:bg-slate-200/60 '
               }`}
             >
               {pinned ? <Pin size={13} /> : <PinOff size={13} />}
@@ -158,8 +158,8 @@ export default function ScratchpadApp() {
               onClick={() => setShowPreview((prev) => !prev)}
               className={`inline-flex items-center justify-center h-6 w-6 rounded-md transition-colors ${
                 showPreview
-                  ? 'text-brand-600 bg-brand-50 dark:text-brand-400 dark:bg-brand-500/15'
-                  : 'text-slate-400 hover:bg-slate-200/60 dark:hover:bg-dark-hover'
+                  ? 'text-brand-600 bg-brand-50  '
+                  : 'text-slate-400 hover:bg-slate-200/60 '
               }`}
             >
               <span className="text-[11px] font-bold leading-none">M↓</span>
@@ -175,7 +175,7 @@ export default function ScratchpadApp() {
                 window.setTimeout(() => setJustCopied(false), 1200)
               }}
               disabled={!text}
-              className="inline-flex items-center justify-center h-6 w-6 rounded-md text-slate-400 hover:bg-slate-200/60 dark:hover:bg-dark-hover disabled:opacity-40 disabled:pointer-events-none transition-colors"
+              className="inline-flex items-center justify-center h-6 w-6 rounded-md text-slate-400 hover:bg-slate-200/60  disabled:opacity-40 disabled:pointer-events-none transition-colors"
             >
               {justCopied ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
             </button>
@@ -187,7 +187,7 @@ export default function ScratchpadApp() {
                 if (!text || window.confirm('清空草稿纸？内容无法找回。')) setText('')
               }}
               disabled={!text}
-              className="inline-flex items-center justify-center h-6 w-6 rounded-md text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+              className="inline-flex items-center justify-center h-6 w-6 rounded-md text-slate-400 hover:bg-rose-50 hover:text-rose-600  disabled:opacity-40 disabled:pointer-events-none transition-colors"
             >
               <Eraser size={13} />
             </button>
@@ -199,7 +199,7 @@ export default function ScratchpadApp() {
           <button
             onClick={() => void api?.scratchClose?.()}
             title="关闭"
-            className="inline-flex items-center justify-center h-6 w-6 rounded-md text-slate-400 hover:bg-slate-200/70 dark:hover:bg-dark-hover transition-colors"
+            className="inline-flex items-center justify-center h-6 w-6 rounded-md text-slate-400 hover:bg-slate-200/70  transition-colors"
           >
             <Minus size={13} className="hidden" />
             <X size={13} />
@@ -226,13 +226,13 @@ export default function ScratchpadApp() {
             onKeyDown={(e) => handleTextareaKeyDown(e, setText)}
             spellCheck={false}
             placeholder={EMPTY_HINT}
-            className="w-full h-full resize-none outline-none bg-transparent px-4 py-3 font-mono text-[13px] leading-6 text-slate-800 dark:text-slate-100 placeholder:text-slate-300 dark:placeholder:text-slate-600"
+            className="w-full h-full resize-none outline-none bg-transparent px-4 py-3 font-mono text-[13px] leading-6 text-slate-800  placeholder:text-slate-300 "
           />
         )}
       </div>
 
       {/* 状态条 */}
-      <footer className="flex items-center justify-between px-3 h-6 shrink-0 bg-slate-50 dark:bg-dark-panel border-t border-slate-200/80 dark:border-dark-border text-[10px] text-slate-400 dark:text-slate-500 tabular-nums">
+      <footer className="flex items-center justify-between px-3 h-6 shrink-0 bg-slate-50  border-t border-slate-200/80  text-[10px] text-slate-400  tabular-nums">
         <span>{showPreview ? '预览模式 · ⌘P 回到编辑' : '⌘P 预览 · ⌘S 保存 · Esc 关闭'}</span>
         <span>
           {stats.lines} 行 · {stats.chars} 字符

@@ -21,6 +21,7 @@ import {
   ToolNotice,
   ToolShell,
   CopyButton,
+  PreviewButton,
 } from '../ui'
 import {
   AES_KEY_SIZES,
@@ -75,18 +76,18 @@ function MethodTile({
       onClick={onClick}
       title={hint}
       className={`flex items-center gap-2 rounded-lg border px-2.5 h-9 text-left transition-colors ${active
-          ? 'border-brand-200 bg-brand-50 dark:border-brand-500/40 dark:bg-brand-500/10'
-          : 'border-slate-200 dark:border-dark-border hover:border-slate-300 hover:bg-slate-50 dark:hover:border-slate-600 dark:hover:bg-dark-hover'
+          ? 'border-brand-200 bg-brand-50  '
+          : 'border-slate-200  hover:border-slate-300 hover:bg-slate-50  '
         }`}
     >
       <span
-        className={`text-[12px] font-semibold shrink-0 ${active ? 'text-brand-700 dark:text-brand-300' : 'text-slate-700 dark:text-slate-200'
+        className={`text-[12px] font-semibold shrink-0 ${active ? 'text-brand-700 ' : 'text-slate-700 '
           }`}
       >
         {name}
       </span>
       <span
-        className={`ml-auto text-[10px] truncate ${active ? 'text-brand-500' : 'text-slate-400 dark:text-slate-500'
+        className={`ml-auto text-[10px] truncate ${active ? 'text-brand-500' : 'text-slate-400 '
           }`}
       >
         {decode ? '← ' : '→ '}
@@ -245,7 +246,7 @@ export default function EncodeTool({
           <button
             onClick={() => setShowHistory(!showHistory)}
             className={`tool-button-secondary h-8 ${showHistory
-                ? 'ring-2 ring-brand-500/20 border-brand-200 text-brand-600 dark:border-brand-500/40 dark:text-brand-400'
+                ? 'ring-2 ring-brand-500/20 border-brand-200 text-brand-600  '
                 : ''
               }`}
           >
@@ -283,9 +284,9 @@ export default function EncodeTool({
           </ToolNotice>
         )}
 
-        <div className="h-full min-h-[420px] grid grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)] gap-4 items-stretch">
+        <div className="h-full flex-1 overflow-scroll grid grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)] gap-4 items-stretch">
           {/* ---------------- 左栏：全部转换方式，单列铺开 ---------------- */}
-          <ToolCard>
+          <ToolCard className="flex flex-col min-h-[150px]">
             <ToolCardHeader
               title="转换方式"
               sublabel="METHOD"
@@ -304,13 +305,13 @@ export default function EncodeTool({
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="搜索算法，如 sha / morse / 进制"
-                  className="w-full h-8 pl-7 pr-7 rounded-lg border border-slate-200 dark:border-dark-border bg-white dark:bg-dark-panel text-[12px] text-slate-700 dark:text-slate-200 outline-none placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:border-brand-400"
+                  className="w-full h-8 pl-7 pr-7 rounded-lg border border-slate-200  bg-white  text-[12px] text-slate-700  outline-none placeholder:text-slate-400  focus:border-brand-400"
                 />
                 {query && (
                   <button
                     type="button"
                     onClick={() => setQuery('')}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 "
                     title="清空搜索"
                   >
                     <X size={13} />
@@ -324,7 +325,7 @@ export default function EncodeTool({
               {searching ? (
                 searchGroups.length === 0 ? (
                   <div className="px-1 py-6 text-center">
-                    <p className="text-[12px] text-slate-400 dark:text-slate-500">
+                    <p className="text-[12px] text-slate-400 ">
                       没有匹配「{query.trim()}」的算法
                     </p>
                   </div>
@@ -422,7 +423,7 @@ export default function EncodeTool({
             </div>
 
             {/* 底部按钮跟上面的滚动列表隔一道，免得像压在最后一格上 */}
-            <div className="p-3 border-t border-slate-200/60 dark:border-dark-border flex gap-2 shrink-0">
+            <div className="p-3 border-t border-slate-200/60  flex gap-2 shrink-0">
               <button
                 type="button"
                 onClick={() => run('encode')}
@@ -450,6 +451,7 @@ export default function EncodeTool({
                 sublabel="SOURCE"
                 // meta 自带一层灰底，这里只能传纯文本；再套 ToolTag 会双层叠色
                 meta={isAes ? 'IV:密文' : '纯文本'}
+                actions={<PreviewButton title="输入内容" content={() => input} disabled={!input} />}
               />
               <div className="flex-1 min-h-0 p-4 flex flex-col">
                 <textarea
@@ -512,7 +514,7 @@ export default function EncodeTool({
                       {aes.keySource === 'hex' && (
                         <button
                           onClick={() => setAes({ ...aes, key: randomHexKey(aes.keySize) })}
-                          className="text-[11px] font-semibold text-brand-600 dark:text-brand-400 hover:underline"
+                          className="text-[11px] font-semibold text-brand-600  hover:underline"
                         >
                           随机生成一个
                         </button>
@@ -527,10 +529,10 @@ export default function EncodeTool({
                           : '任意口令，会用 PBKDF2 派生密钥'
                       }
                       rows={2}
-                      className="w-full bg-slate-50/70 dark:bg-dark-hover/40 border border-slate-200/70 dark:border-dark-border rounded-lg px-3 py-2 resize-none outline-none font-mono text-[12px] leading-5 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:border-brand-400"
+                      className="w-full bg-slate-50/70  border border-slate-200/70  rounded-lg px-3 py-2 resize-none outline-none font-mono text-[12px] leading-5 text-slate-800  placeholder:text-slate-400  focus:border-brand-400"
                     />
                     {aesKeyMissing && (
-                      <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                      <p className="text-[11px] text-amber-600 ">
                         {aes.keySource === 'hex' ? '还没填密钥' : '还没填口令'}，填了才能加密
                       </p>
                     )}
@@ -546,13 +548,16 @@ export default function EncodeTool({
                 // meta 自带一层灰底，这里只能传纯文本；再套 ToolTag 会双层叠色
                 meta={isAes ? `AES-${aes.mode}` : currentType?.name}
                 actions={
-                  <CopyButton value={() => output} disabled={!output} />
+                  <>
+                    <PreviewButton title="解析结果" content={() => output} disabled={!output} />
+                    <CopyButton value={() => output} disabled={!output} />
+                  </>
                 }
               />
               <div className="flex-1 min-h-0 p-4 flex flex-col">
                 <div className={BODY_OUTPUT}>
                   {output || (
-                    <span className="text-slate-300 dark:text-slate-600 not-italic">
+                    <span className="text-slate-300  not-italic">
                       转换结果将在此呈现…
                     </span>
                   )}
@@ -574,7 +579,7 @@ export default function EncodeTool({
             <>
               <ArrowDown size={13} className="text-brand-500" />
               将按
-              <span className="font-semibold text-slate-600 dark:text-slate-300">
+              <span className="font-semibold text-slate-600 ">
                 {isAes ? `AES-${aes.mode}` : currentType?.name}
               </span>
               {isAes

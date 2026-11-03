@@ -12,6 +12,7 @@ import {
   ToolHistoryOverlay,
   ToolShell,
   CopyButton,
+  PreviewButton,
   iconButtonClass,
 } from '../ui'
 import Tooltip from '../ui/Tooltip'
@@ -124,7 +125,7 @@ export default function PasswordTool() {
             onClick={() => setShowHistory(!showHistory)}
             className={`tool-button-secondary h-8 ${
               showHistory
-                ? 'ring-2 ring-brand-500/20 border-brand-200 text-brand-600 dark:border-brand-500/40 dark:text-brand-400'
+                ? 'ring-2 ring-brand-500/20 border-brand-200 text-brand-600  '
                 : ''
             }`}
           >
@@ -170,13 +171,15 @@ export default function PasswordTool() {
                   {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
               </Tooltip>
+              {/* 预览永远展示明文，不做掩码 —— 落档存档场景就是要看得清 */}
+              <PreviewButton title="随机密钥" content={() => password} disabled={!password} />
               <CopyButton value={() => password} disabled={!password} label="复制密码" />
             </>
           }
         />
 
         <div className="p-5">
-          <div className="font-mono text-[22px] md:text-[26px] font-semibold tracking-tight break-all select-text text-slate-900 dark:text-white leading-snug">
+          <div className="font-mono text-[22px] md:text-[26px] font-semibold tracking-tight break-all select-text text-slate-900  leading-snug">
             {showPassword ? password : password.replace(/./g, '•')}
           </div>
 
@@ -186,7 +189,7 @@ export default function PasswordTool() {
                 <span
                   key={step}
                   className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${
-                    strength >= (step + 1) * 25 ? getStrengthColor() : 'bg-slate-100 dark:bg-dark-hover'
+                    strength >= (step + 1) * 25 ? getStrengthColor() : 'bg-slate-100 '
                   }`}
                 />
               ))}
@@ -213,10 +216,10 @@ export default function PasswordTool() {
 
           <div className="flex-1 p-4 flex flex-col justify-center gap-4">
             <div className="flex items-baseline gap-1.5">
-              <span className="text-[32px] font-semibold text-slate-900 dark:text-white tabular-nums leading-none">
+              <span className="text-[32px] font-semibold text-slate-900  tabular-nums leading-none">
                 {length}
               </span>
-              <span className="text-[11px] text-slate-400 dark:text-slate-500">位</span>
+              <span className="text-[11px] text-slate-400 ">位</span>
             </div>
             <input
               type="range"
@@ -226,7 +229,7 @@ export default function PasswordTool() {
               onChange={(e) => setLength(Number(e.target.value))}
               className="tool-range"
             />
-            <p className="text-[11px] text-slate-400 dark:text-slate-500">4 位最短，64 位最长</p>
+            <p className="text-[11px] text-slate-400 ">4 位最短，64 位最长</p>
           </div>
         </ToolCard>
 
@@ -242,8 +245,8 @@ export default function PasswordTool() {
                   onClick={() => setOptions((prev) => ({ ...prev, [key]: !active }))}
                   className={`flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer transition-colors select-none ${
                     active
-                      ? 'border-brand-200/70 bg-brand-50/50 dark:border-brand-500/30 dark:bg-brand-500/10'
-                      : 'border-slate-200/70 dark:border-dark-border hover:bg-slate-50 dark:hover:bg-dark-hover'
+                      ? 'border-brand-200/70 bg-brand-50/50  '
+                      : 'border-slate-200/70  hover:bg-slate-50 '
                   }`}
                 >
                   <Checkbox
@@ -252,10 +255,10 @@ export default function PasswordTool() {
                     className="pointer-events-none"
                   />
                   <div className="flex flex-col min-w-0">
-                    <span className="text-xs font-semibold text-slate-800 dark:text-slate-100">
+                    <span className="text-xs font-semibold text-slate-800 ">
                       {val.label}
                     </span>
-                    <span className="text-[11px] font-mono text-slate-400 dark:text-slate-500">
+                    <span className="text-[11px] font-mono text-slate-400 ">
                       {val.sub}
                     </span>
                   </div>

@@ -16,7 +16,7 @@ import {
   type SpeechSettings,
 } from '../../utils/speechSettings'
 
-const LABEL_CLASS = 'block text-xs font-semibold text-slate-700 dark:text-slate-300'
+const LABEL_CLASS = 'block text-xs font-semibold text-slate-700 '
 
 /** 常用语种排前面，其余按标签排 —— 中文用户最先要的就是这两类 */
 const PREFERRED_LANGS = ['zh', 'en']
@@ -52,7 +52,7 @@ function SettingSlider({
     <div>
       <div className="flex items-baseline justify-between mb-1.5">
         <span className={LABEL_CLASS}>{label}</span>
-        <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
+        <span className="text-[11px] font-mono text-slate-500 ">
           {value.toFixed(step < 0.1 ? 2 : 1)}
         </span>
       </div>
@@ -63,9 +63,9 @@ function SettingSlider({
         step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-slate-200 dark:bg-dark-hover accent-brand-600"
+        className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-slate-200  accent-brand-600"
       />
-      <p className="mt-1 text-[10px] text-slate-400 dark:text-slate-500">{hint}</p>
+      <p className="mt-1 text-[10px] text-slate-400 ">{hint}</p>
     </div>
   )
 }
@@ -109,7 +109,7 @@ export default function SpeechPanel() {
   if (!isSpeechSupported()) {
     return (
       <NoteCard title="语音朗读" icon={Volume2}>
-        <p className="text-xs text-slate-500 dark:text-slate-400">
+        <p className="text-xs text-slate-500 ">
           当前环境没有提供语音合成能力（缺少 <code className="font-mono">speechSynthesis</code>），
           朗读按钮会提示不可用。桌面端与多数浏览器不受影响。
         </p>
@@ -138,7 +138,7 @@ export default function SpeechPanel() {
               placeholder="跟随朗读语言自动选择"
               title="朗读用的系统音色"
             />
-            <p className="mt-1.5 text-[10px] leading-relaxed text-slate-400 dark:text-slate-500">
+            <p className="mt-1.5 text-[10px] leading-relaxed text-slate-400 ">
               音色来自操作系统自带的语音引擎（这里没有任何音频文件）。
               不指定时浏览器会用它最默认的那个，多数系统上恰好是最机械的一个 ——
               挑一个自然些的通常立竿见影。
@@ -198,7 +198,7 @@ export default function SpeechPanel() {
               </button>
             </Tooltip>
             {voices.length === 0 && (
-              <span className="text-[11px] text-amber-600 dark:text-amber-400">
+              <span className="text-[11px] text-amber-600 ">
                 系统还没返回音色列表，稍等片刻
               </span>
             )}

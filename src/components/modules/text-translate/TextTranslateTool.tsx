@@ -151,14 +151,14 @@ const TranslationOutput = memo(function TranslationOutput({
 }) {
   const output = useTranslateOutput()
   return (
-    <div className="flex-1 select-text overflow-y-scroll whitespace-pre-wrap break-words text-[13px] leading-7 text-slate-800 dark:text-slate-100">
+    <div className="flex-1 select-text overflow-y-scroll whitespace-pre-wrap break-words text-[13px] leading-7 text-slate-800 ">
       {output ? output : isTranslating ? (
-        <span className="flex items-center gap-2 text-brand-600 dark:text-brand-400">
+        <span className="flex items-center gap-2 text-brand-600 ">
           <Loader2 size={14} className="animate-spin flex-shrink-0" />
           <span>翻译中{progress.total > 0 ? ` ${progress.current}/${progress.total}` : '…'}</span>
         </span>
       ) : (
-        <span className="text-slate-300 dark:text-slate-600">译文将实时在此呈现…</span>
+        <span className="text-slate-300 ">译文将实时在此呈现…</span>
       )}
     </div>
   )
@@ -786,7 +786,7 @@ export default function TextTranslateTool() {
             onClick={() => setShowHistory(!showHistory)}
             className={`tool-button-secondary h-8 ${
               showHistory
-                ? 'ring-2 ring-brand-500/20 border-brand-200 text-brand-600 dark:border-brand-500/40 dark:text-brand-400'
+                ? 'ring-2 ring-brand-500/20 border-brand-200 text-brand-600  '
                 : ''
             }`}
           >
@@ -840,9 +840,9 @@ export default function TextTranslateTool() {
           {/* ---------------- 原文 ---------------- */}
           <ToolCard className="min-h-0 overflow-hidden">
             {/* 语言区自己换行，整条不做横向滚动 —— 滚动容器会把「更多」下拉截断在边上 */}
-            <div className="flex items-start justify-between gap-2 px-4 py-2 min-h-11 border-b border-slate-100 dark:border-dark-border shrink-0">
+            <div className="flex items-start justify-between gap-2 px-4 py-2 min-h-11 border-b border-slate-100  shrink-0">
               <div className="flex flex-wrap items-center gap-1 min-w-0">
-                <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500 mr-1 shrink-0">
+                <span className="text-[11px] font-medium text-slate-400  mr-1 shrink-0">
                   源语言
                 </span>
                 {SOURCE_PILLS.map((code) => {
@@ -907,7 +907,7 @@ export default function TextTranslateTool() {
                   e.preventDefault()
                   void handleTranslate()
                 }}
-                className="w-full flex-1 bg-transparent resize-none outline-none text-[13px] leading-7 text-slate-800 dark:text-slate-100 placeholder:text-slate-300 dark:placeholder:text-slate-600"
+                className="w-full flex-1 bg-transparent resize-none outline-none text-[13px] leading-7 text-slate-800  placeholder:text-slate-300 "
               />
             </div>
 
@@ -926,14 +926,14 @@ export default function TextTranslateTool() {
                       size="sm"
                       checked={unwrapLines}
                       onChange={setUnwrapLines}
-                      label={<span className="text-[11px] font-normal text-slate-500 dark:text-slate-400">合并断行（PDF/代码）</span>}
+                      label={<span className="text-[11px] font-normal text-slate-500 ">合并断行（PDF/代码）</span>}
                     />
                     {input && (
                       <>
-                        <span className="text-slate-200 dark:text-dark-border">|</span>
+                        <span className="text-slate-200 ">|</span>
                         <button
                           onClick={clearAll}
-                          className="flex items-center gap-1 text-[11px] transition-colors hover:text-rose-600 dark:hover:text-rose-400"
+                          className="flex items-center gap-1 text-[11px] transition-colors hover:text-rose-600 "
                         >
                           <Trash2 size={12} />
                           <span>清空</span>
@@ -961,9 +961,9 @@ export default function TextTranslateTool() {
 
           {/* ---------------- 译文 ---------------- */}
           <ToolCard className="min-h-0 overflow-hidden">
-            <div className="flex items-start justify-between gap-2 px-4 py-2 min-h-11 border-b border-slate-100 dark:border-dark-border shrink-0">
+            <div className="flex items-start justify-between gap-2 px-4 py-2 min-h-11 border-b border-slate-100  shrink-0">
               <div className="flex flex-wrap items-center gap-1 min-w-0">
-                <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500 mr-1 shrink-0">
+                <span className="text-[11px] font-medium text-slate-400  mr-1 shrink-0">
                   目标语言
                 </span>
 
@@ -1026,7 +1026,7 @@ export default function TextTranslateTool() {
                     />
                     {/* 有内容时把这次实际要译到的语言亮出来，省得猜方向 */}
                     {input.trim() && (
-                      <span className="text-brand-600 dark:text-brand-400 font-medium truncate">
+                      <span className="text-brand-600  font-medium truncate">
                         → {langName(effectiveTarget)}
                       </span>
                     )}
@@ -1036,7 +1036,7 @@ export default function TextTranslateTool() {
                 {/* 已有译文时重新翻译，正文不动（避免整段闪一下），进度落在这里 */}
                 <span className="font-mono font-medium shrink-0">
                   {isTranslating ? (
-                    <span className="flex items-center gap-1.5 text-brand-600 dark:text-brand-400">
+                    <span className="flex items-center gap-1.5 text-brand-600 ">
                       <Loader2 size={12} className="animate-spin" />
                       翻译中…
                     </span>
@@ -1045,17 +1045,17 @@ export default function TextTranslateTool() {
                      * 截图识别 + 翻译的完整链路：两段分开列，再给一个合计。
                      * 只显示翻译那段会让人以为「识别不算数」，只显示合计又看不出慢在哪一步。
                      */
-                    <span className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+                    <span className="flex items-center gap-2 text-emerald-600 ">
                       <span title="识别耗时">识别 {formatDuration(ocrTiming.ocrMs)}</span>
-                      <span className="text-emerald-600/40 dark:text-emerald-400/40">·</span>
+                      <span className="text-emerald-600/40 ">·</span>
                       <span title="翻译耗时">翻译 {formatDuration(ocrTiming.translateMs)}</span>
-                      <span className="text-emerald-600/40 dark:text-emerald-400/40">·</span>
+                      <span className="text-emerald-600/40 ">·</span>
                       <span title="识别 + 翻译" className="font-semibold">
                         合计 {formatDuration(ocrTiming.combinedMs ?? ocrTiming.ocrMs + ocrTiming.translateMs)}
                       </span>
                     </span>
                   ) : elapsed !== null ? (
-                    <span className="text-emerald-600 dark:text-emerald-400">● 耗时 {elapsed}ms</span>
+                    <span className="text-emerald-600 ">● 耗时 {elapsed}ms</span>
                   ) : null}
                 </span>
               </div>
@@ -1074,17 +1074,17 @@ export default function TextTranslateTool() {
                 onChange={setAutoTranslate}
                 label={`实时自动翻译（防抖 ${AUTO_DEBOUNCE_MS}ms）`}
               />
-              <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-slate-400 dark:text-slate-500">
+              <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-slate-400 ">
                 <span>快捷键:</span>
-                <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-slate-100 dark:bg-dark-hover border border-slate-200 dark:border-dark-border border-b-2 rounded text-slate-500 dark:text-slate-400">
+                <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-slate-100  border border-slate-200  border-b-2 rounded text-slate-500 ">
                   Enter
                 </kbd>
                 <span>立即翻译</span>
-                <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-slate-100 dark:bg-dark-hover border border-slate-200 dark:border-dark-border border-b-2 rounded text-slate-500 dark:text-slate-400">
+                <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-slate-100  border border-slate-200  border-b-2 rounded text-slate-500 ">
                   Shift
                 </kbd>
                 <span>+</span>
-                <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-slate-100 dark:bg-dark-hover border border-slate-200 dark:border-dark-border border-b-2 rounded text-slate-500 dark:text-slate-400">
+                <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-slate-100  border border-slate-200  border-b-2 rounded text-slate-500 ">
                   Enter
                 </kbd>
                 <span>换行</span>

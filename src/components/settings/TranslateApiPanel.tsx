@@ -15,9 +15,9 @@ import { probeProvider } from '../../utils/translateProviders'
 import Tooltip from '../ui/Tooltip'
 
 const INPUT_CLASS =
-  'w-full px-3 py-2 text-xs bg-white dark:bg-dark-panel border border-slate-200/80 dark:border-dark-border rounded-xl outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 text-slate-800 dark:text-white placeholder:text-slate-400 transition-all shadow-2xs'
+  'w-full px-3 py-2 text-xs bg-white  border border-slate-200/80  rounded-xl outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 text-slate-800  placeholder:text-slate-400 transition-all shadow-2xs'
 
-const LABEL_CLASS = 'block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5'
+const LABEL_CLASS = 'block text-xs font-semibold text-slate-700  mb-1.5'
 
 const PROVIDER_OPTIONS: { value: TranslateProvider; label: string }[] = [
   { value: 'openai', label: 'OpenAI 兼容' },
@@ -187,10 +187,10 @@ export default function TranslateApiPanel() {
   /** 耗时分级着色：200ms 内算快，1 秒以上提醒用户这条链路偏慢 */
   const speedTone = (ms: number) =>
     ms < 200
-      ? 'text-emerald-600 dark:text-emerald-400'
+      ? 'text-emerald-600 '
       : ms < 1000
-        ? 'text-slate-500 dark:text-slate-400'
-        : 'text-amber-600 dark:text-amber-400'
+        ? 'text-slate-500 '
+        : 'text-amber-600 '
 
   /** 毫秒转可读文本 */
   const fmtMs = (ms: number) => (ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(2)} s`)
@@ -206,7 +206,7 @@ export default function TranslateApiPanel() {
     <div className="space-y-4">
       <div>
         <label className={LABEL_CLASS}>接口类型</label>
-        <div className="grid grid-cols-2 gap-0.5 p-0.5 bg-slate-100 dark:bg-dark-sidebar rounded-xl border border-slate-200/60 dark:border-dark-border">
+        <div className="grid grid-cols-2 gap-0.5 p-0.5 bg-slate-100  rounded-xl border border-slate-200/60 ">
           {PROVIDER_OPTIONS.map((opt) => {
             const active = formConfig.provider === opt.value
             return (
@@ -219,8 +219,8 @@ export default function TranslateApiPanel() {
                 }}
                 className={`py-1.5 text-xs rounded-lg transition-all ${
                   active
-                    ? 'bg-white dark:bg-dark-panel text-slate-900 dark:text-white font-semibold shadow-2xs'
-                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 font-medium'
+                    ? 'bg-white  text-slate-900  font-semibold shadow-2xs'
+                    : 'text-slate-500  hover:text-slate-800  font-medium'
                 }`}
               >
                 {opt.label}
@@ -250,8 +250,8 @@ export default function TranslateApiPanel() {
                     title={preset.note ?? preset.baseUrl}
                     className={`px-2.5 h-7 rounded-lg text-[11px] font-medium border transition-colors inline-flex items-center gap-1.5 ${
                       active
-                        ? 'border-brand-300 bg-brand-50 text-brand-700 dark:border-brand-500/50 dark:bg-brand-500/15 dark:text-brand-300 shadow-2xs'
-                        : 'border-slate-200 dark:border-dark-border text-slate-600 dark:text-slate-300 hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-dark-hover'
+                        ? 'border-brand-300 bg-brand-50 text-brand-700    shadow-2xs'
+                        : 'border-slate-200  text-slate-600  hover:border-slate-300 hover:bg-slate-50 '
                     }`}
                   >
                     {preset.label}
@@ -269,8 +269,8 @@ export default function TranslateApiPanel() {
                 onClick={() => handleSelectPreset('custom')}
                 className={`px-2.5 h-7 rounded-lg text-[11px] font-medium border transition-colors inline-flex items-center gap-1.5 ${
                   activePresetId === 'custom'
-                    ? 'border-brand-300 bg-brand-50 text-brand-700 dark:border-brand-500/50 dark:bg-brand-500/15 dark:text-brand-300 shadow-2xs'
-                    : 'border-slate-200 dark:border-dark-border text-slate-600 dark:text-slate-300 hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-dark-hover'
+                    ? 'border-brand-300 bg-brand-50 text-brand-700    shadow-2xs'
+                    : 'border-slate-200  text-slate-600  hover:border-slate-300 hover:bg-slate-50 '
                 }`}
               >
                 自定义
@@ -280,7 +280,7 @@ export default function TranslateApiPanel() {
               </button>
             </div>
             {activePreset?.note && (
-              <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1.5">
+              <p className="text-[10px] text-amber-600  mt-1.5">
                 {activePreset.note}
               </p>
             )}
@@ -303,7 +303,7 @@ export default function TranslateApiPanel() {
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className={LABEL_CLASS}>API Key</label>
-              <span className="text-[10px] text-brand-600 dark:text-brand-400 font-medium">
+              <span className="text-[10px] text-brand-600  font-medium">
                 {activePreset ? `${activePreset.label} 专属独立密钥` : '自定义渠道独立密钥'}
               </span>
             </div>
@@ -334,7 +334,7 @@ export default function TranslateApiPanel() {
                 type="button"
                 onClick={() => void handleFetchModels()}
                 disabled={isFetchingModels || !formConfig.openai.baseUrl.trim()}
-                className="inline-flex items-center gap-1 text-[10px] font-medium text-brand-600 dark:text-brand-400 hover:underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-1 text-[10px] font-medium text-brand-600  hover:underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed"
               >
                 {isFetchingModels ? (
                   <Loader2 size={10} className="animate-spin" />
@@ -367,7 +367,7 @@ export default function TranslateApiPanel() {
             )}
 
             {fetchModelsError && (
-              <p className="text-[10px] text-rose-600 dark:text-rose-400 mt-1">{fetchModelsError}</p>
+              <p className="text-[10px] text-rose-600  mt-1">{fetchModelsError}</p>
             )}
             {formConfig.openai.model && !fetchModelsError && (
               <p className="text-[10px] text-slate-400 mt-1">
@@ -377,7 +377,7 @@ export default function TranslateApiPanel() {
           </div>
 
           {/* 关闭思考模式：推理模型的配置项，翻译场景下几乎总是该打开 */}
-          <div className="rounded-xl border border-slate-200/70 dark:border-dark-border p-3 space-y-2.5">
+          <div className="rounded-xl border border-slate-200/70  p-3 space-y-2.5">
             <Switch
               checked={formConfig.openai.disableThinking === true}
               onChange={(checked) => patchOpenAI({ disableThinking: checked })}
@@ -386,7 +386,7 @@ export default function TranslateApiPanel() {
             />
 
             {formConfig.openai.disableThinking && (
-              <div className="pt-1 border-t border-slate-100 dark:border-dark-border">
+              <div className="pt-1 border-t border-slate-100 ">
                 <label className={LABEL_CLASS}>参数写法</label>
                 <Select<ThinkingParamStyle>
                   value={formConfig.openai.thinkingParam ?? 'enable_thinking'}
@@ -495,14 +495,14 @@ export default function TranslateApiPanel() {
         </NoteCard>
       )}
 
-      <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-dark-border">
+      <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 ">
         <span className="text-[10px] text-slate-400">当前：{currentLabel}</span>
         <div className="flex items-center gap-2">
           <button
             type="button"
             disabled={isTesting}
             onClick={handleTest}
-            className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200/80 dark:bg-dark-hover dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-200 text-xs font-medium rounded-lg border border-slate-200/60 dark:border-dark-border transition-all active:scale-[0.98] flex items-center gap-1.5 disabled:opacity-50"
+            className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200/80   text-slate-700  text-xs font-medium rounded-lg border border-slate-200/60  transition-all active:scale-[0.98] flex items-center gap-1.5 disabled:opacity-50"
           >
             {isTesting && <Loader2 className="w-3 h-3 animate-spin" />}
             <span>测试翻译</span>

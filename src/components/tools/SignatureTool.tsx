@@ -16,6 +16,7 @@ import {
   ToolNotice,
   ToolShell,
   CopyButton,
+  PreviewButton,
 } from '../ui'
 import {
   DIGEST_ALGORITHMS,
@@ -57,7 +58,7 @@ function MetaRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline gap-2 min-w-0">
       <span className={SECTION_LABEL}>{label}</span>
-      <span className="font-mono text-[11px] text-slate-600 dark:text-slate-300 truncate">{value}</span>
+      <span className="font-mono text-[11px] text-slate-600  truncate">{value}</span>
     </div>
   )
 }
@@ -75,7 +76,7 @@ function DiffHighlight({ expected, actual }: { expected: string; actual: string 
   const span = diffPositions(left, right)
 
   if (!span) {
-    return <span className="text-emerald-600 dark:text-emerald-400">{actual}</span>
+    return <span className="text-emerald-600 ">{actual}</span>
   }
 
   const render = (text: string) => {
@@ -85,7 +86,7 @@ function DiffHighlight({ expected, actual }: { expected: string; actual: string 
     return (
       <>
         {head}
-        <mark className="bg-rose-100 text-rose-700 dark:bg-rose-500/25 dark:text-rose-300 rounded-[3px] px-px">
+        <mark className="bg-rose-100 text-rose-700   rounded-[3px] px-px">
           {middle || '␀'}
         </mark>
         {tail}
@@ -96,7 +97,7 @@ function DiffHighlight({ expected, actual }: { expected: string; actual: string 
   return (
     <span className="break-all">
       {render(right)}
-      <span className="block mt-1 text-[11px] text-slate-500 dark:text-slate-400 font-sans">
+      <span className="block mt-1 text-[11px] text-slate-500  font-sans">
         与期望值第 <span className="font-mono font-semibold">{span.first + 1}</span> 位起不同
         {span.last > span.first && (
           <>
@@ -128,10 +129,10 @@ function FileDrop({
 
   if (file) {
     return (
-      <div className="flex items-center gap-3 rounded-lg border border-slate-200/70 dark:border-dark-border bg-slate-50/70 dark:bg-dark-hover/40 px-3 py-2.5">
+      <div className="flex items-center gap-3 rounded-lg border border-slate-200/70  bg-slate-50/70  px-3 py-2.5">
         <FileIcon size={16} className="text-brand-500 shrink-0" />
         <div className="min-w-0 flex-1">
-          <p className="text-[12px] font-semibold text-slate-700 dark:text-slate-200 truncate">
+          <p className="text-[12px] font-semibold text-slate-700  truncate">
             {file.name}
           </p>
           <p className={`${META} tabular-nums`}>{formatBytes(file.size)}</p>
@@ -140,7 +141,7 @@ function FileDrop({
           type="button"
           onClick={onClear}
           title="移除文件"
-          className="shrink-0 text-slate-400 hover:text-rose-500 dark:hover:text-rose-400"
+          className="shrink-0 text-slate-400 hover:text-rose-500 "
         >
           <X size={14} />
         </button>
@@ -164,8 +165,8 @@ function FileDrop({
       onClick={() => inputRef.current?.click()}
       className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-4 py-6 cursor-pointer transition-colors ${
         dragging
-          ? 'border-brand-400 bg-brand-50/60 dark:border-brand-500/50 dark:bg-brand-500/10'
-          : 'border-slate-200 dark:border-dark-border hover:border-slate-300 dark:hover:border-slate-600'
+          ? 'border-brand-400 bg-brand-50/60  '
+          : 'border-slate-200  hover:border-slate-300 '
       }`}
     >
       <input
@@ -179,11 +180,11 @@ function FileDrop({
           e.target.value = ''
         }}
       />
-      <FileIcon size={20} className="text-slate-300 dark:text-slate-600" />
-      <p className="text-[12px] font-medium text-slate-500 dark:text-slate-400">
+      <FileIcon size={20} className="text-slate-300 " />
+      <p className="text-[12px] font-medium text-slate-500 ">
         拖入文件，或点击选择
       </p>
-      <p className="text-[11px] text-slate-400 dark:text-slate-600">
+      <p className="text-[11px] text-slate-400 ">
         按原始字节签名，不做任何编码转换
       </p>
     </div>
@@ -345,10 +346,10 @@ export default function SignatureTool() {
                     onChange={(e) => setKey(e.target.value)}
                     placeholder="HMAC 的密钥（Secret Key），任意长度"
                     rows={2}
-                    className="w-full bg-slate-50/70 dark:bg-dark-hover/40 border border-slate-200/70 dark:border-dark-border rounded-lg px-3 py-2 resize-none outline-none font-mono text-[12px] leading-5 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:border-brand-400"
+                    className="w-full bg-slate-50/70  border border-slate-200/70  rounded-lg px-3 py-2 resize-none outline-none font-mono text-[12px] leading-5 text-slate-800  placeholder:text-slate-400  focus:border-brand-400"
                   />
                   {keyMissing && (
-                    <p className="mt-2 text-[11px] text-amber-600 dark:text-amber-400">
+                    <p className="mt-2 text-[11px] text-amber-600 ">
                       还没填密钥，填了才能签名
                     </p>
                   )}
@@ -403,7 +404,7 @@ export default function SignatureTool() {
                     onChange={(e) => onExpectedChange(e.target.value)}
                     placeholder="从服务端文档 / 日志里复制的签名值，大小写与空白都会自动忽略"
                     rows={3}
-                    className="w-full bg-slate-50/70 dark:bg-dark-hover/40 border border-slate-200/70 dark:border-dark-border rounded-lg px-3 py-2 resize-none outline-none font-mono text-[12px] leading-5 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:border-brand-400"
+                    className="w-full bg-slate-50/70  border border-slate-200/70  rounded-lg px-3 py-2 resize-none outline-none font-mono text-[12px] leading-5 text-slate-800  placeholder:text-slate-400  focus:border-brand-400"
                   />
                 </div>
               </ToolCard>
@@ -416,15 +417,29 @@ export default function SignatureTool() {
               title={mode === 'verify' ? '比对结果' : '签名结果'}
               sublabel="RESULT"
               meta={algorithm}
-              actions={<CopyButton value={() => result} disabled={!result} />}
+              actions={
+                <>
+                  {/* 比对模式预览里同时带上结论，落档看得懂 */}
+                  <PreviewButton
+                    title={mode === 'verify' ? '比对结果' : '签名结果'}
+                    content={() =>
+                      mode === 'verify' && verdict !== null
+                        ? `${verdict ? '✓ 一致，签名正确' : '✗ 不一致，签名不匹配'}\n\n${result}`
+                        : result
+                    }
+                    disabled={!result}
+                  />
+                  <CopyButton value={() => result} disabled={!result} />
+                </>
+              }
             />
             <div className="flex-1 min-h-0 p-4 flex flex-col gap-3 overflow-y-auto">
               {mode === 'verify' && verdict !== null && (
                 <div
                   className={`flex items-center gap-2.5 rounded-xl border px-3.5 py-2.5 text-xs font-semibold shrink-0 ${
                     verdict
-                      ? 'border-emerald-200/70 bg-emerald-50/60 text-emerald-700 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300'
-                      : 'border-rose-200/70 bg-rose-50/60 text-rose-700 dark:border-rose-500/25 dark:bg-rose-500/10 dark:text-rose-300'
+                      ? 'border-emerald-200/70 bg-emerald-50/60 text-emerald-700   '
+                      : 'border-rose-200/70 bg-rose-50/60 text-rose-700   '
                   }`}
                 >
                   {verdict ? <Check size={15} /> : <ShieldX size={15} />}
@@ -435,16 +450,16 @@ export default function SignatureTool() {
               {mode === 'verify' && verdict === false && result && (
                 <div className="shrink-0">
                   <p className={`${SECTION_LABEL} mb-1.5`}>实际签名</p>
-                  <div className="font-mono text-[12px] leading-6 text-slate-700 dark:text-slate-200 bg-slate-50/70 dark:bg-dark-hover/40 rounded-lg px-3 py-2">
+                  <div className="font-mono text-[12px] leading-6 text-slate-700  bg-slate-50/70  rounded-lg px-3 py-2">
                     <DiffHighlight expected={expected} actual={result} />
                   </div>
                 </div>
               )}
 
               <div className="flex-1 min-h-0 flex flex-col">
-                <div className="flex-1 min-h-0 overflow-y-auto select-text whitespace-pre-wrap break-all font-mono text-[13px] leading-6 text-slate-800 dark:text-slate-100">
+                <div className="flex-1 min-h-0 overflow-y-auto select-text whitespace-pre-wrap break-all font-mono text-[13px] leading-6 text-slate-800 ">
                   {result || (
-                    <span className="text-slate-300 dark:text-slate-600">
+                    <span className="text-slate-300 ">
                       签名结果将在此呈现…
                     </span>
                   )}
@@ -452,7 +467,7 @@ export default function SignatureTool() {
               </div>
 
               {mode === 'verify' && result && (
-                <div className="shrink-0 flex flex-col gap-1.5 border-t border-slate-200/60 dark:border-dark-border pt-3">
+                <div className="shrink-0 flex flex-col gap-1.5 border-t border-slate-200/60  pt-3">
                   <MetaRow label="算法" value={algorithm} />
                   <MetaRow label="格式" value={encoding === 'hex' ? 'Hex' : 'Base64'} />
                   <MetaRow label="长度" value={`${result.length} 字符`} />
@@ -469,18 +484,18 @@ export default function SignatureTool() {
         </div>
       </ToolShell>
 
-      <div className="shrink-0 px-4 md:px-6 py-3">
+      <div className="shrink-0 px-4 md:px-6 pb-3">
         <ToolActionBar
           info={
             <>
               {isHmac ? '将按' : '将计算'}
-              <span className="font-semibold text-slate-600 dark:text-slate-300">
+              <span className="font-semibold text-slate-600 ">
                 {isHmac ? `HMAC-${algorithm}` : `${algorithm} 摘要`}
               </span>
               {isFile && (
                 <>
                   处理
-                  <span className="font-semibold text-slate-600 dark:text-slate-300">
+                  <span className="font-semibold text-slate-600 ">
                     {file ? file.name : '文件'}
                   </span>
                 </>

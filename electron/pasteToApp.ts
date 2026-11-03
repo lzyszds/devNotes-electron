@@ -185,7 +185,14 @@ export async function copyImageToClipboard(imageDataUrl: string): Promise<boolea
   // Buffer 是 Uint8Array（ArrayBufferView），直接给 Blob 即可，别断言成 ArrayBuffer。
   const binary = Buffer.from(base64, 'base64')
   const blob = new Blob([binary], { type: 'image/png' })
-  await clipboard.write([new ClipboardItem({ 'image/png': blob })])
+  try {
+    await clipboard.write([new ClipboardItem({ 'image/png': blob })])
+  } catch (error) {
+    // 写剪贴板偶发失败（系统占用等）必须如实报错而不是抛上去：
+    // 抛出去调用方只会算作「粘贴异常」，用户看不到「图没进剪贴板」这个事实
+    console.warn('[clipboard] 图片写入剪贴板失败：', error)
+    return false
+  }
   return true
 }
 
@@ -255,4 +262,36 @@ export async function pasteFileToFocusedApp(filePath: string): Promise<{
     lastPasteError = error instanceof Error ? error.message : String(error)
     return { ok: false, reason: 'failed' }
   }
+}
+
+/**
+ * 只把内容写进系统剪贴板，不模拟按键。
+ *
+ * 给「粘贴目标是 devNotes 自己窗口」的场景用（见 main 的 clipboard-paste
+ * 应用内分支）：自己窗口有原生 webContents.paste()，写好剪贴板后直接贴进
+ * 内部聚焦的输入框 —— 不需要辅助功能授权，也不依赖「⌘V 落在谁头上」这种
+ * 脆弱的系统焦点推断。
+ */
+export async function writeClipboardPayload(payload: {
+  type: 'text' | 'image' | 'file'
+  text?: string
+  imageDataUrl?: string
+  filePath?: string
+}): Promise<boolean> {
+  if (payload.type === 'image') return copyImageToClipboard(payload.imageDataUrl ?? '')
+  if (payload.type === 'file') {
+    if (!payload.filePath) return false
+    // 与 pasteFileToFocusedApp 同款：macOS 文件剪贴板走 bookmark 类型
+    const fileUrl = pathToFileURL(payload.filePath).toString()
+    const fileName = path.basename(payload.filePath)
+    await clipboard.write([
+      new ClipboardItem({
+        'electron application/bookmark': { title: fileName, url: fileUrl },
+      }),
+    ])
+    return true
+  }
+  // Electron 44 起 writeText 也是异步的，await 一下别留下竞态
+  await clipboard.writeText(payload.text ?? '')
+  return true
 }

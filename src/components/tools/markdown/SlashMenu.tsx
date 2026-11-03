@@ -187,7 +187,7 @@ export default function SlashMenu({ editor, onReady }: SlashMenuProps) {
         createPortal(
           <div
             data-state={state}
-            className="fe-pop pointer-events-auto w-56 overflow-hidden rounded-xl border border-slate-200/80 bg-white py-1 shadow-lg dark:border-dark-border dark:bg-dark-panel"
+            className="fe-pop pointer-events-auto w-56 overflow-hidden rounded-xl border border-slate-200/80 bg-white py-1 shadow-lg  "
             // 菜单在 portal 里，点它不该让编辑区失焦
             onMouseDown={(event) => event.preventDefault()}
           >
@@ -201,13 +201,13 @@ export default function SlashMenu({ editor, onReady }: SlashMenuProps) {
                   onMouseEnter={() => setActiveIndex(index)}
                   className={`flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-xs transition-colors ${
                     index === activeIndex
-                      ? 'bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300'
-                      : 'text-slate-600 dark:text-slate-300'
+                      ? 'bg-brand-50 text-brand-600  '
+                      : 'text-slate-600 '
                   }`}
                 >
                   <Icon className="h-3.5 w-3.5 flex-shrink-0" />
                   <span className="flex-1 truncate">{item.label}</span>
-                  <span className="flex-shrink-0 font-mono text-[10px] text-slate-400 dark:text-slate-500">
+                  <span className="flex-shrink-0 font-mono text-[10px] text-slate-400 ">
                     {item.hint}
                   </span>
                 </button>

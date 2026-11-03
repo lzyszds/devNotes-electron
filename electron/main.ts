@@ -42,7 +42,7 @@ import { COMMON_PORTS, inspectPort, killProcess } from './ports'
 import { httpProbe, startPing, tcpProbe, validateHost, validatePort, type PingOptions } from './netProbe'
 import { listLocalInterfaces, queryPublicIp } from './netInfo'
 import { HASH_ALGORITHMS, hashFiles, type HashAlgorithm } from './hashFile'
-import { getSystemHardwareInfo, getProcessMemoryList } from './systemInfo'
+import { getSystemHardwareInfo, getProcessMemoryList, releaseMemory } from './systemInfo'
 import { setupAutoUpdater } from './updater'
 import { captureMacRegion } from './macRegionCapture'
 import { captureWindowsRegion, isWindowsNativeAvailable, releaseWindowsNativeResult } from './windowsNativeCapture'
@@ -63,6 +63,7 @@ import {
   pasteImageToFocusedApp,
   pasteFileToFocusedApp,
   copyImageToClipboard,
+  writeClipboardPayload,
 } from './pasteToApp'
 import type { IpcMainInvokeEvent } from 'electron'
 
@@ -97,6 +98,42 @@ function loadNonactivating(): ((handle: Buffer) => void) | null {
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
+/**
+ * 最近持有过焦点的 devNotes 自家窗口（主窗口 / 草稿纸 / 工具小窗）。
+ *
+ * 剪贴板面板在应用内唤起时的粘贴目标就是它 —— 那个场景里模拟 ⌘V 的落点
+ * 取决于「同一 app 内 key window 还给谁」，测不准；自己记录焦点是唯一可靠的。
+ * 由 trackOwnWindowFocus 在各窗口创建处挂上 'focus' 监听；剪贴板面板与
+ * 截图遮罩自己不登记（前者是粘贴源，后者是瞬时遮罩，都不该成为粘贴目标）。
+ */
+let lastFocusedOwnWindow: BrowserWindow | null = null
+
+/** 建出属于自己的可交互窗口后挂一次：把它的 focus 记成候选粘贴目标 */
+function trackOwnWindowFocus(win: BrowserWindow): void {
+  win.on('focus', () => {
+    if (!win.isDestroyed()) lastFocusedOwnWindow = win
+  })
+}
+
+/**
+ * 应用内唤起剪贴板面板时的粘贴目标判定，clipboard-paste / clipboard-paste-image 共用。
+ *
+ * 面板是 non-activating 的：devNotes 自己在前台时，目标就是最近持有焦点的
+ * 自家窗口 —— 这种场景下模拟 ⌘V 的落点测不准（面板自己就是同 app 的 key
+ * window），要走 webContents.paste() 的内部通道。devNotes 不在前台返回 null，
+ * 调用方落回「模拟 ⌘V 给前台外部应用」的原路径。
+ */
+function selfPasteTarget(): BrowserWindow | null {
+  const win = lastFocusedOwnWindow
+  if (!win || win.isDestroyed() || !win.isVisible()) return null
+  const appActive =
+    process.platform === 'darwin'
+      ? typeof app.isActive === 'function' && app.isActive()
+      : // 非 macOS 的面板用 focusable:false + showInactive，不截走焦点 ——
+        // 目标窗口自己还握着系统焦点
+        win.isFocused()
+  return appActive ? win : null
+}
 /** 非 macOS 的框选遮罩；macOS 走系统原生选区，不创建此窗口 */
 let captureWindow: BrowserWindow | null = null
 /** 从权限检查到框选结束均保持单例，避免连按快捷键启动多个系统截图进程 */
@@ -196,8 +233,17 @@ function readShortcutMap(): Record<string, string> {
   const saved = store.get(SHORTCUT_STORAGE_KEY)
   const map = { ...GLOBAL_SHORTCUT_DEFAULTS }
   if (saved && typeof saved === 'object') {
-    for (const id of Object.keys(GLOBAL_SHORTCUT_ACTIONS)) {
-      const value = (saved as Record<string, unknown>)[id]
+    /*
+     * 全量透传，而不只是回全局五条。
+     *
+     * get-shortcuts 是渲染端 refreshShortcutMap 的「真值来源」：早先只回全局键，
+     * 渲染端 mergeShortcutMap 拿不到 app 键（save-note / new-note 这些）就只能
+     * 回退默认 —— 表现为自定义的应用内键位每次重启 / 云同步刷新后都「变回默认」；
+     * 更糟的是设置界面以这份缓存为准，只要用户再保存一次别的改动，全量默认表
+     * 就被写回存储，自定义值被永久抹平。渲染端 mergeShortcutMap 本来就只认
+     * SHORTCUT_BINDINGS 里的 id，多传过去的旧键残留不会造成任何副作用。
+     */
+    for (const [id, value] of Object.entries(saved as Record<string, unknown>)) {
       // 空串是用户主动清空，要尊重 —— 只有非字符串才回退默认值
       if (typeof value === 'string') map[id] = value
     }
@@ -229,6 +275,28 @@ function applyGlobalShortcuts(): { failed: string[] } {
       failed.push(id)
     }
   }
+
+  /*
+   * 截图遮罩还开着的话，把它的 Escape 兜底补回去。
+   *
+   * openCapture 时单独给遮罩注册过一条 Escape 自毁，而这次 unregisterAll 会
+   * 连它一起注销：遮罩活着期间用户在设置里改键位（set-shortcuts）或结束一次
+   * 录制（set-shortcut-recording）都会走到这里。不补回去，遮罩渲染层一旦
+   * 白屏 / 脚本报错，用户连最后的退出通道都没了。
+   *
+   * 极端情形（用户把某条全局键录成 Escape）会注册失败——那还有渲染层那条
+   * Esc 兜底，这里不把注册结果算进 failed 全局键的回执里。
+   */
+  if (captureWindow) {
+    try {
+      globalShortcut.register('Escape', () => {
+        if (captureWindow) closeCaptureWindow()
+      })
+    } catch {
+      // 注册不成就算了：这层只是最后兜底，不应该阻断正常键位的注册流程
+    }
+  }
+
   return { failed }
 }
 
@@ -657,6 +725,7 @@ function openScratchWindow(): void {
   // 置顶层级用 floating：既压得住普通窗口，又不会盖住系统弹窗与输入法候选框
   window.setAlwaysOnTop(true, 'floating')
   registerWindowShortcuts(window)
+  trackOwnWindowFocus(window)
 
   const devServerUrl = process.env.VITE_DEV_SERVER_URL
   if (devServerUrl) {
@@ -1178,6 +1247,8 @@ function createMainWindow() {
   })
 
   registerWindowShortcuts(mainWindow)
+  // 主窗口是应用内剪贴板粘贴的最常见目标（设置弹窗、笔记编辑器都在这）
+  trackOwnWindowFocus(mainWindow)
   loadRendererWindow(mainWindow)
 
   /*
@@ -1239,6 +1310,7 @@ function createToolWindow(toolName: string) {
   })
 
   registerWindowShortcuts(toolWindow)
+  trackOwnWindowFocus(toolWindow)
   loadRendererWindow(toolWindow, toolName)
 
   toolWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -1453,6 +1525,12 @@ function setupIpc() {
     const entry = clipboardEntries.find((item) => item.id === entryId)
     if (entry?.imageDataUrl) return entry.imageDataUrl
     if (entry?.imageId) return loadImageDataUrl(entry.imageId)
+    /*
+     * 旧数据兜底：saveImageEntryToDisk 曾经把 imageId 挂在「缩略图写成功」上，
+     * 缩略图写失败时 imageId 被摘掉，但原图文件是按 **entry id** 存的 ——
+     * 按 entryId 直接再找一遍就能救回这些历史条目
+     */
+    if (entry?.type === 'image') return loadImageDataUrl(entry.id)
     return null
   }
 
@@ -1464,7 +1542,34 @@ function setupIpc() {
 
   ipcMain.handle('clipboard-paste-image', async (_event, entryId: string) => {
     const dataUrl = await resolveImageDataUrl(entryId)
-    if (!dataUrl) return { ok: false, reason: 'failed' as const }
+    if (!dataUrl) {
+      console.warn(`[paste] 图片粘贴失败：原图数据拿不到（entryId=${entryId}，文件可能已被清理）`)
+      return { ok: false, reason: 'failed' as const }
+    }
+
+    /*
+     * 应用内优先通道，理由与 clipboard-paste 同款：面板在本 app 就是 key window，
+     * 模拟 ⌘V 的落点测不准。图片只有 contenteditable（笔记编辑器）吃得下，
+     * 普通文本框粘图是空操作 —— 遇到那种落点照样返回 failed，面板给
+     * 「内容已复制」的兜底说明，让用户自己去笔记里 ⌘V。
+     */
+    const selfTarget = selfPasteTarget()
+    if (selfTarget) {
+      const written = await writeClipboardPayload({ type: 'image', imageDataUrl: dataUrl })
+      if (!written) return { ok: false, reason: 'failed' as const }
+      const hadContentEditable = await selfTarget.webContents
+        .executeJavaScript(
+          '(() => { const el = document.activeElement; return Boolean(el && el.isContentEditable) })()',
+          true,
+        )
+        .catch(() => true)
+      if (!hadContentEditable) return { ok: false, reason: 'failed' as const }
+      selfTarget.webContents.paste()
+      // 面板收起、焦点还给目标窗口
+      hideClipboardWindow()
+      if (!selfTarget.isDestroyed()) selfTarget.focus()
+      return { ok: true }
+    }
 
     /*
      * 与 clipboard-paste 同一套时序：non-activating 面板抢了焦点，先收起，
@@ -1519,6 +1624,39 @@ function setupIpc() {
         filePath?: string
       }
     ) => {
+      /*
+       * 应用内唤起（devNotes 自己就是前台应用）走优先通道。
+       *
+       * 全局模拟 ⌘V 在这个场景测不准：面板此刻是 devNotes 的 key window，
+       * 收起之后同 app 内 key window 归还给谁取决于窗口系统时序，落点错一次
+       * 用户就看到「选中了、输入框却没反应」。自己窗口不走模拟 —— 渲染层
+       * 文档里的 activeElement 一直保留着（窗口失 key 也只是丢样式不丢焦点），
+       * webContents.paste() 直接贴给它：不需要辅助功能授权，也没有 80ms 等待。
+       */
+      const selfTarget = selfPasteTarget()
+      if (selfTarget) {
+        // 先写系统剪贴板：与外部路径同款保底，用户手动 ⌘V 也拿得到
+        const written = await writeClipboardPayload(payload)
+        if (!written) {
+          console.warn('[paste] 应用内粘贴：写剪贴板失败')
+          return { ok: false, reason: 'failed' }
+        }
+        // 落点必须是聚焦中的可编辑元素；没有就返回失败，让面板保持打开并
+        // 给出「内容已复制」的兜底说明，而不是假报「已填入」
+        const hadEditable = await selfTarget.webContents
+          .executeJavaScript(
+            '(() => { const el = document.activeElement; return Boolean(el && (el.isContentEditable || el.tagName === "INPUT" || el.tagName === "TEXTAREA")) })()',
+            true,
+          )
+          .catch(() => true)
+        if (!hadEditable) return { ok: false, reason: 'failed' }
+        selfTarget.webContents.paste()
+        // 面板收起、焦点还给目标窗口，用户当场看到内容落进去
+        hideClipboardWindow()
+        if (!selfTarget.isDestroyed()) selfTarget.focus()
+        return { ok: true }
+      }
+
       /*
        * non-activating 面板抢了 key window（键盘焦点），收起它之后 key window
        * 会自动还给唤出面板前的应用。等一小拍让这个转移稳定，再模拟 ⌘V。
@@ -1604,8 +1742,14 @@ function setupIpc() {
     return await killProcess(pid)
   })
 
-  ipcMain.handle('system-info', () => {
-    return getSystemHardwareInfo()
+  ipcMain.handle('system-info', async () => {
+    // macOS/Linux 的可用内存要走一次 vm_stat / meminfo 读取，改成异步
+    return await getSystemHardwareInfo()
+  })
+
+  /** 释放可回收内存（macOS：purge 清文件缓存；用户在管理员密码框取消则如实回取消） */
+  ipcMain.handle('memory-release', async () => {
+    return await releaseMemory()
   })
 
   ipcMain.handle('system-process-list', async () => {

@@ -45,7 +45,7 @@ export interface SelectProps<T extends string | number = string> {
 }
 
 const triggerBase =
-  "inline-flex items-center justify-between gap-2 rounded-lg border border-slate-200 dark:border-dark-border bg-white dark:bg-dark-panel text-slate-700 dark:text-slate-300 outline-none transition shrink-0 hover:border-slate-300 dark:hover:border-slate-600 focus:border-brand-400 dark:focus:border-brand-500 focus:ring-2 focus:ring-brand-500/10 disabled:opacity-50 disabled:pointer-events-none";
+  "inline-flex items-center justify-between gap-2 rounded-lg border border-slate-200  bg-white  text-slate-700  outline-none transition shrink-0 hover:border-slate-300  focus:border-brand-400  focus:ring-2 focus:ring-brand-500/10 disabled:opacity-50 disabled:pointer-events-none";
 
 const triggerSizes = {
   md: "h-9 min-w-[88px] pl-3 pr-2 text-xs font-semibold",
@@ -119,7 +119,7 @@ function SubmenuPanel<T extends string | number>({
       onMouseEnter={onPointerEnter}
       onMouseLeave={onPointerLeave}
       // z 要高过设置弹窗那层（z-[60]），又低于 Tooltip（z-[90]）
-      className="fe-pop fixed z-[70] max-h-72 w-56 overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:border-dark-border dark:bg-dark-panel"
+      className="fe-pop fixed z-[70] max-h-72 w-56 overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg  "
     >
       {items.length === 0 ? (
         <li className="px-3 py-2 text-xs text-slate-400">暂无选项</li>
@@ -134,10 +134,10 @@ function SubmenuPanel<T extends string | number>({
                 onClick={() => onSelect(item)}
                 className={`w-full px-3 py-2 text-left text-xs flex items-center gap-2 transition ${
                   item.disabled
-                    ? "text-slate-300 dark:text-slate-600 cursor-not-allowed"
+                    ? "text-slate-300  cursor-not-allowed"
                     : isSelected
-                      ? "bg-brand-50 dark:bg-brand-500/15 text-brand-600 dark:text-brand-400 font-semibold"
-                      : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-dark-hover"
+                      ? "bg-brand-50  text-brand-600  font-semibold"
+                      : "text-slate-700  hover:bg-slate-50 "
                 }`}
               >
                 <span className="truncate">{item.label}</span>
@@ -311,7 +311,7 @@ export default function Select<T extends string | number = string>({
           className={`${triggerBase} ${triggerSizes[size]} w-full ${open ? "border-brand-400 ring-2 ring-brand-500/10" : ""}`}
         >
           <span
-            className={`truncate ${selected ? "text-slate-700 dark:text-slate-300" : "text-slate-400"}`}
+            className={`truncate ${selected ? "text-slate-700 " : "text-slate-400"}`}
           >
             {displayLabel}
           </span>
@@ -334,7 +334,7 @@ export default function Select<T extends string | number = string>({
             id={listboxId}
             role="listbox"
             data-state={state}
-            className="fe-pop fixed z-[70] max-h-60 overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:border-dark-border dark:bg-dark-panel"
+            className="fe-pop fixed z-[70] max-h-60 overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg  "
             style={{
               /*
                * fixed 用视口坐标。纵向按 placement 翻：默认贴在触发器下沿，
@@ -370,7 +370,7 @@ export default function Select<T extends string | number = string>({
                     // sticky：清单长的时候滚到哪都能看见自己在哪一组
                     <li
                       role="presentation"
-                      className="sticky top-0 z-10 bg-slate-50 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:bg-dark-hover dark:text-slate-500"
+                      className="sticky top-0 z-10 bg-slate-50 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400  "
                     >
                       {opt.group}
                     </li>
@@ -386,18 +386,18 @@ export default function Select<T extends string | number = string>({
                       }
                       className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2 transition ${
                         opt.disabled
-                          ? "text-slate-300 dark:text-slate-600 cursor-not-allowed"
+                          ? "text-slate-300  cursor-not-allowed"
                           : isSelected
-                            ? "bg-brand-50 dark:bg-brand-500/15 text-brand-600 dark:text-brand-400 font-semibold"
+                            ? "bg-brand-50  text-brand-600  font-semibold"
                             : isExpanded
-                              ? "bg-slate-50 dark:bg-dark-hover text-slate-700 dark:text-slate-300"
-                              : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-dark-hover"
+                              ? "bg-slate-50  text-slate-700 "
+                              : "text-slate-700  hover:bg-slate-50 "
                       }`}
                     >
                       <span className="flex-1 truncate">{opt.label}</span>
                       {/* 父项右侧挂上当前选中的子项，收起状态下也知道选的是哪个 */}
                       {activeChild && (
-                        <span className="max-w-[45%] truncate text-[10px] font-normal text-slate-400 dark:text-slate-500">
+                        <span className="max-w-[45%] truncate text-[10px] font-normal text-slate-400 ">
                           {activeChild.label}
                         </span>
                       )}

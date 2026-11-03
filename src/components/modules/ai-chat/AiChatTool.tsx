@@ -84,6 +84,9 @@ import {
 } from '../../../utils/aiChatStorage'
 import { chatStream } from '../../../utils/aiChatStream'
 import { openAppSettings } from '../../../utils/settingsBus'
+import OutlineCapsule from '../../tools/markdown/OutlineCapsule'
+import type { OutlineItem } from '../../../utils/milkdownOutline'
+import { findActiveHeadingIndex, flashElement, readPercentOf } from '../../../utils/readingBookmark'
 
 function escapeHtml(str: string): string {
   return str
@@ -218,6 +221,12 @@ function renderMarkdown(content: string): string {
  * 消息项纯组件（React.memo 缓存）：
  * 彻底隔离历史消息的 Markdown 解析与重绘。新流式输入或输入框敲字时，历史气泡一概 0 开销。
  */
+/**
+ * 右侧问答目录的条目：就是笔记大纲的 OutlineItem（OutlineCapsule 吃这个形状），
+ * 只是「跳转目标」从文档坐标 pos 换成消息 id —— 对话里的锚点是消息，不是标题节点。
+ */
+type ChatOutlineItem = OutlineItem & { msgId: string }
+
 interface ChatMessageItemProps {
   msg: AiChatMessage
   isThinkingExpanded: boolean
@@ -249,7 +258,14 @@ const ChatMessageItem = React.memo(function ChatMessageItem({
 
   if (isUser) {
     return (
-      <div className="fe-chat-msg flex justify-end">
+      /*
+       * data-chat-user-id + scroll-mt：右侧问答目录的跳转锚点。
+       * scroll-margin 让 scrollIntoView 的落点别贴着容器顶边，留出和容器 py-6 一致的呼吸感。
+       */
+      <div
+        className="fe-chat-msg flex justify-end scroll-mt-4"
+        data-chat-user-id={msg.id}
+      >
         <div className="max-w-2xl">
           {/* 引用上下文小标签（纯 SVG 图标，无 Emoji） */}
           {msg.contextPills && msg.contextPills.length > 0 && (
@@ -422,9 +438,14 @@ const SessionItem = React.memo(function SessionItem({
   return (
     <div
       onClick={() => onSelect(session.id)}
+      /*
+       * 选中态用 ring（box-shadow）而不是 border：此前只有选中项才有 1px 描边，
+       * 点选/取消的瞬间内容区四边各被挤 1px，标题和预览会先抖一下再落位。
+       * ring 画在盒子外面，不参与布局，视觉上仍是同一圈淡描边。
+       */
       className={`group relative p-2.5 rounded-xl cursor-pointer transition-all ${
         isSelected
-          ? 'bg-white border border-zinc-200/90 shadow-sm'
+          ? 'bg-white ring-1 ring-zinc-200/90 shadow-sm'
           : 'hover:bg-zinc-200/40'
       }`}
     >
@@ -522,9 +543,10 @@ const PinnedSessionItem = React.memo(function PinnedSessionItem({
   return (
     <div
       onClick={() => onSelect(session.id)}
+      // 选中态用 ring 而不是 border，避免选中切换时内容被 1px 描边挤压跳动（同 SessionItem）
       className={`group relative p-2.5 rounded-2xl flex items-center gap-2.5 cursor-pointer transition-all ${
         isSelected
-          ? 'bg-white border border-zinc-200/90 shadow-sm'
+          ? 'bg-white ring-1 ring-zinc-200/90 shadow-sm'
           : 'hover:bg-zinc-200/40'
       }`}
     >
@@ -613,6 +635,12 @@ export default function AiChatTool() {
   // 性能优化：历史消息只挂尾部一个窗口，更早的历史按 MESSAGE_WINDOW_STEP 增量补载。
   // 一次性全员挂载会让切换会话的同步 commit 大到把主线程堵死几百 ms。
   const [visibleMessageCount, setVisibleMessageCount] = useState(MESSAGE_WINDOW_STEP)
+
+  // 右侧问答目录（复用笔记 OutlineCapsule 的设计）：展开开关 + 当前读到第几问 + 已读百分比
+  const [isChatOutlineOpen, setIsChatOutlineOpen] = useState(false)
+  const [chatOutlineActive, setChatOutlineActive] = useState(-1)
+  const [chatReadPercent, setChatReadPercent] = useState(0)
+  const chatOutlineRafRef = useRef(0)
 
   // 用 ref 侧记当前活跃会话 ID：handleSelectSession / handleDeleteSession 不再依赖
   // activeSessionId 这个 state。该依赖一变回调 identity 就变，侧栏几十个
@@ -1316,12 +1344,34 @@ export default function AiChatTool() {
     textareaRef.current?.focus()
   }, [])
 
+  // 目录与滚动同步：命中判定与已读进度直接复用笔记那套工具
+  // （findActiveHeadingIndex 的 140px 参考线 / readPercentOf），两个场景高亮口径一致
+  const syncChatOutline = useCallback(() => {
+    const el = chatContainerRef.current
+    if (!el) return
+    setChatReadPercent(readPercentOf(el))
+    setChatOutlineActive(
+      findActiveHeadingIndex(el, Array.from(el.querySelectorAll<HTMLElement>('[data-chat-user-id]'))),
+    )
+  }, [])
+
+  // 滚动是高频事件，rAF 合帧：一帧最多量一次布局
+  const scheduleChatOutlineSync = useCallback(() => {
+    if (chatOutlineRafRef.current) return
+    chatOutlineRafRef.current = requestAnimationFrame(() => {
+      chatOutlineRafRef.current = 0
+      syncChatOutline()
+    })
+  }, [syncChatOutline])
+
   // 滚动位置监听（仅当用户处于底部附近时才在打字时自动锁定底部，防止打扰用户上滑阅读）
   const handleChatScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     const el = e.currentTarget
     const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80
     isNearBottomRef.current = nearBottom
-  }, [])
+    // 右侧目录跟着滚：高亮当前读到的提问、刷新已读进度
+    scheduleChatOutlineSync()
+  }, [scheduleChatOutlineSync])
 
   // 输入框自增高
   const handleTextareaInput = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -1387,6 +1437,64 @@ export default function AiChatTool() {
     handleRegenerate,
     handleDeleteMessage,
   ])
+
+  /*
+   * 右侧问答目录的条目：以「我的提问」当章节——一问一答的对话里，用户消息天生就是脉络，
+   * 这和笔记目录拿标题当节点是同一个思路（目录设计直接复用笔记的 OutlineCapsule）。
+   * 只收当前挂载窗口里的消息：更早的历史还没渲染出 DOM，点了无处可落；
+   * 「加载更早」把窗口撑大后，目录会随之补上前面几条。
+   * 提问只截前 80 字：行内有 truncate 兜底，这里限制的是 Tooltip 的长度。
+   */
+  const chatOutlineItems = useMemo<ChatOutlineItem[]>(() => {
+    if (!deferredSession) return []
+    return deferredSession.messages.slice(-visibleMessageCount).reduce<ChatOutlineItem[]>((acc, msg) => {
+      if (msg.role !== 'user') return acc
+      const text = msg.content.replace(/\s+/g, ' ').trim()
+      acc.push({
+        // pos 在笔记目录里是文档坐标，这里只是拿来生成唯一的 key（第几个提问）
+        text: text.slice(0, 80) || '（空提问）',
+        level: 1,
+        pos: acc.length,
+        msgId: msg.id,
+      })
+      return acc
+    }, [])
+  }, [deferredSession, visibleMessageCount])
+
+  // 点目录跳到对应那一条提问——与笔记同一套落点反馈：smooth 滚动 + fe-outline-flash 闪烁
+  const handleChatOutlinePick = useCallback(
+    (index: number) => {
+      const target = chatOutlineItems[index]
+      if (!target) return
+      const el = chatContainerRef.current?.querySelector<HTMLElement>(
+        `[data-chat-user-id="${target.msgId}"]`,
+      )
+      if (!el) return
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      flashElement(el)
+    },
+    [chatOutlineItems],
+  )
+
+  // 目录卡片与迷你胶囊上的「置顶」
+  const handleChatOutlineScrollTop = useCallback(() => {
+    chatContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [])
+
+  /*
+   * 切会话 / 窗口补载 / 新消息落库后都要重算一次，否则高亮会停在旧会话遗留的下标上
+   * （依赖里没有 deferredSession 本身：会话只要内容一动 chatOutlineItems 就换了新数组，
+   * 跟着触发即可）。rAF 兜一帧，等这一轮 DOM 提交完再量——和 scrollToBottom 等布局是同一个原因。
+   */
+  useEffect(() => {
+    scheduleChatOutlineSync()
+    return () => {
+      if (chatOutlineRafRef.current) {
+        cancelAnimationFrame(chatOutlineRafRef.current)
+        chatOutlineRafRef.current = 0
+      }
+    }
+  }, [scheduleChatOutlineSync, chatOutlineItems, deferredActiveSessionId])
 
   // 过滤后的会话列表（置顶/普通已经在这里分好，避免在渲染体里再 filter 两遍）
   const filteredSessions = useMemo(() => {
@@ -1484,8 +1592,9 @@ export default function AiChatTool() {
                     onClick={() => {
                       handleChangePreset(preset.id)
                     }}
+                    // 选中态用 ring 而不是 border，避免选中切换时内容被 1px 描边挤压跳动（同 SessionItem）
                     className={`p-2.5 rounded-2xl flex items-center gap-2.5 cursor-pointer transition-all ${isCurrent
-                      ? 'bg-white border border-zinc-200/90 shadow-sm'
+                      ? 'bg-white ring-1 ring-zinc-200/90 shadow-sm'
                       : 'hover:bg-zinc-200/40'
                       }`}
                   >
@@ -1656,106 +1765,119 @@ export default function AiChatTool() {
           </div>
         )}
 
-        {/* 消息流滚动区 */}
-        <div
-          ref={chatContainerRef}
-          onScroll={handleChatScroll}
-          onClick={handleChatContainerClick}
-          className="flex-1 overflow-y-auto no-scrollbar px-6 py-6 space-y-6"
-        >
-          {/* 空白会话欢迎与快捷启动卡片 */}
-          {(!activeSession || activeSession.messages.length === 0) && (
-            <div className="max-w-2xl mx-auto py-10 flex flex-col items-center text-center">
-              <div className="w-14 h-14 rounded-2xl bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-900 mb-4 shadow-sm">
-                <Sparkles size={24} />
-              </div>
-              <h2 className="text-lg font-bold text-zinc-900 mb-1">
-                {activePreset.name} · {activePreset.roleTitle}
-              </h2>
-              <p className="text-xs text-zinc-500 max-w-md mb-8 leading-relaxed">
-                {activePreset.description}。支持在输入框左下角随时选择引用知识库文章，结合多篇上下文精准分析。
-              </p>
+        {/* 消息流滚动区：外包一层 relative，给右侧的问答目录胶囊当定位容器 */}
+        <div className="relative flex-1 min-h-0 flex">
+          <div
+            ref={chatContainerRef}
+            onScroll={handleChatScroll}
+            onClick={handleChatContainerClick}
+            className="flex-1 min-h-0 overflow-y-auto no-scrollbar px-6 py-6 space-y-6"
+          >
+            {/* 空白会话欢迎与快捷启动卡片 */}
+            {(!activeSession || activeSession.messages.length === 0) && (
+              <div className="max-w-2xl mx-auto py-10 flex flex-col items-center text-center">
+                <div className="w-14 h-14 rounded-2xl bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-900 mb-4 shadow-sm">
+                  <Sparkles size={24} />
+                </div>
+                <h2 className="text-lg font-bold text-zinc-900 mb-1">
+                  {activePreset.name} · {activePreset.roleTitle}
+                </h2>
+                <p className="text-xs text-zinc-500 max-w-md mb-8 leading-relaxed">
+                  {activePreset.description}。支持在输入框左下角随时选择引用知识库文章，结合多篇上下文精准分析。
+                </p>
 
-              {/* 4 个预设推荐提问卡片 */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full text-left">
-                {activePreset.starterPrompts.map((prompt, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => handleSendMessage(prompt)}
-                    className="group p-3.5 rounded-xl border border-zinc-200 bg-zinc-50/50 hover:bg-white hover:border-zinc-900 transition-all cursor-pointer shadow-2xs flex flex-col justify-between"
-                  >
-                    <span className="text-xs text-zinc-900 font-medium group-hover:text-black line-clamp-2 leading-relaxed">
-                      {prompt}
-                    </span>
-                    <div className="mt-3 flex items-center gap-1 text-[11px] text-zinc-400 group-hover:text-zinc-900">
-                      <span>立即提问</span>
-                      <ChevronRight
-                        size={12}
-                        className="transition-transform group-hover:translate-x-0.5"
-                      />
+                {/* 4 个预设推荐提问卡片 */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full text-left">
+                  {activePreset.starterPrompts.map((prompt, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => handleSendMessage(prompt)}
+                      className="group p-3.5 rounded-xl border border-zinc-200 bg-zinc-50/50 hover:bg-white hover:border-zinc-900 transition-all cursor-pointer shadow-2xs flex flex-col justify-between"
+                    >
+                      <span className="text-xs text-zinc-900 font-medium group-hover:text-black line-clamp-2 leading-relaxed">
+                        {prompt}
+                      </span>
+                      <div className="mt-3 flex items-center gap-1 text-[11px] text-zinc-400 group-hover:text-zinc-900">
+                        <span>立即提问</span>
+                        <ChevronRight
+                          size={12}
+                          className="transition-transform group-hover:translate-x-0.5"
+                        />
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 更早的历史按窗口增量补载：一次性全员挂载会把切会话的同步提交放大到几百 ms */}
+            {earlierHiddenCount > 0 && (
+              <div className="flex justify-center pb-1">
+                <button
+                  type="button"
+                  onClick={handleLoadEarlier}
+                  className="px-3 py-1 rounded-full text-[11px] text-zinc-500 bg-zinc-100 hover:bg-zinc-200/70 transition-colors cursor-pointer"
+                >
+                  加载更早消息（还有 {earlierHiddenCount} 条）
+                </button>
+              </div>
+            )}
+
+            {/* 会话历史列表（使用 useMemo 纯组件隔离重绘） */}
+            {renderedMessages}
+
+            {/* 正在流式打字的消息项展示 */}
+            {isStreaming && (
+              <div className="flex items-start gap-3.5 max-w-3xl">
+                <div className="w-8 h-8 rounded-xl bg-zinc-900 text-white flex items-center justify-center shrink-0 shadow-sm animate-pulse">
+                  <Bot size={15} className="text-white" />
+                </div>
+                <div className="flex-1 min-w-0 space-y-3">
+                  {/* 实时深度思考流 */}
+                  {streamingReasoning && (
+                    <div className="bg-zinc-50 border border-zinc-200/70 rounded-xl px-3.5 py-2 text-xs">
+                      <div className="flex items-center gap-2 text-zinc-600 font-medium">
+                        <BrainCircuit size={13} className="text-emerald-600 animate-pulse" />
+                        <span>正在深度思考与逻辑分析中…</span>
+                      </div>
+                      <div className="mt-2 pt-2 border-t border-zinc-200/60 select-text text-[11px] text-zinc-500 leading-relaxed font-mono whitespace-pre-wrap">
+                        {streamingReasoning}
+                      </div>
                     </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+                  )}
 
-          {/* 更早的历史按窗口增量补载：一次性全员挂载会把切会话的同步提交放大到几百 ms */}
-          {earlierHiddenCount > 0 && (
-            <div className="flex justify-center pb-1">
-              <button
-                type="button"
-                onClick={handleLoadEarlier}
-                className="px-3 py-1 rounded-full text-[11px] text-zinc-500 bg-zinc-100 hover:bg-zinc-200/70 transition-colors cursor-pointer"
-              >
-                加载更早消息（还有 {earlierHiddenCount} 条）
-              </button>
-            </div>
-          )}
-
-          {/* 会话历史列表（使用 useMemo 纯组件隔离重绘） */}
-          {renderedMessages}
-
-          {/* 正在流式打字的消息项展示 */}
-          {isStreaming && (
-            <div className="flex items-start gap-3.5 max-w-3xl">
-              <div className="w-8 h-8 rounded-xl bg-zinc-900 text-white flex items-center justify-center shrink-0 shadow-sm animate-pulse">
-                <Bot size={15} className="text-white" />
-              </div>
-              <div className="flex-1 min-w-0 space-y-3">
-                {/* 实时深度思考流 */}
-                {streamingReasoning && (
-                  <div className="bg-zinc-50 border border-zinc-200/70 rounded-xl px-3.5 py-2 text-xs">
-                    <div className="flex items-center gap-2 text-zinc-600 font-medium">
-                      <BrainCircuit size={13} className="text-emerald-600 animate-pulse" />
-                      <span>正在深度思考与逻辑分析中…</span>
+                  {/* 实时正文流（限频解析 Markdown，保障 60fps 流畅） */}
+                  {streamingContent ? (
+                    <div
+                      className="text-[13px] text-zinc-800 leading-relaxed space-y-3 break-words prose prose-zinc max-w-none"
+                      // 正文 HTML 只由上面的节流 effect 产出；这里不再兜底同步解析
+                      // renderMarkdown(streamingContent)，否则每次渲染都白解析一遍整篇
+                      dangerouslySetInnerHTML={{
+                        __html: streamingHtml,
+                      }}
+                    />
+                  ) : (
+                    <div className="flex items-center gap-2 text-xs text-zinc-400 py-2">
+                      <span className="w-2 h-2 rounded-full bg-zinc-900 animate-bounce"></span>
+                      <span>正在构思回复…</span>
                     </div>
-                    <div className="mt-2 pt-2 border-t border-zinc-200/60 select-text text-[11px] text-zinc-500 leading-relaxed font-mono whitespace-pre-wrap">
-                      {streamingReasoning}
-                    </div>
-                  </div>
-                )}
-
-                {/* 实时正文流（限频解析 Markdown，保障 60fps 流畅） */}
-                {streamingContent ? (
-                  <div
-                    className="text-[13px] text-zinc-800 leading-relaxed space-y-3 break-words prose prose-zinc max-w-none"
-                    // 正文 HTML 只由上面的节流 effect 产出；这里不再兜底同步解析
-                    // renderMarkdown(streamingContent)，否则每次渲染都白解析一遍整篇
-                    dangerouslySetInnerHTML={{
-                      __html: streamingHtml,
-                    }}
-                  />
-                ) : (
-                  <div className="flex items-center gap-2 text-xs text-zinc-400 py-2">
-                    <span className="w-2 h-2 rounded-full bg-zinc-900 animate-bounce"></span>
-                    <span>正在构思回复…</span>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
+
+          {/* 右侧悬浮问答目录：以「我的提问」为锚点，直接复用笔记的大纲胶囊设计（同款展开卡片/骨架条/落点闪烁） */}
+          <OutlineCapsule
+            items={chatOutlineItems}
+            activeIndex={chatOutlineActive}
+            readPercent={chatReadPercent}
+            expanded={isChatOutlineOpen}
+            onExpandedChange={setIsChatOutlineOpen}
+            onPick={handleChatOutlinePick}
+            onScrollTop={handleChatOutlineScrollTop}
+          />
         </div>
 
         {/* 底部悬浮的多功能输入控制台 */}

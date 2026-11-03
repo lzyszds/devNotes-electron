@@ -48,19 +48,19 @@ function formatTime(ts: number) {
 function InboxRow({ entry, thumb, fresh, onCopy, onReveal, onDelete }: { entry: LanInboxEntry; thumb: string | null | undefined; fresh: boolean; onCopy: () => void; onReveal: () => void; onDelete: () => void }) {
   const isImage = entry.kind === 'file' && entry.mime.startsWith('image/')
   return (
-    <li className={`group flex items-center gap-3 rounded-xl border border-slate-200/70 px-3 py-2.5 dark:border-dark-border ${fresh ? 'fe-rise ring-2 ring-brand-400/60' : ''}`}>
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-100 dark:bg-dark-hover">
+    <li className={`group flex items-center gap-3 rounded-xl border border-slate-200/70 px-3 py-2.5  ${fresh ? 'fe-rise ring-2 ring-brand-400/60' : ''}`}>
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-100 ">
         {isImage && thumb ? <img src={thumb} alt="" className="h-full w-full object-cover" draggable={false} /> : entry.kind === 'text' ? <FileText size={16} className="text-slate-400" /> : <FileText size={16} className="text-slate-400" />}
       </div>
       <div className="min-w-0 flex-1">
         {entry.kind === 'file' ? (
           <>
-            <p className="truncate text-[12.5px] font-semibold text-slate-800 dark:text-slate-100">{entry.name}</p>
+            <p className="truncate text-[12.5px] font-semibold text-slate-800 ">{entry.name}</p>
             <p className={`${META} font-mono tabular-nums`}>{formatSize(entry.size)} · {formatTime(entry.receivedAt)}</p>
           </>
         ) : (
           <>
-            <p className="line-clamp-2 break-words text-[12.5px] text-slate-800 dark:text-slate-100">{entry.text}</p>
+            <p className="line-clamp-2 break-words text-[12.5px] text-slate-800 ">{entry.text}</p>
             <p className={`${META} font-mono tabular-nums`}>{entry.text.length} 字 · {formatTime(entry.receivedAt)}</p>
           </>
         )}
@@ -219,8 +219,8 @@ export default function LanTransferTool() {
               {qr ? <img src={qr} alt="连接二维码" width={212} height={212} className="block" /> : <span className="text-[12px] text-slate-400">{starting ? '正在开启…' : '没有可用的局域网地址'}</span>}
             </div>
             {status.url ? (
-              <div className="flex w-full items-center gap-2 rounded-lg bg-slate-50 px-2.5 py-1.5 dark:bg-dark-bg/40">
-                <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-slate-500 dark:text-slate-400">{status.url}</span>
+              <div className="flex w-full items-center gap-2 rounded-lg bg-slate-50 px-2.5 py-1.5 ">
+                <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-slate-500 ">{status.url}</span>
                 <CopyButton value={status.url} label="复制地址" size={13} />
               </div>
             ) : (
@@ -232,7 +232,7 @@ export default function LanTransferTool() {
               <span>重新生成二维码</span>
             </button>
           </div>
-          <div className="border-t border-slate-100 px-4 py-3 dark:border-dark-border">
+          <div className="border-t border-slate-100 px-4 py-3 ">
             <Switch checked={autoCopy} onChange={setAutoCopy} label="收到后自动复制" description="图片与文字到电脑后直接进剪贴板" />
           </div>
         </ToolCard>
@@ -247,7 +247,7 @@ export default function LanTransferTool() {
           {side === 'inbox' ? (
             <ToolCard fill={false}>
               <ToolCardHeader title="手机发来的" icon={ArrowDownToLine} sublabel="图片、文件、文字" actions={inbox.length > 0 ? (
-                <ArmedButton label="清空" confirmLabel="确定清空" onConfirm={() => { void api?.lanInboxClear?.(); setInbox([]); setThumbs({}) }} className="tool-button-secondary h-7 px-2.5 text-[11px] text-rose-500 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-500/10">
+                <ArmedButton label="清空" confirmLabel="确定清空" onConfirm={() => { void api?.lanInboxClear?.(); setInbox([]); setThumbs({}) }} className="tool-button-secondary h-7 px-2.5 text-[11px] text-rose-500 hover:bg-rose-50  ">
                   <Trash2 size={12} /> 清空
                 </ArmedButton>
               ) : undefined} />
@@ -282,7 +282,7 @@ export default function LanTransferTool() {
                     }}
                     placeholder="输入或粘贴要发给手机的内容…（⌘ / Ctrl + Enter 发送）"
                     rows={3}
-                    className="w-full resize-y rounded-lg border border-slate-200 bg-white px-3 py-2 text-[12.5px] text-slate-800 outline-none focus:border-brand-400 dark:border-dark-border dark:bg-dark-panel dark:text-slate-100"
+                    className="w-full resize-y rounded-lg border border-slate-200 bg-white px-3 py-2 text-[12.5px] text-slate-800 outline-none focus:border-brand-400   "
                   />
                   <div className="flex justify-end">
                     <button type="button" onClick={() => void sendText()} disabled={!draft.trim()} className="tool-button-primary h-8 px-4 disabled:opacity-40">
@@ -302,14 +302,14 @@ export default function LanTransferTool() {
                     setDragging(false)
                     void addFiles(api?.filePathsFromFiles?.(Array.from(e.dataTransfer.files ?? [])) ?? [])
                   }}
-                  className={`m-3.5 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-6 text-center transition-colors ${dragging ? 'border-brand-400 bg-brand-50/60 dark:border-brand-500/50 dark:bg-brand-500/10' : 'border-slate-200 dark:border-dark-border'}`}
+                  className={`m-3.5 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-6 text-center transition-colors ${dragging ? 'border-brand-400 bg-brand-50/60  ' : 'border-slate-200 '}`}
                 >
                   <Plus size={18} className="text-slate-400" />
-                  <p className="text-[12.5px] font-semibold text-slate-600 dark:text-slate-300">把文件拖到这里，发给手机</p>
-                  <button type="button" onClick={async () => setOutbox(await api!.lanOutboxPick!())} className="text-[11.5px] font-semibold text-brand-600 hover:underline dark:text-brand-400">或点击选择文件</button>
+                  <p className="text-[12.5px] font-semibold text-slate-600 ">把文件拖到这里，发给手机</p>
+                  <button type="button" onClick={async () => setOutbox(await api!.lanOutboxPick!())} className="text-[11.5px] font-semibold text-brand-600 hover:underline ">或点击选择文件</button>
                 </div>
                 <ToolCardHeader title="待手机获取" icon={ArrowUpFromLine} meta={outbox.length > 0 ? `${outbox.length} 条` : undefined} actions={outbox.length > 0 ? (
-                  <ArmedButton label="清空" confirmLabel="确定清空" onConfirm={() => { void api?.lanOutboxClear?.(); setOutbox([]) }} className="tool-button-secondary h-7 px-2.5 text-[11px] text-rose-500 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-500/10">
+                  <ArmedButton label="清空" confirmLabel="确定清空" onConfirm={() => { void api?.lanOutboxClear?.(); setOutbox([]) }} className="tool-button-secondary h-7 px-2.5 text-[11px] text-rose-500 hover:bg-rose-50  ">
                     <Trash2 size={12} /> 清空
                   </ArmedButton>
                 ) : undefined} />
@@ -318,15 +318,15 @@ export default function LanTransferTool() {
                 ) : (
                   <ul className="flex flex-col gap-2 p-3.5">
                     {outbox.map((item) => (
-                      <li key={item.id} className="flex items-center gap-3 rounded-xl border border-slate-200/70 px-3 py-2.5 dark:border-dark-border">
+                      <li key={item.id} className="flex items-center gap-3 rounded-xl border border-slate-200/70 px-3 py-2.5 ">
                         <div className="min-w-0 flex-1">
                           {item.kind === 'file' ? (
                             <>
-                              <p className="truncate text-[12.5px] font-semibold text-slate-800 dark:text-slate-100">{item.name}</p>
+                              <p className="truncate text-[12.5px] font-semibold text-slate-800 ">{item.name}</p>
                               <p className={`${META} font-mono`}>{formatSize(item.size)}</p>
                             </>
                           ) : (
-                            <p className="line-clamp-2 break-words text-[12.5px] text-slate-800 dark:text-slate-100">{item.text}</p>
+                            <p className="line-clamp-2 break-words text-[12.5px] text-slate-800 ">{item.text}</p>
                           )}
                         </div>
                         <ToolTag tone="brand">待获取</ToolTag>

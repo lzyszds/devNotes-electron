@@ -156,12 +156,12 @@ function BatchRow({
 }) {
   return (
     <li className="flex items-center gap-3 px-4 py-2.5">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-50 ring-1 ring-slate-200/60 dark:bg-dark-bg/40 dark:ring-dark-border">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-50 ring-1 ring-slate-200/60  ">
         <img src={item.url} alt="" className="max-h-full max-w-full object-contain" />
       </div>
 
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[12.5px] font-semibold text-slate-800 dark:text-slate-100">
+        <p className="truncate text-[12.5px] font-semibold text-slate-800 ">
           {item.file.name}
         </p>
         <p className={`${META} mt-0.5 font-mono tabular-nums`}>
@@ -169,7 +169,7 @@ function BatchRow({
           {item.result && ` → ${item.result.width} × ${item.result.height} · ${formatBytes(item.result.blob.size)}`}
         </p>
         {item.error && (
-          <p className="mt-0.5 truncate text-[11px] text-rose-500 dark:text-rose-400" title={item.error}>
+          <p className="mt-0.5 truncate text-[11px] text-rose-500 " title={item.error}>
             {item.error}
           </p>
         )}
@@ -407,22 +407,22 @@ export default function ImageBatchPanel() {
               data-drag={dragging || undefined}
               className={`drop-zone m-4 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-12 ${
                 dragging
-                  ? 'border-brand-400 bg-brand-50/60 dark:border-brand-500/50 dark:bg-brand-500/10'
-                  : 'border-slate-200 hover:border-brand-300 hover:bg-slate-50/60 dark:border-dark-border dark:hover:bg-dark-hover/40'
+                  ? 'border-brand-400 bg-brand-50/60  '
+                  : 'border-slate-200 hover:border-brand-300 hover:bg-slate-50/60  '
               }`}
             >
-              <span className="drop-zone-icon flex h-12 w-12 items-center justify-center rounded-full bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
+              <span className="drop-zone-icon flex h-12 w-12 items-center justify-center rounded-full bg-brand-50 text-brand-600  ">
                 <Upload size={20} />
               </span>
-              <span className="text-[13px] font-semibold text-slate-700 dark:text-slate-200">
+              <span className="text-[13px] font-semibold text-slate-700 ">
                 把多张图片拖进来，或点击选择
               </span>
-              <span className="text-[11px] text-slate-400 dark:text-slate-500">
+              <span className="text-[11px] text-slate-400 ">
                 可以一次选多个文件，按住 ⌘ / Ctrl 多选
               </span>
             </button>
           ) : (
-            <ul className="divide-y divide-slate-100 dark:divide-dark-border">
+            <ul className="divide-y divide-slate-100 ">
               {items.map((item) => (
                 <BatchRow
                   key={item.id}
@@ -471,14 +471,14 @@ export default function ImageBatchPanel() {
               <span className={SECTION_LABEL}>目标格式</span>
               <Segmented value={format} options={formatOptions} onChange={setFormat} />
               {activeFormat && (
-                <p className="text-[11px] text-slate-400 dark:text-slate-500">{activeFormat.hint}</p>
+                <p className="text-[11px] text-slate-400 ">{activeFormat.hint}</p>
               )}
             </div>
 
             <div className="flex flex-col gap-2">
               <span className={SECTION_LABEL}>长边上限</span>
               <Segmented value={longEdge} options={LONG_EDGE_OPTIONS} onChange={setLongEdge} />
-              <p className="text-[11px] text-slate-400 dark:text-slate-500">
+              <p className="text-[11px] text-slate-400 ">
                 只缩小不放大，比上限小的图保持原样
               </p>
             </div>
@@ -488,7 +488,7 @@ export default function ImageBatchPanel() {
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center justify-between">
                     <span className={SECTION_LABEL}>画质</span>
-                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 tabular-nums">
+                    <span className="text-xs font-semibold text-slate-700  tabular-nums">
                       {quality}%
                     </span>
                   </div>
@@ -505,13 +505,13 @@ export default function ImageBatchPanel() {
 
                 <div className="flex flex-col gap-2">
                   <span className={SECTION_LABEL}>目标体积</span>
-                  <label className="flex cursor-text items-center gap-3 rounded-xl border border-slate-200/70 bg-slate-50/70 py-2 pl-3 pr-2.5 dark:border-dark-border dark:bg-dark-hover/40">
+                  <label className="flex cursor-text items-center gap-3 rounded-xl border border-slate-200/70 bg-slate-50/70 py-2 pl-3 pr-2.5  ">
                     <Zap
                       size={15}
                       className={`shrink-0 ${
                         Number(targetKb) > 0
-                          ? 'text-brand-600 dark:text-brand-400'
-                          : 'text-slate-400 dark:text-slate-500'
+                          ? 'text-brand-600 '
+                          : 'text-slate-400 '
                       }`}
                     />
                     <input
@@ -520,11 +520,11 @@ export default function ImageBatchPanel() {
                       value={targetKb}
                       onChange={(event) => setTargetKb(event.target.value)}
                       placeholder="留空表示不限制"
-                      className="min-w-0 flex-1 bg-transparent text-[13px] font-medium tabular-nums text-slate-800 outline-none placeholder:text-slate-400 dark:text-slate-100 dark:placeholder:text-slate-500"
+                      className="min-w-0 flex-1 bg-transparent text-[13px] font-medium tabular-nums text-slate-800 outline-none placeholder:text-slate-400  "
                     />
-                    <span className="shrink-0 text-xs font-semibold text-slate-500 dark:text-slate-400">KB</span>
+                    <span className="shrink-0 text-xs font-semibold text-slate-500 ">KB</span>
                   </label>
-                  <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                  <p className="text-[11px] text-slate-400 ">
                     每张都会单独压到这个大小以内：先降画质，还不够再缩尺寸
                   </p>
                 </div>
@@ -532,7 +532,7 @@ export default function ImageBatchPanel() {
             )}
 
             {activeFormat && !activeFormat.alpha && (
-              <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-slate-200/70 bg-slate-50/70 py-2 pl-2.5 pr-3 dark:border-dark-border dark:bg-dark-hover/40">
+              <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-slate-200/70 bg-slate-50/70 py-2 pl-2.5 pr-3  ">
                 <span className="flex items-center gap-2.5">
                   <input
                     type="color"
@@ -540,9 +540,9 @@ export default function ImageBatchPanel() {
                     onChange={(event) => setBgColor(event.target.value)}
                     className="h-7 w-7 cursor-pointer rounded-lg border-0 bg-transparent p-0"
                   />
-                  <span className="text-xs font-medium text-slate-600 dark:text-slate-300">背景填充色</span>
+                  <span className="text-xs font-medium text-slate-600 ">背景填充色</span>
                 </span>
-                <span className="font-mono text-[11px] text-slate-400 dark:text-slate-500">{bgColor}</span>
+                <span className="font-mono text-[11px] text-slate-400 ">{bgColor}</span>
               </label>
             )}
 
@@ -552,7 +552,7 @@ export default function ImageBatchPanel() {
               </ToolNotice>
             )}
 
-            <div className="flex flex-col gap-2 border-t border-slate-100 pt-4 dark:border-dark-border">
+            <div className="flex flex-col gap-2 border-t border-slate-100 pt-4 ">
               <button
                 onClick={() => void runAll()}
                 disabled={running || items.length === 0}

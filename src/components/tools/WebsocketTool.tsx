@@ -25,6 +25,7 @@ import {
   ToolShell,
   buttonClass,
   CopyButton,
+  PreviewButton,
   iconButtonClass,
 } from "../ui";
 import Tooltip from "../ui/Tooltip";
@@ -43,10 +44,10 @@ const MAX_LOGS = 300;
 
 /** 每条日志的配色：接收绿、发送蓝、错误红、系统灰 */
 const LOG_TONES: Record<MessageLog["type"], string> = {
-  received: "bg-emerald-50/70 text-emerald-900 dark:bg-emerald-500/[0.08] dark:text-emerald-200",
-  sent: "bg-brand-50/70 text-brand-900 dark:bg-brand-500/[0.08] dark:text-brand-200",
-  error: "bg-rose-50/70 text-rose-900 dark:bg-rose-500/[0.08] dark:text-rose-200",
-  system: "bg-slate-50 text-slate-600 dark:bg-dark-hover/50 dark:text-slate-300",
+  received: "bg-emerald-50/70 text-emerald-900  ",
+  sent: "bg-brand-50/70 text-brand-900  ",
+  error: "bg-rose-50/70 text-rose-900  ",
+  system: "bg-slate-50 text-slate-600  ",
 };
 
 export default function WebsocketTool() {
@@ -185,7 +186,7 @@ export default function WebsocketTool() {
             onClick={() => setShowHistory(!showHistory)}
             className={`tool-button-secondary h-8 ${
               showHistory
-                ? "ring-2 ring-brand-500/20 border-brand-200 text-brand-600 dark:border-brand-500/40 dark:text-brand-400"
+                ? "ring-2 ring-brand-500/20 border-brand-200 text-brand-600  "
                 : ""
             }`}
           >
@@ -200,7 +201,7 @@ export default function WebsocketTool() {
           ) : (
             <button
               onClick={disconnect}
-              className="tool-button-secondary h-8 px-5 border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:border-rose-500/30 dark:text-rose-400 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
+              className="tool-button-secondary h-8 px-5 border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700    "
             >
               <Square size={15} />
               <span>断开连接</span>
@@ -234,7 +235,7 @@ export default function WebsocketTool() {
             <div className="p-4">
               <div className="relative group">
                 <Terminal
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-600 group-focus-within:text-brand-500 transition-colors pointer-events-none"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300  group-focus-within:text-brand-500 transition-colors pointer-events-none"
                   size={15}
                 />
                 <input
@@ -254,7 +255,7 @@ export default function WebsocketTool() {
               title="消息编辑器"
               meta={
                 connected ? (
-                  <span className="text-brand-600 dark:text-brand-400">已就绪</span>
+                  <span className="text-brand-600 ">已就绪</span>
                 ) : (
                   "请先连接服务器"
                 )
@@ -293,7 +294,7 @@ export default function WebsocketTool() {
               <span className="flex items-center gap-2">
                 <span
                   className={`w-1.5 h-1.5 rounded-full ${
-                    connected ? "bg-emerald-500 animate-pulse" : "bg-slate-300 dark:bg-slate-600"
+                    connected ? "bg-emerald-500 animate-pulse" : "bg-slate-300 "
                   }`}
                 />
                 通信控制台
@@ -301,6 +302,17 @@ export default function WebsocketTool() {
             }
             actions={
               <>
+                {/* 日志在列表里有滚动裁切，预览弹窗看时间序全文 */}
+                <PreviewButton
+                  title="通信日志"
+                  content={() =>
+                    logs
+                      .map((log) => `[${log.time}] ${log.type.toUpperCase()} ${log.text}`)
+                      .join("\n")
+                  }
+                  disabled={logs.length === 0}
+                  source={`${logs.length} 条`}
+                />
                 <CopyButton
                   value={() =>
                     logs

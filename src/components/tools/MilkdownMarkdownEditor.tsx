@@ -1081,7 +1081,7 @@ export default function MilkdownMarkdownEditor({
       {/* 预览态是只读的，工具栏上每一颗按钮都点不出效果。
           移动端把工具栏挪到底部，当作键盘上方的格式配件条。 */}
       {!preview && (
-        <div className="max-md:order-2 max-md:bg-white max-md:pb-[env(safe-area-inset-bottom)] max-md:dark:bg-dark-panel">
+        <div className="max-md:order-2 max-md:bg-white max-md:pb-[env(safe-area-inset-bottom)]">
           <MarkdownToolbar
             engine="milkdown"
             onCommand={handleCommand}
@@ -1182,7 +1182,7 @@ export default function MilkdownMarkdownEditor({
             <div className="absolute left-1/2 top-3 z-30 w-[21rem] max-w-[calc(100%-2rem)] -translate-x-1/2">
               <div
                 data-state={popupState}
-                className="fe-pop rounded-xl border border-slate-200/80 bg-white p-2 shadow-lg dark:border-dark-border dark:bg-dark-panel"
+                className="fe-pop rounded-xl border border-slate-200/80 bg-white p-2 shadow-lg  "
               >
                 {shownPopup === 'heading' ? (
                   <div className="grid grid-cols-2 gap-0.5">
@@ -1193,8 +1193,8 @@ export default function MilkdownMarkdownEditor({
                         onClick={() => pickHeading(option.level)}
                         className={`rounded-md px-2 py-1.5 text-left text-xs transition-colors ${
                           option.level === headingLevel
-                            ? 'bg-brand-50 font-semibold text-brand-600 dark:bg-brand-500/15 dark:text-brand-300'
-                            : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-dark-hover'
+                            ? 'bg-brand-50 font-semibold text-brand-600  '
+                            : 'text-slate-600 hover:bg-slate-100  '
                         }`}
                       >
                         {option.label}
@@ -1214,7 +1214,7 @@ export default function MilkdownMarkdownEditor({
                       placeholder={
                         shownPopup === 'link' ? '链接地址 https://…' : '图片地址 https://…'
                       }
-                      className="h-7 min-w-0 flex-1 rounded-md border border-slate-200/80 bg-slate-50 px-2 text-xs text-slate-800 outline-none placeholder:text-slate-400 focus:border-brand-500 dark:border-dark-border dark:bg-dark-hover dark:text-slate-200"
+                      className="h-7 min-w-0 flex-1 rounded-md border border-slate-200/80 bg-slate-50 px-2 text-xs text-slate-800 outline-none placeholder:text-slate-400 focus:border-brand-500   "
                     />
                     <button
                       type="button"

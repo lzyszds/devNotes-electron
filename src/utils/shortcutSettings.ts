@@ -112,13 +112,12 @@ export const SHORTCUT_BINDINGS: ShortcutBinding[] = [
     defaultAccelerator: `${PRIMARY}+S`,
     scope: 'app',
   },
-  {
-    id: 'toggle-theme',
-    label: '切换深浅主题',
-    description: '在深色与浅色主题之间来回切换',
-    defaultAccelerator: `${PRIMARY}+D`,
-    scope: 'app',
-  },
+  /*
+   * toggle-theme（⌘D）曾经在这里：暗色模式已在 App.tsx 里整体下线（固化为
+   * 单一 notion-warm 主题），设置面板却还允许录制，结果就是「设上了、
+   * 提示已生效、按下去什么都不会发生」。现在直接从表里摘掉，存储里的
+   * 残留值 mergeShortcutMap 只认下表里的 id，不会有副作用。
+   */
   {
     id: 'open-settings',
     label: '打开全局设置',
@@ -271,7 +270,8 @@ function normalizeKey(event: KeyboardEvent): string {
 /**
  * 把 accelerator 显示成给人看的样子。
  *
- * 只做展示 —— 存储里始终是 CommandOrControl 那种写法，这样跨平台都能用。
+ * 只做展示 —— 存储里正常是 eventToAccelerator 产出的写法（旧配置可能是
+ * CommandOrControl 遗留），两种这里都认；缺省分支原样透出（如 F5、数字）。
  */
 export function formatAccelerator(accelerator: string, isMac: boolean): string {
   if (!accelerator) return ''
@@ -345,7 +345,7 @@ export function findConflicts(map: ShortcutMap): Map<string, string[]> {
  * Command 与 Control 是并列的两个键，不合并 —— Command+A 与 Control+A 是
  * 两个不同的快捷键，不该被判成重复。
  */
-function normalizeForCompare(accelerator: string): string {
+export function normalizeForCompare(accelerator: string): string {
   const order = ['CommandOrControl', 'Command', 'Control', 'Alt', 'Shift']
   const parts = accelerator.split('+')
   const modifiers = order.filter((m) => parts.includes(m))

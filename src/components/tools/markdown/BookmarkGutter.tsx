@@ -160,8 +160,8 @@ export default function BookmarkGutter({
             }}
             className={`pointer-events-auto absolute flex h-4 w-4 items-center justify-center rounded transition-transform hover:scale-125 ${
               bookmark.note
-                ? 'text-brand-500 hover:text-brand-600 dark:text-brand-400'
-                : 'text-slate-300 hover:text-brand-500 dark:text-slate-600'
+                ? 'text-brand-500 hover:text-brand-600 '
+                : 'text-slate-300 hover:text-brand-500 '
             }`}
           >
             <Bookmark className={`h-3.5 w-3.5 ${bookmark.note ? 'fill-current' : ''}`} />

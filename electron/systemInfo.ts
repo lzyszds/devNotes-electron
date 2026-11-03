@@ -1,4 +1,5 @@
 import os from 'os'
+import { readFileSync } from 'fs'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
 
@@ -14,9 +15,35 @@ export interface SystemHardwareInfo {
   cpuCores: number
   cpuSpeedMhz: number
   totalMemBytes: number
+  /** 真空闲。macOS 上几乎恒为零（空闲页全被文件缓存/压缩池借走），只配当诊断数据 */
   freeMemBytes: number
+  /**
+   * 可用内存 = 真空闲 + 可随时回收的文件缓存。
+   * 判断「这台机器还能不能装得下」看它，别看上面那个 free —— 理由见 readDarwinMemStat
+   */
+  availableMemBytes: number
   usedMemBytes: number
+  /** used = total - available。macOS 上与活动监视器「内存已使用」的口径一致 */
   memUsagePercent: number
+  /**
+   * 内核内存压力等级（仅 macOS，1=正常 2=警告 ≥3=临界）。
+   * 这是 jetsam / 内存压力通知在用的同一份内核读数 —— 判断「系统到底紧不紧张」，
+   * 它比任何静态的「已用/总量」百分比都权威，sysctl 一次调用就能拿到
+   */
+  memoryPressureLevel?: number
+  /** 以下细分仅 macOS 有值（活动监视器口径的页桶），Windows/Linux 不填 */
+  /** 联线内存（wired）：内核与驱动的常驻区，用户侧动不了，也不该拿它做文章 */
+  wiredBytes?: number
+  /** 活跃应用内存（active 页，不含压缩池） */
+  appActiveBytes?: number
+  /** 压缩池：被内核压缩后还占着的物理页（省出来的空间就是它的贡献） */
+  compressedBytes?: number
+  /** 文件缓存（inactive + speculative），随时可回收 ——「释放内存」动作清的就是它 */
+  cachedFilesBytes?: number
+  /** 已用 Swap 字节数（读 vm.swapusage；换页多说明历史上有真的内存挤兑） */
+  swapUsedBytes?: number
+  /** 是否支持「释放内存」动作（当前仅 macOS：/usr/sbin/purge） */
+  memoryReleaseSupported?: boolean
   uptimeSeconds: number
 }
 
@@ -43,17 +70,177 @@ function getPlatformName(platform: string): string {
   }
 }
 
-/** 获取硬件与系统基础配置概览 */
-export function getSystemHardwareInfo(): SystemHardwareInfo {
+interface DarwinMemStat {
+  freeBytes: number
+  /** inactive + speculative：文件缓存，随时可回收 */
+  cachedBytes: number
+  /** free + cached：口径同活动监视器 Available */
+  availableBytes: number
+  activeBytes: number
+  wiredBytes: number
+  compressedBytes: number
+  /** 活动监视器 Memory Used 口径：active + wired + compressed */
+  usedBytes: number
+}
+
+/**
+ * 用 vm_stat 读 macOS 的完整内存页桶。
+ *
+ * os.freemem() 在 macOS 上基本是个陷阱：内核会把空闲页几乎全部拿去填文件缓存
+ * 和内存压缩池，真 free 页常年只剩一两百 MB —— 所以 total - free 的老算法会把
+ * 一台内存压力全绿的机器报到 98%+。vm_stat 给的是 Mach 主机统计的原始页数据，
+ * 活动监视器的口径（内存已使用 = App(含 compressed) + Wired）反过来看就是
+ * 「可用 = Free + inactive（文件缓存）+ speculative（预读缓存）」。
+ */
+async function readDarwinMemStat(): Promise<DarwinMemStat | null> {
+  try {
+    const { stdout } = await run('vm_stat')
+    // 页大小写在首行 "...(page size of 16384 bytes)"：Apple Silicon 是 16K，Intel 是 4K
+    const sizeMatch = stdout.match(/page size of (\d+) bytes/)
+    const pageSize = sizeMatch ? parseInt(sizeMatch[1], 10) : 4096
+    const pages = (label: string): number => {
+      const m = stdout.match(new RegExp(`${label}:\\s+(\\d+)`))
+      return m ? parseInt(m[1], 10) * pageSize : 0
+    }
+    const free = pages('Pages free')
+    const active = pages('Pages active')
+    const cached = pages('Pages inactive') + pages('Pages speculative')
+    const wired = pages('Pages wired down')
+    const compressed = pages('Pages occupied by compressor')
+    // 任何一项都没认出来（解析空了）就宁可让调用方回退老算法，也别报出假的满载
+    if (free + active + wired + compressed === 0) return null
+    return {
+      freeBytes: free,
+      cachedBytes: cached,
+      availableBytes: free + cached,
+      activeBytes: active,
+      wiredBytes: wired,
+      compressedBytes: compressed,
+      usedBytes: active + wired + compressed,
+    }
+  } catch {
+    return null
+  }
+}
+
+/** 换算给人看的 GB 字符串（purge 前后对比的吐司文案用，不走渲染层的 formatBytes） */
+function gb(bytes: number): string {
+  return `${(bytes / 1024 ** 3).toFixed(1)} GB`
+}
+
+/** 读 macOS 的 Swap 用量。换页量大说明历史上有真的内存挤兑，值得在界面上明示 */
+async function readDarwinSwapUsed(): Promise<number | undefined> {
+  try {
+    const { stdout } = await run('sysctl', ['-n', 'vm.swapusage'])
+    // 形如 "total = 9216.00M  used = 7752.38M  free = 1463.62M  (encrypted)"
+    const m = stdout.match(/used\s*=\s*([\d.]+)\s*(B|K|M|G)/)
+    if (!m) return undefined
+    const factor = { B: 1, K: 1024, M: 1024 ** 2, G: 1024 ** 3 }[m[2] as 'B' | 'K' | 'M' | 'G']
+    return Math.round(parseFloat(m[1]) * factor)
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Linux 用 /proc/meminfo 的 MemAvailable：内核自己算好的「现有可用」，
+ * 已经把可回收的 page cache 计入在内 —— os.freemem() 只看 MemFree，
+ * 在跑了很久的 Linux 上同样会虚高占用。
+ */
+function readLinuxAvailable(): number | null {
+  try {
+    const content = readFileSync('/proc/meminfo', 'utf8')
+    const m = content.match(/^MemAvailable:\s+(\d+)\s*kB/m)
+    return m ? parseInt(m[1], 10) * 1024 : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 系统级「释放可回收内存」（仅 macOS）：执行 /usr/sbin/purge 把文件缓存整体刷掉。
+ *
+ * 说明两点，避免变成 CleanMyMac 式的数字游戏：
+ *  - purge 需要 root —— 走 osascript 的 administrator 特权弹窗（系统密码框），
+ *    用户取消就如实报取消，什么都不改。
+ *  - 它只回收文件缓存（inactive/speculative），不碰任何应用的工作集：
+ *    真正省内存靠进程榜里的「结束」。释放后可用内存会立刻涨一截，
+ *    但系统用着用着又会重新填充缓存 —— 这是诚实的预期，不是 bug。
+ */
+export async function releaseMemory(): Promise<{
+  ok: boolean
+  message: string
+  cancelled?: boolean
+}> {
+  if (os.platform() !== 'darwin') return { ok: false, message: '该功能目前仅支持 macOS' }
+
+  const before = await readDarwinMemStat()
+  try {
+    await run(
+      'osascript',
+      ['-e', 'do shell script "/usr/sbin/purge" with administrator privileges'],
+      // 密码框可能要等用户慢慢输：给 2 分钟，超时按失败处理
+      { timeout: 120_000 },
+    )
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    // osascript 的用户取消是明确的 -128，别把它当失败吓用户
+    if (/(-128)|用户已取消|User canceled/i.test(msg)) {
+      return { ok: false, cancelled: true, message: '已取消，未做任何变更' }
+    }
+    return { ok: false, message: `释放失败：${msg.slice(0, 140)}` }
+  }
+
+  // purge 是同步刷盘，但内核记账有一拍延迟；等半秒再读对比数
+  await new Promise((resolve) => setTimeout(resolve, 500))
+  const after = await readDarwinMemStat()
+  if (before && after) {
+    const freed = after.availableBytes - before.availableBytes
+    if (freed > 64 * 1024 * 1024) {
+      return { ok: true, message: `已释放，可用内存 ${gb(before.availableBytes)} → ${gb(after.availableBytes)}` }
+    }
+    return {
+      ok: true,
+      message: '已执行 purge；可回收内存变化不大 —— 缓存原本就紧张或正被使用，很快还会填回来',
+    }
+  }
+  return { ok: true, message: '已执行 purge' }
+}
+
+/** 获取硬件与系统基础配置概览（异步：macOS/Linux 需要读一次系统统计输出） */
+export async function getSystemHardwareInfo(): Promise<SystemHardwareInfo> {
   const total = os.totalmem()
   const free = os.freemem()
-  const used = Math.max(0, total - free)
   const cpus = os.cpus() || []
   const firstCpu = cpus[0] || { model: 'Unknown CPU', speed: 0 }
 
+  // macOS/Linux 按系统口径算可用；拿不到再退回「total - free」的老算法
+  const platform = os.platform()
+  const stat = platform === 'darwin' ? await readDarwinMemStat() : null
+  const linuxAvailable = platform === 'linux' ? readLinuxAvailable() : null
+  const available = stat?.availableBytes ?? linuxAvailable ?? free
+  const used = stat?.usedBytes ?? Math.max(0, Math.min(total, total - available))
+
+  // 内核自己的内存压力等级：jetsam 与「内存不足」通知用的就是这份读数。
+  // 计算口径在内核内部（memorystatus），与静态的页桶求和不是一回事 ——
+  // 系统紧不紧张以它为准。OID 拿不到（旧系统 / 更名）就缺省，UI 不展示
+  let memoryPressureLevel: number | undefined
+  if (platform === 'darwin') {
+    try {
+      const { stdout } = await run('sysctl', ['-n', 'kern.memorystatus_vm_pressure_level'])
+      const level = parseInt(stdout.trim(), 10)
+      if (Number.isFinite(level) && level > 0) memoryPressureLevel = level
+    } catch {
+      // 读取失败不致命，跳过
+    }
+  }
+
+  // Linux 的 MemAvailable 里已含可回收 page cache，但没有页桶细分可给
+  const swapUsedBytes = platform === 'darwin' ? await readDarwinSwapUsed() : undefined
+
   return {
-    platform: os.platform(),
-    platformName: getPlatformName(os.platform()),
+    platform,
+    platformName: getPlatformName(platform),
     arch: os.arch(),
     osRelease: os.release(),
     hostname: os.hostname(),
@@ -62,8 +249,16 @@ export function getSystemHardwareInfo(): SystemHardwareInfo {
     cpuSpeedMhz: firstCpu.speed,
     totalMemBytes: total,
     freeMemBytes: free,
+    availableMemBytes: available,
     usedMemBytes: used,
     memUsagePercent: total > 0 ? Math.round((used / total) * 1000) / 10 : 0,
+    memoryPressureLevel,
+    wiredBytes: stat?.wiredBytes,
+    appActiveBytes: stat?.activeBytes,
+    compressedBytes: stat?.compressedBytes,
+    cachedFilesBytes: stat?.cachedBytes,
+    swapUsedBytes,
+    memoryReleaseSupported: platform === 'darwin',
     uptimeSeconds: os.uptime(),
   }
 }

@@ -18,6 +18,7 @@ import {
   ToolShell,
   buttonClass,
   CopyButton,
+  PreviewButton,
   iconButtonClass,
   pillClass,
 } from '../ui'
@@ -207,7 +208,7 @@ export default function RegexpTool() {
             onClick={() => setShowHistory(!showHistory)}
             className={`tool-button-secondary h-8 ${
               showHistory
-                ? 'ring-2 ring-brand-500/20 border-brand-200 text-brand-600 dark:border-brand-500/40 dark:text-brand-400'
+                ? 'ring-2 ring-brand-500/20 border-brand-200 text-brand-600  '
                 : ''
             }`}
           >
@@ -269,7 +270,7 @@ export default function RegexpTool() {
                     className={`h-7 w-7 rounded-lg text-[11px] font-bold uppercase transition-colors ${
                       active
                         ? 'bg-brand-600 text-white shadow-sm'
-                        : 'bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-600 dark:bg-dark-hover dark:text-slate-500 dark:hover:bg-dark-border dark:hover:text-slate-300'
+                        : 'bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-600    '
                     }`}
                   >
                     {f}
@@ -281,28 +282,28 @@ export default function RegexpTool() {
         />
 
         <div className="p-4 space-y-3">
-          <div className="flex items-center gap-2 h-11 rounded-[10px] border border-slate-200/80 dark:border-dark-border bg-white dark:bg-dark-panel px-3.5 focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-500/10 transition">
-            <span className="text-base font-mono text-slate-300 dark:text-slate-600">/</span>
+          <div className="flex items-center gap-2 h-11 rounded-[10px] border border-slate-200/80  bg-white  px-3.5 focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-500/10 transition">
+            <span className="text-base font-mono text-slate-300 ">/</span>
             <input
               type="text"
               value={pattern}
               onChange={(e) => setPattern(e.target.value)}
               placeholder="在此输入正则表达式 (例如: [a-z0-9]+)"
-              className="flex-1 min-w-0 bg-transparent border-none outline-none font-mono text-[13px] font-medium text-slate-900 dark:text-white placeholder:text-slate-300 dark:placeholder:text-slate-600"
+              className="flex-1 min-w-0 bg-transparent border-none outline-none font-mono text-[13px] font-medium text-slate-900  placeholder:text-slate-300 "
             />
-            <span className="text-base font-mono text-slate-300 dark:text-slate-600">/</span>
+            <span className="text-base font-mono text-slate-300 ">/</span>
             <input
               type="text"
               value={flags}
               onChange={(e) => setFlags(e.target.value)}
               placeholder="修饰符"
               title="修饰符"
-              className="w-14 bg-transparent border-none outline-none font-mono text-[13px] font-medium text-brand-600 dark:text-brand-400 text-center placeholder:text-slate-300 dark:placeholder:text-slate-600"
+              className="w-14 bg-transparent border-none outline-none font-mono text-[13px] font-medium text-brand-600  text-center placeholder:text-slate-300 "
             />
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1.5 text-[11px] font-medium text-slate-400 dark:text-slate-500 shrink-0">
+            <span className="flex items-center gap-1.5 text-[11px] font-medium text-slate-400  shrink-0">
               <Filter size={12} />
               常用库
             </span>
@@ -360,9 +361,9 @@ export default function RegexpTool() {
 
           <div className="flex-1 min-h-0 p-4 flex flex-col">
             {showHighlight ? (
-              <div className="flex-1 min-h-0 overflow-y-auto whitespace-pre-wrap break-all font-mono text-[13px] leading-6 text-slate-800 dark:text-slate-100 select-text">
+              <div className="flex-1 min-h-0 overflow-y-auto whitespace-pre-wrap break-all font-mono text-[13px] leading-6 text-slate-800  select-text">
                 {allZeroWidth && (
-                  <p className="mb-2 font-sans text-[11px] text-amber-600 dark:text-amber-400">
+                  <p className="mb-2 font-sans text-[11px] text-amber-600 ">
                     本次命中的都是零宽匹配（匹配位置而非字符），没有字符可染色 —— 匹配数见右侧列表。
                   </p>
                 )}
@@ -383,8 +384,8 @@ export default function RegexpTool() {
                           key={i}
                           className={`rounded-[3px] ${
                             isActive
-                              ? 'bg-brand-500 text-white dark:bg-brand-500 dark:text-white'
-                              : 'bg-amber-200/70 text-amber-900 dark:bg-amber-500/30 dark:text-amber-100'
+                              ? 'bg-brand-500 text-white  '
+                              : 'bg-amber-200/70 text-amber-900  '
                           }`}
                         >
                           {part.text}
@@ -393,7 +394,7 @@ export default function RegexpTool() {
                     })
                   })()
                 ) : (
-                  <span className="text-slate-300 dark:text-slate-600 not-italic">
+                  <span className="text-slate-300  not-italic">
                     先在上面输入文本并运行测试…
                   </span>
                 )}
@@ -424,10 +425,31 @@ export default function RegexpTool() {
             // meta 自带一层灰底，只能传纯文本；套 ToolTag 会双层叠色
             meta={`${matches.length} 项`}
             actions={
-              <CopyButton
-                value={() => matches.map((match) => match.value).join('\n')}
-                disabled={matches.length === 0}
-              />
+              <>
+                {/* 预览给全文清单：一行一条，比在列表里翻省眼 */}
+                <PreviewButton
+                  title="匹配提取结果"
+                  content={() =>
+                    matches
+                      .map(
+                        (match, index) =>
+                          `${String(index + 1).padStart(3, '0')}  ${match.value}${
+                            // 附位置，方便回原文找；捕获组有的话再追加几行
+                            match.groups && Object.keys(match.groups).length
+                              ? `\n      groups: ${JSON.stringify(match.groups)}`
+                              : ''
+                          }`
+                      )
+                      .join('\n')
+                  }
+                  disabled={matches.length === 0}
+                  source="全文清单"
+                />
+                <CopyButton
+                  value={() => matches.map((match) => match.value).join('\n')}
+                  disabled={matches.length === 0}
+                />
+              </>
             }
           />
 
@@ -439,7 +461,7 @@ export default function RegexpTool() {
                  否则从「无匹配」切到「有匹配」只是内容被换掉，没有过渡 */
               <div
                 key={`${matches.length}-${matches[0]?.value ?? ''}`}
-                className="fe-rise flex-1 divide-y divide-slate-50 dark:divide-dark-border overflow-y-auto"
+                className="fe-rise flex-1 divide-y divide-slate-50  overflow-y-auto"
               >
                 {matches.map((match, i) => (
                   <div
@@ -451,15 +473,15 @@ export default function RegexpTool() {
                     title="点此在左侧高亮这一处"
                     className={`px-4 py-3 flex items-start gap-3 cursor-pointer transition-colors group ${
                       activeMatch === i
-                        ? 'bg-amber-50/70 dark:bg-amber-500/10'
-                        : 'hover:bg-slate-50 dark:hover:bg-dark-hover'
+                        ? 'bg-amber-50/70 '
+                        : 'hover:bg-slate-50 '
                     }`}
                   >
-                    <span className="text-[10px] font-mono font-bold text-slate-300 dark:text-slate-600 group-hover:text-brand-500 transition-colors mt-0.5 w-6 shrink-0">
+                    <span className="text-[10px] font-mono font-bold text-slate-300  group-hover:text-brand-500 transition-colors mt-0.5 w-6 shrink-0">
                       #{i + 1}
                     </span>
                     <div className="flex-1 min-w-0 flex flex-col gap-1.5">
-                      <div className="font-mono text-[13px] leading-relaxed text-slate-700 dark:text-slate-200 whitespace-pre-wrap break-all select-text">
+                      <div className="font-mono text-[13px] leading-relaxed text-slate-700  whitespace-pre-wrap break-all select-text">
                         {match.value}
                       </div>
                       {/* 捕获组：调试正则时最需要看的就是这几行 */}
@@ -467,12 +489,12 @@ export default function RegexpTool() {
                         <div className="flex flex-col gap-0.5">
                           {match.groups.map((group, gi) => (
                             <div key={gi} className="flex items-baseline gap-2 text-[11px]">
-                              <span className="font-mono text-slate-300 dark:text-slate-600 shrink-0">
+                              <span className="font-mono text-slate-300  shrink-0">
                                 ${gi + 1}
                               </span>
-                              <span className="font-mono text-brand-600 dark:text-brand-400 break-all">
+                              <span className="font-mono text-brand-600  break-all">
                                 {group === null || group === undefined ? (
-                                  <span className="text-slate-300 dark:text-slate-600 italic">
+                                  <span className="text-slate-300  italic">
                                     （未参与匹配）
                                   </span>
                                 ) : (
@@ -483,17 +505,17 @@ export default function RegexpTool() {
                           ))}
                           {Object.entries(match.named).map(([name, value]) => (
                             <div key={name} className="flex items-baseline gap-2 text-[11px]">
-                              <span className="font-mono text-slate-300 dark:text-slate-600 shrink-0">
+                              <span className="font-mono text-slate-300  shrink-0">
                                 ${'<' + name + '>'}
                               </span>
-                              <span className="font-mono text-brand-600 dark:text-brand-400 break-all">
+                              <span className="font-mono text-brand-600  break-all">
                                 {value ?? ''}
                               </span>
                             </div>
                           ))}
                         </div>
                       )}
-                      <span className="text-[10px] text-slate-300 dark:text-slate-600 font-mono">
+                      <span className="text-[10px] text-slate-300  font-mono">
                         位置 {match.index}
                       </span>
                     </div>
@@ -537,15 +559,15 @@ export default function RegexpTool() {
               value={replacement}
               onChange={(e) => setReplacement(e.target.value)}
               placeholder="例如 $1-$2，或直接写死文本"
-              className="h-9 rounded-lg border border-slate-200 dark:border-dark-border bg-white dark:bg-dark-panel px-3 font-mono text-[12px] text-slate-800 dark:text-slate-100 outline-none placeholder:text-slate-300 dark:placeholder:text-slate-600 focus:border-brand-400"
+              className="h-9 rounded-lg border border-slate-200  bg-white  px-3 font-mono text-[12px] text-slate-800  outline-none placeholder:text-slate-300  focus:border-brand-400"
             />
           </div>
           <div className="flex flex-col gap-1.5 min-w-0">
             <span className={SECTION_LABEL}>替换结果</span>
-            <div className="h-9 rounded-lg border border-slate-200/70 dark:border-dark-border bg-slate-50/70 dark:bg-dark-hover/40 px-3 flex items-center overflow-hidden">
-              <span className="font-mono text-[12px] text-slate-700 dark:text-slate-200 truncate">
+            <div className="h-9 rounded-lg border border-slate-200/70  bg-slate-50/70  px-3 flex items-center overflow-hidden">
+              <span className="font-mono text-[12px] text-slate-700  truncate">
                 {replaced || (
-                  <span className="text-slate-300 dark:text-slate-600 not-italic">尚未替换</span>
+                  <span className="text-slate-300  not-italic">尚未替换</span>
                 )}
               </span>
             </div>

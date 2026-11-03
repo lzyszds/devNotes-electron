@@ -11,6 +11,7 @@ import {
   ToolNotice,
   ToolShell,
   ToolTag,
+  PreviewButton,
   type SegmentOption,
 } from "../ui";
 
@@ -134,14 +135,14 @@ function Stat({
   tone?: "neutral" | "emerald" | "rose" | "amber";
 }) {
   const color = {
-    neutral: "text-slate-800 dark:text-white",
-    emerald: "text-emerald-600 dark:text-emerald-400",
-    rose: "text-rose-600 dark:text-rose-400",
-    amber: "text-amber-600 dark:text-amber-400",
+    neutral: "text-slate-800 ",
+    emerald: "text-emerald-600 ",
+    rose: "text-rose-600 ",
+    amber: "text-amber-600 ",
   }[tone];
   return (
-    <div className="rounded-xl border border-slate-200/70 bg-white px-3.5 py-2.5 dark:border-dark-border dark:bg-dark-panel">
-      <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+    <div className="rounded-xl border border-slate-200/70 bg-white px-3.5 py-2.5  ">
+      <p className="text-[11px] font-medium text-slate-500 ">
         {label}
       </p>
       <p
@@ -150,7 +151,7 @@ function Stat({
         {value}
       </p>
       {sub && (
-        <p className="mt-0.5 text-[10.5px] text-slate-400 dark:text-slate-500">
+        <p className="mt-0.5 text-[10.5px] text-slate-400 ">
           {sub}
         </p>
       )}
@@ -174,13 +175,13 @@ function Curve({ samples }: { samples: Sample[] }) {
     .join(" ");
 
   return (
-    <div className="rounded-xl border border-slate-200/70 bg-slate-50/60 p-3 dark:border-dark-border dark:bg-dark-bg/40">
-      <div className="mb-1 flex items-center justify-between text-[10.5px] text-slate-400 dark:text-slate-500">
+    <div className="rounded-xl border border-slate-200/70 bg-slate-50/60 p-3  ">
+      <div className="mb-1 flex items-center justify-between text-[10.5px] text-slate-400 ">
         <span>延迟曲线（最近 {CURVE_POINTS} 次）</span>
         <span className="font-mono tabular-nums">峰值 {fmtMs(max)}</span>
       </div>
       {points.length === 0 ? (
-        <div className="flex h-[90px] items-center justify-center text-[11px] text-slate-300 dark:text-slate-600">
+        <div className="flex h-[90px] items-center justify-center text-[11px] text-slate-300 ">
           开始探测后这里会画出延迟变化
         </div>
       ) : (
@@ -194,7 +195,7 @@ function Curve({ samples }: { samples: Sample[] }) {
             x2={W}
             y1={H - 6}
             y2={H - 6}
-            className="stroke-slate-200 dark:stroke-dark-border"
+            className="stroke-slate-200 "
             strokeWidth="1"
           />
           {okPoints && (
@@ -481,7 +482,7 @@ export default function NetProbeTool() {
             />
 
             <div className="flex flex-col gap-1.5">
-              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+              <span className="text-[11px] font-semibold text-slate-500 ">
                 {isHttp ? "网址" : "域名或 IP"}
               </span>
               <div className="flex items-center gap-2">
@@ -493,7 +494,7 @@ export default function NetProbeTool() {
                   placeholder={
                     isHttp ? "https://example.com" : "8.8.8.8 或 example.com"
                   }
-                  className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 font-mono text-[12.5px] text-slate-800 outline-none focus:border-brand-500 disabled:opacity-60 dark:border-dark-border dark:bg-dark-panel dark:text-slate-100"
+                  className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 font-mono text-[12.5px] text-slate-800 outline-none focus:border-brand-500 disabled:opacity-60   "
                 />
                 {mode === "tcp" && (
                   <input
@@ -503,7 +504,7 @@ export default function NetProbeTool() {
                     }
                     disabled={running}
                     placeholder="端口"
-                    className="w-20 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 font-mono text-[12.5px] text-slate-800 outline-none focus:border-brand-500 disabled:opacity-60 dark:border-dark-border dark:bg-dark-panel dark:text-slate-100"
+                    className="w-20 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 font-mono text-[12.5px] text-slate-800 outline-none focus:border-brand-500 disabled:opacity-60   "
                   />
                 )}
               </div>
@@ -518,7 +519,7 @@ export default function NetProbeTool() {
                       setTarget(host);
                       if (mode === "tcp" && p) setPort(p);
                     }}
-                    className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[10.5px] text-slate-600 hover:bg-brand-50 hover:text-brand-600 disabled:opacity-40 dark:bg-dark-hover dark:text-slate-300 dark:hover:bg-brand-500/10 dark:hover:text-brand-400"
+                    className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[10.5px] text-slate-600 hover:bg-brand-50 hover:text-brand-600 disabled:opacity-40    "
                   >
                     {preset}
                   </button>
@@ -528,7 +529,7 @@ export default function NetProbeTool() {
 
             <div className="grid grid-cols-3 gap-2.5">
               <label className="flex flex-col gap-1">
-                <span className="text-[10.5px] font-semibold text-slate-500 dark:text-slate-400">
+                <span className="text-[10.5px] font-semibold text-slate-500 ">
                   次数
                 </span>
                 <input
@@ -537,11 +538,11 @@ export default function NetProbeTool() {
                     setCount(e.target.value.replace(/\D/g, "").slice(0, 3))
                   }
                   disabled={running}
-                  className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 font-mono text-[12.5px] tabular-nums outline-none focus:border-brand-500 disabled:opacity-60 dark:border-dark-border dark:bg-dark-panel dark:text-slate-100"
+                  className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 font-mono text-[12.5px] tabular-nums outline-none focus:border-brand-500 disabled:opacity-60   "
                 />
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-[10.5px] font-semibold text-slate-500 dark:text-slate-400">
+                <span className="text-[10.5px] font-semibold text-slate-500 ">
                   间隔 s
                 </span>
                 <input
@@ -552,11 +553,11 @@ export default function NetProbeTool() {
                     )
                   }
                   disabled={running}
-                  className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 font-mono text-[12.5px] tabular-nums outline-none focus:border-brand-500 disabled:opacity-60 dark:border-dark-border dark:bg-dark-panel dark:text-slate-100"
+                  className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 font-mono text-[12.5px] tabular-nums outline-none focus:border-brand-500 disabled:opacity-60   "
                 />
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-[10.5px] font-semibold text-slate-500 dark:text-slate-400">
+                <span className="text-[10.5px] font-semibold text-slate-500 ">
                   超时 s
                 </span>
                 <input
@@ -567,7 +568,7 @@ export default function NetProbeTool() {
                     )
                   }
                   disabled={running}
-                  className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 font-mono text-[12.5px] tabular-nums outline-none focus:border-brand-500 disabled:opacity-60 dark:border-dark-border dark:bg-dark-panel dark:text-slate-100"
+                  className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 font-mono text-[12.5px] tabular-nums outline-none focus:border-brand-500 disabled:opacity-60   "
                 />
               </label>
             </div>
@@ -682,12 +683,19 @@ export default function NetProbeTool() {
             meta={`${samples.length} 条`}
             actions={
               <>
+                {/* 报告已是编排好的全文，弹窗直接看它 */}
+                <PreviewButton
+                  title="测速报告"
+                  content={report}
+                  disabled={!samples.length}
+                  source="逐次记录"
+                />
                 <CopyButton value={report} label="复制报告" />
                 <button
                   type="button"
                   onClick={() => setSamples([])}
                   disabled={running}
-                  className="inline-flex h-7 items-center gap-1 rounded-lg px-2 text-[11px] font-semibold text-slate-500 hover:bg-slate-100 disabled:opacity-40 dark:text-slate-400 dark:hover:bg-dark-hover"
+                  className="inline-flex h-7 items-center gap-1 rounded-lg px-2 text-[11px] font-semibold text-slate-500 hover:bg-slate-100 disabled:opacity-40  "
                 >
                   <Eraser size={12} />
                   清空
@@ -697,7 +705,7 @@ export default function NetProbeTool() {
           />
           <div className="h-full overflow-y-auto">
             <table className="w-full text-left font-mono text-[11.5px] tabular-nums">
-              <thead className="sticky top-0 bg-slate-50 text-[10.5px] text-slate-400 dark:bg-dark-hover dark:text-slate-500">
+              <thead className="sticky top-0 bg-slate-50 text-[10.5px] text-slate-400  ">
                 <tr>
                   <th className="px-3 py-1.5 font-semibold">#</th>
                   <th className="px-3 py-1.5 font-semibold">时间</th>
@@ -711,9 +719,9 @@ export default function NetProbeTool() {
                   )}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-dark-border">
+              <tbody className="divide-y divide-slate-100 ">
                 {recent.map((s, i) => (
-                  <tr key={s.id} className="text-slate-600 dark:text-slate-300">
+                  <tr key={s.id} className="text-slate-600 ">
                     <td className="px-3 py-1.5 text-slate-400">
                       {samples.length - i}
                     </td>

@@ -17,9 +17,9 @@ import { NoteCard, Select } from '../ui'
 import Tooltip from '../ui/Tooltip'
 
 const INPUT_CLASS =
-  'w-full px-3 py-2 text-xs bg-white dark:bg-dark-panel border border-slate-200/80 dark:border-dark-border rounded-xl outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 text-slate-800 dark:text-white placeholder:text-slate-400 transition-all shadow-2xs'
+  'w-full px-3 py-2 text-xs bg-white  border border-slate-200/80  rounded-xl outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 text-slate-800  placeholder:text-slate-400 transition-all shadow-2xs'
 
-const LABEL_CLASS = 'block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5'
+const LABEL_CLASS = 'block text-xs font-semibold text-slate-700  mb-1.5'
 
 /** 全局设置 · AI 渠道：各服务商独立保存各自的 API Key 与模型配置，绝不共用 */
 export default function AiChannelPanel() {
@@ -140,13 +140,13 @@ export default function AiChannelPanel() {
                 title={preset.note ?? preset.baseUrl}
                 className={`px-2.5 h-7 rounded-lg text-[11px] font-medium border transition-colors inline-flex items-center gap-1.5 ${
                   active
-                    ? 'border-brand-300 bg-brand-50 text-brand-700 dark:border-brand-500/50 dark:bg-brand-500/15 dark:text-brand-300 shadow-2xs'
-                    : 'border-slate-200 dark:border-dark-border text-slate-600 dark:text-slate-300 hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-dark-hover'
+                    ? 'border-brand-300 bg-brand-50 text-brand-700    shadow-2xs'
+                    : 'border-slate-200  text-slate-600  hover:border-slate-300 hover:bg-slate-50 '
                 }`}
               >
                 {preset.label}
                 {recommended && (
-                  <span className="text-[9px] font-semibold text-emerald-600 dark:text-emerald-400">推荐</span>
+                  <span className="text-[9px] font-semibold text-emerald-600 ">推荐</span>
                 )}
                 {hasSavedKey && (
                   <span
@@ -162,8 +162,8 @@ export default function AiChannelPanel() {
             onClick={() => handleSelectChannel('custom')}
             className={`px-2.5 h-7 rounded-lg text-[11px] font-medium border transition-colors inline-flex items-center gap-1.5 ${
               activeChannelId === 'custom'
-                ? 'border-brand-300 bg-brand-50 text-brand-700 dark:border-brand-500/50 dark:bg-brand-500/15 dark:text-brand-300 shadow-2xs'
-                : 'border-slate-200 dark:border-dark-border text-slate-600 dark:text-slate-300 hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-dark-hover'
+                ? 'border-brand-300 bg-brand-50 text-brand-700    shadow-2xs'
+                : 'border-slate-200  text-slate-600  hover:border-slate-300 hover:bg-slate-50 '
             }`}
           >
             自定义
@@ -173,7 +173,7 @@ export default function AiChannelPanel() {
           </button>
         </div>
         {activePreset?.note && (
-          <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1.5">{activePreset.note}</p>
+          <p className="text-[10px] text-amber-600  mt-1.5">{activePreset.note}</p>
         )}
       </div>
 
@@ -197,7 +197,7 @@ export default function AiChannelPanel() {
       <div>
         <div className="flex items-center justify-between mb-1">
           <label className={LABEL_CLASS}>API Key</label>
-          <span className="text-[10px] text-brand-600 dark:text-brand-400 font-medium">
+          <span className="text-[10px] text-brand-600  font-medium">
             {activePreset ? `${activePreset.label} 专属独立密钥` : '自定义渠道独立密钥'}
           </span>
         </div>
@@ -229,7 +229,7 @@ export default function AiChannelPanel() {
             type="button"
             onClick={() => void handleFetchModels()}
             disabled={isFetchingModels || !form.baseUrl.trim()}
-            className="inline-flex items-center gap-1 text-[10px] font-medium text-brand-600 dark:text-brand-400 hover:underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-1 text-[10px] font-medium text-brand-600  hover:underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed"
           >
             {isFetchingModels ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
             {isFetchingModels ? '拉取中…' : '从接口拉取列表'}
@@ -257,7 +257,7 @@ export default function AiChannelPanel() {
         )}
 
         {fetchModelsError && (
-          <p className="text-[10px] text-rose-600 dark:text-rose-400 mt-1">{fetchModelsError}</p>
+          <p className="text-[10px] text-rose-600  mt-1">{fetchModelsError}</p>
         )}
         {!fetchModelsError && (activePreset?.models.length ?? 0) > 0 && modelOptions.length === 0 && (
           <p className="text-[10px] text-slate-400 mt-1 select-text">
@@ -277,7 +277,7 @@ export default function AiChannelPanel() {
         </NoteCard>
       )}
 
-      <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-dark-border">
+      <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 ">
         <span className="text-[10px] text-slate-400 truncate">
           {form.model.trim() ? `当前：${form.model.trim()}` : '尚未配置模型'}
         </span>
@@ -286,7 +286,7 @@ export default function AiChannelPanel() {
             type="button"
             disabled={isTesting || !form.baseUrl.trim() || !form.model.trim()}
             onClick={handleTest}
-            className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200/80 dark:bg-dark-hover dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-200 text-xs font-medium rounded-lg border border-slate-200/60 dark:border-dark-border transition-all active:scale-[0.98] flex items-center gap-1.5 disabled:opacity-50"
+            className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200/80   text-slate-700  text-xs font-medium rounded-lg border border-slate-200/60  transition-all active:scale-[0.98] flex items-center gap-1.5 disabled:opacity-50"
           >
             {isTesting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
             <span>测试连接</span>

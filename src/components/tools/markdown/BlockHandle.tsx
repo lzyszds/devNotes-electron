@@ -273,7 +273,7 @@ export default function BlockHandle({
             type="button"
             onMouseDown={startDrag}
             title="按住拖动以移动该块"
-            className="cursor-grab rounded p-0.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 active:cursor-grabbing dark:hover:bg-dark-hover dark:hover:text-slate-200"
+            className="cursor-grab rounded p-0.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 active:cursor-grabbing  "
           >
             <GripVertical className="h-3.5 w-3.5" />
           </button>
@@ -281,7 +281,7 @@ export default function BlockHandle({
             type="button"
             onClick={insertBelow}
             title="在下方插入段落"
-            className="rounded p-0.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-dark-hover dark:hover:text-slate-200"
+            className="rounded p-0.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600  "
           >
             <Plus className="h-3.5 w-3.5" />
           </button>
@@ -291,7 +291,7 @@ export default function BlockHandle({
               type="button"
               onClick={bookmarkBlock}
               title="在这一段记书签"
-              className="rounded p-0.5 text-slate-400 transition-colors hover:bg-brand-500/10 hover:text-brand-600 dark:hover:bg-brand-500/15 dark:hover:text-brand-400"
+              className="rounded p-0.5 text-slate-400 transition-colors hover:bg-brand-500/10 hover:text-brand-600  "
             >
               <Bookmark className="h-3.5 w-3.5" />
             </button>
@@ -300,7 +300,7 @@ export default function BlockHandle({
             type="button"
             onClick={deleteBlock}
             title="删除该块"
-            className="rounded p-0.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/15 dark:hover:text-red-400"
+            className="rounded p-0.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500  "
           >
             <Trash2 className="h-3.5 w-3.5" />
           </button>

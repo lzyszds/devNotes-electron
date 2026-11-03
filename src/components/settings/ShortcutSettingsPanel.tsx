@@ -18,6 +18,7 @@ import {
   findConflicts,
   formatAccelerator,
   isModifierKey,
+  normalizeForCompare,
   setRecordingShortcut,
   saveShortcutMap,
   type ShortcutBinding,
@@ -39,7 +40,7 @@ import {
 const ROW_FIELD_WIDTH = 'w-[132px]'
 
 const ROW_ICON_BTN =
-  'inline-flex items-center justify-center w-8 h-8 shrink-0 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-dark-hover dark:hover:text-slate-200 transition-colors disabled:opacity-30 disabled:pointer-events-none'
+  'inline-flex items-center justify-center w-8 h-8 shrink-0 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700   transition-colors disabled:opacity-30 disabled:pointer-events-none'
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
 
@@ -50,9 +51,13 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigat
  * 引导动画支持的是 ⌘ / ⌥ / ⇧ / Ctrl 这几个修饰键的图示，而用户录进去的
  * 键位可能是 Alt+Shift+F 这种写法。这里做一次映射，认不出的（比如功能键
  * 组合里的 F5）就原样带上，动画里会当成普通字符展示。
+ *
+ * 第二参传「当前那份」键位（面板草稿），而不是绑定表的默认值 —— 否则用户
+ * 改键 / 清空之后点演示，动画播的还是出厂键位，等于在演示一个不存在的键。
+ * 键位为空（被清空）时返回 null：没有键可演示，按钮那头用 disabled 表达。
  */
-function demoItemFor(binding: ShortcutBinding): ShortcutItem {
-  const accelerator = binding.defaultAccelerator
+function demoItemFor(binding: ShortcutBinding, accelerator: string): ShortcutItem | null {
+  if (!accelerator) return null
   const parts = accelerator.split('+')
   const display = parts
     .map((part) => {
@@ -158,33 +163,36 @@ export default function ShortcutSettingsPanel() {
     const accelerator = draft[binding.id] ?? ''
     const isRecording = recording === binding.id
     const hasFailed = failed.includes(binding.id)
-    const conflictIds = conflicts.get(accelerator) ?? []
+    // findConflicts 返回的 key 是归一化后的串（修饰键排序 + 大小写统一），
+    // 这里也要按归一化键去查：直接拿原始串查，行里存的是 Shift+ALT+T 这类
+    // 顺序不同的写法时，重复的这行自己不亮警告、对面的行却亮着，谁看了都懵
+    const conflictIds = conflicts.get(normalizeForCompare(accelerator)) ?? []
     const hasConflict = Boolean(accelerator) && conflictIds.length > 1
 
     return (
       <div
         key={binding.id}
-        className="flex items-center gap-4 py-3 border-b border-slate-200/60 dark:border-dark-border last:border-b-0"
+        className="flex items-center gap-4 py-3 border-b border-slate-200/60  last:border-b-0"
       >
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="text-[13px] font-semibold text-slate-800 dark:text-slate-100">
+            <span className="text-[13px] font-semibold text-slate-800 ">
               {binding.label}
             </span>
             {hasFailed && (
-              <span className="inline-flex items-center gap-1 text-[11px] text-rose-600 dark:text-rose-400">
+              <span className="inline-flex items-center gap-1 text-[11px] text-rose-600 ">
                 <AlertCircle size={12} />
                 被占用
               </span>
             )}
             {hasConflict && !hasFailed && (
-              <span className="inline-flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400">
+              <span className="inline-flex items-center gap-1 text-[11px] text-amber-600 ">
                 <AlertCircle size={12} />
                 与同组其他快捷键重复
               </span>
             )}
           </div>
-          <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+          <p className="text-[11px] text-slate-400  mt-0.5">
             {binding.description}
           </p>
         </div>
@@ -215,8 +223,8 @@ export default function ShortcutSettingsPanel() {
                 onClick={() => startRecording(binding.id)}
                 className={`w-full h-8 px-3 rounded-lg border text-xs font-semibold transition-colors tabular-nums truncate ${
                   accelerator
-                    ? 'border-slate-200 dark:border-dark-border bg-white dark:bg-dark-panel text-slate-700 dark:text-slate-200 hover:border-brand-300 hover:text-brand-600 dark:hover:text-brand-400'
-                    : 'border-dashed border-slate-300 dark:border-dark-border text-slate-400 dark:text-slate-500 hover:border-brand-300 hover:text-brand-500'
+                    ? 'border-slate-200  bg-white  text-slate-700  hover:border-brand-300 hover:text-brand-600 '
+                    : 'border-dashed border-slate-300  text-slate-400  hover:border-brand-300 hover:text-brand-500'
                 }`}
               >
                 {accelerator ? formatAccelerator(accelerator, isMac) : '未设置'}
@@ -245,11 +253,16 @@ export default function ShortcutSettingsPanel() {
           </button>
 
           {/* 演示放最右：它只是「看一眼」的次要动作，不该挤在键位框前面
-              抢走主操作（录制 / 清空 / 恢复）的位置 */}
+              抢走主操作（录制 / 清空 / 恢复）的位置。键位被清空时禁用：
+              没有键可演示，按钮藏在原地（同上面的「不动布局」原则） */}
           <button
             type="button"
-            onClick={() => setActiveShortcut(demoItemFor(binding))}
-            title="播放按键演示动画"
+            onClick={() => {
+              const item = demoItemFor(binding, accelerator)
+              if (item) setActiveShortcut(item)
+            }}
+            disabled={!accelerator}
+            title={accelerator ? '播放按键演示动画' : '当前未设置键位，无可演示'}
             className={ROW_ICON_BTN}
           >
             <Play size={14} />
@@ -262,7 +275,7 @@ export default function ShortcutSettingsPanel() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-start justify-between gap-4">
-        <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+        <p className="text-[11px] text-slate-500  leading-relaxed">
           点键位框后直接按下想要的组合。<span className="font-semibold">全局</span>
           键在应用没聚焦时也生效；<span className="font-semibold">应用内</span>
           键只在 devNotes 窗口里生效。
@@ -271,7 +284,7 @@ export default function ShortcutSettingsPanel() {
           <button
             type="button"
             onClick={resetAll}
-            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-[10px] border border-slate-200 dark:border-dark-border bg-white dark:bg-dark-panel text-xs font-semibold text-slate-600 dark:text-slate-300 hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-dark-hover transition-colors"
+            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-[10px] border border-slate-200  bg-white  text-xs font-semibold text-slate-600  hover:border-slate-300 hover:bg-slate-50  transition-colors"
           >
             <RotateCcw size={13} />
             全部恢复默认
@@ -291,10 +304,10 @@ export default function ShortcutSettingsPanel() {
       <section>
         <div className="flex items-center gap-2 mb-1">
           <Globe size={13} className="text-brand-500" />
-          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+          <span className="text-[11px] font-semibold text-slate-500 ">
             全局快捷键
           </span>
-          <span className="text-[10px] text-slate-400 dark:text-slate-500">
+          <span className="text-[10px] text-slate-400 ">
             在其他应用里也能唤起 devNotes
           </span>
         </div>
@@ -304,10 +317,10 @@ export default function ShortcutSettingsPanel() {
       <section>
         <div className="flex items-center gap-2 mb-1">
           <MonitorSmartphone size={13} className="text-brand-500" />
-          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+          <span className="text-[11px] font-semibold text-slate-500 ">
             应用内快捷键
           </span>
-          <span className="text-[10px] text-slate-400 dark:text-slate-500">
+          <span className="text-[10px] text-slate-400 ">
             仅窗口聚焦时生效
           </span>
         </div>
@@ -440,8 +453,8 @@ function RecordingField({
       }
       className={`inline-flex items-center justify-center w-full h-8 rounded-lg border text-xs font-semibold outline-none ${
         hint
-          ? 'border-amber-400 bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400'
-          : 'border-brand-400 bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400'
+          ? 'border-amber-400 bg-amber-50  text-amber-700 '
+          : 'border-brand-400 bg-brand-50  text-brand-600 '
       }`}
     >
       <span className="truncate px-2">{hint || live || '按下组合键…'}</span>

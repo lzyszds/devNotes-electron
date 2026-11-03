@@ -220,7 +220,7 @@ function ProgressPane({ run }: { run: OcrRunState | null }) {
       </span>
 
       <span
-        className={`shrink-0 text-[11px] ${done ? 'text-emerald-600' : 'text-slate-700 dark:text-slate-200'}`}
+        className={`shrink-0 text-[11px] ${done ? 'text-emerald-600' : 'text-slate-700 '}`}
       >
         {label}
       </span>

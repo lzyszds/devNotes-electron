@@ -655,7 +655,7 @@ export default function CherryMarkdownEditor({
       {/* 预览态是只读的，工具栏上每一颗按钮都点不出效果，连同视图切换一起收掉。
           移动端把工具栏挪到底部，当作键盘上方的格式配件条。 */}
       {!preview && (
-        <div className="max-md:order-2 max-md:bg-white max-md:pb-[env(safe-area-inset-bottom)] max-md:dark:bg-dark-panel">
+        <div className="max-md:order-2 max-md:bg-white max-md:pb-[env(safe-area-inset-bottom)]">
           <MarkdownToolbar
             engine="cherry"
             onCommand={handleCommand}

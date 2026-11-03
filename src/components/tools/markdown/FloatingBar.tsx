@@ -299,7 +299,7 @@ export function FloatingBarShell({ children, className = '' }: FloatingBarShellP
         if ((event.target as HTMLElement).closest('input, textarea')) return
         event.preventDefault()
       }}
-      className={`flex items-center gap-0.5 rounded-lg border border-slate-200/80 bg-white px-1 py-0.5 shadow-lg dark:border-dark-border dark:bg-dark-panel ${className}`}
+      className={`flex items-center gap-0.5 rounded-lg border border-slate-200/80 bg-white px-1 py-0.5 shadow-lg   ${className}`}
     >
       {children}
     </div>
@@ -333,8 +333,8 @@ export function FloatingBarButton({
         onClick={onClick}
         className={`flex-shrink-0 rounded-md p-1 transition-colors ${
           active
-            ? 'bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300'
-            : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-dark-hover dark:hover:text-white'
+            ? 'bg-brand-50 text-brand-600  '
+            : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900   '
         }`}
       >
         <Icon className={spinning ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'} />
@@ -345,5 +345,5 @@ export function FloatingBarButton({
 
 /** 分组之间的竖分隔线 */
 export function FloatingBarDivider() {
-  return <span className="mx-0.5 h-3.5 w-px flex-shrink-0 bg-slate-200 dark:bg-dark-border" />
+  return <span className="mx-0.5 h-3.5 w-px flex-shrink-0 bg-slate-200 " />
 }

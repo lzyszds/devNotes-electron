@@ -10,6 +10,7 @@ import {
   ToolHistoryOverlay,
   ToolShell,
   CopyButton,
+  PreviewButton,
 } from '../ui'
 
 export default function TimestampTool({ isActive = true }: { isActive?: boolean }) {
@@ -70,7 +71,7 @@ export default function TimestampTool({ isActive = true }: { isActive?: boolean 
           onClick={() => setShowHistory(!showHistory)}
           className={`tool-button-secondary h-8 ${
             showHistory
-              ? 'ring-2 ring-brand-500/20 border-brand-200 text-brand-600 dark:border-brand-500/40 dark:text-brand-400'
+              ? 'ring-2 ring-brand-500/20 border-brand-200 text-brand-600  '
               : ''
           }`}
         >
@@ -104,10 +105,10 @@ export default function TimestampTool({ isActive = true }: { isActive?: boolean 
               <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
             </span>
             <div className="min-w-0">
-              <div className="font-mono text-[28px] font-semibold tracking-tight leading-none text-slate-900 dark:text-white tabular-nums">
+              <div className="font-mono text-[28px] font-semibold tracking-tight leading-none text-slate-900  tabular-nums">
                 {currentTime.toLocaleTimeString('zh-CN', { hour12: false })}
               </div>
-              <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1.5">
+              <p className="text-[11px] text-slate-400  mt-1.5">
                 {currentTime.toLocaleDateString('zh-CN', {
                   year: 'numeric',
                   month: 'long',
@@ -119,15 +120,15 @@ export default function TimestampTool({ isActive = true }: { isActive?: boolean 
           </div>
 
           <div className="flex items-center gap-2.5 flex-wrap">
-            <div className="rounded-xl border border-slate-200/70 dark:border-dark-border bg-slate-50/70 dark:bg-dark-hover/40 px-3.5 py-2">
-              <p className="text-[11px] text-slate-400 dark:text-slate-500 mb-1">秒 (Epoch)</p>
-              <p className="font-mono text-[13px] font-semibold text-brand-600 dark:text-brand-400 tabular-nums">
+            <div className="rounded-xl border border-slate-200/70  bg-slate-50/70  px-3.5 py-2">
+              <p className="text-[11px] text-slate-400  mb-1">秒 (Epoch)</p>
+              <p className="font-mono text-[13px] font-semibold text-brand-600  tabular-nums">
                 {Math.floor(currentTime.getTime() / 1000)}
               </p>
             </div>
-            <div className="rounded-xl border border-slate-200/70 dark:border-dark-border bg-slate-50/70 dark:bg-dark-hover/40 px-3.5 py-2">
-              <p className="text-[11px] text-slate-400 dark:text-slate-500 mb-1">毫秒 (Millis)</p>
-              <p className="font-mono text-[13px] font-semibold text-sky-600 dark:text-sky-400 tabular-nums">
+            <div className="rounded-xl border border-slate-200/70  bg-slate-50/70  px-3.5 py-2">
+              <p className="text-[11px] text-slate-400  mb-1">毫秒 (Millis)</p>
+              <p className="font-mono text-[13px] font-semibold text-sky-600  tabular-nums">
                 {currentTime.getTime()}
               </p>
             </div>
@@ -160,19 +161,22 @@ export default function TimestampTool({ isActive = true }: { isActive?: boolean 
 
             <div className="mt-auto">
               {timestampResult ? (
-                <div className="p-3 rounded-xl bg-brand-50/60 dark:bg-brand-500/10 border border-brand-100 dark:border-brand-500/20 flex items-center justify-between gap-3">
+                <div className="p-3 rounded-xl bg-brand-50/60  border border-brand-100  flex items-center justify-between gap-3">
                   <div className="flex flex-col min-w-0">
-                    <span className="text-[11px] text-brand-600/80 dark:text-brand-400/80 mb-0.5">
+                    <span className="text-[11px] text-brand-600/80  mb-0.5">
                       本地时间
                     </span>
-                    <span className="text-[13px] font-semibold text-brand-900 dark:text-brand-100 truncate">
+                    <span className="text-[13px] font-semibold text-brand-900  truncate">
                       {timestampResult}
                     </span>
                   </div>
-                  <CopyButton value={() => timestampResult} size={14} label="复制本地时间" />
+                  <div className="flex items-center gap-1">
+                    <PreviewButton title="时间戳转换结果" content={() => timestampResult} source="本地时间" />
+                    <CopyButton value={() => timestampResult} size={14} label="复制本地时间" />
+                  </div>
                 </div>
               ) : (
-                <div className="h-[58px] border border-dashed border-slate-200 dark:border-dark-border rounded-xl flex items-center justify-center text-[11px] text-slate-300 dark:text-slate-600">
+                <div className="h-[58px] border border-dashed border-slate-200  rounded-xl flex items-center justify-center text-[11px] text-slate-300 ">
                   等待输入…
                 </div>
               )}
@@ -202,19 +206,22 @@ export default function TimestampTool({ isActive = true }: { isActive?: boolean 
 
             <div className="mt-auto">
               {dateResult ? (
-                <div className="p-3 rounded-xl bg-brand-50/60 dark:bg-brand-500/10 border border-brand-100 dark:border-brand-500/20 flex items-center justify-between gap-3">
+                <div className="p-3 rounded-xl bg-brand-50/60  border border-brand-100  flex items-center justify-between gap-3">
                   <div className="flex flex-col min-w-0">
-                    <span className="text-[11px] text-brand-600/80 dark:text-brand-400/80 mb-0.5">
+                    <span className="text-[11px] text-brand-600/80  mb-0.5">
                       UNIX 时间戳
                     </span>
-                    <span className="text-[13px] font-semibold text-brand-900 dark:text-brand-100 truncate">
+                    <span className="text-[13px] font-semibold text-brand-900  truncate">
                       {dateResult}
                     </span>
                   </div>
-                  <CopyButton value={() => dateResult} size={14} label="复制 UNIX 时间戳" />
+                  <div className="flex items-center gap-1">
+                    <PreviewButton title="日期转换结果" content={() => dateResult} source="UNIX 时间戳" />
+                    <CopyButton value={() => dateResult} size={14} label="复制 UNIX 时间戳" />
+                  </div>
                 </div>
               ) : (
-                <div className="h-[58px] border border-dashed border-slate-200 dark:border-dark-border rounded-xl flex items-center justify-center text-[11px] text-slate-300 dark:text-slate-600">
+                <div className="h-[58px] border border-dashed border-slate-200  rounded-xl flex items-center justify-center text-[11px] text-slate-300 ">
                   等待选择日期…
                 </div>
               )}

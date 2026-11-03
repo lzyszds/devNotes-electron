@@ -352,6 +352,19 @@ export async function applySettings(snapshot: SettingsSnapshot): Promise<number>
       if (LOCAL_STORAGE_SETTING_KEYS.has(key)) {
         // localStorage 要求字符串；云端存的是当初读出来的原样，直接写回
         localStorage.setItem(key, String(snapshot[key]))
+      } else if (key === 'shortcut-bindings') {
+        /*
+         * 快捷键不能只 storeSet：主进程还握着一份 OS 层的全局注册，
+         * setShortcuts 由主进程「写盘 + 全量注销重注册」一次完成；
+         * 走 storeSet 的话磁盘上是新键，OS 层注册的还是旧键，
+         * 表现为「在另一台设备同步了键位，这台要重启应用才生效」
+         */
+        if (api?.setShortcuts) {
+          await api.setShortcuts(snapshot[key] as Record<string, string>)
+        } else {
+          // 没有桥（纯网页构建）时退回纯写盘，语义同其他设置项
+          await api?.storeSet?.(key, snapshot[key])
+        }
       } else if (key === 'clipboard-history' && Array.isArray(snapshot[key])) {
         // 剪贴板历史采用安全合并，防止冲掉本地未脱敏的真实图片
         const localCurrent = (await api?.storeGet?.(key)) || []

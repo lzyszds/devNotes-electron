@@ -11,6 +11,7 @@ import {
   ToolNotice,
   ToolShell,
   ToolTag,
+  PreviewButton,
 } from '../ui'
 
 type Algo = 'md5' | 'sha1' | 'sha256' | 'sha512'
@@ -159,23 +160,23 @@ export default function FileHashTool() {
               }}
               className={`m-3.5 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-7 text-center transition-colors ${
                 dragging
-                  ? 'border-brand-400 bg-brand-50/60 dark:border-brand-500/50 dark:bg-brand-500/10'
-                  : 'border-slate-200 dark:border-dark-border'
+                  ? 'border-brand-400 bg-brand-50/60  '
+                  : 'border-slate-200 '
               }`}
             >
               <Upload size={18} className="text-slate-400" />
-              <p className="text-[12.5px] font-semibold text-slate-600 dark:text-slate-300">把文件拖到这里</p>
-              <button type="button" onClick={() => void pick()} className="text-[11.5px] font-semibold text-brand-600 hover:underline dark:text-brand-400">
+              <p className="text-[12.5px] font-semibold text-slate-600 ">把文件拖到这里</p>
+              <button type="button" onClick={() => void pick()} className="text-[11.5px] font-semibold text-brand-600 hover:underline ">
                 或点击选择文件
               </button>
               <p className={META}>大文件在后台流式计算，不会卡住界面</p>
             </div>
 
             {files.length > 0 && (
-              <ul className="divide-y divide-slate-100 border-t border-slate-100 dark:divide-dark-border dark:border-dark-border">
+              <ul className="divide-y divide-slate-100 border-t border-slate-100  ">
                 {files.map((path) => (
                   <li key={path} className="flex items-center gap-2 px-3.5 py-2">
-                    <span className="min-w-0 flex-1 truncate font-mono text-[11.5px] text-slate-600 dark:text-slate-300" title={path}>
+                    <span className="min-w-0 flex-1 truncate font-mono text-[11.5px] text-slate-600 " title={path}>
                       {path.split(/[\\/]/).pop()}
                     </span>
                     <button
@@ -208,7 +209,7 @@ export default function FileHashTool() {
                       className={`rounded-lg px-2.5 py-1 text-[11.5px] font-semibold transition-colors ${
                         on
                           ? 'bg-brand-600 text-white'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-dark-hover dark:text-slate-300'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200  '
                       }`}
                     >
                       {algo.label}
@@ -227,13 +228,13 @@ export default function FileHashTool() {
               </button>
               {progress && (
                 <div className="flex flex-col gap-1">
-                  <div className="flex items-center justify-between text-[10.5px] text-slate-400 dark:text-slate-500">
+                  <div className="flex items-center justify-between text-[10.5px] text-slate-400 ">
                     <span className="truncate">{progress.path.split(/[\\/]/).pop()}</span>
                     <span className="font-mono tabular-nums">
                       {Math.round((progress.readBytes / Math.max(1, progress.totalBytes)) * 100)}%
                     </span>
                   </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-dark-hover">
+                  <div className="h-1.5 overflow-hidden rounded-full bg-slate-100 ">
                     <div
                       className="h-full bg-brand-500 transition-[width] duration-150"
                       style={{ width: `${Math.round((progress.readBytes / Math.max(1, progress.totalBytes)) * 100)}%` }}
@@ -257,7 +258,7 @@ export default function FileHashTool() {
                 onChange={(e) => setExpected(e.target.value)}
                 placeholder="粘贴哈希值（32 / 40 / 64 / 128 位十六进制）"
                 spellCheck={false}
-                className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 font-mono text-[11.5px] text-slate-800 outline-none focus:border-brand-400 dark:border-dark-border dark:bg-dark-panel dark:text-slate-100"
+                className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 font-mono text-[11.5px] text-slate-800 outline-none focus:border-brand-400   "
               />
               {expectedHex && (
                 <p className={META}>
@@ -297,6 +298,20 @@ export default function FileHashTool() {
                       title={item.name}
                       icon={Fingerprint}
                       meta={item.error ? '失败' : formatSize(item.size)}
+                      actions={
+                        !item.error && (
+                          <PreviewButton
+                            title={`校验值 · ${item.name}`}
+                            content={() =>
+                              algos
+                                .filter((algo) => item.digests[algo])
+                                .map((algo) => `${algo.toUpperCase()}\n  ${item.digests[algo]}`)
+                                .join('\n\n')
+                            }
+                            source="文件校验"
+                          />
+                        )
+                      }
                     />
                     <div className="flex flex-col gap-2.5 p-3.5">
                       {item.error ? (
@@ -307,7 +322,7 @@ export default function FileHashTool() {
                         algos.map((algo) => (
                           <div key={algo} className="flex items-center gap-2.5">
                             <span className={`${SECTION_LABEL} w-14 shrink-0`}>{algo.toUpperCase()}</span>
-                            <span className="min-w-0 flex-1 break-all font-mono text-[11.5px] text-slate-700 dark:text-slate-200">
+                            <span className="min-w-0 flex-1 break-all font-mono text-[11.5px] text-slate-700 ">
                               {item.digests[algo]}
                             </span>
                             {item.digests[algo] && <CopyButton value={item.digests[algo] as string} label={`复制 ${algo.toUpperCase()}`} size={13} />}
@@ -315,7 +330,7 @@ export default function FileHashTool() {
                         ))
                       )}
                       {verdict && (
-                        <p className={`flex items-center gap-1.5 text-[11.5px] font-semibold ${verdict.ok ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400'}`}>
+                        <p className={`flex items-center gap-1.5 text-[11.5px] font-semibold ${verdict.ok ? 'text-emerald-600 ' : 'text-rose-500 '}`}>
                           {verdict.ok ? <CheckCircle2 size={13} /> : <XCircle size={13} />}
                           {verdict.text}
                         </p>

@@ -297,7 +297,7 @@ export default function BitwiseTool() {
       <div className="tool-cascade flex flex-col gap-3.5">
         {/* 位宽选择 */}
         <div className="flex items-center gap-3 flex-wrap">
-          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+          <span className="text-[11px] font-semibold text-slate-500 ">
             数据位宽
           </span>
           <Segmented
@@ -305,7 +305,7 @@ export default function BitwiseTool() {
             options={SIZE_OPTIONS}
             onChange={(value) => changeSize(Number(value) as IntSize)}
           />
-          <span className="text-[11px] text-slate-400 dark:text-slate-500">
+          <span className="text-[11px] text-slate-400 ">
             超出位宽的位会被截断，负数按补码表示
           </span>
         </div>
@@ -330,7 +330,7 @@ export default function BitwiseTool() {
                   value={drafts[base.key]}
                   onChange={(e) => applyInput(base.key, e.target.value)}
                   spellCheck={false}
-                  className="w-full bg-transparent outline-none font-mono text-[15px] tracking-wide text-slate-900 dark:text-white placeholder:text-slate-300 dark:placeholder:text-slate-600"
+                  className="w-full bg-transparent outline-none font-mono text-[15px] tracking-wide text-slate-900  placeholder:text-slate-300 "
                   placeholder={`输入${base.label}`}
                 />
               </div>
@@ -361,8 +361,8 @@ export default function BitwiseTool() {
                   title={`第 ${index} 位`}
                   className={`group flex shrink-0 flex-col items-center gap-0.5 px-1.5 py-1 rounded-md border transition-colors ${
                     on
-                      ? 'border-brand-300 bg-brand-50 text-brand-700 dark:border-brand-500/40 dark:bg-brand-500/15 dark:text-brand-300'
-                      : 'border-slate-200 dark:border-dark-border text-slate-400 hover:bg-slate-50 dark:hover:bg-dark-hover'
+                      ? 'border-brand-300 bg-brand-50 text-brand-700   '
+                      : 'border-slate-200  text-slate-400 hover:bg-slate-50 '
                   }`}
                 >
                   <span className="font-mono text-[11px] font-bold tabular-nums leading-none">
@@ -399,7 +399,7 @@ export default function BitwiseTool() {
                 onChange={(e) => setOperand(e.target.value)}
                 spellCheck={false}
                 placeholder={op === 'shl' || op === 'shr' || op === 'sar' ? '位移位数' : '十六进制操作数'}
-                className="flex-1 min-w-[160px] h-8 px-3 rounded-[10px] border border-slate-200 dark:border-dark-border bg-white dark:bg-dark-panel font-mono text-xs outline-none focus:border-brand-400 dark:focus:border-brand-500 transition-colors text-slate-800 dark:text-slate-100"
+                className="flex-1 min-w-[160px] h-8 px-3 rounded-[10px] border border-slate-200  bg-white  font-mono text-xs outline-none focus:border-brand-400  transition-colors text-slate-800 "
               />
               <button onClick={applyOp} className={BTN.primary}>
                 <Zap size={14} />
@@ -407,7 +407,7 @@ export default function BitwiseTool() {
               </button>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
+              <span className="text-[11px] font-semibold text-slate-400 ">
                 常用掩码
               </span>
               {[
@@ -423,7 +423,7 @@ export default function BitwiseTool() {
                   key={preset.label}
                   type="button"
                   onClick={() => setPreset(preset.value, preset.label)}
-                  className="h-6 px-2 rounded-md border border-slate-200 dark:border-dark-border text-[11px] font-mono text-slate-500 dark:text-slate-400 hover:border-brand-300 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                  className="h-6 px-2 rounded-md border border-slate-200  text-[11px] font-mono text-slate-500  hover:border-brand-300 hover:text-brand-600  transition-colors"
                 >
                   {preset.label}
                 </button>
@@ -542,7 +542,7 @@ function Ieee754Panel() {
             onChange={(e) => setText(e.target.value)}
             spellCheck={false}
             placeholder="输入一个浮点数，如 0.1 / -3.14 / 1e-40"
-            className="flex-1 min-w-[200px] h-9 px-3 rounded-[10px] border border-slate-200 dark:border-dark-border bg-white dark:bg-dark-panel font-mono text-[13px] outline-none focus:border-brand-400 dark:focus:border-brand-500 transition-colors text-slate-800 dark:text-slate-100"
+            className="flex-1 min-w-[200px] h-9 px-3 rounded-[10px] border border-slate-200  bg-white  font-mono text-[13px] outline-none focus:border-brand-400  transition-colors text-slate-800 "
           />
           {decoded && (
             <ToolTag tone="brand">
@@ -581,10 +581,10 @@ function Ieee754Panel() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
+              <span className="text-[11px] font-semibold text-slate-400 ">
                 完整位模式（{decoded.totalBits} 位）
               </span>
-              <div className="font-mono text-[12px] leading-6 break-all select-text text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-dark-hover/40 rounded-lg px-3 py-2 border border-slate-200/70 dark:border-dark-border">
+              <div className="font-mono text-[12px] leading-6 break-all select-text text-slate-700  bg-slate-50  rounded-lg px-3 py-2 border border-slate-200/70 ">
                 {/*
                   split/join 而不是 replace：替换串里的 $1 是反向引用的占位符，
                   用 '$1 ' 当替换串会把分组匹配结果替换成字面量 "$1"。
@@ -629,27 +629,27 @@ function FieldBlock({
   hint: string
 }) {
   const tones = {
-    rose: 'border-rose-200/70 bg-rose-50/60 dark:border-rose-500/25 dark:bg-rose-500/10',
-    amber: 'border-amber-200/70 bg-amber-50/60 dark:border-amber-500/25 dark:bg-amber-500/10',
-    brand: 'border-brand-200/70 bg-brand-50/60 dark:border-brand-500/25 dark:bg-brand-500/10',
+    rose: 'border-rose-200/70 bg-rose-50/60  ',
+    amber: 'border-amber-200/70 bg-amber-50/60  ',
+    brand: 'border-brand-200/70 bg-brand-50/60  ',
   } as const
 
   return (
     <div className={`flex-1 min-w-[180px] rounded-xl border px-3 py-2 ${tones[tone]}`}>
-      <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">{label}</p>
-      <p className="font-mono text-[13px] font-bold break-all mt-0.5 text-slate-800 dark:text-white">
+      <p className="text-[11px] font-semibold text-slate-500 ">{label}</p>
+      <p className="font-mono text-[13px] font-bold break-all mt-0.5 text-slate-800 ">
         {bits}
       </p>
-      <p className="text-[10px] mt-1 text-slate-500 dark:text-slate-400">{hint}</p>
+      <p className="text-[10px] mt-1 text-slate-500 ">{hint}</p>
     </div>
   )
 }
 
 function MiniStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-slate-200/70 dark:border-dark-border px-2.5 py-2">
-      <p className="text-[10px] text-slate-400 dark:text-slate-500">{label}</p>
-      <p className="font-mono text-[12px] font-semibold text-slate-800 dark:text-slate-100 break-all mt-0.5">
+    <div className="rounded-lg border border-slate-200/70  px-2.5 py-2">
+      <p className="text-[10px] text-slate-400 ">{label}</p>
+      <p className="font-mono text-[12px] font-semibold text-slate-800  break-all mt-0.5">
         {value}
       </p>
     </div>

@@ -93,12 +93,12 @@ export default function NetInfoCard() {
   if (!available) return null
 
   const PublicRow = ({ label, icon, state, onQuery }: { label: string; icon: ReactNode; state: PublicState; onQuery: () => void }) => (
-    <div className="flex items-center gap-3 rounded-lg bg-slate-50/70 px-3 py-2 dark:bg-dark-hover/40">
-      <span className="flex w-[88px] shrink-0 items-center gap-1.5 text-[11.5px] font-semibold text-slate-600 dark:text-slate-300">
+    <div className="flex items-center gap-3 rounded-lg bg-slate-50/70 px-3 py-2 ">
+      <span className="flex w-[88px] shrink-0 items-center gap-1.5 text-[11.5px] font-semibold text-slate-600 ">
         {icon}
         {label}
       </span>
-      <span className="min-w-0 flex-1 truncate font-mono text-[12.5px] tabular-nums text-slate-800 dark:text-slate-100">
+      <span className="min-w-0 flex-1 truncate font-mono text-[12.5px] tabular-nums text-slate-800 ">
         {state.loading ? '查询中…' : state.ip ?? (state.error ? <span className="text-rose-500">{state.error}</span> : '未查询')}
       </span>
       {state.ip && <CopyButton value={state.ip} label="复制 IP" size={13} />}
@@ -106,7 +106,7 @@ export default function NetInfoCard() {
         type="button"
         onClick={onQuery}
         disabled={state.loading}
-        className="shrink-0 rounded-md bg-white px-2 py-0.5 text-[11px] font-semibold text-brand-600 shadow-sm hover:bg-brand-50 disabled:opacity-40 dark:bg-dark-panel dark:text-brand-400"
+        className="shrink-0 rounded-md bg-white px-2 py-0.5 text-[11px] font-semibold text-brand-600 shadow-sm hover:bg-brand-50 disabled:opacity-40  "
       >
         查询
       </button>
@@ -131,19 +131,19 @@ export default function NetInfoCard() {
       <div className="grid grid-cols-1 gap-4 p-3.5 lg:grid-cols-2">
         {/* 本机网卡 */}
         <div className="flex flex-col gap-2">
-          <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">局域网地址</p>
+          <p className="text-[11px] font-semibold text-slate-500 ">局域网地址</p>
           {interfaces.length === 0 ? (
             <p className={META}>{loadingLocal ? '读取中…' : '没有读到可用的 IPv4 网卡'}</p>
           ) : (
             interfaces.map((item) => (
-              <div key={`${item.name}-${item.address}`} className="flex items-center gap-2.5 rounded-lg border border-slate-200/70 px-3 py-2 dark:border-dark-border">
+              <div key={`${item.name}-${item.address}`} className="flex items-center gap-2.5 rounded-lg border border-slate-200/70 px-3 py-2 ">
                 <Wifi size={13} className="shrink-0 text-slate-400" />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
-                    <span className="truncate text-[12px] font-semibold text-slate-700 dark:text-slate-200">{item.name}</span>
+                    <span className="truncate text-[12px] font-semibold text-slate-700 ">{item.name}</span>
                     <ToolTag tone={KIND_LABEL[item.kind].tone}>{KIND_LABEL[item.kind].text}</ToolTag>
                   </div>
-                  <p className="mt-0.5 font-mono text-[11.5px] tabular-nums text-slate-500 dark:text-slate-400">
+                  <p className="mt-0.5 font-mono text-[11.5px] tabular-nums text-slate-500 ">
                     {item.address} · {item.cidr}
                   </p>
                 </div>
@@ -155,12 +155,12 @@ export default function NetInfoCard() {
 
         {/* 公网出口 + 连通性 */}
         <div className="flex flex-col gap-2">
-          <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">公网出口 IP</p>
+          <p className="text-[11px] font-semibold text-slate-500 ">公网出口 IP</p>
           <PublicRow label="直连" icon={<Globe size={12} />} state={direct} onQuery={() => void queryPublic('direct')} />
           <PublicRow label="经应用代理" icon={<Globe size={12} />} state={proxied} onQuery={() => void queryPublic('proxy')} />
           <p className={META}>查询会请求外部服务（api.ipify.org），只在点击时发起。</p>
 
-          <p className="mt-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">连通性测试（TCP）</p>
+          <p className="mt-2 text-[11px] font-semibold text-slate-500 ">连通性测试（TCP）</p>
           <div className="flex items-center gap-2">
             <input
               value={target}
@@ -170,7 +170,7 @@ export default function NetInfoCard() {
               }}
               placeholder="192.168.1.10:8080"
               spellCheck={false}
-              className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 font-mono text-[12px] text-slate-800 outline-none focus:border-brand-400 dark:border-dark-border dark:bg-dark-panel dark:text-slate-100"
+              className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 font-mono text-[12px] text-slate-800 outline-none focus:border-brand-400   "
             />
             <button
               type="button"
@@ -183,7 +183,7 @@ export default function NetInfoCard() {
             </button>
           </div>
           {probe.text && (
-            <p className={`text-[11.5px] ${probe.ok ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400'}`}>
+            <p className={`text-[11.5px] ${probe.ok ? 'text-emerald-600 ' : 'text-rose-500 '}`}>
               {probe.text}
             </p>
           )}

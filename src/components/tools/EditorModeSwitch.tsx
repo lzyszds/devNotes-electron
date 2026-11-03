@@ -62,7 +62,7 @@ export default function EditorModeSwitch({
 }: EditorModeSwitchProps) {
   if (compact) {
     return (
-      <div className="flex items-center rounded-lg border border-slate-200/70 bg-slate-100/80 p-0.5 dark:border-dark-border dark:bg-dark-hover">
+      <div className="flex items-center rounded-lg border border-slate-200/70 bg-slate-100/80 p-0.5  ">
         {MODE_ITEMS.map((item) => {
           const active = item.key === value
           const Icon = item.icon
@@ -76,8 +76,8 @@ export default function EditorModeSwitch({
                 data-editor-mode={item.key}
                 className={`flex items-center justify-center rounded-md p-1 transition-colors ${
                   active
-                    ? 'bg-white text-slate-900 shadow-2xs dark:bg-dark-panel dark:text-white'
-                    : 'text-slate-400 hover:bg-slate-200/70 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-dark-hover dark:hover:text-white'
+                    ? 'bg-white text-slate-900 shadow-2xs  '
+                    : 'text-slate-400 hover:bg-slate-200/70 hover:text-slate-700   '
                 }`}
               >
                 <Icon className="w-3.5 h-3.5" />
@@ -90,7 +90,7 @@ export default function EditorModeSwitch({
   }
 
   return (
-    <div className="flex items-center bg-slate-100 dark:bg-dark-hover p-0.5 rounded-lg border border-slate-200/50 dark:border-dark-border text-[11px]">
+    <div className="flex items-center bg-slate-100  p-0.5 rounded-lg border border-slate-200/50  text-[11px]">
       {MODE_ITEMS.map((item) => {
         const active = item.key === value
         const Icon = item.icon
@@ -103,8 +103,8 @@ export default function EditorModeSwitch({
               data-editor-mode={item.key}
               className={`flex items-center gap-1 px-2 py-0.5 rounded-md transition-all ${
                 active
-                  ? 'bg-white dark:bg-dark-panel shadow-2xs font-semibold text-slate-900 dark:text-white'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-white'
+                  ? 'bg-white  shadow-2xs font-semibold text-slate-900 '
+                  : 'text-slate-500  hover:text-slate-700 '
               }`}
             >
               <Icon className="w-3 h-3" />

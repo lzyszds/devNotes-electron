@@ -140,7 +140,7 @@ export default function FindReplaceBar({ editor, open, onClose }: FindReplaceBar
   return (
     <div
       data-state={state}
-      className="fe-pop absolute right-2 top-2 z-30 flex w-[22rem] max-w-[calc(100%-1rem)] flex-col gap-1.5 rounded-lg border border-slate-200/80 bg-white/95 p-2 shadow-lg backdrop-blur-sm dark:border-dark-border dark:bg-dark-panel/95"
+      className="fe-pop absolute right-2 top-2 z-30 flex w-[22rem] max-w-[calc(100%-1rem)] flex-col gap-1.5 rounded-lg border border-slate-200/80 bg-white/95 p-2 shadow-lg backdrop-blur-sm  "
     >
       <div className="flex items-center gap-1.5">
         <div className="relative flex min-w-0 flex-1 items-center">
@@ -154,12 +154,12 @@ export default function FindReplaceBar({ editor, open, onClose }: FindReplaceBar
               if (event.key === 'Escape') close()
             }}
             placeholder="查找"
-            className="h-7 w-full rounded-md border border-slate-200/80 bg-slate-50 pl-7 pr-2 text-xs text-slate-800 outline-none placeholder:text-slate-400 focus:border-brand-500 dark:border-dark-border dark:bg-dark-hover dark:text-slate-200"
+            className="h-7 w-full rounded-md border border-slate-200/80 bg-slate-50 pl-7 pr-2 text-xs text-slate-800 outline-none placeholder:text-slate-400 focus:border-brand-500   "
           />
         </div>
 
         {/* 命中计数。分母为 0 时只显示 0/0，不要显示 -1 */}
-        <span className="flex-shrink-0 tabular-nums text-[11px] text-slate-400 dark:text-slate-500">
+        <span className="flex-shrink-0 tabular-nums text-[11px] text-slate-400 ">
           {total ? `${current + 1}/${total}` : '0/0'}
         </span>
 
@@ -168,7 +168,7 @@ export default function FindReplaceBar({ editor, open, onClose }: FindReplaceBar
             type="button"
             onClick={() => go(-1)}
             disabled={!total}
-            className="rounded p-1 text-slate-500 transition-colors hover:bg-slate-100 disabled:opacity-40 dark:text-slate-400 dark:hover:bg-dark-hover"
+            className="rounded p-1 text-slate-500 transition-colors hover:bg-slate-100 disabled:opacity-40  "
           >
             <ChevronUp className="h-3.5 w-3.5" />
           </button>
@@ -178,7 +178,7 @@ export default function FindReplaceBar({ editor, open, onClose }: FindReplaceBar
             type="button"
             onClick={() => go(1)}
             disabled={!total}
-            className="rounded p-1 text-slate-500 transition-colors hover:bg-slate-100 disabled:opacity-40 dark:text-slate-400 dark:hover:bg-dark-hover"
+            className="rounded p-1 text-slate-500 transition-colors hover:bg-slate-100 disabled:opacity-40  "
           >
             <ChevronDown className="h-3.5 w-3.5" />
           </button>
@@ -187,7 +187,7 @@ export default function FindReplaceBar({ editor, open, onClose }: FindReplaceBar
           <button
             type="button"
             onClick={close}
-            className="rounded p-1 text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-dark-hover"
+            className="rounded p-1 text-slate-500 transition-colors hover:bg-slate-100  "
           >
             <X className="h-3.5 w-3.5" />
           </button>
@@ -203,14 +203,14 @@ export default function FindReplaceBar({ editor, open, onClose }: FindReplaceBar
             if (event.key === 'Escape') close()
           }}
           placeholder="替换为"
-          className="h-7 min-w-0 flex-1 rounded-md border border-slate-200/80 bg-slate-50 px-2 text-xs text-slate-800 outline-none placeholder:text-slate-400 focus:border-brand-500 dark:border-dark-border dark:bg-dark-hover dark:text-slate-200"
+          className="h-7 min-w-0 flex-1 rounded-md border border-slate-200/80 bg-slate-50 px-2 text-xs text-slate-800 outline-none placeholder:text-slate-400 focus:border-brand-500   "
         />
         <Tooltip content="替换当前">
           <button
             type="button"
             onClick={doReplace}
             disabled={!total}
-            className="rounded p-1 text-slate-500 transition-colors hover:bg-slate-100 disabled:opacity-40 dark:text-slate-400 dark:hover:bg-dark-hover"
+            className="rounded p-1 text-slate-500 transition-colors hover:bg-slate-100 disabled:opacity-40  "
           >
             <Replace className="h-3.5 w-3.5" />
           </button>
@@ -220,7 +220,7 @@ export default function FindReplaceBar({ editor, open, onClose }: FindReplaceBar
             type="button"
             onClick={doReplaceAll}
             disabled={!total}
-            className="rounded p-1 text-slate-500 transition-colors hover:bg-slate-100 disabled:opacity-40 dark:text-slate-400 dark:hover:bg-dark-hover"
+            className="rounded p-1 text-slate-500 transition-colors hover:bg-slate-100 disabled:opacity-40  "
           >
             <ReplaceAll className="h-3.5 w-3.5" />
           </button>

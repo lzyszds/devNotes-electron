@@ -216,9 +216,9 @@ export default function SnippetsTool() {
           />
         ) : (
           <>
-            <div className="flex items-start justify-between gap-3 px-4 py-3 border-b border-slate-200/70 dark:border-dark-border shrink-0">
+            <div className="flex items-start justify-between gap-3 px-4 py-3 border-b border-slate-200/70  shrink-0">
               <div className="min-w-0">
-                <h3 className="text-[15px] font-bold text-slate-900 dark:text-white truncate">
+                <h3 className="text-[15px] font-bold text-slate-900  truncate">
                   {selected.title || "未命名片段"}
                 </h3>
                 <p className={`${META} mt-0.5`}>
@@ -281,7 +281,7 @@ export default function SnippetsTool() {
             </div>
 
             <div className="flex-1 min-h-0 overflow-y-auto p-4">
-              <pre className="font-mono text-[13px] leading-6 whitespace-pre-wrap break-words select-text text-slate-800 dark:text-slate-100 bg-slate-50 dark:bg-dark-hover/40 rounded-xl border border-slate-200/70 dark:border-dark-border px-3.5 py-3">
+              <pre className="font-mono text-[13px] leading-6 whitespace-pre-wrap break-words select-text text-slate-800  bg-slate-50  rounded-xl border border-slate-200/70  px-3.5 py-3">
                 {selected.code}
               </pre>
               {PLACEHOLDER_RE.test(selected.code) && (
@@ -336,26 +336,26 @@ function SnippetEditor({
 
         <div className="flex-1 min-h-0 flex flex-col gap-3 p-4 overflow-y-auto">
           <label className="flex flex-col gap-1.5">
-            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+            <span className="text-[11px] font-semibold text-slate-500 ">
               标题
             </span>
             <input
               value={draft.title}
               onChange={(e) => onChange({ ...draft, title: e.target.value })}
               placeholder="例如：Docker 全量清理"
-              className="h-9 px-3 rounded-[10px] border border-slate-200 dark:border-dark-border bg-white dark:bg-dark-panel text-[13px] outline-none focus:border-brand-400 dark:focus:border-brand-500 transition-colors text-slate-800 dark:text-slate-100"
+              className="h-9 px-3 rounded-[10px] border border-slate-200  bg-white  text-[13px] outline-none focus:border-brand-400  transition-colors text-slate-800 "
             />
           </label>
 
           <div className="flex flex-col gap-1.5">
-            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+            <span className="text-[11px] font-semibold text-slate-500 ">
               标签
             </span>
             <div className="flex items-center gap-1.5 flex-wrap">
               {draft.tags.map((tag) => (
                 <span
                   key={tag}
-                  className="inline-flex items-center gap-1 h-6 px-2 rounded-md bg-slate-100 dark:bg-dark-hover text-[11px] text-slate-600 dark:text-slate-300"
+                  className="inline-flex items-center gap-1 h-6 px-2 rounded-md bg-slate-100  text-[11px] text-slate-600 "
                 >
                   {tag}
                   <button
@@ -383,13 +383,13 @@ function SnippetEditor({
                 }}
                 onBlur={addTag}
                 placeholder="回车添加"
-                className="h-6 w-24 px-2 rounded-md border border-slate-200 dark:border-dark-border bg-transparent text-[11px] outline-none focus:border-brand-400 text-slate-700 dark:text-slate-200"
+                className="h-6 w-24 px-2 rounded-md border border-slate-200  bg-transparent text-[11px] outline-none focus:border-brand-400 text-slate-700 "
               />
             </div>
           </div>
 
           <label className="flex flex-col gap-1.5 flex-1 min-h-0">
-            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+            <span className="text-[11px] font-semibold text-slate-500 ">
               内容
             </span>
             <textarea
@@ -410,7 +410,7 @@ function SnippetEditor({
               placeholder={
                 "docker system prune -a -f\n\n# {{端口}} 之类的位置用占位符标出来"
               }
-              className="flex-1 min-h-[200px] w-full resize-none rounded-xl border border-slate-200 dark:border-dark-border bg-slate-50 dark:bg-dark-hover/40 px-3.5 py-3 font-mono text-[13px] leading-6 outline-none focus:border-brand-400 dark:focus:border-brand-500 transition-colors text-slate-800 dark:text-slate-100"
+              className="flex-1 min-h-[200px] w-full resize-none rounded-xl border border-slate-200  bg-slate-50  px-3.5 py-3 font-mono text-[13px] leading-6 outline-none focus:border-brand-400  transition-colors text-slate-800 "
             />
           </label>
         </div>

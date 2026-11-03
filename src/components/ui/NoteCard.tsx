@@ -30,43 +30,43 @@ const VARIANT_CONFIGS: Record<
 > = {
   brand: {
     container:
-      'bg-brand-50/40 dark:bg-brand-950/20 border-brand-200/60 dark:border-brand-800/30',
-    iconBox: 'bg-brand-100/70 dark:bg-brand-900/40 text-brand-600 dark:text-brand-300',
-    titleText: 'text-brand-950 dark:text-brand-200 font-semibold',
-    bodyText: 'text-brand-900/80 dark:text-brand-200/80',
+      'bg-brand-50/40  border-brand-200/60 ',
+    iconBox: 'bg-brand-100/70  text-brand-600 ',
+    titleText: 'text-brand-950  font-semibold',
+    bodyText: 'text-brand-900/80 ',
     defaultIcon: Sparkles,
   },
   neutral: {
     container:
-      'bg-slate-50/70 dark:bg-dark-sidebar/50 border-slate-200/70 dark:border-dark-border',
-    iconBox: 'bg-slate-200/70 dark:bg-dark-hover text-slate-600 dark:text-slate-300',
-    titleText: 'text-slate-900 dark:text-white font-semibold',
-    bodyText: 'text-slate-600 dark:text-slate-400',
+      'bg-slate-50/70  border-slate-200/70 ',
+    iconBox: 'bg-slate-200/70  text-slate-600 ',
+    titleText: 'text-slate-900  font-semibold',
+    bodyText: 'text-slate-600 ',
     defaultIcon: Info,
   },
   warning: {
     container:
-      'bg-amber-50/40 dark:bg-amber-950/20 border-amber-200/60 dark:border-amber-800/30',
-    iconBox: 'bg-amber-100/70 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400',
-    titleText: 'text-amber-950 dark:text-amber-200 font-semibold',
-    bodyText: 'text-amber-900/80 dark:text-amber-300/80',
+      'bg-amber-50/40  border-amber-200/60 ',
+    iconBox: 'bg-amber-100/70  text-amber-600 ',
+    titleText: 'text-amber-950  font-semibold',
+    bodyText: 'text-amber-900/80 ',
     defaultIcon: AlertTriangle,
   },
   danger: {
     container:
-      'bg-rose-50/40 dark:bg-rose-950/20 border-rose-200/60 dark:border-rose-800/30',
-    iconBox: 'bg-rose-100/70 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400',
-    titleText: 'text-rose-950 dark:text-rose-200 font-semibold',
-    bodyText: 'text-rose-900/80 dark:text-rose-300/80',
+      'bg-rose-50/40  border-rose-200/60 ',
+    iconBox: 'bg-rose-100/70  text-rose-600 ',
+    titleText: 'text-rose-950  font-semibold',
+    bodyText: 'text-rose-900/80 ',
     defaultIcon: AlertCircle,
   },
   success: {
     container:
-      'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200/60 dark:border-emerald-800/30',
+      'bg-emerald-50/40  border-emerald-200/60 ',
     iconBox:
-      'bg-emerald-100/70 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400',
-    titleText: 'text-emerald-950 dark:text-emerald-200 font-semibold',
-    bodyText: 'text-emerald-900/80 dark:text-emerald-300/80',
+      'bg-emerald-100/70  text-emerald-600 ',
+    titleText: 'text-emerald-950  font-semibold',
+    bodyText: 'text-emerald-900/80 ',
     defaultIcon: CheckCircle2,
   },
 }

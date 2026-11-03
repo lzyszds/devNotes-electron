@@ -218,7 +218,7 @@ export default function PortKillerTool() {
                     if (e.key === 'Enter') addCustomPort()
                   }}
                   placeholder="自定义端口"
-                  className="w-24 h-7 px-2 rounded-lg border border-slate-200 dark:border-dark-border bg-white dark:bg-dark-panel font-mono text-[11px] outline-none focus:border-brand-400 dark:focus:border-brand-500 transition-colors text-slate-800 dark:text-slate-100"
+                  className="w-24 h-7 px-2 rounded-lg border border-slate-200  bg-white  font-mono text-[11px] outline-none focus:border-brand-400  transition-colors text-slate-800 "
                 />
                 <button onClick={addCustomPort} className={BTN.secondary}>
                   添加
@@ -242,8 +242,8 @@ export default function PortKillerTool() {
                   onDoubleClick={() => void scan([port])}
                   className={`group flex flex-col items-start gap-0.5 px-3 py-2 rounded-xl border transition-colors min-w-[92px] ${
                     isActive
-                      ? 'border-brand-300 bg-brand-50/70 dark:border-brand-500/40 dark:bg-brand-500/10'
-                      : 'border-slate-200 dark:border-dark-border hover:bg-slate-50 dark:hover:bg-dark-hover'
+                      ? 'border-brand-300 bg-brand-50/70  '
+                      : 'border-slate-200  hover:bg-slate-50 '
                   }`}
                 >
                   <span className="flex items-center gap-1.5">
@@ -252,11 +252,11 @@ export default function PortKillerTool() {
                         occupied ? 'bg-amber-500' : isScanning ? 'bg-slate-300' : 'bg-emerald-500'
                       }`}
                     />
-                    <span className="font-mono text-[13px] font-bold text-slate-800 dark:text-slate-100 tabular-nums">
+                    <span className="font-mono text-[13px] font-bold text-slate-800  tabular-nums">
                       {port}
                     </span>
                   </span>
-                  <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                  <span className="text-[10px] text-slate-400 ">
                     {occupied ? `${info!.listeners.length} 个进程` : '空闲'}
                   </span>
                 </button>
@@ -287,7 +287,7 @@ export default function PortKillerTool() {
               hint="换几个端口或者添加自定义端口再查；如果前端起不来报错，它报的那个端口号贴进来就行"
             />
           ) : (
-            <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-slate-100 dark:divide-dark-border">
+            <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-slate-100 ">
               {activeListeners.map((listener) => {
                 const kind = guessKind(listener.processName)
                 const busy = busyPid === listener.pid
@@ -295,16 +295,16 @@ export default function PortKillerTool() {
                   <div
                     key={`${listener.port}-${listener.pid}`}
                     className={`flex items-center gap-3 px-3.5 py-2.5 transition-colors ${
-                      listener.port === selected ? 'bg-brand-50/40 dark:bg-brand-500/5' : ''
+                      listener.port === selected ? 'bg-brand-50/40 ' : ''
                     }`}
                   >
-                    <span className="w-14 shrink-0 font-mono text-[15px] font-bold tabular-nums text-slate-800 dark:text-slate-100">
+                    <span className="w-14 shrink-0 font-mono text-[15px] font-bold tabular-nums text-slate-800 ">
                       {listener.port}
                     </span>
 
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-[13px] font-semibold text-slate-800 dark:text-slate-100 truncate">
+                        <span className="text-[13px] font-semibold text-slate-800  truncate">
                           {listener.processName}
                         </span>
                         <ToolTag tone={kind.tone}>{kind.label}</ToolTag>
@@ -368,22 +368,22 @@ export default function PortKillerTool() {
       {/* 强杀二次确认。杀掉一个进程不可逆，必须先把「杀的是谁」摆清楚 */}
       {pendingKill && (
         <div className="absolute inset-0 z-[60] flex items-center justify-center bg-slate-900/45 px-4">
-          <div className="w-full max-w-[440px] rounded-2xl bg-white dark:bg-dark-panel border border-slate-200 dark:border-dark-border shadow-2xl overflow-hidden">
+          <div className="w-full max-w-[440px] rounded-2xl bg-white  border border-slate-200  shadow-2xl overflow-hidden">
             <div className="flex items-start gap-3 px-5 pt-5">
-              <span className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-500/15 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+              <span className="w-10 h-10 rounded-xl bg-rose-50  text-rose-600  flex items-center justify-center shrink-0">
                 <ShieldAlert size={19} />
               </span>
               <div className="min-w-0">
-                <h3 className="text-[15px] font-bold text-slate-900 dark:text-white">
+                <h3 className="text-[15px] font-bold text-slate-900 ">
                   确定要强杀这个进程吗？
                 </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                <p className="text-xs text-slate-500  mt-1 leading-relaxed">
                   进程会被立即终止（kill -9），未保存的数据会丢失。这个操作不可撤销。
                 </p>
               </div>
             </div>
 
-            <div className="mx-5 mt-4 rounded-xl border border-slate-200 dark:border-dark-border bg-slate-50 dark:bg-dark-hover/40 px-3.5 py-3 flex flex-col gap-1.5">
+            <div className="mx-5 mt-4 rounded-xl border border-slate-200  bg-slate-50  px-3.5 py-3 flex flex-col gap-1.5">
               <Row label="进程名" value={pendingKill.processName} mono />
               <Row label="PID" value={String(pendingKill.pid)} mono />
               <Row
@@ -416,9 +416,9 @@ export default function PortKillerTool() {
 function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="flex items-start gap-2 text-[11px]">
-      <span className="text-slate-400 dark:text-slate-500 shrink-0 w-14">{label}</span>
+      <span className="text-slate-400  shrink-0 w-14">{label}</span>
       <span
-        className={`text-slate-700 dark:text-slate-200 break-all ${
+        className={`text-slate-700  break-all ${
           mono ? 'font-mono' : ''
         }`}
       >

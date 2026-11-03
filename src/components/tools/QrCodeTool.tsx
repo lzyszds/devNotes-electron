@@ -30,6 +30,7 @@ import {
   ToolShell,
   CopyButton,
   CopyImageButton,
+  PreviewButton,
 } from '../ui'
 import Tooltip from '../ui/Tooltip'
 import { useToast } from '../ui/Toast'
@@ -244,7 +245,7 @@ export default function QrCodeTool() {
               onClick={() => setShowHistory(!showHistory)}
               className={`tool-button-secondary h-8 ${
                 showHistory
-                  ? 'ring-2 ring-brand-500/20 border-brand-200 text-brand-600 dark:border-brand-500/40 dark:text-brand-400'
+                  ? 'ring-2 ring-brand-500/20 border-brand-200 text-brand-600  '
                   : ''
               }`}
             >
@@ -288,7 +289,7 @@ export default function QrCodeTool() {
                     type="button"
                     onClick={clearDecode}
                     title="移除图片"
-                    className="text-slate-400 hover:text-rose-500 dark:hover:text-rose-400"
+                    className="text-slate-400 hover:text-rose-500 "
                   >
                     <X size={14} />
                   </button>
@@ -298,7 +299,7 @@ export default function QrCodeTool() {
 
             <div className="p-4">
               {decodePreview ? (
-                <div className="flex items-center justify-center bg-slate-50/50 dark:bg-dark-bg/30 rounded-xl p-4">
+                <div className="flex items-center justify-center bg-slate-50/50  rounded-xl p-4">
                   <img
                     src={decodePreview}
                     alt="待解码的二维码"
@@ -321,8 +322,8 @@ export default function QrCodeTool() {
                   onClick={() => fileInputRef.current?.click()}
                   className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-12 cursor-pointer transition-colors ${
                     dragging
-                      ? 'border-brand-400 bg-brand-50/60 dark:border-brand-500/50 dark:bg-brand-500/10'
-                      : 'border-slate-200 dark:border-dark-border hover:border-slate-300 dark:hover:border-slate-600'
+                      ? 'border-brand-400 bg-brand-50/60  '
+                      : 'border-slate-200  hover:border-slate-300 '
                   }`}
                 >
                   <input
@@ -337,11 +338,11 @@ export default function QrCodeTool() {
                       e.target.value = ''
                     }}
                   />
-                  <ScanLine size={24} className="text-slate-300 dark:text-slate-600" />
-                  <p className="text-[12px] font-medium text-slate-500 dark:text-slate-400">
+                  <ScanLine size={24} className="text-slate-300 " />
+                  <p className="text-[12px] font-medium text-slate-500 ">
                     拖入图片，或点击选择
                   </p>
-                  <p className="text-[11px] text-slate-400 dark:text-slate-600">
+                  <p className="text-[11px] text-slate-400 ">
                     支持反色二维码，会同时尝试正反两种
                   </p>
                 </div>
@@ -355,7 +356,12 @@ export default function QrCodeTool() {
               title="识别结果"
               sublabel="DECODED"
               meta={decoded ? `版本 ${decoded.version}` : undefined}
-              actions={<CopyButton value={() => decoded?.data ?? ''} disabled={!decoded} />}
+              actions={
+                <>
+                  <PreviewButton title="识别结果" content={() => decoded?.data ?? ''} disabled={!decoded} source="二维码解码" />
+                  <CopyButton value={() => decoded?.data ?? ''} disabled={!decoded} />
+                </>
+              }
             />
 
             <div className="p-4">
@@ -367,10 +373,10 @@ export default function QrCodeTool() {
                 <p className={`${META} py-8 text-center`}>正在识别…</p>
               ) : decoded ? (
                 <div className="flex flex-col gap-3">
-                  <div className="rounded-xl border border-emerald-200/70 bg-emerald-50/60 dark:border-emerald-500/25 dark:bg-emerald-500/10 px-3.5 py-2.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                  <div className="rounded-xl border border-emerald-200/70 bg-emerald-50/60   px-3.5 py-2.5 text-xs font-semibold text-emerald-700 ">
                     识别成功
                   </div>
-                  <div className="max-h-[240px] overflow-y-auto rounded-lg bg-slate-50/70 dark:bg-dark-hover/40 px-3 py-2 font-mono text-[12px] leading-6 text-slate-700 dark:text-slate-200 whitespace-pre-wrap break-all select-text">
+                  <div className="max-h-[240px] overflow-y-auto rounded-lg bg-slate-50/70  px-3 py-2 font-mono text-[12px] leading-6 text-slate-700  whitespace-pre-wrap break-all select-text">
                     {decoded.data}
                   </div>
                   <div className="flex items-center justify-between">
@@ -380,7 +386,7 @@ export default function QrCodeTool() {
                       <button
                         type="button"
                         onClick={() => window.electronAPI?.openExternal?.(decoded.data)}
-                        className="text-[11px] font-semibold text-brand-600 dark:text-brand-400 hover:underline"
+                        className="text-[11px] font-semibold text-brand-600  hover:underline"
                       >
                         在浏览器中打开
                       </button>
@@ -389,7 +395,7 @@ export default function QrCodeTool() {
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
-                  <ScanLine size={24} className="text-slate-200 dark:text-slate-700" />
+                  <ScanLine size={24} className="text-slate-200 " />
                   <p className={META}>识别出的内容会显示在这里</p>
                 </div>
               )}
@@ -415,7 +421,7 @@ export default function QrCodeTool() {
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 placeholder="输入需要转换成二维码的内容…"
-                className="w-full min-h-[120px] bg-transparent resize-none outline-none text-[13px] leading-6 text-slate-800 dark:text-slate-100 placeholder:text-slate-300 dark:placeholder:text-slate-600"
+                className="w-full min-h-[120px] bg-transparent resize-none outline-none text-[13px] leading-6 text-slate-800  placeholder:text-slate-300 "
               />
             </div>
 
@@ -431,10 +437,10 @@ export default function QrCodeTool() {
 
               <div className="p-4 flex flex-col gap-4">
                 <div className="flex items-baseline gap-1.5">
-                  <span className="text-[28px] font-semibold text-slate-900 dark:text-white tabular-nums leading-none">
+                  <span className="text-[28px] font-semibold text-slate-900  tabular-nums leading-none">
                     {size}
                   </span>
-                  <span className="text-[11px] text-slate-400 dark:text-slate-500">像素</span>
+                  <span className="text-[11px] text-slate-400 ">像素</span>
                 </div>
                 <input
                   type="range"
@@ -445,7 +451,7 @@ export default function QrCodeTool() {
                   onChange={(e) => setSize(Number(e.target.value))}
                   className="tool-range"
                 />
-                <p className="text-[11px] text-slate-400 dark:text-slate-500">120 ~ 500 px，步进 20</p>
+                <p className="text-[11px] text-slate-400 ">120 ~ 500 px，步进 20</p>
               </div>
             </ToolCard>
 
@@ -454,7 +460,7 @@ export default function QrCodeTool() {
               <ToolCardHeader title="外观配色" icon={Palette} />
 
               <div className="p-4 flex flex-col gap-2.5">
-                <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-200/70 dark:border-dark-border bg-slate-50/70 dark:bg-dark-hover/40 pl-2.5 pr-3 py-2 cursor-pointer">
+                <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-200/70  bg-slate-50/70  pl-2.5 pr-3 py-2 cursor-pointer">
                   <span className="flex items-center gap-2.5">
                     <input
                       type="color"
@@ -462,12 +468,12 @@ export default function QrCodeTool() {
                       onChange={(e) => setFgColor(e.target.value)}
                       className="w-7 h-7 rounded-lg border-0 bg-transparent cursor-pointer p-0"
                     />
-                    <span className="text-xs font-medium text-slate-600 dark:text-slate-300">前景色</span>
+                    <span className="text-xs font-medium text-slate-600 ">前景色</span>
                   </span>
-                  <span className="text-[11px] font-mono text-slate-400 dark:text-slate-500">{fgColor}</span>
+                  <span className="text-[11px] font-mono text-slate-400 ">{fgColor}</span>
                 </label>
 
-                <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-200/70 dark:border-dark-border bg-slate-50/70 dark:bg-dark-hover/40 pl-2.5 pr-3 py-2 cursor-pointer">
+                <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-200/70  bg-slate-50/70  pl-2.5 pr-3 py-2 cursor-pointer">
                   <span className="flex items-center gap-2.5">
                     <input
                       type="color"
@@ -475,9 +481,9 @@ export default function QrCodeTool() {
                       onChange={(e) => setBgColor(e.target.value)}
                       className="w-7 h-7 rounded-lg border-0 bg-transparent cursor-pointer p-0"
                     />
-                    <span className="text-xs font-medium text-slate-600 dark:text-slate-300">背景色</span>
+                    <span className="text-xs font-medium text-slate-600 ">背景色</span>
                   </span>
-                  <span className="text-[11px] font-mono text-slate-400 dark:text-slate-500">{bgColor}</span>
+                  <span className="text-[11px] font-mono text-slate-400 ">{bgColor}</span>
                 </label>
               </div>
             </ToolCard>
@@ -495,7 +501,7 @@ export default function QrCodeTool() {
             }
           />
 
-          <div className="p-6 flex items-center justify-center bg-slate-50/50 dark:bg-dark-bg/30 rounded-b-2xl">
+          <div className="p-6 flex items-center justify-center bg-slate-50/50  rounded-b-2xl">
             <div className="rounded-xl overflow-hidden bg-white p-3 shadow-[0_1px_3px_rgba(15,23,42,0.08)] ring-1 ring-slate-200/60">
               <canvas ref={canvasRef} className="hidden" />
               {qrDataUrl ? (

@@ -25,6 +25,7 @@ import {
   ToolHistoryOverlay,
   ToolShell,
   CopyButton,
+  PreviewButton,
   iconButtonClass,
 } from "../ui";
 import Tooltip from "../ui/Tooltip";
@@ -58,13 +59,13 @@ const TreeNode = ({
 
   const renderValue = (val: any) => {
     if (val === null)
-      return <span className="text-rose-500 dark:text-rose-400 font-bold italic">null</span>;
+      return <span className="text-rose-500  font-bold italic">null</span>;
     if (typeof val === "string")
-      return <span className="text-emerald-600 dark:text-emerald-400">"{val}"</span>;
+      return <span className="text-emerald-600 ">"{val}"</span>;
     if (typeof val === "number")
-      return <span className="text-sky-600 dark:text-sky-400 font-bold">{val}</span>;
+      return <span className="text-sky-600  font-bold">{val}</span>;
     if (typeof val === "boolean")
-      return <span className="text-amber-600 dark:text-amber-400 font-bold">{val.toString()}</span>;
+      return <span className="text-amber-600  font-bold">{val.toString()}</span>;
     return null;
   };
 
@@ -72,10 +73,10 @@ const TreeNode = ({
     return (
       <div className="flex items-start py-0.5 group">
         {label && (
-          <span className="text-slate-900 dark:text-slate-100 font-bold mr-2">"{label}":</span>
+          <span className="text-slate-900  font-bold mr-2">"{label}":</span>
         )}
         {renderValue(value)}
-        {!isLast && <span className="text-slate-400 dark:text-slate-500">,</span>}
+        {!isLast && <span className="text-slate-400 ">,</span>}
       </div>
     );
   }
@@ -83,10 +84,10 @@ const TreeNode = ({
   return (
     <div className="flex flex-col">
       <div
-        className="flex items-center py-0.5 cursor-pointer group hover:bg-slate-50 dark:hover:bg-dark-hover rounded px-1 -ml-1 transition-colors"
+        className="flex items-center py-0.5 cursor-pointer group hover:bg-slate-50  rounded px-1 -ml-1 transition-colors"
         onClick={() => !isEmpty && setIsExpanded(!isExpanded)}
       >
-        <div className="w-4 h-4 flex items-center justify-center mr-1 text-slate-300 dark:text-slate-600">
+        <div className="w-4 h-4 flex items-center justify-center mr-1 text-slate-300 ">
           {!isEmpty &&
             (isExpanded ? (
               <ChevronDown size={12} />
@@ -95,25 +96,25 @@ const TreeNode = ({
             ))}
         </div>
         {label && (
-          <span className="text-slate-900 dark:text-slate-100 font-bold mr-2">"{label}":</span>
+          <span className="text-slate-900  font-bold mr-2">"{label}":</span>
         )}
-        <span className="text-slate-400 dark:text-slate-500 font-bold">
+        <span className="text-slate-400  font-bold">
           {isArray ? "[" : "{"}
           {!isExpanded && !isEmpty && (
-            <span className="mx-1 text-slate-300 dark:text-slate-600 text-[10px]">...</span>
+            <span className="mx-1 text-slate-300  text-[10px]">...</span>
           )}
           {!isExpanded && (isArray ? "]" : "}")}
         </span>
-        {!isExpanded && !isLast && <span className="text-slate-400 dark:text-slate-500">,</span>}
+        {!isExpanded && !isLast && <span className="text-slate-400 ">,</span>}
         {!isExpanded && isArray && value.length > 0 && (
-          <span className="ml-3 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tighter bg-slate-100 dark:bg-dark-hover px-1.5 rounded">
+          <span className="ml-3 text-[10px] font-bold text-slate-400  uppercase tracking-tighter bg-slate-100  px-1.5 rounded">
             {value.length} 个项目
           </span>
         )}
       </div>
 
       {isExpanded && !isEmpty && (
-        <div className="ml-4 border-l border-slate-100 dark:border-dark-border pl-4 transition-all">
+        <div className="ml-4 border-l border-slate-100  pl-4 transition-all">
           {isArray
             ? value.map((item, i) => (
                 <TreeNode
@@ -135,9 +136,9 @@ const TreeNode = ({
 
       {isExpanded && (
         <div className="py-0.5">
-          <span className="text-slate-400 dark:text-slate-500 font-bold ml-5">
+          <span className="text-slate-400  font-bold ml-5">
             {isArray ? "]" : "}"}
-            {!isLast && <span className="text-slate-400 dark:text-slate-500">,</span>}
+            {!isLast && <span className="text-slate-400 ">,</span>}
           </span>
         </div>
       )}
@@ -256,7 +257,7 @@ export default function JsonFormatTool() {
             onClick={() => setShowHistory(!showHistory)}
             className={`tool-button-secondary h-8 ${
               showHistory
-                ? "ring-2 ring-brand-500/20 border-brand-200 text-brand-600 dark:border-brand-500/40 dark:text-brand-400"
+                ? "ring-2 ring-brand-500/20 border-brand-200 text-brand-600  "
                 : ""
             }`}
           >
@@ -282,7 +283,7 @@ export default function JsonFormatTool() {
                 setOutput("");
                 setError("");
               }}
-              className="tool-button-secondary h-8 w-9 p-0 text-rose-500 dark:text-rose-400"
+              className="tool-button-secondary h-8 w-9 p-0 text-rose-500 "
             >
               <Trash2 size={15} />
             </button>
@@ -314,15 +315,18 @@ export default function JsonFormatTool() {
               title="原始 JSON 输入"
               meta={`${input.length} 字符`}
               actions={
-                <Tooltip content="清空输入">
-                  <button
-                    onClick={() => setInput("")}
-                    disabled={!input}
-                    className={iconButtonClass("danger")}
-                  >
-                    <Trash2 size={15} />
-                  </button>
-                </Tooltip>
+                <>
+                  <PreviewButton title="原始 JSON 输入" content={() => input} disabled={!input} />
+                  <Tooltip content="清空输入">
+                    <button
+                      onClick={() => setInput("")}
+                      disabled={!input}
+                      className={iconButtonClass("danger")}
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </Tooltip>
+                </>
               }
             />
 
@@ -347,6 +351,7 @@ export default function JsonFormatTool() {
                       { value: "tree", label: "树形", icon: ListTree },
                     ]}
                   />
+                  <PreviewButton title="处理结果" content={() => output} disabled={!output} />
                   <CopyButton value={() => output} disabled={!output} />
                   <Tooltip content="下载结果">
                     <button
@@ -386,7 +391,7 @@ export default function JsonFormatTool() {
                     {parsedOutput ? (
                       <JsonTreeView data={parsedOutput} />
                     ) : (
-                      <div className="text-slate-300 dark:text-slate-600 text-xs">
+                      <div className="text-slate-300  text-xs">
                         正在渲染树形结构...
                       </div>
                     )}

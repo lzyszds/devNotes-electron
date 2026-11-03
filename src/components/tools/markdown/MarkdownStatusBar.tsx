@@ -33,12 +33,12 @@ export type MarkdownStatusBarProps = {
 }
 
 const SAVE_TONE: Record<SaveStatus, { text: string; dot: string }> = {
-  saving: { text: 'text-amber-600 dark:text-amber-400', dot: 'bg-amber-500 animate-ping' },
-  error: { text: 'text-rose-600 dark:text-rose-400', dot: 'bg-rose-500' },
-  saved: { text: 'text-emerald-600 dark:text-emerald-400', dot: 'bg-emerald-500' },
+  saving: { text: 'text-amber-600 ', dot: 'bg-amber-500 animate-ping' },
+  error: { text: 'text-rose-600 ', dot: 'bg-rose-500' },
+  saved: { text: 'text-emerald-600 ', dot: 'bg-emerald-500' },
   // 自动保存关着时的常态：改动只在内存里，提示一下该保存了
-  unsaved: { text: 'text-amber-600 dark:text-amber-400', dot: 'bg-amber-500' },
-  idle: { text: 'text-slate-500 dark:text-slate-400', dot: 'bg-slate-400' },
+  unsaved: { text: 'text-amber-600 ', dot: 'bg-amber-500' },
+  idle: { text: 'text-slate-500 ', dot: 'bg-slate-400' },
 }
 
 /**
@@ -84,34 +84,34 @@ export default function MarkdownStatusBar({
             {saveMessage}
           </span>
         )}
-        <span className="text-slate-300 dark:text-dark-border">·</span>
+        <span className="text-slate-300 ">·</span>
         <span className="truncate">
           {stats.totalWords.toLocaleString()} 字 · {stats.totalLines.toLocaleString()} 行 · 约{' '}
           {stats.readingTime} 分钟
         </span>
 
         {/* 悬停看明细。贴左端向上弹，不再占用编辑区右下角 */}
-        <div className="absolute bottom-full left-0 mb-2 hidden flex-col gap-1.5 rounded-xl border border-slate-200/80 bg-white/95 p-3 text-[11px] font-mono text-slate-600 shadow-xl backdrop-blur-xl group-hover:flex dark:border-dark-border dark:bg-dark-panel/95 dark:text-slate-300 min-w-[176px]">
-          <div className="mb-0.5 border-b border-slate-100 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:border-dark-border">
+        <div className="absolute bottom-full left-0 mb-2 hidden flex-col gap-1.5 rounded-xl border border-slate-200/80 bg-white/95 p-3 text-[11px] font-mono text-slate-600 shadow-xl backdrop-blur-xl group-hover:flex    min-w-[176px]">
+          <div className="mb-0.5 border-b border-slate-100 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 ">
             文档数据统计
           </div>
           <div className="flex justify-between">
             <span className="text-slate-400">中文字数</span>
-            <span className="font-semibold text-slate-800 dark:text-slate-200">{stats.chineseChars}</span>
+            <span className="font-semibold text-slate-800 ">{stats.chineseChars}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-slate-400">英文词数</span>
-            <span className="font-semibold text-slate-800 dark:text-slate-200">{stats.englishWords}</span>
+            <span className="font-semibold text-slate-800 ">{stats.englishWords}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-slate-400">总字符数</span>
-            <span className="font-semibold text-slate-800 dark:text-slate-200">{stats.totalChars}</span>
+            <span className="font-semibold text-slate-800 ">{stats.totalChars}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-slate-400">总行数</span>
-            <span className="font-semibold text-slate-800 dark:text-slate-200">{stats.totalLines}</span>
+            <span className="font-semibold text-slate-800 ">{stats.totalLines}</span>
           </div>
-          <div className="mt-0.5 flex justify-between border-t border-slate-100 pt-1.5 text-brand-600 dark:border-dark-border dark:text-brand-400">
+          <div className="mt-0.5 flex justify-between border-t border-slate-100 pt-1.5 text-brand-600  ">
             <span>预估用时</span>
             <span>{stats.readingTime} 分钟阅读</span>
           </div>
@@ -132,8 +132,8 @@ export default function MarkdownStatusBar({
                   : `回到「${bookmark.heading}」${bookmark.note ? `：${bookmark.note}` : ''}`
               }
               className={`flex max-w-[16rem] items-center gap-1 rounded px-1 py-0.5 transition-colors ${bookmarkStale
-                ? 'cursor-default text-slate-400 dark:text-slate-500'
-                : 'text-brand-600 hover:bg-brand-500/10 dark:text-brand-400 dark:hover:bg-brand-500/15'
+                ? 'cursor-default text-slate-400 '
+                : 'text-brand-600 hover:bg-brand-500/10  '
                 }`}
             >
               <Bookmark className={`h-3 w-3 flex-shrink-0 ${bookmarkStale ? '' : 'fill-current'}`} />
@@ -141,21 +141,21 @@ export default function MarkdownStatusBar({
                 {bookmarkStale ? '书签已失效' : bookmark.heading}
               </span>
               {!bookmarkStale && bookmark.percent > 0 && (
-                <span className="flex-shrink-0 font-mono text-slate-400 dark:text-slate-500">
+                <span className="flex-shrink-0 font-mono text-slate-400 ">
                   {bookmark.percent}%
                 </span>
               )}
             </button>
-            <span className="text-slate-300 dark:text-dark-border">·</span>
+            <span className="text-slate-300 ">·</span>
           </>
         )}
-        <span className="text-slate-400 dark:text-slate-500">{engineLabel}</span>
-        <span className="text-slate-300 dark:text-dark-border">·</span>
-        <span className="text-slate-500 dark:text-slate-400">{viewLabel}</span>
+        <span className="text-slate-400 ">{engineLabel}</span>
+        <span className="text-slate-300 ">·</span>
+        <span className="text-slate-500 ">{viewLabel}</span>
 
         {extra && (
           <>
-            <span className="text-slate-300 dark:text-dark-border">·</span>
+            <span className="text-slate-300 ">·</span>
             {extra}
           </>
         )}

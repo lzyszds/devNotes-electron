@@ -76,15 +76,15 @@ export async function saveImageEntryToDisk(entry: ClipboardEntry): Promise<Clipb
 
   await atomicWrite(imageFile(entry.id), png)
 
-  // 缩略图失败不致命：面板展示降级为「图片」文本占位，原图与粘贴不受影响
-  let thumbOk = false
+  // 缩略图失败不致命：面板展示降级为「图片」文本占位，原图与粘贴不受影响。
+  // imageId 必须无条件跟着 entry.id 走 —— 之前它挂在「缩略图写成功」上，
+  // 缩略图一失败粘贴链路连原图都找不到，面板自愈靠的是「文件按 entry id 存」
   try {
     const image = nativeImage.createFromBuffer(png)
     if (!image.isEmpty()) {
       const thumb = image.resize({ width: THUMB_WIDTH })
       if (!thumb.isEmpty()) {
         await atomicWrite(thumbFile(entry.id), thumb.toPNG())
-        thumbOk = true
       }
     }
   } catch {
@@ -93,7 +93,7 @@ export async function saveImageEntryToDisk(entry: ClipboardEntry): Promise<Clipb
 
   return {
     ...entry,
-    imageId: thumbOk ? entry.id : undefined,
+    imageId: entry.id,
     imageBytes: png.length,
     imageDataUrl: undefined,
   }
