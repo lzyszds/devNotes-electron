@@ -23,6 +23,7 @@ import {
 } from "../../ui";
 import Tooltip from "../../ui/Tooltip";
 import { useToast } from "../../ui/Toast";
+import DevToolboxLoader from "../../ui/DevToolboxLoader";
 import { copyText } from "../../../utils/clipboard";
 import {
   createSnippetId,
@@ -208,12 +209,18 @@ export default function SnippetsTool() {
             onSubmit={() => void commitDraft()}
           />
         ) : !selected ? (
-          <ToolEmpty
-            className="m-auto"
-            icon={FileCode2}
-            title={loaded ? "左侧选一条片段查看" : "正在载入…"}
-            hint="片段库在左边那一栏，选中的条目会显示在这里；也可以直接新建一条"
-          />
+          loaded ? (
+            <ToolEmpty
+              className="m-auto"
+              icon={FileCode2}
+              title="左侧选一条片段查看"
+              hint="片段库在左边那一栏，选中的条目会显示在这里；也可以直接新建一条"
+            />
+          ) : (
+            <div className="m-auto">
+              <DevToolboxLoader size={64} title="" subtitle="" />
+            </div>
+          )
         ) : (
           <>
             <div className="flex items-start justify-between gap-3 px-4 py-3 border-b border-slate-200/70  shrink-0">

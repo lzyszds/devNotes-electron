@@ -20,8 +20,9 @@ import {
   VIEW_MODE_LABEL,
   type EditorViewMode,
 } from "./markdown/ViewModeSwitch";
-import { Loader2, Minimize2, TriangleAlert, X } from "lucide-react";
+import { Minimize2, TriangleAlert, X } from "lucide-react";
 import Tooltip from "../ui/Tooltip";
+import DevToolboxLoader from "../ui/DevToolboxLoader";
 import { computeDocStats } from "../../utils/markdownStats";
 import {
   publishDocStats,
@@ -399,11 +400,8 @@ export default function NotesTool() {
 
   if (!ready) {
     return (
-      <div className="flex h-full items-center justify-center bg-white  text-slate-400">
-        <div className="flex items-center gap-2 text-xs font-medium">
-          <Loader2 className="w-4 h-4 animate-spin text-logo-500" />
-          正在载入文档...
-        </div>
+      <div className="flex h-full items-center justify-center bg-white">
+        <DevToolboxLoader title="正在载入文档…" subtitle="编辑器引擎与正文内容初始化中" />
       </div>
     );
   }

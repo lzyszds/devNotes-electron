@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { handleTextareaKeyDown } from '../../utils/textareaIndent'
 import { Check, Copy, Eraser, Minus, Pin, PinOff, X } from 'lucide-react'
 import Tooltip from '../ui/Tooltip'
+import DevToolboxLoader from '../ui/DevToolboxLoader'
 import { copyText } from '../../utils/clipboard'
 import { renderScratchPreview } from '../../utils/scratchMarkdown'
 
@@ -210,7 +211,10 @@ export default function ScratchpadApp() {
       {/* 正文 */}
       <div className="flex-1 min-h-0 relative">
         {!loaded ? (
-          <p className="text-xs text-slate-400 p-4">正在载入…</p>
+          <div className="h-full flex items-center justify-center">
+            {/* 小窗正文区空间有限，只放图形部分不带文案 */}
+            <DevToolboxLoader size={48} title="" subtitle="" />
+          </div>
         ) : showPreview ? (
           <div
             className="scratch-preview h-full overflow-y-auto px-4 py-3 text-[13px] leading-6"

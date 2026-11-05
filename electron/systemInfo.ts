@@ -1,5 +1,8 @@
 import os from 'os'
 import { readFileSync } from 'fs'
+import { statfs, readdir, stat, lstat } from 'fs/promises'
+import path from 'path'
+import { dialog, shell, type BrowserWindow } from 'electron'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
 
@@ -44,6 +47,10 @@ export interface SystemHardwareInfo {
   swapUsedBytes?: number
   /** 是否支持「释放内存」动作（当前仅 macOS：/usr/sbin/purge） */
   memoryReleaseSupported?: boolean
+  /** 磁盘卷容量与剩余（家目录所在卷，即日常文件放的那个盘）；读取失败时不填，UI 显示占位说明 */
+  diskTotalBytes?: number
+  diskUsedBytes?: number
+  diskFreeBytes?: number
   uptimeSeconds: number
 }
 
@@ -54,6 +61,90 @@ export interface AppProcessMemory {
   rssBytes: number
   memPercent: number
   isCurrentApp: boolean
+}
+
+export interface DiskScanEntry {
+  path: string
+  name: string
+  sizeBytes: number
+  isDirectory: boolean
+  modifiedAt: number
+}
+
+export interface DeveloperToolStatus {
+  id: string
+  name: string
+  installed: boolean
+  version?: string
+  path?: string
+}
+
+const DEVELOPER_TOOLS = [
+  { id: 'git', name: 'Git', command: 'git', args: ['--version'] },
+  { id: 'node', name: 'Node.js', command: 'node', args: ['--version'] },
+  { id: 'python', name: 'Python', command: 'python3', args: ['--version'] },
+  { id: 'java', name: 'Java', command: 'java', args: ['-version'] },
+  { id: 'docker', name: 'Docker', command: 'docker', args: ['--version'] },
+] as const
+
+export async function scanDiskDirectory(root: string): Promise<DiskScanEntry[]> {
+  const rootStat = await stat(root)
+  if (!rootStat.isDirectory()) throw new Error('请选择一个文件夹')
+  const results: DiskScanEntry[] = []
+  const stack = [root]
+  const maxEntries = 20_000
+  while (stack.length && results.length < maxEntries) {
+    const current = stack.pop()!
+    let names: string[]
+    try { names = await readdir(current) } catch { continue }
+    for (const name of names) {
+      if (results.length >= maxEntries) break
+      const fullPath = path.join(current, name)
+      try {
+        const info = await lstat(fullPath)
+        const isDirectory = info.isDirectory()
+        results.push({ path: fullPath, name, sizeBytes: isDirectory ? 0 : info.size, isDirectory, modifiedAt: info.mtimeMs })
+        if (isDirectory) stack.push(fullPath)
+      } catch { /* 无权访问或扫描期间已删除的文件跳过 */ }
+    }
+  }
+  const directories = new Map(results.filter((entry) => entry.isDirectory).map((entry) => [entry.path, 0]))
+  for (const entry of results) {
+    if (entry.isDirectory) continue
+    let parent = path.dirname(entry.path)
+    while (parent !== root && parent.startsWith(`${root}${path.sep}`)) {
+      if (directories.has(parent)) directories.set(parent, (directories.get(parent) ?? 0) + entry.sizeBytes)
+      parent = path.dirname(parent)
+    }
+  }
+  for (const entry of results) if (entry.isDirectory) entry.sizeBytes = directories.get(entry.path) ?? 0
+  return results.sort((a, b) => b.sizeBytes - a.sizeBytes)
+}
+
+export async function checkDeveloperTools(): Promise<DeveloperToolStatus[]> {
+  return Promise.all(DEVELOPER_TOOLS.map(async (tool) => {
+    try {
+      const { stdout, stderr } = await run(tool.command, tool.args, { timeout: 4000 })
+      const version = `${stdout || stderr}`.trim().split('\n')[0].slice(0, 120)
+      let resolvedPath: string | undefined
+      try {
+        const resolved = await run(os.platform() === 'win32' ? 'where' : 'which', [tool.command], { timeout: 2000 })
+        resolvedPath = resolved.stdout.trim().split('\n')[0]
+      } catch { /* 版本命令成功时仍保留已安装状态 */ }
+      return { id: tool.id, name: tool.name, installed: true, version, path: resolvedPath }
+    } catch {
+      return { id: tool.id, name: tool.name, installed: false }
+    }
+  }))
+}
+
+export async function chooseDiskDirectory(parent: BrowserWindow): Promise<string | null> {
+  const result = await dialog.showOpenDialog(parent, { properties: ['openDirectory'] })
+  return result.canceled ? null : result.filePaths[0] ?? null
+}
+
+export async function revealDiskPath(target: string): Promise<void> {
+  shell.showItemInFolder(target)
 }
 
 /** 友好化系统平台名称 */
@@ -157,6 +248,51 @@ function readLinuxAvailable(): number | null {
   }
 }
 
+/** 轻量内存快照：只带 tray 状态条关心的四五个数，不带页桶细分与 CPU */
+export interface MemoryQuickStat {
+  totalBytes: number
+  usedBytes: number
+  availableBytes: number
+  /** used / total，保留一位小数 */
+  percent: number
+  /** Swap 已用字节（只在 macOS 上探测，其他平台不填） */
+  swapUsedBytes?: number
+}
+
+/**
+ * 面向托盘状态条的「即时内存读数」。
+ *
+ * 口径与 getSystemHardwareInfo 严格一致（同一份 vm_stat / MemAvailable 逻辑），
+ * 托盘上数字才不会和工具页里对不上。每几秒被托盘轮询一次，所以要轻：
+ * Mac 上壮烈一点 vm_stat 一次 + sysctl 一次，Linux 只读 /proc/meminfo，
+ * Windows 直接 osFreemem（Windows 上它本身就是 available 口径）。
+ */
+export async function getMemoryQuickStat(): Promise<MemoryQuickStat> {
+  const totalBytes = os.totalmem()
+  let availableBytes: number
+  let swapUsedBytes: number | undefined
+
+  if (os.platform() === 'darwin') {
+    const stat = await readDarwinMemStat()
+    // vm_stat 挂了就退回老算法：数字会虚高，但比整个状态条空白好
+    availableBytes = stat ? stat.availableBytes : os.freemem()
+    swapUsedBytes = await readDarwinSwapUsed()
+  } else if (os.platform() === 'linux') {
+    availableBytes = readLinuxAvailable() ?? os.freemem()
+  } else {
+    availableBytes = os.freemem()
+  }
+
+  const usedBytes = Math.max(0, totalBytes - availableBytes)
+  return {
+    totalBytes,
+    usedBytes,
+    availableBytes,
+    percent: Math.round((usedBytes / totalBytes) * 1000) / 10,
+    swapUsedBytes,
+  }
+}
+
 /**
  * 系统级「释放可回收内存」（仅 macOS）：执行 /usr/sbin/purge 把文件缓存整体刷掉。
  *
@@ -207,12 +343,39 @@ export async function releaseMemory(): Promise<{
   return { ok: true, message: '已执行 purge' }
 }
 
+/**
+ * 磁盘卷剩余：读用户家目录所在卷。
+ *
+ * statfs 是 Node 原生调用，Mac / Linux / Windows 都通，不用再各平台拼命令。
+ * 选家目录而不是根卷的原因：这台机器「日常文件放的那个盘」才是用户关心
+ * 的那个 —— mac 家目录就在系统卷，Windows 家目录跟着系统盘走，行为一致。
+ * 拿不到（权限 / 卷不在了）就返回 undefined，UI 卡片如实显示占位。
+ */
+async function readDiskStat(): Promise<{
+  totalBytes: number
+  usedBytes: number
+  freeBytes: number
+} | undefined> {
+  try {
+    const s = await statfs(os.homedir())
+    const totalBytes = s.blocks * s.bsize
+    // bavail 是给未授权进程看的真正可写空间，比 bfree（含保留块）诚实
+    const freeBytes = s.bavail * s.bsize
+    if (totalBytes <= 0 || freeBytes < 0) return undefined
+    return { totalBytes, usedBytes: Math.max(0, totalBytes - freeBytes), freeBytes }
+  } catch {
+    return undefined
+  }
+}
+
 /** 获取硬件与系统基础配置概览（异步：macOS/Linux 需要读一次系统统计输出） */
 export async function getSystemHardwareInfo(): Promise<SystemHardwareInfo> {
   const total = os.totalmem()
   const free = os.freemem()
   const cpus = os.cpus() || []
   const firstCpu = cpus[0] || { model: 'Unknown CPU', speed: 0 }
+
+  const disk = await readDiskStat()
 
   // macOS/Linux 按系统口径算可用；拿不到再退回「total - free」的老算法
   const platform = os.platform()
@@ -259,6 +422,9 @@ export async function getSystemHardwareInfo(): Promise<SystemHardwareInfo> {
     cachedFilesBytes: stat?.cachedBytes,
     swapUsedBytes,
     memoryReleaseSupported: platform === 'darwin',
+    diskTotalBytes: disk?.totalBytes,
+    diskUsedBytes: disk?.usedBytes,
+    diskFreeBytes: disk?.freeBytes,
     uptimeSeconds: os.uptime(),
   }
 }

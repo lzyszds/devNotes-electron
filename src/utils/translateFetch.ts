@@ -6,7 +6,7 @@ export interface TranslateFetchResult {
 }
 
 const GTX_USER_AGENT =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
 /** 将 Google Translate URL 映射到 Vite 开发代理路径 */
 function resolveDevProxyUrl(url: string): string {

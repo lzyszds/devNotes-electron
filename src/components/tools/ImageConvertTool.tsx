@@ -11,7 +11,6 @@ import {
   Layers,
   Link2,
   Link2Off,
-  Loader2,
   Move,
   Palette,
   RefreshCw,
@@ -42,6 +41,7 @@ import {
 } from '../ui'
 import Tooltip from '../ui/Tooltip'
 import { useToast } from '../ui/Toast'
+import DevToolboxLoader from '../ui/DevToolboxLoader'
 import { ICO_SIZES, canvasToIco } from '../../utils/icoEncoder'
 import { blobToDataUrl, bundleZip, downloadBlob, type BundleEntry } from '../../utils/zipBundle'
 import { copyText } from '../../utils/clipboard'
@@ -802,7 +802,7 @@ export default function ImageConvertTool() {
           <div className="relative p-6 min-h-[240px] flex items-center justify-center bg-slate-50/50 ">
             {converting && (
               <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/60 ">
-                <Loader2 size={20} className="animate-spin text-brand-500" />
+                <DevToolboxLoader size={72} title="" subtitle="" />
               </div>
             )}
 

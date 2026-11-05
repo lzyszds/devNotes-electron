@@ -67,6 +67,35 @@ export default function GeneralPanel({
   useEffect(() => subscribeCodeBlockTheme(setCodeTheme), [])
   const activePreset = getCodeBlockPreset(codeTheme)
 
+  /* ---------------- 系统托盘状态条 ---------------- */
+
+  /*
+   * 配置本体在主进程（electron-store 的 tray-status 键），改完立即生效。
+   * trayStatus 为 null（Web 环境 / 旧版主进程没有这个 IPC）就整个 section
+   * 不渲染 —— 设置项放在没能力的环境下只是噪音。
+   */
+  const [trayStatus, setTrayStatus] = useState<TrayStatusConfig | null>(null)
+
+  useEffect(() => {
+    window.electronAPI
+      ?.trayStatusGet?.()
+      .then(setTrayStatus)
+      .catch(() => setTrayStatus(null))
+  }, [])
+
+  const updateTrayStatus = async (patch: Partial<TrayStatusConfig>) => {
+    // 先乐观更新开关手感，主进程返回归一化的完整配置后再覆盖
+    if (!trayStatus) return
+    const optimistic = { ...trayStatus, ...patch }
+    setTrayStatus(optimistic)
+    try {
+      const next = await window.electronAPI?.trayStatusSet?.(optimistic)
+      if (next) setTrayStatus(next)
+    } catch {
+      setTrayStatus(optimistic)
+    }
+  }
+
   const handleCodeThemeChange = (next: CodeBlockThemeId) => {
     setCodeTheme(next)
     saveCodeBlockTheme(next)
@@ -235,6 +264,86 @@ export default function GeneralPanel({
           </button>
         </div>
       </section>
+
+      {/* ================= 系统托盘状态条 ================= */}
+      {trayStatus && (
+        <section className="space-y-3">
+          <h4 className="text-xs font-bold text-[#787774] uppercase tracking-wider">
+            系统托盘与常驻状态
+          </h4>
+          <div className="p-3.5 rounded-xl border border-[#E6E6E3] bg-[#FFFFFF] space-y-3">
+            <Switch
+              checked={trayStatus.enabled}
+              onChange={(checked) => void updateTrayStatus({ enabled: checked })}
+              label="启用托盘状态显示"
+              description="在系统菜单栏托盘旁实时显示内存占用、持仓盈亏或行情（支持 macOS 状态栏挂字）"
+            />
+
+            <div
+              className={`space-y-3 pt-3 border-t border-[#E6E6E3] transition-opacity ${
+                trayStatus.enabled ? '' : 'opacity-50 pointer-events-none'
+              }`}
+            >
+              {/* 挂字模式 */}
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-xs font-bold text-[#191918]">状态栏文字内容</div>
+                  <div className="text-[11px] text-[#787774] mt-0.5 leading-relaxed">
+                    选择在托盘图标右侧常驻显示的关键数据
+                  </div>
+                </div>
+                <Select
+                  value={trayStatus.titleMode || 'pnl_mem'}
+                  options={[
+                    { value: 'pnl_mem', label: '浮盈 + 内存 (如 -$106 · 83%)' },
+                    { value: 'pnl', label: '仅持仓浮盈 (如 -$106)' },
+                    { value: 'equity', label: '仅账户净值 (如 $674)' },
+                    { value: 'memory', label: '仅内存占用 (如 83%)' },
+                    { value: 'ticker', label: '重点行情 (如 BTC $68.5k)' },
+                    { value: 'none', label: '仅图标 (不挂文字)' },
+                  ]}
+                  onChange={(value) =>
+                    void updateTrayStatus({ titleMode: value as TrayStatusConfig['titleMode'] })
+                  }
+                  className="w-56 shrink-0"
+                />
+              </div>
+
+              {/* 右键菜单展示行情与持仓 */}
+              <div className="pt-2 border-t border-[#F3F3F1]">
+                <Switch
+                  checked={trayStatus.showMarketInMenu !== false}
+                  onChange={(checked) => void updateTrayStatus({ showMarketInMenu: checked })}
+                  label="右键菜单展示持仓收益与行情速览"
+                  description="在托盘右键菜单中直接查看账户总净值、各持仓未结盈亏与实时行情"
+                />
+              </div>
+
+              {/* 刷新周期 */}
+              <div className="flex items-center justify-between gap-3 pt-2 border-t border-[#F3F3F1]">
+                <div className="min-w-0">
+                  <div className="text-xs font-bold text-[#191918]">自动刷新频率</div>
+                  <div className="text-[11px] text-[#787774] mt-0.5 leading-relaxed">
+                    内存与 Gate.io 收益/行情的后台轮询间隔
+                  </div>
+                </div>
+                <Select
+                  value={String(trayStatus.intervalSec)}
+                  options={[
+                    { value: '5', label: '每 5 秒' },
+                    { value: '10', label: '每 10 秒' },
+                    { value: '30', label: '每 30 秒' },
+                  ]}
+                  onChange={(value) =>
+                    void updateTrayStatus({ intervalSec: Number(value) as TrayStatusConfig['intervalSec'] })
+                  }
+                  className="w-32 shrink-0"
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ================= 关于信息与在线更新 ================= */}
       <section className="space-y-3">

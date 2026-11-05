@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, desktopCapturer, dialog, ipcMain, Menu, screen, systemPreferences, Tray, globalShortcut, Notification, nativeImage, shell } from 'electron'
+import { app, BrowserWindow, clipboard, desktopCapturer, dialog, ipcMain, Menu, safeStorage, screen, systemPreferences, Tray, globalShortcut, Notification, nativeImage, shell } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import Store from 'electron-store'
@@ -12,6 +12,14 @@ import {
   type ProxyConfig,
 } from './proxy'
 import { migrateUserDataIfNeeded } from './migrateUserData'
+import {
+  isBulkKey,
+  bulkGet,
+  bulkSet,
+  bulkDelete,
+  migrateBulkKeysFromConfigSync,
+  flushBulkStoreSync,
+} from './bulkStore'
 import {
   deleteImageFiles,
   installClipProtocolHandler,
@@ -42,8 +50,31 @@ import { COMMON_PORTS, inspectPort, killProcess } from './ports'
 import { httpProbe, startPing, tcpProbe, validateHost, validatePort, type PingOptions } from './netProbe'
 import { listLocalInterfaces, queryPublicIp } from './netInfo'
 import { HASH_ALGORITHMS, hashFiles, type HashAlgorithm } from './hashFile'
-import { getSystemHardwareInfo, getProcessMemoryList, releaseMemory } from './systemInfo'
+import {
+  getMemoryQuickStat,
+  getSystemHardwareInfo,
+  getProcessMemoryList,
+  releaseMemory,
+  scanDiskDirectory,
+  chooseDiskDirectory,
+  revealDiskPath,
+  checkDeveloperTools,
+  type MemoryQuickStat,
+} from './systemInfo'
 import { setupAutoUpdater } from './updater'
+import {
+  fetchMarketCandles,
+  fetchMarketNews,
+  fetchMarketQuotes,
+  fetchGateAccount,
+  getGateCredentialGeneration,
+  hasGateCredentials,
+  invalidateGateCredentialGeneration,
+  setGateCredentials,
+  SYMBOL_NAMES,
+  type GateAccountData,
+  type MarketQuote,
+} from './marketData'
 import { captureMacRegion } from './macRegionCapture'
 import { captureWindowsRegion, isWindowsNativeAvailable, releaseWindowsNativeResult } from './windowsNativeCapture'
 import { lightOcrRecognize, shutdownLightOcr } from './lightOcr'
@@ -58,6 +89,9 @@ import {
 import {
   lastPasteFailure,
   openAccessibilitySettings,
+  isPasteAvailable,
+  isPasteTrusted,
+  requestPastePermission,
   pasteModuleLoadError,
   pasteToFocusedApp,
   pasteImageToFocusedApp,
@@ -178,10 +212,50 @@ const streamHandles = new Map<string, { abort: () => void }>()
 
 // 必须在 new Store() 之前执行：migrateUserDataIfNeeded 决定本次启动读哪个 userData 目录
 // dnclip 协议的 privileged scheme 登记同样卡在 ready 前，错过时机注册会直接抛错
+// migrateBulkKeysFromConfigSync 将 config.json 里几十 MB 的大 key 拆解到独立 bulk 文件，防止 store.set 锁死主进程
 migrateUserDataIfNeeded()
 registerClipProtocolScheme()
+migrateBulkKeysFromConfigSync()
 
 const store = new Store()
+
+const GATE_CREDENTIALS_KEY = 'gate.credentials.encrypted.v1'
+interface GateCredentialStatus { configured: boolean; encryptionAvailable: boolean }
+
+function gateCredentialStatus(): GateCredentialStatus {
+  return { configured: hasGateCredentials(), encryptionAvailable: safeStorage.isEncryptionAvailable() }
+}
+
+/* safeStorage 在 macOS 使用 Keychain、Windows 使用 DPAPI；store 里只落密文，不明文保存 Secret。 */
+function loadGateCredentials() {
+  setGateCredentials('', '')
+  const saved = store.get(GATE_CREDENTIALS_KEY) as { key?: unknown; secret?: unknown } | undefined
+  if (!saved || typeof saved.key !== 'string' || typeof saved.secret !== 'string' || !safeStorage.isEncryptionAvailable()) return
+  try {
+    setGateCredentials(
+      safeStorage.decryptString(Buffer.from(saved.key, 'base64')),
+      safeStorage.decryptString(Buffer.from(saved.secret, 'base64')),
+    )
+  } catch {
+    /* 钥匙串不可用或密文损坏时按未配置处理，不把解密错误暴露给渲染层。 */
+    setGateCredentials('', '')
+  }
+}
+
+function saveGateCredentials(payload: { key: string; secret: string }): GateCredentialStatus {
+  if (!safeStorage.isEncryptionAvailable()) throw new Error('当前系统无法使用安全存储，请检查系统钥匙串')
+  const key = typeof payload?.key === 'string' ? payload.key.trim() : ''
+  const secret = typeof payload?.secret === 'string' ? payload.secret.trim() : ''
+  if (!/^[A-Za-z0-9]{16,128}$/.test(key) || !/^[A-Za-z0-9]{16,128}$/.test(secret)) {
+    throw new Error('请输入有效的 Gate.io API Key 与 Secret')
+  }
+  store.set(GATE_CREDENTIALS_KEY, {
+    key: safeStorage.encryptString(key).toString('base64'),
+    secret: safeStorage.encryptString(secret).toString('base64'),
+  })
+  setGateCredentials(key, secret)
+  return gateCredentialStatus()
+}
 
 // 外部打开 .md 文件(md 文件关联)相关状态
 const pendingOpenFiles = new Set<string>()
@@ -1325,6 +1399,471 @@ function createToolWindow(toolName: string) {
   })
 }
 
+/* ==================== 托盘状态条（内存占用等，可在设置里开关） ==================== */
+
+/**
+ * 托盘可配置地显示实时内存状态：
+ *  - macOS：图标旁直接挂文字（Tray.setTitle），如「62%」，菜单里另有明细行；
+ *  - Windows/Linux：菜单栏系统不给挂文字，只有图标 —— 状态活在 tooltip
+ *    和右键菜单的明细行里。
+ *
+ * 配置持久化到 electron-store；设置面板改完会走 tray-status-set 立即生效。
+ * 底层读数是 vm_stat / MemAvailable / os.freemem（与工具页同口径），历史踩坑
+ * 记录见 systemInfo.ts 的 readDarwinMemStat 注释 —— 别改回 os.freemem 裸算。
+ */
+const TRAY_STATUS_KEY = 'tray-status'
+
+export type TrayTitleMode = 'pnl_mem' | 'pnl' | 'equity' | 'memory' | 'ticker' | 'none'
+
+export interface TrayStatusConfig {
+  /** 是否在托盘显示状态 */
+  enabled: boolean
+  /** 自动刷新间隔，秒 */
+  intervalSec: 5 | 10 | 30
+  /** 状态栏标题挂字模式 */
+  titleMode: TrayTitleMode
+  /** 重点关注的行情标的代码 */
+  tickerSymbol?: string
+  /** 是否在右键菜单中显示行情与收益 */
+  showMarketInMenu: boolean
+}
+
+const DEFAULT_TRAY_STATUS: TrayStatusConfig = {
+  enabled: true,
+  intervalSec: 5,
+  titleMode: 'pnl_mem',
+  tickerSymbol: 'BTCUSDT',
+  showMarketInMenu: true,
+}
+
+let trayStatusTimer: ReturnType<typeof setInterval> | null = null
+let trayStatusGeneration = 0
+let lastTrayTitle = ''
+let lastTrayTip = ''
+let lastTrayMenuSignature = ''
+
+let cachedTrayAccount: GateAccountData | null = null
+let cachedTrayQuotes: MarketQuote[] = []
+let lastMarketFetchTime = 0
+let lastMemStat: MemoryQuickStat | null = null
+
+/** 从 electron-store 读托盘配置，脏数据一律归位默认值，不往上抛 */
+function readTrayStatusConfig(): TrayStatusConfig {
+  const raw = store.get(TRAY_STATUS_KEY) as Partial<TrayStatusConfig> | undefined
+  if (!raw || typeof raw !== 'object') return { ...DEFAULT_TRAY_STATUS }
+  return {
+    enabled: raw.enabled !== false,
+    intervalSec: raw.intervalSec === 10 || raw.intervalSec === 30 ? raw.intervalSec : 5,
+    titleMode: (['pnl_mem', 'pnl', 'equity', 'memory', 'ticker', 'none'] as const).includes(raw.titleMode as any)
+      ? (raw.titleMode as TrayTitleMode)
+      : 'pnl_mem',
+    tickerSymbol: typeof raw.tickerSymbol === 'string' && raw.tickerSymbol ? raw.tickerSymbol : 'BTCUSDT',
+    showMarketInMenu: raw.showMarketInMenu !== false,
+  }
+}
+
+function saveAndApplyTrayConfig(patch: Partial<TrayStatusConfig>) {
+  const current = readTrayStatusConfig()
+  const next: TrayStatusConfig = { ...current, ...patch }
+  store.set(TRAY_STATUS_KEY, next)
+  invalidateTrayMarket()
+  applyTrayStatusPolling()
+}
+
+function navigateToMarketBoard(symbol?: string) {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    createMainWindow()
+  } else {
+    mainWindow.show()
+    mainWindow.focus()
+  }
+  if (symbol) {
+    store.set('market-board-selected-symbol-v1', symbol)
+    store.set('market-board-market-tab-v1', 'position')
+  }
+  mainWindow?.webContents.send('tool:open-request', 'market-board')
+}
+
+/** 托盘右键菜单模板生成：系统内存换行显示，丰富行情与持仓收益，支持快速配置 */
+function buildTrayMenuTemplate(cfg: TrayStatusConfig, memStat?: MemoryQuickStat | null): Electron.MenuItemConstructorOptions[] {
+  const items: Electron.MenuItemConstructorOptions[] = []
+
+  // 1. 系统内存：彻底换行显示，解决单行过宽被拉长的问题
+  if (memStat) {
+    const usedGB = (memStat.usedBytes / 1024 ** 3).toFixed(1)
+    const totalGB = (memStat.totalBytes / 1024 ** 3).toFixed(1)
+    items.push(
+      { label: `系统内存: ${Math.round(memStat.percent)}%`, enabled: false },
+      { label: `已用 ${usedGB} GB / 总 ${totalGB} GB`, enabled: false },
+    )
+    if (memStat.swapUsedBytes != null && memStat.swapUsedBytes > 0) {
+      items.push({
+        label: `Swap 交换: ${(memStat.swapUsedBytes / 1024 ** 3).toFixed(1)} GB`,
+        enabled: false,
+      })
+    }
+    items.push({ type: 'separator' })
+  }
+
+  // 2. 账户资产净值与持仓浮动盈亏（若开启）。只有 ready 的快照才敢写数字，其余写 --。
+  if (cfg.showMarketInMenu && trayAccountState !== 'unconfigured') {
+    const acc = cachedTrayAccount
+    const status = trayAccountStatusText()
+    if (status) {
+      items.push({ label: `账户: ${status}`, enabled: false })
+    }
+
+    if (acc) {
+      const pnlSign = (acc.unrealisedPnl ?? 0) >= 0 ? '+' : '-'
+      const pnlStr = acc.unrealisedPnl == null ? '--' : `${pnlSign}$${Math.abs(acc.unrealisedPnl).toFixed(2)}`
+      const equityStr = acc.total == null ? '--' : `$${acc.total.toFixed(2)} USDT`
+
+      items.push(
+        { label: `合约资产净值: ${equityStr}`, enabled: false },
+        { label: `持仓浮动盈亏: ${pnlStr} (${trayCloseRate()})`, enabled: false },
+      )
+    }
+
+    // 持仓标的快速入口（如美光、微软、SpaceX）
+    if (acc?.openPositions && acc.openPositions.length > 0) {
+      acc.openPositions.slice(0, 5).forEach((pos) => {
+        const sideZh = pos.side === 'short' ? '空' : '多'
+        const posSign = pos.unrealisedPnl >= 0 ? '+' : '-'
+        const posPnlStr = `${posSign}$${Math.abs(pos.unrealisedPnl).toFixed(2)}`
+        const stockName = SYMBOL_NAMES[pos.symbol] || pos.symbol
+        items.push({
+          label: `  ${stockName} (${sideZh}${pos.leverage}x): ${posPnlStr}`,
+          click: () => navigateToMarketBoard(pos.contract),
+        })
+      })
+    }
+    items.push({ type: 'separator' })
+  }
+
+  // 3. 实时行情速览子菜单
+  if (cfg.showMarketInMenu && cachedTrayQuotes.length > 0) {
+    const quoteSubmenu: Electron.MenuItemConstructorOptions[] = cachedTrayQuotes.slice(0, 6).map((q) => {
+      const up = q.changePercent >= 0
+      const priceStr = q.price >= 100 ? q.price.toFixed(2) : q.price.toFixed(4)
+      return {
+        label: `${q.symbol}: $${priceStr} (${up ? '+' : ''}${q.changePercent.toFixed(2)}%)`,
+        click: () => navigateToMarketBoard(q.symbol),
+      }
+    })
+    quoteSubmenu.push({ type: 'separator' }, {
+      label: '打开行情看板查看全部...',
+      click: () => navigateToMarketBoard(),
+    })
+    items.push({
+      label: '实时行情速览',
+      submenu: quoteSubmenu,
+    })
+    items.push({ type: 'separator' })
+  }
+
+  // 4. 常用功能快捷入口
+  items.push(
+    { label: '打开行情看板', click: () => navigateToMarketBoard() },
+    { label: '显示 devNotes', click: () => mainWindow?.show() },
+    { label: '打开草稿纸', click: () => openScratchWindow() },
+  )
+
+  // 5. 托盘显示可配置快捷子菜单
+  items.push(
+    { type: 'separator' },
+    {
+      label: '托盘显示配置',
+      submenu: [
+        {
+          label: '状态栏: 浮动盈亏 + 内存 (如 -$106 · 83%)',
+          type: 'radio',
+          checked: cfg.titleMode === 'pnl_mem',
+          click: () => saveAndApplyTrayConfig({ titleMode: 'pnl_mem' }),
+        },
+        {
+          label: '状态栏: 仅持仓浮盈 (如 -$106)',
+          type: 'radio',
+          checked: cfg.titleMode === 'pnl',
+          click: () => saveAndApplyTrayConfig({ titleMode: 'pnl' }),
+        },
+        {
+          label: '状态栏: 仅账户总净值 (如 $674)',
+          type: 'radio',
+          checked: cfg.titleMode === 'equity',
+          click: () => saveAndApplyTrayConfig({ titleMode: 'equity' }),
+        },
+        {
+          label: '状态栏: 仅内存占用 (如 83%)',
+          type: 'radio',
+          checked: cfg.titleMode === 'memory',
+          click: () => saveAndApplyTrayConfig({ titleMode: 'memory' }),
+        },
+        {
+          label: '状态栏: 仅自选行情 (如 BTC)',
+          type: 'radio',
+          checked: cfg.titleMode === 'ticker',
+          click: () => saveAndApplyTrayConfig({ titleMode: 'ticker' }),
+        },
+        {
+          label: '状态栏: 仅显示图标 (不挂文字)',
+          type: 'radio',
+          checked: cfg.titleMode === 'none',
+          click: () => saveAndApplyTrayConfig({ titleMode: 'none' }),
+        },
+        { type: 'separator' },
+        {
+          label: '在右键菜单中显示行情与收益',
+          type: 'checkbox',
+          checked: cfg.showMarketInMenu,
+          click: (menuItem) => saveAndApplyTrayConfig({ showMarketInMenu: menuItem.checked }),
+        },
+        { type: 'separator' },
+        {
+          label: '刷新间隔: 每 5 秒',
+          type: 'radio',
+          checked: cfg.intervalSec === 5,
+          click: () => saveAndApplyTrayConfig({ intervalSec: 5 }),
+        },
+        {
+          label: '刷新间隔: 每 10 秒',
+          type: 'radio',
+          checked: cfg.intervalSec === 10,
+          click: () => saveAndApplyTrayConfig({ intervalSec: 10 }),
+        },
+        {
+          label: '刷新间隔: 每 30 秒',
+          type: 'radio',
+          checked: cfg.intervalSec === 30,
+          click: () => saveAndApplyTrayConfig({ intervalSec: 30 }),
+        },
+      ],
+    },
+    { type: 'separator' },
+    { label: '退出', click: () => app.quit() },
+  )
+
+  return items
+}
+
+function renderTrayTitleAndMenu(cfg: TrayStatusConfig, stat?: MemoryQuickStat | null) {
+  if (!tray) return
+
+  // 1. 托盘文字
+  if (process.platform === 'darwin') {
+    let title = ''
+    if (cfg.enabled) {
+      if (cfg.titleMode === 'memory') {
+        title = stat ? `${Math.round(stat.percent)}%` : ''
+      } else if (cfg.titleMode === 'pnl' || cfg.titleMode === 'pnl_mem' || cfg.titleMode === 'equity') {
+        // 账户模式：未配置不挂字，加载中/失败挂 --，只有真实快照才挂数字
+        const acc = trayAccountState === 'ready' ? cachedTrayAccount : null
+        const memStr = cfg.titleMode === 'pnl_mem' && stat ? `${Math.round(stat.percent)}%` : ''
+        let accountStr = ''
+        if (trayAccountState === 'loading' || trayAccountState === 'error') {
+          accountStr = '--'
+        } else if (trayAccountState === 'ready') {
+          if (cfg.titleMode === 'equity') {
+            accountStr = acc?.total == null ? '--' : `$${Math.round(acc.total)}`
+          } else if (acc?.unrealisedPnl == null) {
+            accountStr = '--'
+          } else {
+            const p = acc.unrealisedPnl
+            accountStr = `${p >= 0 ? '+' : '-'}$${Math.abs(Math.round(p))}`
+          }
+        }
+        title = [accountStr, memStr].filter(Boolean).join(' · ')
+      } else if (cfg.titleMode === 'ticker') {
+        const targetSym = (cfg.tickerSymbol || 'BTC').replace(/USDT$/i, '').toUpperCase()
+        const q = cachedTrayQuotes.find((x) => x.symbol.toUpperCase().includes(targetSym))
+        if (q) {
+          const p = q.price >= 1000 ? `${(q.price / 1000).toFixed(1)}k` : `${Math.round(q.price)}`
+          title = `${targetSym} $${p}`
+        } else if (stat) {
+          title = `${Math.round(stat.percent)}%`
+        }
+      }
+    }
+
+    if (title !== lastTrayTitle) {
+      lastTrayTitle = title
+      tray.setTitle(title)
+    }
+  }
+
+  // 2. 悬停气泡提示 (Tooltip)
+  const usedGB = stat ? (stat.usedBytes / 1024 ** 3).toFixed(1) : ''
+  const totalGB = stat ? (stat.totalBytes / 1024 ** 3).toFixed(1) : ''
+  let tip = 'devNotes'
+  if (stat) {
+    tip += `\n系统内存 ${stat.percent.toFixed(1)}% (${usedGB} / ${totalGB} GB)`
+  }
+  if (trayAccountState !== 'unconfigured') {
+    const acc = trayAccountState === 'ready' ? cachedTrayAccount : null
+    const equity = acc?.total == null ? '--' : `$${acc.total.toFixed(2)}`
+    const pnl = acc?.unrealisedPnl == null ? '--' : `${acc.unrealisedPnl >= 0 ? '+' : ''}$${acc.unrealisedPnl.toFixed(2)}`
+    const status = trayAccountStatusText()
+    tip += status ? `\n账户 ${status}` : ''
+    if (acc) tip += `\n合约净值 ${equity} | 浮盈 ${pnl}`
+  }
+  if (tip !== lastTrayTip) {
+    lastTrayTip = tip
+    tray.setToolTip(tip)
+  }
+
+  // 3. 构建并更新右键菜单。签名要把状态和错误文本算进去，否则 -- / 0 会被当成同一个菜单而不重绘
+  const menuSig = `${Math.round(stat?.percent ?? 0)}_${trayAccountState}_${trayAccountError}_${cachedTrayAccount?.updatedAt ?? 0}_${cachedTrayAccount?.unrealisedPnl ?? '-'}_${cachedTrayAccount?.total ?? '-'}_${cachedTrayAccount?.openPositions?.length ?? '-'}_${cachedTrayQuotes.length}_${cfg.titleMode}_${cfg.showMarketInMenu}`
+  if (menuSig !== lastTrayMenuSignature) {
+    lastTrayMenuSignature = menuSig
+    tray.setContextMenu(Menu.buildFromTemplate(buildTrayMenuTemplate(cfg, stat)))
+  }
+}
+
+/** 关闭状态显示时把托盘彻底还原成基础形态 */
+function resetTrayStatus() {
+  lastTrayTitle = ''
+  lastTrayTip = ''
+  lastTrayMenuSignature = ''
+  if (!tray) return
+  if (process.platform === 'darwin') tray.setTitle('')
+  tray.setToolTip('devNotes')
+  tray.setContextMenu(Menu.buildFromTemplate(buildTrayMenuTemplate(readTrayStatusConfig(), null)))
+}
+
+/** 按当前配置起/停托盘状态轮询 */
+function applyTrayStatusPolling() {
+  if (trayStatusTimer) {
+    clearInterval(trayStatusTimer)
+    trayStatusTimer = null
+  }
+  trayStatusGeneration++
+  const cfg = readTrayStatusConfig()
+  if (!cfg.enabled) {
+    resetTrayStatus()
+    return
+  }
+  void updateTrayStatus(cfg)
+  trayStatusTimer = setInterval(() => {
+    void updateTrayStatus(cfg)
+  }, cfg.intervalSec * 1000)
+}
+
+/**
+ * 账户快照状态：unconfigured 未配置凭据、loading 首次加载中、ready 有（可部分失败的）真实数据、
+ * error 一次都没拿到数据。托盘只把 ready 的快照当成真实数字，其余一律显示 --，
+ * 否则「账户请求挂了」会被渲染成 0 资产、无持仓。
+ */
+type TrayAccountState = 'unconfigured' | 'loading' | 'ready' | 'error'
+let trayAccountState: TrayAccountState = 'unconfigured'
+let trayAccountError = ''
+let trayAccountRequestSeq = 0
+let trayAccountInFlight = 0
+let lastTrayAccountFetchTime = 0
+
+const TRAY_ACCOUNT_MIN_INTERVAL_MS = 10_000
+
+function trayAccountStatusText() {
+  if (trayAccountState === 'ready') return cachedTrayAccount?.partial ? '部分数据不可用' : ''
+  if (trayAccountState === 'error') return trayAccountError ? `加载失败: ${trayAccountError}` : '账户加载失败'
+  if (trayAccountState === 'loading') return '账户加载中…'
+  return '未配置 Gate.io 只读凭据'
+}
+
+function trayCloseRate() {
+  const acc = cachedTrayAccount
+  if (!acc || acc.total == null || acc.unrealisedPnl == null) return '--'
+  if (!(acc.total > 0)) return '--'
+  return `${acc.unrealisedPnl >= 0 ? '+' : ''}${((acc.unrealisedPnl / (acc.total - acc.unrealisedPnl || 1)) * 100).toFixed(2)}%`
+}
+
+/**
+ * 凭据或托盘配置变化时统一作废：清掉账户与行情快照、重置节流时间戳并递增代际，
+ * 让还在飞的旧请求回来时对不上号而被丢弃。force 用于凭据保存/清除这种必须立刻回源的动作。
+ */
+function invalidateTrayMarket() {
+  trayStatusGeneration++
+  trayAccountRequestSeq++
+  trayAccountInFlight = 0
+  cachedTrayAccount = null
+  cachedTrayQuotes = []
+  lastMarketFetchTime = 0
+  lastTrayAccountFetchTime = 0
+  trayAccountState = hasGateCredentials() ? 'loading' : 'unconfigured'
+  trayAccountError = ''
+  lastTrayTitle = ''
+  lastTrayTip = ''
+  lastTrayMenuSignature = ''
+  if (tray) renderTrayTitleAndMenu(readTrayStatusConfig(), lastMemStat)
+}
+
+/** 触发一次账户刷新；已有请求在飞或未到节流间隔时直接复用/跳过。 */
+function refreshTrayAccount(force = false) {
+  if (!hasGateCredentials()) {
+    trayAccountState = 'unconfigured'
+    trayAccountError = ''
+    return
+  }
+  if (trayAccountInFlight > 0) return
+  if (!force && Date.now() - lastTrayAccountFetchTime < TRAY_ACCOUNT_MIN_INTERVAL_MS) return
+
+  const generation = trayStatusGeneration
+  const credentialGeneration = getGateCredentialGeneration()
+  const seq = ++trayAccountRequestSeq
+  lastTrayAccountFetchTime = Date.now()
+  trayAccountInFlight++
+  if (!cachedTrayAccount) trayAccountState = 'loading'
+  const isCurrent = () => seq === trayAccountRequestSeq
+    && generation === trayStatusGeneration
+    && credentialGeneration === getGateCredentialGeneration()
+
+  void fetchGateAccount().then((data) => {
+    if (!isCurrent()) return
+    cachedTrayAccount = data
+    trayAccountState = 'ready'
+    trayAccountError = ''
+  }).catch((cause) => {
+    if (!isCurrent()) return
+    cachedTrayAccount = null
+    trayAccountState = 'error'
+    trayAccountError = cause instanceof Error ? cause.message : '账户加载失败'
+  }).finally(() => {
+    trayAccountInFlight = Math.max(0, trayAccountInFlight - 1)
+    if (!isCurrent()) return
+    lastTrayMenuSignature = ''
+    renderTrayTitleAndMenu(readTrayStatusConfig(), lastMemStat)
+  })
+}
+
+async function updateTrayStatus(cfg: TrayStatusConfig) {
+  if (!tray) return
+  const generation = trayStatusGeneration
+  try {
+    const stat = await getMemoryQuickStat()
+    if (generation !== trayStatusGeneration) return
+    lastMemStat = stat
+
+    // 后台定期获取账户收益与行情（每 10 秒至多拉取一次，防止请求过密）
+    if (cfg.showMarketInMenu || cfg.titleMode !== 'memory') {
+      refreshTrayAccount()
+      const now = Date.now()
+      if (now - lastMarketFetchTime > 10_000) {
+        lastMarketFetchTime = now
+        void fetchMarketQuotes({
+          spot: ['BTCUSDT', 'ETHUSDT'],
+          contracts: ['BTCUSDT', 'ETHUSDT', 'MU_USDT', 'MSFT_USDT', 'SPCX_USDT'],
+        }).then((quotes) => {
+          if (generation !== trayStatusGeneration) return
+          cachedTrayQuotes = quotes
+          renderTrayTitleAndMenu(cfg, lastMemStat)
+        }).catch(() => {})
+      }
+    }
+
+    renderTrayTitleAndMenu(cfg, stat)
+  } catch {
+    // 忽略瞬态异常
+  }
+}
+
 function createTray() {
   const iconDir = path.join(__dirname, '../assets')
   // 只认带透明通道的格式:jpg 无 alpha,会把透明背景渲成不透明
@@ -1354,22 +1893,17 @@ function createTray() {
     return
   }
   
-  const contextMenu = Menu.buildFromTemplate([
-    { label: '显示 devNotes', click: () => mainWindow?.show() },
-    // 主窗口关掉是收进托盘，草稿纸是独立小窗，托盘里得单独给个入口
-    { label: '打开草稿纸', click: () => openScratchWindow() },
-    { type: 'separator' },
-    { label: '退出', click: () => app.quit() }
-  ])
-  
   tray.setToolTip('devNotes')
-  tray.setContextMenu(contextMenu)
+  tray.setContextMenu(Menu.buildFromTemplate(buildTrayMenuTemplate(readTrayStatusConfig(), null)))
   
   tray.on('click', () => {
     if (mainWindow) {
       mainWindow.isVisible() ? mainWindow.hide() : mainWindow.show()
     }
   })
+
+  // 托盘活着之后才轮得起状态条；配置关着或托盘没建成，这里都是空操作
+  applyTrayStatusPolling()
 }
 
 // 无边框之后窗口控制完全由渲染层的自绘按钮负责，必须作用在「发出请求的那个窗口」上。
@@ -1606,6 +2140,8 @@ function setupIpc() {
 
   /** 直接打开系统设置的辅助功能面板（用户拒绝过授权后，系统不再弹窗，只能这样引导） */
   ipcMain.handle('clipboard-open-accessibility', () => openAccessibilitySettings())
+  ipcMain.handle('permissions-get', () => ({ accessibilitySupported: process.platform === 'darwin', accessibility: isPasteTrusted(), pasteAvailable: isPasteAvailable(), platform: process.platform }))
+  ipcMain.handle('permissions-request-accessibility', () => requestPastePermission())
 
   /**
    * 选中即粘贴：写剪贴板 + 模拟 ⌘V，落进当前聚焦的那个输入框。
@@ -1756,6 +2292,47 @@ function setupIpc() {
     return await getProcessMemoryList()
   })
 
+  ipcMain.handle('system-disk-choose', async (event) => {
+    const owner = BrowserWindow.fromWebContents(event.sender)
+    return owner ? chooseDiskDirectory(owner) : null
+  })
+  ipcMain.handle('system-disk-scan', async (_, root: string) => {
+    if (typeof root !== 'string' || root.length > 4096) throw new Error('目录路径无效')
+    return scanDiskDirectory(root)
+  })
+  ipcMain.handle('system-disk-reveal', async (_, target: string) => {
+    if (typeof target !== 'string' || target.length > 4096) return false
+    revealDiskPath(target)
+    return true
+  })
+  ipcMain.handle('system-dev-tools', () => checkDeveloperTools())
+  ipcMain.handle('market-quotes', (_event, payload: { spot: string[]; contracts: string[] }) => {
+    if (!payload || !Array.isArray(payload.spot) || !Array.isArray(payload.contracts)) throw new Error('行情参数无效')
+    return fetchMarketQuotes({ spot: payload.spot.slice(0, 30), contracts: payload.contracts.slice(0, 30) })
+  })
+  ipcMain.handle('market-news', () => fetchMarketNews())
+  ipcMain.handle('market-candles', (_event, payload: { symbol: string; kind: 'contract' | 'spot' }) => {
+    if (!payload || typeof payload.symbol !== 'string' || !['contract', 'spot'].includes(payload.kind)) throw new Error('K 线参数无效')
+    return fetchMarketCandles(payload)
+  })
+  ipcMain.handle('market-account', () => fetchGateAccount())
+  ipcMain.handle('gate-credentials-status', () => gateCredentialStatus())
+  /* 保存/清除都要先作废旧凭据代际，再清托盘快照，最后立刻回源一次账户。 */
+  ipcMain.handle('gate-credentials-save', (_event, payload: { key: string; secret: string }) => {
+    invalidateGateCredentialGeneration()
+    const status = saveGateCredentials(payload)
+    invalidateTrayMarket()
+    refreshTrayAccount(true)
+    return status
+  })
+  ipcMain.handle('gate-credentials-clear', () => {
+    invalidateGateCredentialGeneration()
+    store.delete(GATE_CREDENTIALS_KEY)
+    setGateCredentials('', '')
+    invalidateTrayMarket()
+    return gateCredentialStatus()
+  })
+
   ipcMain.handle('system-kill-process', async (_, pid: number) => {
     return await killProcess(pid)
   })
@@ -1896,10 +2473,17 @@ function setupIpc() {
 
   // Store operations
   ipcMain.handle('store-get', (_, key: string) => {
+    if (isBulkKey(key)) return bulkGet(key)
     return store.get(key)
   })
 
   ipcMain.handle('store-set', (_, key: string, value: any) => {
+    if (isBulkKey(key)) {
+      bulkSet(key, value)
+      // 若 config.json 仍残留大 key 则剔除，保持 config.json 轻量
+      if (store.has(key)) store.delete(key)
+      return
+    }
     store.set(key, value)
     if (key === CLIPBOARD_HISTORY_KEY && Array.isArray(value)) {
       commitClipboardEntries(value, false)
@@ -1907,7 +2491,25 @@ function setupIpc() {
   })
 
   ipcMain.handle('store-delete', (_, key: string) => {
+    if (isBulkKey(key)) bulkDelete(key)
     store.delete(key)
+  })
+
+  // 托盘状态显示配置：写入即持久化，并立刻按新配置起/停轮询
+  ipcMain.handle('tray-status-get', () => readTrayStatusConfig())
+  ipcMain.handle('tray-status-set', (_, cfg: Partial<TrayStatusConfig> | null) => {
+    const current = readTrayStatusConfig()
+    const next: TrayStatusConfig = {
+      enabled: cfg?.enabled !== false,
+      intervalSec: cfg?.intervalSec === 10 || cfg?.intervalSec === 30 ? cfg.intervalSec : 5,
+      titleMode: cfg?.titleMode ?? current.titleMode,
+      tickerSymbol: cfg?.tickerSymbol ?? current.tickerSymbol,
+      showMarketInMenu: cfg?.showMarketInMenu !== false,
+    }
+    store.set(TRAY_STATUS_KEY, next)
+    invalidateTrayMarket()
+    applyTrayStatusPolling()
+    return next
   })
 
   // 剪贴板读写:打包后 file:// 环境下渲染进程 navigator.clipboard 不可靠,由主进程兜底
@@ -2227,10 +2829,16 @@ app.whenReady().then(async () => {
   installClipProtocolHandler()
 
   await applyProxyConfig(store)
-  createMainWindow()
-  createTray()
+  loadGateCredentials()
+  // IPC 通道必须在窗口与托盘创建前尽早挂载完毕，防止渲染层启动瞬间由于时序竞争出现 No handler registered
   setupIpc()
   setupAutoUpdater()
+  try {
+    createTray()
+  } catch (err) {
+    console.error('Failed to initialize tray:', err)
+  }
+  createMainWindow()
 
   // 处理启动参数中的文件(Windows 关联启动 / 命令行直接传路径)
   extractFilePaths(process.argv).forEach(queueOpenFile)
@@ -2267,6 +2875,7 @@ app.on('window-all-closed', () => {
 
 app.on('will-quit', () => {
   globalShortcut.unregisterAll()
+  flushBulkStoreSync()
   // 草稿纸是常驻置顶的小窗，退出时得一并收掉，否则会留下一个唤不回的窗口
   closeScratchWindow()
   closeClipboardWindow()

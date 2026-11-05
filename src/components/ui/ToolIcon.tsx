@@ -24,6 +24,7 @@ import {
   Fingerprint,
   Shuffle,
   Gauge,
+  ChartNoAxesCombined,
   Cpu,
   PenTool,
   Bot,
@@ -62,6 +63,8 @@ const ICON_MAP: Record<string, React.ComponentType<LucideProps>> = {
   'scratchpad': StickyNote,
   'speed-test': Gauge,
   'sys-inspector': Cpu,
+  'sys-suite': Cpu,
+  'market-board': ChartNoAxesCombined,
   'color-palette': Palette,
   "tool": PenTool
 }

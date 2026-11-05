@@ -1,6 +1,7 @@
 import React, { Suspense, lazy, useEffect, useRef, useState } from 'react'
 import { takeToolMode, subscribeToolMode, type ModeRequest } from '../utils/toolModeRequest'
 import { dlog } from '../utils/debugLog'
+import DevToolboxLoader from '../components/ui/DevToolboxLoader'
 
 /*
  * 所有工具按需加载（lazy）：用户打开哪个工具才加载那个模块，
@@ -10,7 +11,6 @@ const NotesTool          = lazy(() => import('../components/tools/NotesTool'))
 const JsonToolbox        = lazy(() => import('../components/tools/JsonToolbox'))
 const QrCodeTool         = lazy(() => import('../components/tools/QrCodeTool'))
 const LanTransferTool    = lazy(() => import('../components/tools/LanTransferTool'))
-const NetProbeTool       = lazy(() => import('../components/tools/NetProbeTool'))
 const FileHashTool       = lazy(() => import('../components/tools/FileHashTool'))
 const DataConvertTool    = lazy(() => import('../components/tools/DataConvertTool'))
 const ImageConvertTool   = lazy(() => import('../components/tools/ImageConvertTool'))
@@ -23,10 +23,7 @@ const WebsocketTool      = lazy(() => import('../components/tools/WebsocketTool'
 const TextTranslateTool  = lazy(() => import('../components/modules/text-translate/TextTranslateTool'))
 const SnippetsTool       = lazy(() => import('../components/modules/snippets/SnippetsTool'))
 const TextScratchpadTool = lazy(() => import('../components/tools/TextScratchpadTool'))
-const SpeedTestTool      = lazy(() => import('../components/tools/SpeedTestTool'))
-const SystemInspectorTool= lazy(() => import('../components/tools/SystemInspectorTool'))
 const BitwiseTool        = lazy(() => import('../components/tools/BitwiseTool'))
-const PortKillerTool     = lazy(() => import('../components/tools/PortKillerTool'))
 const ColorPaletteTool   = lazy(() => import('../components/tools/ColorPaletteTool'))
 const AiChatTool         = lazy(() => import('../components/modules/ai-chat/AiChatTool'))
 
@@ -55,7 +52,6 @@ const toolComponents: Record<string, React.ComponentType<any>> = {
   'markdown-notes': NotesTool,
   'json-toolbox':   JsonToolbox,
   'lan-transfer':   LanTransferTool,
-  'net-probe':      NetProbeTool,
   'file-hash':      FileHashTool,
   'data-convert':   DataConvertTool,
   'text-translate': TextTranslateTool,
@@ -70,19 +66,19 @@ const toolComponents: Record<string, React.ComponentType<any>> = {
   'websocket':      WebsocketTool,
   'bitwise':        BitwiseTool,
   'snippets':       SnippetsTool,
-  'port-killer':    PortKillerTool,
   'scratchpad':     TextScratchpadTool,
   'signature':      SignatureTool,
-  'speed-test':     SpeedTestTool,
-  'sys-inspector':  SystemInspectorTool,
   'color-palette':  ColorPaletteTool,
   'ai-chat':        AiChatTool,
 }
 
 function ToolLoading() {
   return (
-    <div className="flex h-full items-center justify-center bg-white text-slate-400 text-sm font-medium">
-      正在加载工具…
+    <div className="flex h-full items-center justify-center">
+      <DevToolboxLoader
+        title="正在加载工具…"
+        subtitle="按需加载该工具的模块代码（lazy chunk）"
+      />
     </div>
   )
 }

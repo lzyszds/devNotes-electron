@@ -37,12 +37,8 @@ export const tools: Tool[] = [
   { id: 'signature', name: '签名工具', icon: 'ShieldCheck', description: 'HMAC-SHA256 生成与常量时间比对', category: 'dev' },
   { id: 'password', name: '密码生成', icon: 'Lock', description: '随机密码生成器', category: 'calculator' },
   { id: 'bitwise', name: '进制与位运算', icon: 'Binary', description: '2/8/10/16 进制换算、位掩码、位移、大小端与 IEEE 754 解析', category: 'calculator' },
-  { id: 'port-killer', name: '端口占用排查', icon: 'Network', description: '查出谁占了端口，一键强杀腾出来', category: 'dev' },
   { id: 'file-hash', name: '文件哈希校验', icon: 'Fingerprint', description: 'MD5 / SHA 校验，支持对照期望值与两文件比对', category: 'encode' },
   { id: 'data-convert', name: '数据互转', icon: 'Shuffle', description: 'JSON / YAML / TOML / CSV / .env / URL Query 互相转换', category: 'encode' },
-  { id: 'net-probe', name: '网络探测', icon: 'Activity', description: 'Ping、TCP 端口、HTTP(S) 探测，看延迟、丢包并判断卡在哪一层', category: 'dev' },
-  { id: 'speed-test', name: '网络测速', icon: 'Gauge', description: '实时测速网络下载速度、上传速度、Ping 时延与网络抖动', category: 'dev' },
-  { id: 'sys-inspector', name: '电脑配置检测', icon: 'Cpu', description: '电脑硬件配置检测、实时内存占用空间与各应用进程内存排行', category: 'dev' },
   { id: 'color-palette', name: 'CSS 颜色与设计', icon: 'Palette', description: 'HEX / RGB / HSL / OKLCH 互转 · 屏幕吸管 · 无障碍对比度与阴影生成', category: 'image' },
   { id: 'scratchpad', name: '草稿纸', icon: 'StickyNote', description: '常驻置顶小窗，随手记临时地址、Token 与待办', category: 'productivity' },
 ]
@@ -56,7 +52,34 @@ export const standaloneModules: Tool[] = [
   { id: 'ai-chat', name: '智聊', icon: 'Bot', description: '多轮会话 · 深度思考 · 预设专家 · 流式打字 · 一键插回笔记', category: 'productivity' },
   { id: 'text-translate', name: '文本翻译', icon: 'Languages', description: '中英日韩等 20 种语言互译，支持自动检测源语言', category: 'productivity' },
   { id: 'snippets', name: '代码片段库', icon: 'FileCode2', description: '收藏常用命令与配置模板，左侧列表随时搜索复制', category: 'productivity' },
+  { id: 'sys-suite', name: '电脑配置', icon: 'Cpu', description: '硬件配置检测、内存排行、网速测试、网络探测与端口占用排查，统一一个大模块', category: 'productivity' },
+  { id: 'market-board', name: '合约与股票', icon: 'ChartNoAxesCombined', description: '加密永续合约与股票自选行情看板', category: 'productivity' },
 ]
+
+/* ---------------- 电脑配置大模块 ---------------- */
+
+/** 电脑配置大模块的一级路由 id（左栏独立入口，不进工具库） */
+export const computerSuiteId = 'sys-suite'
+
+/**
+ * 电脑配置大模块内部四件套。category 填 computerSuiteId 是为了
+ * 统计分类聚合时落到一个独立桶里，而不是被误算进其他工具类。
+ * 子工具 id 不出现在 tools / ToolPage 里 —— 外部所有旧 id 深链接
+ * （快捷键、旧 localStorage、旧计数）由 App.openTool 统一重定向到本模块。
+ */
+export type ComputerSuiteToolId = 'sys-inspector' | 'disk-analyzer' | 'dev-environment' | 'speed-test' | 'net-probe' | 'port-killer'
+
+export const computerSuiteTools: Tool[] = [
+  { id: 'sys-inspector', name: '电脑配置检测', icon: 'Cpu', description: '硬件配置、实时内存构成与应用内存占用排行', category: computerSuiteId },
+  { id: 'disk-analyzer', name: '磁盘空间分析', icon: 'HardDrive', description: '选择目录只读扫描，找出占用空间较大的文件与目录', category: computerSuiteId },
+  { id: 'dev-environment', name: '开发环境检查', icon: 'Terminal', description: '检查 Git、Node.js、Python、Java 与 Docker 的版本和路径', category: computerSuiteId },
+  { id: 'speed-test', name: '网络测速', icon: 'Gauge', description: '实时测速网络下载速度、上传速度、Ping 时延与网络抖动', category: computerSuiteId },
+  { id: 'net-probe', name: '网络探测', icon: 'Activity', description: 'Ping、TCP 端口、HTTP(S) 探测，看延迟、丢包并判断卡在哪一层', category: computerSuiteId },
+  { id: 'port-killer', name: '端口占用排查', icon: 'Network', description: '查出谁占了端口，一键强杀腾出来', category: computerSuiteId },
+]
+
+/** 子工具历史上以普通工具形式存在，这些旧 id 深链接都要解析到 sys-suite */
+export const computerSuiteLegacyIds = computerSuiteTools.map((t) => t.id)
 
 /** 工具库 + 独立模块。按 id 查名字/图标的地方用它，别用 tools，否则独立模块会漏掉 */
 export const allModules: Tool[] = [...tools, ...standaloneModules]

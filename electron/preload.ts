@@ -4,7 +4,19 @@ import type { HttpResult, PingEvent, TcpResult } from './netProbe'
 import type { LocalInterface, PublicIpResult } from './netInfo'
 import type { HashProgress, HashResult } from './hashFile'
 import type { UpdateStatus } from './updater'
-import type { SystemHardwareInfo, AppProcessMemory } from './systemInfo'
+import type { MarketNewsItem, MarketQuote, GateAccountData } from './marketData'
+import type { SystemHardwareInfo, AppProcessMemory, DiskScanEntry, DeveloperToolStatus } from './systemInfo'
+
+export type TrayTitleMode = 'pnl_mem' | 'pnl' | 'equity' | 'memory' | 'ticker' | 'none'
+
+/** 托盘状态显示配置（与 main.ts 里的 TrayStatusConfig 保持一致，仅类型搬运） */
+interface TrayStatusConfig {
+  enabled: boolean
+  intervalSec: 5 | 10 | 30
+  titleMode?: TrayTitleMode
+  tickerSymbol?: string
+  showMarketInMenu?: boolean
+}
 
 // Expose API to renderer process
 contextBridge.exposeInMainWorld('electronAPI', {
@@ -42,6 +54,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('clipboard-request-permission'),
   clipboardOpenAccessibility: (): Promise<void> =>
     ipcRenderer.invoke('clipboard-open-accessibility'),
+  permissionsGet: () => ipcRenderer.invoke('permissions-get'),
+  permissionsRequestAccessibility: (): Promise<boolean> => ipcRenderer.invoke('permissions-request-accessibility'),
   clipboardPaste: (
     payload: {
       type: 'text' | 'image' | 'file'
@@ -77,11 +91,31 @@ contextBridge.exposeInMainWorld('electronAPI', {
   portsInspect: (ports: number[]) => ipcRenderer.invoke('ports-inspect', ports),
   portsKill: (pid: number) => ipcRenderer.invoke('ports-kill', pid),
 
+  /* 托盘状态显示（内存占用等），配置在设置面板里改，主进程持久化并轮询 */
+  trayStatusGet: (): Promise<TrayStatusConfig> => ipcRenderer.invoke('tray-status-get'),
+  trayStatusSet: (cfg: Partial<TrayStatusConfig>): Promise<TrayStatusConfig> =>
+    ipcRenderer.invoke('tray-status-set', cfg),
+
   /* 电脑硬件配置与实时进程内存检测 */
   systemInfo: (): Promise<SystemHardwareInfo> => ipcRenderer.invoke('system-info'),
   systemProcessList: (): Promise<AppProcessMemory[]> => ipcRenderer.invoke('system-process-list'),
   systemKillProcess: (pid: number): Promise<{ ok: boolean; pid: number; error?: string }> =>
     ipcRenderer.invoke('system-kill-process', pid),
+  systemDiskChoose: (): Promise<string | null> => ipcRenderer.invoke('system-disk-choose'),
+  systemDiskScan: (root: string): Promise<DiskScanEntry[]> => ipcRenderer.invoke('system-disk-scan', root),
+  systemDiskReveal: (target: string): Promise<boolean> => ipcRenderer.invoke('system-disk-reveal', target),
+  systemDevTools: (): Promise<DeveloperToolStatus[]> => ipcRenderer.invoke('system-dev-tools'),
+  marketQuotes: (payload: { spot: string[]; contracts: string[] }): Promise<MarketQuote[]> =>
+    ipcRenderer.invoke('market-quotes', payload),
+  marketNews: (): Promise<MarketNewsItem[]> => ipcRenderer.invoke('market-news'),
+  marketCandles: (payload: { symbol: string; kind: 'contract' | 'spot' }): Promise<number[]> => ipcRenderer.invoke('market-candles', payload),
+  marketAccount: (): Promise<GateAccountData> => ipcRenderer.invoke('market-account'),
+  gateCredentialsStatus: (): Promise<{ configured: boolean; encryptionAvailable: boolean }> =>
+    ipcRenderer.invoke('gate-credentials-status'),
+  gateCredentialsSave: (payload: { key: string; secret: string }): Promise<{ configured: boolean; encryptionAvailable: boolean }> =>
+    ipcRenderer.invoke('gate-credentials-save', payload),
+  gateCredentialsClear: (): Promise<{ configured: boolean; encryptionAvailable: boolean }> =>
+    ipcRenderer.invoke('gate-credentials-clear'),
   
   // Notifications
   showNotification: (title: string, body: string, options?: { focusMainWindow?: boolean }) =>

@@ -6,6 +6,7 @@ import {
   Keyboard,
   Languages,
   PanelLeft,
+  ShieldCheck,
   Settings2,
   Volume2,
   X,
@@ -20,6 +21,7 @@ import TranslateApiPanel from "../settings/TranslateApiPanel";
 import AiChannelPanel from "../settings/AiChannelPanel";
 import SpeechPanel from "../settings/SpeechPanel";
 import InterfacePanel from "../settings/InterfacePanel";
+import PermissionsPanel from "../settings/PermissionsPanel";
 import Tooltip from "../ui/Tooltip";
 
 export type SettingsSection =
@@ -30,7 +32,8 @@ export type SettingsSection =
   | "backup"
   | "ai-channel"
   | "translate-api"
-  | "speech";
+  | "speech"
+  | "permissions";
 
 export interface SettingsModalProps {
   open: boolean;
@@ -92,6 +95,7 @@ export const SETTINGS_SECTIONS: SectionMeta[] = [
     hint: "朗读音色、语速与音量",
     icon: Volume2,
   },
+  { id: "permissions", label: "权限管理", hint: "系统权限状态与授权引导", icon: ShieldCheck },
 ];
 
 export default function SettingsModal({
@@ -238,6 +242,11 @@ export default function SettingsModal({
             {visitedSections.has("speech") && (
               <div className={section === "speech" ? "block" : "hidden"}>
                 <SpeechPanel />
+              </div>
+            )}
+            {visitedSections.has("permissions") && (
+              <div className={section === "permissions" ? "block" : "hidden"}>
+                <PermissionsPanel />
               </div>
             )}
           </div>

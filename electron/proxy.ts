@@ -80,6 +80,7 @@ export interface NetFetchOptions {
   headers?: Record<string, string>
   body?: string
   timeout?: number
+  encoding?: 'utf-8' | 'gbk'
 }
 
 export interface NetFetchResult {
@@ -96,6 +97,16 @@ export interface NetFetchResult {
  */
 const MAX_RESPONSE_BYTES = 10 * 1024 * 1024
 
+/**
+ * 现代桌面浏览器通用 User-Agent。
+ * 历史原因曾写死 Chrome/120.0.0.0，已被部分交易平台与 CDN（如 Gate.io、Cloudflare WAF）
+ * 加入爬虫黑名单直接返回 HTTP 403 forbidden request(1)。
+ * 这里统一切换为现代主流浏览器 UA，并且不要默认带 Referer: translate.google.com，
+ * 避免非翻译类外部 API（行情、AI、新闻等）因防盗链 / 跨域校验被拒。
+ */
+export const DEFAULT_USER_AGENT =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+
 /** 使用 Electron net 模块发起请求，自动走 session 代理配置 */
 export function fetchViaNet(options: NetFetchOptions): Promise<NetFetchResult> {
   return new Promise((resolve) => {
@@ -105,11 +116,9 @@ export function fetchViaNet(options: NetFetchOptions): Promise<NetFetchResult> {
       session: session.defaultSession,
     })
 
-    const headers = {
-      'User-Agent':
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      Accept: 'application/json',
-      Referer: 'https://translate.google.com/',
+    const headers: Record<string, string> = {
+      'User-Agent': DEFAULT_USER_AGENT,
+      Accept: 'application/json, text/plain, */*',
       ...options.headers,
     }
 
@@ -122,7 +131,7 @@ export function fetchViaNet(options: NetFetchOptions): Promise<NetFetchResult> {
       request.abort()
     }, timeoutMs)
 
-    let responseData = ''
+    const responseChunks: Buffer[] = []
     let receivedBytes = 0
     let settled = false
     const settle = (result: NetFetchResult) => {
@@ -141,7 +150,7 @@ export function fetchViaNet(options: NetFetchOptions): Promise<NetFetchResult> {
           request.abort()
           return
         }
-        responseData += chunk.toString()
+        responseChunks.push(Buffer.from(chunk))
       })
 
       response.on('end', () => {
@@ -149,7 +158,7 @@ export function fetchViaNet(options: NetFetchOptions): Promise<NetFetchResult> {
         settle({
           ok: status >= 200 && status < 300,
           status,
-          text: responseData,
+          text: new TextDecoder(options.encoding || 'utf-8').decode(Buffer.concat(responseChunks)),
         })
       })
 
@@ -200,7 +209,13 @@ export async function testGoogleTranslate(store: Store): Promise<{
     'https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=zh-CN&dt=t&dj=1&q=hi'
 
   const proxy = await resolveProxyForUrl(testUrl)
-  const result = await fetchViaNet({ url: testUrl, timeout: 15000 })
+  const result = await fetchViaNet({
+    url: testUrl,
+    timeout: 15000,
+    headers: {
+      Referer: 'https://translate.google.com/',
+    },
+  })
 
   const translated = parseGtxResponse(result.text)
 
@@ -257,9 +272,8 @@ export function fetchViaNetStream(options: StreamFetchOptions): { abort: () => v
     session: session.defaultSession,
   })
 
-  const headers = {
-    'User-Agent':
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  const headers: Record<string, string> = {
+    'User-Agent': DEFAULT_USER_AGENT,
     Accept: 'text/event-stream',
     ...options.headers,
   }

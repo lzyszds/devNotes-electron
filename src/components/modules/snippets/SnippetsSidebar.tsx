@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Plus, Search, Star, Tags, X } from 'lucide-react'
 import { ToolEmpty } from '../../ui'
+import DevToolboxLoader from '../../ui/DevToolboxLoader'
 import { useSnippets, filterSnippets, type Snippet } from './useSnippets'
 import SnippetListContextMenu from './SnippetListContextMenu'
 
@@ -132,7 +133,10 @@ export default function SnippetsSidebar({
 
         <div className="flex-1 overflow-y-auto p-1.5 space-y-1">
           {!loaded ? (
-            <p className="text-xs text-[#787774] p-4 text-center">正在载入…</p>
+            <div className="py-10 flex items-center justify-center">
+              {/* 窄侧栏列表区：小号图形，不带文案（标题栏已有「片段库」） */}
+              <DevToolboxLoader size={44} title="" subtitle="" />
+            </div>
           ) : !filtered.length ? (
             <div className="h-48 flex flex-col items-center justify-center text-center px-4 text-xs text-[#787774]">
               <ToolEmpty

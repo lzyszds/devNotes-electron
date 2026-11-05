@@ -9,6 +9,7 @@ import ToolIcon from '../components/ui/ToolIcon'
 import CountUp from '../components/ui/CountUp'
 import WindowControls from '../components/layout/WindowControls'
 import Tooltip from '../components/ui/Tooltip'
+import VirtualList from '../components/ui/VirtualList'
 
 interface StatsProps {
   usageStats: Record<string, number>
@@ -60,6 +61,11 @@ function calcStreak(dailyLog: Record<string, number>): number {
 }
 
 const TREND_DAYS = 14
+
+/** 模块排行行定高 + 视口默认露出前 8 名：其余靠卡内滚动（虚拟列表），
+    排行不再把整页撑长，和电脑配置页的排行榜同一套做法 */
+const RANKING_ROW_H = 56
+const RANKING_DEFAULT_ROWS = 8
 
 /**
  * 使用统计与分析页。
@@ -337,60 +343,69 @@ export default function Stats({ usageStats, onBack, onOpenTool }: StatsProps) {
                   还没有使用记录 —— 回工作台用几次工具，这里就会有排行了
                 </p>
               ) : (
-                <div className="divide-y divide-black/[0.04]">
-                  {model.used.map((item, index) => {
-                    const share = Math.round((item.count / (model.total || 1)) * 100)
-                    return (
-                      <button
-                        key={item.mod.id}
-                        type="button"
-                        onClick={() => onOpenTool?.(item.mod.id)}
-                        className="w-full px-5 py-2.5 flex items-center gap-3 text-left hover:bg-black/[0.03] transition-colors cursor-pointer group"
-                      >
-                        <span className="w-4 text-[11px] font-mono text-[#9A9996] flex-shrink-0 text-right">
-                          {index + 1}
-                        </span>
-                        <span
-                          className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors ${index === 0
-                            ? "bg-[#1C1C1C] text-white"
-                            : "bg-black/[0.04] text-[#787774] group-hover:text-[#191918]"
-                            }`}
+                <div
+                  style={{
+                    height: Math.min(model.used.length, RANKING_DEFAULT_ROWS) * RANKING_ROW_H,
+                  }}
+                >
+                  <VirtualList
+                    className="h-full"
+                    items={model.used}
+                    rowHeight={RANKING_ROW_H}
+                    getRowKey={(item) => item.mod.id}
+                    renderRow={(item, index) => {
+                      const share = Math.round((item.count / (model.total || 1)) * 100)
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => onOpenTool?.(item.mod.id)}
+                          className="w-full h-full px-5 flex items-center gap-3 text-left hover:bg-black/[0.03] transition-colors cursor-pointer group border-b border-black/[0.04]"
                         >
-                          <ToolIcon toolId={item.mod.id} className="w-4 h-4" />
-                        </span>
-                        <span className="w-32 flex-shrink-0 min-w-0">
-                          <span className="block text-xs font-semibold text-[#191918] truncate">
-                            {item.mod.name}
+                          <span className="w-4 text-[11px] font-mono text-[#9A9996] flex-shrink-0 text-right">
+                            {index + 1}
                           </span>
-                          <span className="block text-[10px] text-[#9A9996] mt-0.5 truncate">
-                            {[
-                              item.lastAt ? relativeTime(item.lastAt) : '较早使用',
-                              (toolActions[item.mod.id] ?? 0) > 0 &&
-                                `${toolActions[item.mod.id]} 次操作`,
-                              (usageTime[item.mod.id] ?? 0) > 0 &&
-                                `用过 ${formatDuration(usageTime[item.mod.id])}`,
-                            ]
-                              .filter(Boolean)
-                              .join(' · ')}
-                          </span>
-                        </span>
-                        <span className="flex-1 h-1.5 rounded-full bg-black/[0.05] overflow-hidden">
                           <span
-                            className="block h-full rounded-full bg-[#1C1C1C] transition-[width] duration-500 ease-out"
-                            style={{
-                              width: barsIn
-                                ? `${Math.max(4, (item.count / (model.max || 1)) * 100)}%`
-                                : '0%',
-                            }}
-                          />
-                        </span>
-                        <span className="w-16 text-right flex-shrink-0 tabular-nums">
-                          <span className="text-xs font-bold text-[#191918]">{item.count}</span>
-                          <span className="text-[10px] font-mono text-[#9A9996] ml-1.5">{share}%</span>
-                        </span>
-                      </button>
-                    )
-                  })}
+                            className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors ${index === 0
+                              ? "bg-[#1C1C1C] text-white"
+                              : "bg-black/[0.04] text-[#787774] group-hover:text-[#191918]"
+                              }`}
+                          >
+                            <ToolIcon toolId={item.mod.id} className="w-4 h-4" />
+                          </span>
+                          <span className="w-32 flex-shrink-0 min-w-0">
+                            <span className="block text-xs font-semibold text-[#191918] truncate">
+                              {item.mod.name}
+                            </span>
+                            <span className="block text-[10px] text-[#9A9996] mt-0.5 truncate">
+                              {[
+                                item.lastAt ? relativeTime(item.lastAt) : '较早使用',
+                                (toolActions[item.mod.id] ?? 0) > 0 &&
+                                  `${toolActions[item.mod.id]} 次操作`,
+                                (usageTime[item.mod.id] ?? 0) > 0 &&
+                                  `用过 ${formatDuration(usageTime[item.mod.id])}`,
+                              ]
+                                .filter(Boolean)
+                                .join(' · ')}
+                            </span>
+                          </span>
+                          <span className="flex-1 h-1.5 rounded-full bg-black/[0.05] overflow-hidden">
+                            <span
+                              className="block h-full rounded-full bg-[#1C1C1C] transition-[width] duration-500 ease-out"
+                              style={{
+                                width: barsIn
+                                  ? `${Math.max(4, (item.count / (model.max || 1)) * 100)}%`
+                                  : '0%',
+                              }}
+                            />
+                          </span>
+                          <span className="w-16 text-right flex-shrink-0 tabular-nums">
+                            <span className="text-xs font-bold text-[#191918]">{item.count}</span>
+                            <span className="text-[10px] font-mono text-[#9A9996] ml-1.5">{share}%</span>
+                          </span>
+                        </button>
+                      )
+                    }}
+                  />
                 </div>
               )}
 

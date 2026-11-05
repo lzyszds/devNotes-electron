@@ -121,6 +121,8 @@ export interface ToolShellProps {
    * 满高双栏这类自己要管滚动的布局传 false。
    */
   scroll?: boolean;
+  /** 复杂工作台已有自己的主工具栏时隐藏通用标题栏。 */
+  showHeader?: boolean;
   /** 追加类名 */
   contentClassName?: string;
   /** 浮层（历史记录等）。必须挂在根节点下 —— .history-overlay 靠 absolute 定位 */
@@ -142,6 +144,7 @@ export default function ToolShell({
   actions,
   rail,
   scroll = true,
+  showHeader = true,
   contentClassName = "",
   overlay,
   children,
@@ -154,7 +157,7 @@ export default function ToolShell({
          * 左侧：状态点 + 小图标块 + 标题 + 徽章；右侧：原顶栏的 actions。
          * h-10 保证 h-8/h-9 的操作按钮都放得下；窄屏时标题截断、操作区横向滚动。
          */}
-        <header className="h-10 px-3 md:px-4 bg-[#FFFFFF] border-b border-[#E6E6E3] flex items-center justify-between gap-3 flex-shrink-0 min-w-0">
+        {showHeader && <header className="h-10 px-3 md:px-4 bg-[#FFFFFF] border-b border-[#E6E6E3] flex items-center justify-between gap-3 flex-shrink-0 min-w-0">
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <span
               className={`h-5 w-5 rounded-[5px] flex items-center justify-center flex-shrink-0 transition-colors ${
@@ -176,11 +179,17 @@ export default function ToolShell({
               {actions}
             </div>
           )}
-        </header>
+        </header>}
 
         {scroll ? (
           <div
-            className={`flex-1 min-h-0 overflow-y-auto p-4 flex flex-col gap-4 bg-[#FFFFFF] ${contentClassName}`}
+            /*
+             * scrollbar-gutter: stable —— 滚动条弹出这个项目是占位当量（index.css
+             * 里自定义了 5px 的 webkit 滚动条，不是 macOS overlay）。不预留的话，
+             * 内容高度每次跨过可视高度的瞬间（如进程数变化、徽章出现/消失）
+             * 滚动条插进/退场，整页内容宽度抖 5px，居中卡片跟着左右变形。
+             */
+            className={`flex-1 min-h-0 overflow-y-auto p-4 flex flex-col gap-4 bg-[#FFFFFF] [scrollbar-gutter:stable] ${contentClassName}`}
           >
             {rail && (
               <div className="bg-[#FFFFFF] border border-[#E6E6E3] rounded-lg px-3 py-1.5 flex items-center justify-between gap-3 flex-wrap">

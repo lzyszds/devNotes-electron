@@ -1,20 +1,17 @@
-import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useEffect, useState, useMemo, useCallback, type ReactNode } from 'react'
 import {
   Cpu,
-  HardDrive,
-  Activity,
   RefreshCw,
   Search,
   CheckCircle2,
   AlertTriangle,
   XCircle,
-  Clock,
-  Layers,
   Sparkles,
   Wand2,
 } from 'lucide-react'
 import type { SystemHardwareInfo, AppProcessMemory } from '../../types/system'
 import ToolShell from '../ui/ToolShell'
+import VirtualList from '../ui/VirtualList'
 import { useToast } from '../ui/Toast'
 
 /** 格式化字节大小 */
@@ -42,7 +39,7 @@ function MemoryTrend({
 }) {
   if (samples.length < 2 || totalGB <= 0) {
     return (
-      <div className="h-8 flex items-center text-[10px] text-[#787774]/60">
+      <div className="h-8 flex items-center text-[10px] text-[#9A9996]">
         开启自动刷新后，这里会出现已用 / 可用两条趋势线
       </div>
     )
@@ -72,7 +69,7 @@ function MemoryTrend({
           vectorEffect="non-scaling-stroke"
         />
       </svg>
-      <div className="flex items-center gap-3 mt-0.5 text-[10px] text-[#787774]">
+      <div className="flex items-center gap-3 mt-0.5 text-[10px] text-[#9A9996]">
         <span className="flex items-center gap-1">
           <span className="w-2 h-0.5 bg-[#1C1C1C] inline-block" /> 已用
         </span>
@@ -95,6 +92,119 @@ function formatUptime(seconds: number): string {
   if (days > 0) return `${days} 天 ${hours} 小时 ${minutes} 分`
   if (hours > 0) return `${hours} 小时 ${minutes} 分`
   return `${minutes} 分钟`
+}
+
+/* ==================== 页面级设计 token ==================== */
+/*
+ * 本页的颜色只有三层：暖灰中性色（取自全局 Notion 暖灰体系）+ ink（#1C1C1C）
+ * + 一套三档语义色。语义色不放类名散着写，全走 MEM_ACCENT —— 仪表、徽章、
+ * 数值着色从同一份取，健康档位变化时整页一起换，不会各说各话。
+ */
+const SECTION_LABEL = 'text-[10px] font-semibold tracking-[0.12em] text-[#9A9996]'
+
+/** 环形仪表的周长（r=52），dasharray 按占用百分比切它 */
+const MEM_GAUGE_C = 2 * Math.PI * 52
+
+type MemAccent = 'calm' | 'warn' | 'danger'
+
+const MEM_ACCENT: Record<
+  MemAccent,
+  { main: string; pill: string; icon: typeof CheckCircle2 }
+> = {
+  calm: {
+    main: '#10B981',
+    pill: 'text-emerald-700 bg-emerald-50 border-emerald-200/70',
+    icon: CheckCircle2,
+  },
+  warn: {
+    main: '#F59E0B',
+    pill: 'text-amber-700 bg-amber-50 border-amber-200/70',
+    icon: AlertTriangle,
+  },
+  danger: {
+    main: '#F43F5E',
+    pill: 'text-rose-700 bg-rose-50 border-rose-200/70',
+    icon: XCircle,
+  },
+}
+
+/** 统一的卡片表面：暖灰 hairline + 极轻阴影，全页同一张皮 */
+const PANEL =
+  'min-w-0 rounded-2xl border border-[#E9E7E2] bg-white shadow-[0_1px_2px_rgba(28,28,27,0.04)]'
+
+/* ---------------- 内存排行榜（虚拟列表版） ---------------- */
+
+/** 行内容是「名字 + PID」两级，定高 56px 刚好；变高行虚拟列表会跳 */
+const LEADERBOARD_ROW_H = 56
+/** 视口默认露出前 8 名，剩下的靠内部滚动（虚拟化），列表不再把整页撑长 */
+const LEADERBOARD_DEFAULT_ROWS = 8
+/** TOP 8 合计占比条的分段色：灰阶往肯德尔绿的过渡，与页面其他图表同族 */
+const TOP_SHARE_COLORS = [
+  '#1C1C1C',
+  '#334155',
+  '#475569',
+  '#64748B',
+  '#94A3B8',
+  '#0F766E',
+  '#2DD4BF',
+  '#99F6E4',
+]
+
+/** 前三名奖牌徽章（金银铜），第四名起退回普通灰底数字 */
+const MEDAL_CLASSES = [
+  'bg-gradient-to-br from-amber-300 to-amber-500 text-white shadow-xs',
+  'bg-gradient-to-br from-zinc-300 to-zinc-400 text-white shadow-xs',
+  'bg-gradient-to-br from-orange-200 to-orange-400 text-orange-900 shadow-xs',
+]
+
+/** 主卡右侧的数据格：小标签 + 数值 + 提示行，三行一套 */
+function StatCell({
+  label,
+  value,
+  hint,
+  valueClass = '',
+}: {
+  label: string
+  value: ReactNode
+  hint?: ReactNode
+  valueClass?: string
+}) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-[10px] text-[#9A9996] whitespace-nowrap">{label}</dt>
+      <dd
+        className={`mt-1.5 text-base font-bold text-[#191918] tabular-nums leading-none truncate ${valueClass}`}
+      >
+        {value}
+      </dd>
+      {hint != null && <p className="text-[10px] text-[#9A9996] mt-1 truncate">{hint}</p>}
+    </div>
+  )
+}
+
+/** 次卡里的键值行：左标签右值，值超长截断（title 兜底看全文） */
+function KVRow({
+  label,
+  value,
+  mono = false,
+  title,
+}: {
+  label: string
+  value: ReactNode
+  mono?: boolean
+  title?: string
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 min-w-0">
+      <dt className="text-[11px] text-[#9A9996] shrink-0">{label}</dt>
+      <dd
+        className={`text-[11px] text-[#191918] truncate min-w-0 text-right ${mono ? 'font-mono' : ''}`}
+        title={title ?? (typeof value === 'string' ? value : undefined)}
+      >
+        {value}
+      </dd>
+    </div>
+  )
 }
 
 export default function SystemInspectorTool({ isActive = true }: { isActive?: boolean }) {
@@ -163,6 +273,10 @@ export default function SystemInspectorTool({ isActive = true }: { isActive?: bo
         usedMemBytes: usedMemEstimate,
         memUsagePercent: 58.0,
         uptimeSeconds: Math.floor(performance.now() / 1000) + 3600 * 5,
+        // 浏览器环境拿不到真实磁盘，跟其他字段一样给个稳定的示意值
+        diskTotalBytes: 512 * 1024 ** 3,
+        diskUsedBytes: 292 * 1024 ** 3,
+        diskFreeBytes: 220 * 1024 ** 3,
       })
 
       // 模拟进程列表
@@ -248,6 +362,13 @@ export default function SystemInspectorTool({ isActive = true }: { isActive?: bo
     )
   }, [processes, search])
 
+  /* ---------------- 排行榜可视化相关派生值 ---------------- */
+
+  // 占比条的 100% 对应榜首：第一名满条，往下按相对大小收
+  // （直接用 memPercent 会把只占物理内存 0.3% 的应用画成看不见的细缝）
+  const maxRssBytes = filteredProcesses[0]?.rssBytes ?? 0
+  const topProcessRow = filteredProcesses[0]
+
   // 内存健康度分析
   const memUsage = hardware?.memUsagePercent || 0
   /*
@@ -265,19 +386,21 @@ export default function SystemInspectorTool({ isActive = true }: { isActive?: bo
   /*
    * 徽章优先听内核的：压力等级是 jetsam 在用的同一份读数，说紧张才是真紧张。
    * 没拿到（非 macOS / OID 缺失）再退回「可用内存占比」这个静态近似 ——
-   * 两条口径平时结论一致，冲突时以内核为准（内核说警告，UI 不敢说健康）
+   * 两条口径平时结论一致，冲突时以内核为准（内核说警告，UI 不敢说健康）。
+   * 档位只判定一次，样式全走 MEM_ACCENT token。
    */
   const level = hardware?.memoryPressureLevel
-  const memStatus =
+  const memStatus: { label: string; accent: MemAccent } =
     level != null && level >= 3
-      ? { label: '内存极度紧张', color: 'text-rose-600', bg: 'bg-rose-50 border-rose-200', icon: XCircle }
+      ? { label: '内存极度紧张', accent: 'danger' }
       : level === 2
-        ? { label: '内存占用偏高', color: 'text-amber-600', bg: 'bg-amber-50 border-amber-200', icon: AlertTriangle }
+        ? { label: '内存占用偏高', accent: 'warn' }
         : level == null && availablePercent < 10
-          ? { label: '内存极度紧张', color: 'text-rose-600', bg: 'bg-rose-50 border-rose-200', icon: XCircle }
+          ? { label: '内存极度紧张', accent: 'danger' }
           : level == null && availablePercent < 25
-            ? { label: '内存占用偏高', color: 'text-amber-600', bg: 'bg-amber-50 border-amber-200', icon: AlertTriangle }
-            : { label: '内存运行健康', color: 'text-emerald-600', bg: 'bg-emerald-50 border-emerald-200', icon: CheckCircle2 }
+            ? { label: '内存占用偏高', accent: 'warn' }
+            : { label: '内存运行健康', accent: 'calm' }
+  const memAccent = MEM_ACCENT[memStatus.accent]
 
   /* ---- 内存构成与优化面板的派生值（仅 macOS 有页桶细分，其他平台整块不渲染） ---- */
   const totalBytes = hardware?.totalMemBytes ?? 0
@@ -296,6 +419,19 @@ export default function SystemInspectorTool({ isActive = true }: { isActive?: bo
   const pctOf = (bytes: number) =>
     totalBytes > 0 ? `${((bytes / totalBytes) * 100).toFixed(2)}%` : '0%'
 
+  /* ---------------- 排行榜 TOP8 合计占比（依赖 totalBytes，所以放在这里） ---------------- */
+  const topShareRows = useMemo(() => filteredProcesses.slice(0, 8), [filteredProcesses])
+  const topShareBytes = topShareRows.reduce((sum, p) => sum + p.rssBytes, 0)
+  const topSharePercent = totalBytes > 0 ? (topShareBytes / totalBytes) * 100 : 0
+
+  /** 磁盘使用率：没读到卷信息时为 null，卡片以占位显示 */
+  const diskUsagePercent =
+    hardware?.diskTotalBytes != null &&
+    hardware?.diskUsedBytes != null &&
+    hardware.diskTotalBytes > 0
+      ? (hardware.diskUsedBytes / hardware.diskTotalBytes) * 100
+      : null
+
   return (
     <ToolShell
       icon={Cpu}
@@ -309,7 +445,7 @@ export default function SystemInspectorTool({ isActive = true }: { isActive?: bo
             className={`px-2.5 py-1 text-xs rounded-md transition-colors cursor-pointer border ${
               autoRefresh
                 ? 'bg-[#1C1C1C] text-white border-[#1C1C1C]'
-                : 'bg-white text-[#787774] border-black/[0.08] hover:text-[#191918]'
+                : 'bg-white text-[#787774] border-[#E6E6E3] hover:text-[#191918]'
             }`}
           >
             {autoRefresh ? '自动刷新中 (4s)' : '自动刷新：关'}
@@ -326,344 +462,415 @@ export default function SystemInspectorTool({ isActive = true }: { isActive?: bo
         </div>
       }
     >
-      <div className="max-w-6xl mx-auto space-y-4 pb-8">
+      <div className="max-w-6xl mx-auto w-full space-y-4 pb-10">
         {errorMsg && (
-          <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-600">
+          <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl text-xs text-rose-600">
             {errorMsg}
           </div>
         )}
 
-        {/* 顶部三栏核心指标卡 */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {/* 1. 内存占用空间 */}
-          <div className="bg-white border border-black/[0.06] rounded-xl p-4 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-[#787774] flex items-center gap-1.5">
-                <HardDrive className="w-3.5 h-3.5 text-[#191918]" />
-                内存占用空间
-              </span>
-              <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full border ${memStatus.bg} ${memStatus.color} flex items-center gap-1`}>
-                <memStatus.icon className="w-3 h-3" />
+        {/* ============ Row 1 · 主角：内存健康仪表 + 系统环境 ============ */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* 主角卡：页面只有这一个该被记住的读数，其余数据全部小一号退到右侧 */}
+          <section className={`lg:col-span-2 ${PANEL} p-5`}>
+            <div className="flex items-center justify-between mb-5">
+              <span className={SECTION_LABEL}>内存占用</span>
+              <span
+                className={`inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full border text-[11px] font-medium ${memAccent.pill}`}
+              >
+                <memAccent.icon className="w-3 h-3" />
                 {memStatus.label}
               </span>
             </div>
-            <div className="flex items-baseline gap-2 mb-2">
-              <span className="text-2xl font-bold font-mono tracking-tight text-[#191918]">
-                {hardware ? formatBytes(hardware.usedMemBytes) : '--'}
-              </span>
-              <span className="text-xs text-[#787774]">
-                / {hardware ? formatBytes(hardware.totalMemBytes) : '--'} ({memUsage}%)
-              </span>
-            </div>
-            {/* 内存百分比进度条（used 现在是活动监视器口径，超过 90% 才是真满） */}
-            <div className="w-full h-2 bg-black/[0.05] rounded-full overflow-hidden mb-3">
-              <div
-                className={`h-full rounded-full transition-all duration-300 ${
-                  memUsage > 90 ? 'bg-rose-500' : memUsage > 72 ? 'bg-amber-500' : 'bg-[#1C1C1C]'
-                }`}
-                style={{ width: `${memUsage}%` }}
-              />
-            </div>
-            <div className="flex items-center justify-between text-[11px] text-[#787774]">
-              <span>可用内存（含可回收缓存）</span>
-              <span className="font-mono font-medium text-[#191918]">
-                {hardware ? formatBytes(hardware.availableMemBytes) : '--'}
-              </span>
-            </div>
-            {/* macOS 再补一行内核自己评的内存压力等级 —— 这是 jetsam 在用的
-                同一份读数，「系统到底紧不紧张」以它为最终裁判 */}
-            {hardware?.memoryPressureLevel != null && (
-              <div className="flex items-center justify-between text-[11px] text-[#787774] mt-1">
-                <span>内核内存压力等级</span>
-                <span
-                  className={`font-mono font-medium ${
-                    hardware.memoryPressureLevel >= 3
-                      ? 'text-rose-600'
-                      : hardware.memoryPressureLevel === 2
-                        ? 'text-amber-600'
-                        : 'text-emerald-600'
-                  }`}
-                >
-                  {hardware.memoryPressureLevel >= 3
-                    ? '临界'
-                    : hardware.memoryPressureLevel === 2
-                      ? '警告'
-                      : '正常'}
-                  （{hardware.memoryPressureLevel}）
-                </span>
+
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-10">
+              {/* 环形仪表：颜色随健康档位一起换 */}
+              <div className="relative w-40 h-40 shrink-0">
+                <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90">
+                  <circle cx="60" cy="60" r="52" fill="none" stroke="#EFEDE9" strokeWidth="9" />
+                  <circle
+                    cx="60"
+                    cy="60"
+                    r="52"
+                    fill="none"
+                    stroke={memAccent.main}
+                    strokeWidth="9"
+                    strokeLinecap="round"
+                    strokeDasharray={`${(Math.min(100, Math.max(0, memUsage)) / 100) * MEM_GAUGE_C} ${MEM_GAUGE_C}`}
+                    className="transition-all duration-500"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                  <span className="text-[10px] text-[#9A9996]">已用</span>
+                  <span className="text-[32px] leading-none font-bold text-[#191918] tabular-nums tracking-tight mt-1">
+                    {memUsage < 10 ? memUsage.toFixed(1) : Math.round(memUsage)}
+                    <span className="text-[13px] font-semibold text-[#9A9996] ml-0.5">%</span>
+                  </span>
+                  <span className="text-[10px] font-mono tabular-nums text-[#787774] mt-1.5 whitespace-nowrap">
+                    {hardware ? formatBytes(hardware.usedMemBytes) : '--'} /{' '}
+                    {hardware ? formatBytes(hardware.totalMemBytes) : '--'}
+                  </span>
+                </div>
               </div>
-            )}
-          </div>
 
-          {/* 2. 处理器与平台架构 */}
-          <div className="bg-white border border-black/[0.06] rounded-xl p-4 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-[#787774] flex items-center gap-1.5">
-                <Cpu className="w-3.5 h-3.5 text-[#191918]" />
-                处理器 CPU
-              </span>
-              <span className="text-[11px] font-mono font-medium text-[#787774] bg-black/[0.04] px-1.5 py-0.5 rounded">
-                {hardware?.arch.toUpperCase()}
-              </span>
+              {/* 指标格 */}
+              <dl className="flex-1 min-w-0 w-full max-w-md grid grid-cols-2 gap-x-8 gap-y-5">
+                <StatCell
+                  label="可用内存（含可回收缓存）"
+                  value={hardware ? formatBytes(hardware.availableMemBytes) : '--'}
+                  hint={`占总内存 ${availablePercent.toFixed(0)}%`}
+                />
+                <StatCell
+                  label="应用内存 TOP 1"
+                  value={topProcessRow ? formatBytes(topProcessRow.rssBytes) : '--'}
+                  hint={topProcessRow ? topProcessRow.displayName : '打开自动刷新后采样'}
+                />
+                <StatCell
+                  label="Swap 已用"
+                  value={swapUsedBytes > 0 ? formatBytes(swapUsedBytes) : '0 B'}
+                  hint={hardware?.swapUsedBytes != null ? '换页多说明有过内存挤兑' : '仅 macOS 可探测'}
+                />
+                <StatCell
+                  label="内核内存压力"
+                  value={
+                    hardware?.memoryPressureLevel != null
+                      ? hardware.memoryPressureLevel >= 3
+                        ? '临界'
+                        : hardware.memoryPressureLevel === 2
+                          ? '警告'
+                          : '正常'
+                      : '—'
+                  }
+                  hint={
+                    hardware?.memoryPressureLevel != null
+                      ? `等级 ${hardware.memoryPressureLevel} · jetsam 同源读数`
+                      : '仅 macOS 提供'
+                  }
+                  valueClass={
+                    hardware?.memoryPressureLevel != null && hardware.memoryPressureLevel >= 3
+                      ? 'text-rose-600'
+                      : hardware?.memoryPressureLevel === 2
+                        ? 'text-amber-600'
+                        : ''
+                  }
+                />
+              </dl>
             </div>
-            <h4 className="text-sm font-bold text-[#191918] truncate mb-1" title={hardware?.cpuModel}>
-              {hardware?.cpuModel || '检测中...'}
-            </h4>
-            <div className="flex items-center gap-3 text-xs text-[#787774] mb-3">
-              <span>核心数: <strong className="text-[#191918] font-mono">{hardware?.cpuCores || '--'}</strong> 核</span>
-              {hardware?.cpuSpeedMhz ? (
-                <span>基准主频: <strong className="text-[#191918] font-mono">{(hardware.cpuSpeedMhz / 1000).toFixed(2)}</strong> GHz</span>
-              ) : null}
-            </div>
-            <div className="flex items-center justify-between text-[11px] text-[#787774] pt-2 border-t border-black/[0.04]">
-              <span>主机名</span>
-              <span className="font-mono text-[#191918] truncate max-w-[140px]">
-                {hardware?.hostname || '--'}
-              </span>
-            </div>
-          </div>
+          </section>
 
-          {/* 3. 系统版本与运行状态 */}
-          <div className="bg-white border border-black/[0.06] rounded-xl p-4 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-[#787774] flex items-center gap-1.5">
-                <Layers className="w-3.5 h-3.5 text-[#191918]" />
-                系统环境
-              </span>
-              <span className="text-[11px] font-medium text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
+          {/* 系统环境：次卡 */}
+          <section className={`${PANEL} p-5 flex flex-col`}>
+            <div className="flex items-center justify-between">
+              <span className={SECTION_LABEL}>系统环境</span>
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-emerald-700">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                 在线
               </span>
             </div>
-            <h4 className="text-sm font-bold text-[#191918] truncate mb-1">
-              {hardware ? `${hardware.platformName} (${hardware.platform})` : '检测中...'}
-            </h4>
-            <p className="text-xs text-[#787774] truncate mb-3" title={hardware?.osRelease}>
-              内核版本: <span className="font-mono">{hardware?.osRelease || '--'}</span>
+            <p className="mt-4 text-sm font-bold text-[#191918] truncate">
+              {hardware ? hardware.platformName : '检测中…'}
+              <span className="ml-1.5 text-[11px] font-mono font-normal text-[#9A9996]">
+                {hardware?.platform ?? ''}
+              </span>
             </p>
-            <div className="flex items-center justify-between text-[11px] text-[#787774] pt-2 border-t border-black/[0.04]">
-              <span className="flex items-center gap-1">
-                <Clock className="w-3 h-3" />
-                连续运行时间
-              </span>
-              <span className="font-medium text-[#191918]">
-                {hardware ? formatUptime(hardware.uptimeSeconds) : '--'}
-              </span>
-            </div>
-          </div>
+            <p className="text-[11px] font-mono text-[#787774] truncate mt-1" title={hardware?.osRelease}>
+              {hardware?.osRelease || '--'}
+            </p>
+            <dl className="mt-4 pt-3 border-t border-[#F0EFEC] space-y-2.5">
+              <KVRow label="主机名" value={hardware?.hostname || '--'} mono />
+              <KVRow label="架构" value={hardware?.arch.toUpperCase() ?? '--'} mono />
+              <KVRow label="连续运行" value={hardware ? formatUptime(hardware.uptimeSeconds) : '--'} />
+            </dl>
+          </section>
         </div>
 
-        {/* 4. 内存构成与释放（仅 macOS 有页桶细分） */}
-        {hardware?.wiredBytes != null && (
-          <div className="bg-white border border-black/[0.06] rounded-xl p-4 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
-            <div className="flex items-center justify-between mb-2.5">
-              <span className="text-xs font-semibold text-[#787774] flex items-center gap-1.5">
-                <Activity className="w-3.5 h-3.5 text-[#191918]" />
-                内存构成与优化
-              </span>
-              {swapUsedBytes > 0 && (
-                <span
-                  className={`text-[11px] font-mono px-1.5 py-0.5 rounded ${
-                    swapUsedBytes > 4 * 1024 ** 3
-                      ? 'text-rose-600 bg-rose-50'
-                      : swapUsedBytes > 2 * 1024 ** 3
-                        ? 'text-amber-600 bg-amber-50'
-                        : 'text-[#787774] bg-black/[0.04]'
-                  }`}
-                >
-                  Swap 已用 {formatBytes(swapUsedBytes)}
-                </span>
-              )}
-            </div>
-
-            {/* 堆叠条：联线 / 活跃 / 压缩 / 文件缓存 / 真空闲，一眼看出哪些能被回收 */}
-            <div className="w-full h-3 flex rounded-full overflow-hidden bg-black/[0.06] mb-2">
-              <div className="bg-[#1C1C1C]" style={{ width: pctOf(wiredBytes) }} title="联线（内核常驻，不可回收）" />
-              <div className="bg-zinc-500" style={{ width: pctOf(appActiveBytes) }} title="活跃应用内存" />
-              <div className="bg-teal-500" style={{ width: pctOf(compressedBytes) }} title="压缩池" />
-              <div className="bg-teal-200" style={{ width: pctOf(cachedFilesBytes) }} title="文件缓存（可随时回收）" />
-              <div className="bg-black/[0.04]" style={{ width: pctOf(freeBytes) }} title="真空闲" />
-            </div>
-
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-[#787774] mb-3">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-[#1C1C1C] shrink-0" />
-                联线 {formatBytes(wiredBytes)}
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-zinc-500 shrink-0" />
-                活跃 {formatBytes(appActiveBytes)}
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-teal-500 shrink-0" />
-                压缩 {formatBytes(compressedBytes)}
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-teal-200 shrink-0" />
-                缓存 {formatBytes(cachedFilesBytes)}
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-zinc-200 shrink-0" />
-                空闲 {formatBytes(freeBytes)}
+        {/* ============ Row 2 · 硬盘剩余 + 内存构成与优化 ============ */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <section className={`${PANEL} p-5`}>
+            <div className="flex items-center justify-between">
+              <span className={SECTION_LABEL}>硬盘剩余</span>
+              <span className="text-[10px] font-mono text-[#9A9996] bg-[#F3F3F1] px-1.5 py-0.5 rounded-md">
+                {hardware?.diskTotalBytes ? `共 ${formatBytes(hardware.diskTotalBytes)}` : '--'}
               </span>
             </div>
 
-            <div className="flex flex-col md:flex-row gap-4 pt-3 border-t border-black/[0.06]">
-              <div className="flex-1 min-w-0">
-                <div className="text-[11px] text-[#787774] mb-1">
-                  趋势（最近 {trend.length} 次采样，自动刷新 4s 一点）
-                </div>
-                <MemoryTrend samples={trend} totalGB={totalGB} />
+            <p className="mt-4 flex items-baseline gap-2 min-w-0">
+              <span className="text-[30px] leading-none font-bold text-[#191918] tabular-nums tracking-tight">
+                {hardware?.diskFreeBytes ? formatBytes(hardware.diskFreeBytes) : '--'}
+              </span>
+              <span className="text-[11px] text-[#787774] shrink-0">剩余</span>
+            </p>
+
+            <div className="mt-4 pt-3 border-t border-[#F0EFEC]">
+              {/* 使用率条：语义同内存卡 —— 超 90% 红、超 72% 黄，剩下的交给 ink */}
+              <div className="w-full h-1.5 bg-[#F1F0EE] rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{
+                    width: `${diskUsagePercent ?? 0}%`,
+                    background: diskUsagePercent != null && diskUsagePercent > 90
+                      ? '#F43F5E'
+                      : diskUsagePercent != null && diskUsagePercent > 72
+                        ? '#F59E0B'
+                        : 'linear-gradient(to right, #A8A29E, #1C1C1C)',
+                  }}
+                />
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-4">
+                <StatCell
+                  label="已用"
+                  value={
+                    diskUsagePercent != null
+                      ? `${formatBytes(hardware!.diskUsedBytes!)}（${diskUsagePercent.toFixed(0)}%）`
+                      : '--'
+                  }
+                  hint="家目录所在卷"
+                />
+                <StatCell
+                  label="可用"
+                  value={hardware?.diskFreeBytes ? formatBytes(hardware.diskFreeBytes) : '--'}
+                  hint={hardware?.diskFreeBytes ? '低于 10% 时会变红' : '当前环境不可探测'}
+                />
+              </div>
+            </div>
+          </section>
+
+          {/* 构成卡：仅 macOS 有页桶细分，其他平台整个不渲染 */}
+          {hardware?.wiredBytes != null && (
+            <section className={`lg:col-span-2 ${PANEL} p-5 flex flex-col`}>
+              <div className="flex items-center justify-between">
+                <span className={SECTION_LABEL}>内存构成与优化</span>
+                {swapUsedBytes > 0 && (
+                  <span
+                    className={`text-[10px] font-mono px-1.5 py-0.5 rounded-md ${
+                      swapUsedBytes > 4 * 1024 ** 3
+                        ? 'text-rose-700 bg-rose-50'
+                        : swapUsedBytes > 2 * 1024 ** 3
+                          ? 'text-amber-700 bg-amber-50'
+                          : 'text-[#787774] bg-[#F3F3F1]'
+                    }`}
+                  >
+                    Swap 已用 {formatBytes(swapUsedBytes)}
+                  </span>
+                )}
               </div>
 
-              {hardware.memoryReleaseSupported && (
-                <div className="shrink-0 md:w-64">
-                  <button
-                    type="button"
-                    onClick={handleReleaseMemory}
-                    disabled={releasing}
-                    className="w-full px-3 py-1.5 bg-[#1C1C1C] text-white text-xs font-medium rounded-md hover:bg-black transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
-                  >
-                    <Wand2 className="w-3.5 h-3.5" />
-                    {releasing ? '正在清理…（等管理员密码）' : '释放可回收内存'}
-                  </button>
-                  <p className="text-[10px] text-[#787774]/80 mt-1.5 leading-relaxed">
-                    执行系统 purge，只清文件缓存（上图青色段），会弹出管理员密码框；
-                    不会结束任何应用，缓存也会随使用慢慢回来。真正省内存靠进程榜里的「结束」。
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+              {/* 堆叠条：单色相 emerald 渐变，越浅=越能被回收
+                  （浅绿段=点「释放内存」清掉的那部分），不混第二族色相 */}
+              <div className="mt-4 w-full h-2.5 flex rounded-full overflow-hidden bg-[#EFEDE9]">
+                <div className="bg-[#064E3B]" style={{ width: pctOf(wiredBytes) }} title="联线（内核常驻，不可回收）" />
+                <div className="bg-[#059669]" style={{ width: pctOf(appActiveBytes) }} title="活跃应用内存" />
+                <div className="bg-[#10B981]" style={{ width: pctOf(compressedBytes) }} title="压缩池" />
+                <div className="bg-[#6EE7B7]" style={{ width: pctOf(cachedFilesBytes) }} title="文件缓存（可随时回收）" />
+                <div className="bg-[#E9E8E4]" style={{ width: pctOf(freeBytes) }} title="真空闲" />
+              </div>
 
-        {/* 下方：应用内存占用排行榜 (用户明确指令) */}
-        <div className="bg-white border border-black/[0.06] rounded-xl overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
-          {/* 表头与搜索 */}
-          <div className="px-4 py-3 border-b border-black/[0.06] flex items-center justify-between gap-3 bg-[#F9F9F8]">
-            <div className="flex items-center gap-2">
-              <Activity className="w-4 h-4 text-[#191918]" />
-              <h3 className="text-xs font-bold text-[#191918] tracking-tight">
-                内存占用应用排行 (TOP 50)
+              <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-[10px] text-[#787774]">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-[#064E3B] shrink-0" />
+                  联线 <span className="font-mono tabular-nums">{formatBytes(wiredBytes)}</span>
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-[#059669] shrink-0" />
+                  活跃 <span className="font-mono tabular-nums">{formatBytes(appActiveBytes)}</span>
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-[#10B981] shrink-0" />
+                  压缩 <span className="font-mono tabular-nums">{formatBytes(compressedBytes)}</span>
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-[#6EE7B7] shrink-0" />
+                  缓存 <span className="font-mono tabular-nums">{formatBytes(cachedFilesBytes)}</span>
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-[#E9E8E4] shrink-0 ring-1 ring-black/[0.06]" />
+                  空闲 <span className="font-mono tabular-nums">{formatBytes(freeBytes)}</span>
+                </span>
+              </div>
+
+              <div className="mt-4 pt-4 border-t border-[#F0EFEC] flex flex-col md:flex-row gap-5">
+                <div className="flex-1 min-w-0">
+                  <div className="text-[10px] text-[#9A9996] mb-1.5">
+                    趋势（最近 {trend.length} 次采样 · 自动刷新 4s 一点）
+                  </div>
+                  <MemoryTrend samples={trend} totalGB={totalGB} />
+                </div>
+
+                {hardware.memoryReleaseSupported && (
+                  <div className="shrink-0 md:w-60">
+                    <button
+                      type="button"
+                      onClick={handleReleaseMemory}
+                      disabled={releasing}
+                      className="w-full px-3 py-1.5 bg-[#1C1C1C] text-white text-xs font-medium rounded-lg hover:bg-black transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                    >
+                      <Wand2 className="w-3.5 h-3.5" />
+                      {releasing ? '正在清理…（等管理员密码）' : '释放可回收内存'}
+                    </button>
+                    <p className="text-[10px] text-[#9A9996] mt-2 leading-relaxed">
+                      执行系统 purge，只清文件缓存（浅绿段），会弹管理员密码框；不会结束任何应用，缓存随后会慢慢回来。
+                    </p>
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+        </div>
+
+        {/* ============ Row 3 · 应用内存排行榜 ============ */}
+        <section className={`${PANEL} overflow-hidden`}>
+          <div className="px-4 py-3 border-b border-[#F0EFEC] flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <h3 className="text-xs font-bold text-[#191918] tracking-tight shrink-0">
+                内存占用应用排行榜
               </h3>
-              <span className="text-[11px] font-mono text-[#787774] bg-black/[0.05] px-1.5 py-0.2 rounded-full">
-                共 {processes.length} 个应用
+              <span className="text-[10px] font-mono text-[#9A9996] bg-[#F3F3F1] px-2 py-0.5 rounded-full whitespace-nowrap">
+                {processes.length} 个应用
+              </span>
+              <span className="hidden md:inline text-[10px] text-[#9A9996] whitespace-nowrap">
+                默认展示前 8 · 滚动查看全部
               </span>
             </div>
 
-            <div className="relative w-56">
+            <div className="relative w-52 shrink-0">
               <Search className="w-3.5 h-3.5 text-[#9A9996] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="搜索应用或 PID..."
-                className="w-full pl-8 pr-3 h-7 text-xs bg-white border border-black/[0.08] rounded-md outline-none focus:border-black text-[#191918] placeholder-[#9A9996]"
+                className="w-full pl-8 pr-3 h-7 text-xs bg-[#F3F3F1] border border-transparent rounded-lg outline-none focus:bg-white focus:border-black/[0.08] focus:ring-2 focus:ring-black/[0.06] text-[#191918] placeholder-[#9A9996] transition-colors"
               />
             </div>
           </div>
 
-          {/* 列表内容 */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-black/[0.06] bg-[#F9F9F8] text-[#787774]">
-                  <th className="py-2 px-4 font-semibold w-12 text-center">排名</th>
-                  <th className="py-2 px-4 font-semibold">应用程序 / 进程名</th>
-                  <th className="py-2 px-4 font-semibold w-28">子进程数</th>
-                  <th className="py-2 px-4 font-semibold w-36">内存占用空间</th>
-                  <th className="py-2 px-4 font-semibold w-40">物理内存占比</th>
-                  <th className="py-2 px-4 font-semibold w-24 text-right">操作</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-black/[0.04]">
-                {filteredProcesses.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="py-8 text-center text-xs text-[#787774]">
-                      {loading ? '正在扫描系统进程与内存数据...' : '没有匹配的应用程序'}
-                    </td>
-                  </tr>
-                ) : (
-                  filteredProcesses.map((proc, idx) => (
-                    <tr
-                      key={`${proc.name}-${idx}`}
-                      className={`hover:bg-black/[0.02] transition-colors ${
-                        proc.isCurrentApp ? 'bg-amber-50/40' : ''
+          {/* TOP 8 合计占用分段条 */}
+          {topShareRows.length > 0 && (
+            <div className="px-4 pt-3.5 pb-1 flex items-center gap-3">
+              <div className="flex-1 h-2 flex rounded-full overflow-hidden bg-[#EFEDE9]">
+                {topShareRows.map((proc, i) => {
+                  const share = totalBytes > 0 ? (proc.rssBytes / totalBytes) * 100 : 0
+                  return (
+                    <div
+                      key={`${proc.name}-share-${i}`}
+                      style={{
+                        width: `${share}%`,
+                        background: TOP_SHARE_COLORS[i % TOP_SHARE_COLORS.length],
+                      }}
+                      title={`${proc.displayName} · ${formatBytes(proc.rssBytes)} · 占物理内存 ${proc.memPercent}%`}
+                    />
+                  )
+                })}
+              </div>
+              <span className="shrink-0 text-[10px] font-mono text-[#9A9996] whitespace-nowrap">
+                前 {topShareRows.length} 合计占用 {topSharePercent.toFixed(1)}%
+              </span>
+            </div>
+          )}
+
+          {filteredProcesses.length === 0 ? (
+            <div className="h-24 flex items-center justify-center text-xs text-[#9A9996]">
+              {loading ? '正在扫描系统进程与内存数据...' : '没有匹配的应用程序'}
+            </div>
+          ) : (
+            <div
+              style={{
+                height:
+                  Math.min(filteredProcesses.length, LEADERBOARD_DEFAULT_ROWS) * LEADERBOARD_ROW_H,
+              }}
+            >
+              <VirtualList
+                className="h-full"
+                items={filteredProcesses}
+                rowHeight={LEADERBOARD_ROW_H}
+                getRowKey={(proc, idx) => `${proc.name}-${idx}`}
+                renderRow={(proc, idx) => {
+                  /*
+                   * 行模板（56px 定高）：[排名] [头像] [应用名 / PID] [内存] [相对条 + 占比] [操作]。
+                   * 「结束」默认隐身、悬停现形 —— 一排常驻红字比数据本身还抢眼。
+                   */
+                  const relPercent = maxRssBytes > 0 ? (proc.rssBytes / maxRssBytes) * 100 : 0
+                  const killing = killingPid === proc.pids[0]
+                  return (
+                    <div
+                      className={`group h-full flex items-center gap-3 px-4 border-b border-[#F0EFEC] last:border-b-0 transition-colors ${
+                        proc.isCurrentApp ? 'bg-[#FFF9EF]' : 'hover:bg-[#FAFAF9]'
                       }`}
+                      title={proc.name}
                     >
-                      {/* 排名 */}
-                      <td className="py-2.5 px-4 text-center font-mono font-bold text-[#787774]">
-                        {idx + 1}
-                      </td>
-
-                      {/* 应用程序名称 */}
-                      <td className="py-2.5 px-4">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-md bg-black/[0.05] flex items-center justify-center font-bold text-[10px] text-[#191918] shrink-0">
-                            {proc.displayName.slice(0, 1).toUpperCase()}
+                      <div className="w-8 flex justify-center shrink-0">
+                        {idx < 3 ? (
+                          <div
+                            className={`w-6 h-6 rounded-full text-[11px] font-bold flex items-center justify-center ${
+                              MEDAL_CLASSES[idx]
+                            }`}
+                          >
+                            {idx + 1}
                           </div>
-                          <div className="min-w-0">
-                            <div className="font-semibold text-[#191918] truncate flex items-center gap-1.5">
-                              {proc.displayName}
-                              {proc.isCurrentApp && (
-                                <span className="text-[10px] bg-[#1C1C1C] text-white px-1.5 py-0.2 rounded font-normal flex items-center gap-0.5">
-                                  <Sparkles className="w-2.5 h-2.5" /> 本应用
-                                </span>
-                              )}
-                            </div>
-                            <span className="text-[11px] text-[#787774] font-mono truncate block" title={proc.name}>
-                              PID: {proc.pids.slice(0, 3).join(', ')}{proc.pids.length > 3 ? ` 等共 ${proc.pids.length} 个` : ''}
+                        ) : (
+                          <span className="font-mono font-bold text-xs text-[#9A9996]">{idx + 1}</span>
+                        )}
+                      </div>
+
+                      <div className="w-6 h-6 rounded-md bg-[#F3F3F1] flex items-center justify-center font-bold text-[10px] text-[#57534E] shrink-0">
+                        {proc.displayName.slice(0, 1).toUpperCase()}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 text-[13px] font-semibold text-[#191918]">
+                          <span className="truncate">{proc.displayName}</span>
+                          {proc.isCurrentApp && (
+                            <span className="text-[10px] bg-[#1C1C1C] text-white px-1.5 py-0.2 rounded font-normal flex items-center gap-0.5 shrink-0">
+                              <Sparkles className="w-2.5 h-2.5" /> 本应用
                             </span>
-                          </div>
+                          )}
                         </div>
-                      </td>
+                        <div className="text-[10px] text-[#9A9996] font-mono truncate">
+                          PID: {proc.pids.slice(0, 3).join(', ')}
+                          {proc.pids.length > 3 ? ` 等共 ${proc.pids.length} 个` : ''}
+                        </div>
+                      </div>
 
-                      {/* 子进程数 */}
-                      <td className="py-2.5 px-4 font-mono text-[#787774]">
-                        {proc.pids.length} 个
-                      </td>
-
-                      {/* 内存占用空间 */}
-                      <td className="py-2.5 px-4 font-mono font-bold text-[#191918]">
+                      <div className="w-20 text-right shrink-0 font-mono font-semibold text-xs text-[#191918] tabular-nums">
                         {formatBytes(proc.rssBytes)}
-                      </td>
+                      </div>
 
-                      {/* 占比条 */}
-                      <td className="py-2.5 px-4">
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 h-1.5 bg-black/[0.06] rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-[#1C1C1C] rounded-full"
-                              style={{ width: `${Math.min(100, proc.memPercent * 3)}%` }}
-                            />
-                          </div>
-                          <span className="font-mono text-[11px] text-[#787774] w-12 text-right">
-                            {proc.memPercent}%
-                          </span>
+                      <div className="w-32 md:w-44 shrink-0 flex items-center gap-2">
+                        <div className="flex-1 h-1.5 bg-[#F1F0EE] rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-[#A8A29E] to-[#1C1C1C] rounded-full transition-all duration-300"
+                            style={{ width: `${relPercent}%` }}
+                          />
                         </div>
-                      </td>
+                        <span className="font-mono text-[11px] text-[#787774] w-11 text-right tabular-nums">
+                          {proc.memPercent}%
+                        </span>
+                      </div>
 
-                      {/* 操作 */}
-                      <td className="py-2.5 px-4 text-right">
+                      <div className="w-16 text-right shrink-0">
                         {proc.isCurrentApp ? (
-                          <span className="text-[11px] text-[#787774] opacity-50 select-none">保护</span>
+                          <span className="text-[11px] text-[#9A9996] select-none">保护</span>
                         ) : (
                           <button
                             type="button"
                             onClick={() => handleKill(proc.pids[0], proc.displayName)}
-                            disabled={killingPid === proc.pids[0]}
-                            className="text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 px-2 py-0.5 rounded transition-colors cursor-pointer"
+                            disabled={killing}
+                            className={`text-[11px] px-2 py-0.5 rounded-md transition-all cursor-pointer ${
+                              killing
+                                ? 'text-rose-700 bg-rose-100'
+                                : 'text-[#9A9996] hover:text-rose-700 hover:bg-rose-50 opacity-0 group-hover:opacity-100 focus-visible:opacity-100'
+                            }`}
                           >
-                            {killingPid === proc.pids[0] ? '终止中' : '结束'}
+                            {killing ? '终止中' : '结束'}
                           </button>
                         )}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                      </div>
+                    </div>
+                  )
+                }}
+              />
+            </div>
+          )}
+        </section>
       </div>
     </ToolShell>
   )

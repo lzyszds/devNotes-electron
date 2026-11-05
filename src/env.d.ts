@@ -34,6 +34,21 @@ interface PortInspectResult {
   error?: string
 }
 
+type TrayTitleMode = 'pnl_mem' | 'pnl' | 'equity' | 'memory' | 'ticker' | 'none'
+
+/** 托盘状态显示配置（主进程持久化到 electron-store 的 tray-status 键） */
+interface TrayStatusConfig {
+  enabled: boolean
+  /** 自动刷新间隔，秒 */
+  intervalSec: 5 | 10 | 30
+  /** 状态栏标题挂字模式 */
+  titleMode?: TrayTitleMode
+  /** 选定关注的行情代码 */
+  tickerSymbol?: string
+  /** 是否在托盘右键菜单中显示行情与持仓收益 */
+  showMarketInMenu?: boolean
+}
+
 interface Window {
   electronAPI?: {
     minimizeWindow: () => Promise<void>
@@ -218,6 +233,51 @@ interface Window {
 
     /* 选中即粘贴到外部应用（需辅助功能授权） */
     clipboardOpenAccessibility?: () => Promise<void>
+    permissionsGet?: () => Promise<{ accessibilitySupported: boolean; accessibility: boolean; pasteAvailable: boolean; platform: string }>
+    permissionsRequestAccessibility?: () => Promise<boolean>
+    marketQuotes?: (payload: { spot: string[]; contracts: string[] }) => Promise<{
+      symbol: string; name: string; kind: 'contract' | 'spot'; asset: 'crypto' | 'equity'; price: number; changePercent: number;
+      change: number; currency: string; fundingRate?: number; openInterest?: number; high24h?: number; low24h?: number;
+      markPrice?: number; nextFundingTime?: number; fundingIntervalHours?: number; turnover24h?: number; longRatio?: number; updatedAt: number;
+    }[]>
+    marketNews?: () => Promise<{ title: string; url: string; source: string; publishedAt: string }[]>
+    marketCandles?: (payload: { symbol: string; kind: 'contract' | 'spot' }) => Promise<number[]>
+    marketAccount?: () => Promise<{
+      /** 失败的字段为 null（不是 0），渲染层据此显示 --，别把失败当成零资产/空仓 */
+      total: number | null
+      available: number | null
+      unrealisedPnl: number | null
+      openPositions: Array<{
+        contract: string
+        symbol: string
+        mode: string
+        side: 'long' | 'short'
+        size: number
+        value: number
+        entryPrice: number
+        markPrice: number
+        unrealisedPnl: number
+        pnlPercent: number
+        leverage: number
+        liqPrice: number
+        margin: number
+      }> | null
+      spotBalances: Array<{
+        currency: string
+        available: number
+        locked: number
+      }> | null
+      balanceError?: string
+      positionError?: string
+      spotError?: string
+      /** 有任意一个账户接口失败时为 true，成功的部分照常展示 */
+      partial?: boolean
+      updatedAt: number
+    }>
+    /** 只返回配置状态；Key 与 Secret 永远不会回传到渲染进程。 */
+    gateCredentialsStatus?: () => Promise<{ configured: boolean; encryptionAvailable: boolean }>
+    gateCredentialsSave?: (payload: { key: string; secret: string }) => Promise<{ configured: boolean; encryptionAvailable: boolean }>
+    gateCredentialsClear?: () => Promise<{ configured: boolean; encryptionAvailable: boolean }>
     clipboardPaste?: (
       payload: {
         type: 'text' | 'image' | 'file'
@@ -274,10 +334,22 @@ interface Window {
     portsInspect?: (ports: number[]) => Promise<PortInspectResult[]>
     portsKill?: (pid: number) => Promise<{ ok: boolean; pid: number; error?: string }>
 
+    /* 托盘状态显示（内存占用等），配置在设置面板里改 */
+    trayStatusGet?: () => Promise<TrayStatusConfig>
+    trayStatusSet?: (cfg: Partial<TrayStatusConfig>) => Promise<TrayStatusConfig>
+
     /* 电脑配置与内存检测 */
     systemInfo?: () => Promise<import('./types/system').SystemHardwareInfo>
     systemProcessList?: () => Promise<import('./types/system').AppProcessMemory[]>
     systemKillProcess?: (pid: number) => Promise<{ ok: boolean; pid: number; error?: string }>
+    systemDiskChoose?: () => Promise<string | null>
+    systemDiskScan?: (root: string) => Promise<{ path: string; name: string; sizeBytes: number; isDirectory: boolean; modifiedAt: number }[]>
+    systemDiskReveal?: (target: string) => Promise<boolean>
+    systemDevTools?: () => Promise<{ id: string; name: string; installed: boolean; version?: string; path?: string }[]>
+    clipboardPasteAvailable?: () => Promise<boolean>
+    clipboardPastePermission?: () => Promise<boolean>
+    clipboardRequestPermission?: () => Promise<boolean>
+    clipboardOpenAccessibility?: () => Promise<void>
     /** 释放可回收内存（macOS：/usr/sbin/purge，清文件缓存；用户在管理员密码框取消时 cancelled=true） */
     memoryRelease?: () => Promise<{ ok: boolean; message: string; cancelled?: boolean }>
   }

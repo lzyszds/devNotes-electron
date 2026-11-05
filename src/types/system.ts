@@ -25,6 +25,10 @@ export interface SystemHardwareInfo {
   swapUsedBytes?: number
   /** 是否支持「释放内存」动作（当前仅 macOS：/usr/sbin/purge） */
   memoryReleaseSupported?: boolean
+  /** 磁盘卷容量与剩余（家目录所在卷）；读取失败时不填，UI 显示占位说明 */
+  diskTotalBytes?: number
+  diskUsedBytes?: number
+  diskFreeBytes?: number
   uptimeSeconds: number
 }
 

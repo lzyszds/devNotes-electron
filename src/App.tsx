@@ -9,7 +9,11 @@ import { pushTranslateRequest } from './utils/translateInbox'
 import { dlog } from './utils/debugLog'
 import { TranslateBridge } from './components/bridge/TranslateBridge'
 import { recordDailyUse, recordToolUse } from './utils/usageLog'
-import { jsonToolboxAliases } from './types'
+import {
+  computerSuiteId,
+  computerSuiteLegacyIds,
+  jsonToolboxAliases,
+} from './types'
 import { requestJsonToolboxMode } from './components/tools/JsonToolbox'
 
 export type ViewMode = 'dashboard' | 'stats'
@@ -32,6 +36,15 @@ function App() {
       delete saved[key]
     }
     if (legacy > 0) saved['json-toolbox'] = (saved['json-toolbox'] ?? 0) + legacy
+    // 原电脑配置四小工具已成 sys-suite 大模块的子工具：旧计数合并到套件名下
+    let sysLegacy = 0
+    for (const key of computerSuiteLegacyIds) {
+      sysLegacy += saved[key] ?? 0
+      delete saved[key]
+    }
+    if (sysLegacy > 0) {
+      saved[computerSuiteId] = (saved[computerSuiteId] ?? 0) + sysLegacy
+    }
     return saved
   })
 
@@ -108,6 +121,10 @@ function App() {
     if (aliasMode) {
       requestJsonToolboxMode(aliasMode)
       toolId = 'json-toolbox'
+    }
+    // 电脑配置四小工具的旧 id 统一落到 sys-suite 大模块：外部深链接不再落空白页
+    if (computerSuiteLegacyIds.includes(toolId)) {
+      toolId = computerSuiteId
     }
     tallyTool(toolId)
 

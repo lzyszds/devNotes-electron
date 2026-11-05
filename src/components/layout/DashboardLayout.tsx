@@ -22,10 +22,20 @@ import {
   Bot,
   X,
 } from "lucide-react";
-import { allModules, tools, toolCategories, jsonToolboxAliases } from "../../types";
+import {
+  allModules,
+  tools,
+  toolCategories,
+  jsonToolboxAliases,
+  computerSuiteId,
+  computerSuiteTools,
+  type ComputerSuiteToolId,
+} from "../../types";
 import NotesSidebar from "../modules/markdown-notes/NotesSidebar";
 import SnippetsSidebar from "../modules/snippets/SnippetsSidebar";
 import ToolPage from "../../pages/ToolPage";
+import ComputerSuite from "../modules/computer-suite/ComputerSuite";
+import MarketBoard from "../modules/market-board/MarketBoard";
 import { useNotes } from "../../context/NotesContext";
 import SettingsModal, {
   SETTINGS_SECTIONS,
@@ -221,9 +231,12 @@ export default function DashboardLayout({
   const isSnippetsActive = activeTabId === "snippets";
   const isTranslateActive = activeTabId === "text-translate";
   const isAiChatActive = activeTabId === "ai-chat";
-  // 工具集合：当 activeTabId 不是四大独立模块时，即属于小工具集合
+  // 电脑配置：一级大模块（和笔记/代码并列），主画布渲染 ComputerSuite 而不是 ToolPage
+  const isSysSuiteActive = activeTabId === computerSuiteId;
+  const isMarketBoardActive = activeTabId === "market-board";
+  // 工具集合：当 activeTabId 不是独立模块时，即属于小工具集合
   const isToolCollectionActive =
-    !isMarkdownActive && !isSnippetsActive && !isTranslateActive && !isAiChatActive;
+    !isMarkdownActive && !isSnippetsActive && !isTranslateActive && !isAiChatActive && !isSysSuiteActive && !isMarketBoardActive;
 
   // 翻译与智聊页面不提供外层二级侧边栏，进入时默认强制关闭侧边栏
   useEffect(() => {
@@ -231,6 +244,44 @@ export default function DashboardLayout({
       setIsSidebarOpen(false);
     }
   }, [isTranslateActive, isAiChatActive]);
+
+  /* ---------------- 电脑配置大模块：子工具选择（一级路由内的 tab） ---------------- */
+
+  // 子工具选择提升到 layout：专属侧边栏、右键路由菜单、ComputerSuite 三处共用一份
+  const [suiteSubTool, setSuiteSubTool] = useState<ComputerSuiteToolId>(() => {
+    try {
+      const saved = localStorage.getItem("devnotes-suite-sub-tool");
+      if (saved && computerSuiteTools.some((t) => t.id === saved)) {
+        return saved as ComputerSuiteToolId;
+      }
+    } catch {
+      // ignore
+    }
+    return "sys-inspector";
+  });
+
+  // 切子工具也记一笔套件使用：统计口径与「切一次工具开一页」一致
+  const handleSelectSuiteTool = useCallback(
+    (id: ComputerSuiteToolId) => {
+      setSuiteSubTool(id);
+      try {
+        localStorage.setItem("devnotes-suite-sub-tool", id);
+      } catch {
+        // ignore
+      }
+      onTallyTool?.(computerSuiteId);
+    },
+    [onTallyTool],
+  );
+
+  // 首次进入才挂载 ComputerSuite（四个子工具按需 lazy），挂载后常驻保活
+  const [suiteVisited, setSuiteVisited] = useState(false);
+  useEffect(() => {
+    if (isSysSuiteActive) setSuiteVisited(true);
+  }, [isSysSuiteActive]);
+
+  const [marketBoardVisited, setMarketBoardVisited] = useState(false);
+  useEffect(() => { if (isMarketBoardActive) setMarketBoardVisited(true); }, [isMarketBoardActive]);
 
   // 胶囊 Tab 内已打开的工具标签页列表（持久化到本地）
   const [openedToolTabs, setOpenedToolTabs] = useState<string[]>(() => {
@@ -343,7 +394,7 @@ export default function DashboardLayout({
   // 工具 = 已开标签 + 清空；笔记 = 文件夹 / 回收站切视图；代码、翻译 = 打开入口
   const { openContextMenu } = useContextMenu();
   const openRouteMenu = (
-    route: "markdown-notes" | "ai-chat" | "text-translate" | "snippets" | "tool-collection",
+    route: "markdown-notes" | "ai-chat" | "text-translate" | "snippets" | "tool-collection" | "sys-suite",
     e: React.MouseEvent
   ) => {
     e.preventDefault();
@@ -389,6 +440,19 @@ export default function DashboardLayout({
           onSelect: handleClearToolTabs,
         });
       }
+    } else if (route === "sys-suite") {
+      // 电脑配置右键 = 直接定位到某个子工具，不开模块页中转
+      computerSuiteTools.forEach((t) => {
+        items.push({
+          id: `sys-${t.id}`,
+          label: t.name,
+          icon: <ToolIcon toolId={t.id} className="w-3.5 h-3.5" />,
+          onSelect: () => {
+            goto(computerSuiteId);
+            handleSelectSuiteTool(t.id as ComputerSuiteToolId);
+          },
+        });
+      });
     } else if (route === "markdown-notes") {
       items.push({
         id: "scope-all",
@@ -891,12 +955,22 @@ export default function DashboardLayout({
     if (isSnippetsActive) return "代码片段";
     if (isTranslateActive) return "文本翻译";
     if (isAiChatActive) return "AI 在线会话";
+    // 电脑配置大模块：二级名跟随子工具，让人知道此刻看着哪张页面
+    if (isSysSuiteActive) {
+      return (
+        computerSuiteTools.find((t) => t.id === suiteSubTool)?.name ?? "电脑配置"
+      );
+    }
+    if (isMarketBoardActive) return "行情看板";
     return currentTool?.name || "工具箱";
   }, [
     isMarkdownActive,
     isSnippetsActive,
     isTranslateActive,
     isAiChatActive,
+    isSysSuiteActive,
+    isMarketBoardActive,
+    suiteSubTool,
     scope,
     folders,
     currentTool,
@@ -983,6 +1057,8 @@ export default function DashboardLayout({
                 ? "翻译中心"
                 : isAiChatActive
                 ? "智聊"
+                : isSysSuiteActive || isMarketBoardActive
+                ? "电脑配置"
                 : "工具箱"}
             </span>
             <span>/</span>
@@ -1160,7 +1236,46 @@ export default function DashboardLayout({
               </button>
             </Tooltip>
 
-            {/* 4. 工具集合路由：右键弹出已开工具菜单，切换收进菜单里 */}
+            {/* 4. 电脑配置：独立大路由（内部四件套，右键直达子工具） */}
+            <Tooltip placement="right" content="电脑配置（右键直达子工具）">
+              <button
+                type="button"
+                onClick={() => {
+                  if (isSysSuiteActive) {
+                    // 同笔记：再次点击不展开也不收起，侧栏保持原样
+                    return;
+                  }
+                  onOpenTool(computerSuiteId);
+                  setIsSidebarOpen(true);
+                }}
+                onContextMenu={(e) => openRouteMenu(computerSuiteId, e)}
+                className={`relative w-full py-2 flex flex-col items-center justify-center rounded-xl transition-all cursor-pointer ${
+                  isSysSuiteActive
+                    ? "text-[#1C1C1C] font-semibold bg-black/[0.05]"
+                    : "text-[#787774] hover:text-[#191918] hover:bg-black/[0.03]"
+                }`}
+              >
+                {isSysSuiteActive && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[6px] h-6 bg-[#1C1C1C] rounded-[0_12px_12px_0]" />
+                )}
+                <ToolIcon toolId={computerSuiteId} className="w-5 h-5 mb-1" />
+                <span className="text-[10px] leading-none tracking-tight">电脑</span>
+              </button>
+            </Tooltip>
+
+            <Tooltip placement="right" content="合约与现货行情看板">
+              <button
+                type="button"
+                onClick={() => { onOpenTool("market-board"); setIsSidebarOpen(false); }}
+                className={`relative w-full py-2 flex flex-col items-center justify-center rounded-xl transition-all cursor-pointer ${isMarketBoardActive ? "text-[#1C1C1C] font-semibold bg-black/[0.05]" : "text-[#787774] hover:text-[#191918] hover:bg-black/[0.03]"}`}
+              >
+                {isMarketBoardActive && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[6px] h-6 bg-[#1C1C1C] rounded-[0_12px_12px_0]" />}
+                <ToolIcon toolId="market-board" className="w-5 h-5 mb-1" />
+                <span className="text-[10px] leading-none tracking-tight">行情</span>
+              </button>
+            </Tooltip>
+
+            {/* 5. 工具集合路由：右键弹出已开工具菜单，切换收进菜单里 */}
             <Tooltip placement="right" content="常用工具箱（右键切换已开工具）">
               <button
                 type="button"
@@ -1272,6 +1387,66 @@ export default function DashboardLayout({
                 isFolderTreeOpen={isFolderTreeOpen}
                 onToggleFolderTree={toggleFolderTree}
               />
+            </div>
+
+            {/* 电脑配置侧栏保活：四个子工具的清单在此切换，模块页常驻不卸载 */}
+            <div
+              className="h-full flex flex-row overflow-hidden"
+              style={{
+                display: isSysSuiteActive ? "flex" : "none",
+                width: sidebarWidth,
+              }}
+            >
+              <section className="w-72 bg-[#F9F9F8] flex flex-col h-full flex-shrink-0">
+                <div className="h-11 px-3 flex items-center justify-between flex-shrink-0">
+                  <span className="font-bold text-xs text-[#191918] tracking-tight">
+                    电脑配置
+                  </span>
+                  <span className="text-[10px] font-mono text-[#9A9996]">
+                    {computerSuiteTools.length} 个子工具
+                  </span>
+                </div>
+                <div className="flex-1 overflow-y-auto p-1.5">
+                  {computerSuiteTools.map((tool) => {
+                    const isSelected = suiteSubTool === tool.id;
+                    return (
+                      <div
+                        key={tool.id}
+                        onClick={() => handleSelectSuiteTool(tool.id as ComputerSuiteToolId)}
+                        className={`group relative px-2.5 py-2 rounded-lg transition-all cursor-pointer flex items-center gap-2.5 ${
+                          isSelected
+                            ? "bg-white shadow-[0_1px_3px_rgba(0,0,0,0.05),0_1px_1px_rgba(0,0,0,0.02)] ring-1 ring-black/[0.08]"
+                            : "bg-transparent hover:bg-black/[0.035] text-[#191918]"
+                        }`}
+                      >
+                        <div
+                          className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 transition-colors ${
+                            isSelected
+                              ? "bg-[#1C1C1C] text-white"
+                              : "bg-black/[0.04] text-[#787774] group-hover:text-[#191918]"
+                          }`}
+                        >
+                          <ToolIcon toolId={tool.id} className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h4
+                            className={`text-xs truncate ${
+                              isSelected
+                                ? "font-semibold text-[#191918]"
+                                : "font-normal text-[#191918]"
+                            }`}
+                          >
+                            {tool.name}
+                          </h4>
+                          <p className="text-[11px] line-clamp-1 mt-0.5 text-[#787774]">
+                            {tool.description}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
             </div>
 
             {/* 常规工具箱视图：只在工具集合激活时渲染与展示 */}
@@ -1427,7 +1602,29 @@ export default function DashboardLayout({
             {/* 中间内容画布：挂载工具主页面（标题栏已并入各工具 ToolShell 自己的底部状态栏） */}
             <div className="flex-1 overflow-hidden relative bg-[#FFFFFF]">
               <div className="absolute inset-0">
-                <ToolPage toolId={activeTabId} />
+                {/* 工具集合的 Keep-Alive 宿主：电脑配置大模块激活时整体藏起来，
+                    内部所有已开工具的状态不丢 */}
+                <div
+                  className="h-full w-full"
+                  style={{ display: isSysSuiteActive || isMarketBoardActive ? "none" : "block" }}
+                >
+                  <ToolPage toolId={activeTabId} />
+                </div>
+
+                {/* 电脑配置大模块：首次进入才挂载（lazy），挂载后同样常驻保活 */}
+                {suiteVisited && (
+                  <div
+                    className="absolute inset-0"
+                    style={{ display: isSysSuiteActive ? "block" : "none" }}
+                  >
+                    <ComputerSuite subTool={suiteSubTool} />
+                  </div>
+                )}
+                {marketBoardVisited && (
+                  <div className="absolute inset-0" style={{ display: isMarketBoardActive ? "block" : "none" }}>
+                    <MarketBoard />
+                  </div>
+                )}
               </div>
             </div>
 
