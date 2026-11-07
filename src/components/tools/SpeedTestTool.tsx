@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Gauge,
   Play,
@@ -9,8 +9,11 @@ import {
   CheckCircle2,
   Trash2,
   Globe,
+  ExternalLink,
+  AlertCircle,
 } from 'lucide-react'
 import ToolShell from '../ui/ToolShell'
+import { useUiPrefsStore } from '../../store/uiPrefsStore'
 
 interface SpeedRecord {
   id: string
@@ -20,207 +23,215 @@ interface SpeedRecord {
   download: number
   upload: number
   quality: string
+  isp?: string
+  server?: string
+  resultUrl?: string | null
 }
 
-type TestPhase = 'idle' | 'ping' | 'download' | 'upload' | 'completed'
+type UiPhase =
+  | 'idle'
+  | 'preparing'
+  | 'ping'
+  | 'download'
+  | 'upload'
+  | 'completed'
+  | 'error'
+
+function rateQuality(downloadMbps: number, pingMs: number): string {
+  if (downloadMbps >= 300 && pingMs < 30) return '千兆极速 · 4K/8K 丝滑'
+  if (downloadMbps >= 100 && pingMs < 50) return '百兆高速 · 游戏影音无阻'
+  if (downloadMbps >= 50) return '流畅稳定 · 高清视频'
+  if (downloadMbps >= 20) return '普通 · 满足日常'
+  return '偏慢 · 大文件会等很久'
+}
+
+function phaseLabel(phase: UiPhase, statusHint: string | null): string {
+  if (phase === 'preparing') return statusHint || '正在准备 Speedtest® CLI…'
+  if (phase === 'ping') return '正在探测延迟 (Ping)…'
+  if (phase === 'download') return '正在测试下载速率…'
+  if (phase === 'upload') return '正在测试上传吞吐量…'
+  if (phase === 'completed') return '测速完成'
+  if (phase === 'error') return '测速失败'
+  return '准备就绪 · Ookla Speedtest® CLI'
+}
+
+/** 把阶段内 0~1 进度映射到整条测速条大致占比 */
+function overallProgress(phase: UiPhase, phaseProgress: number): number {
+  const p = Math.min(1, Math.max(0, phaseProgress))
+  if (phase === 'preparing') return 5
+  if (phase === 'ping') return 5 + p * 15
+  if (phase === 'download') return 20 + p * 45
+  if (phase === 'upload') return 65 + p * 35
+  if (phase === 'completed') return 100
+  return 0
+}
 
 export default function SpeedTestTool() {
-  const [phase, setPhase] = useState<TestPhase>('idle')
+  const [phase, setPhase] = useState<UiPhase>('idle')
+  const [statusHint, setStatusHint] = useState<string | null>(null)
   const [ping, setPing] = useState<number | null>(null)
   const [jitter, setJitter] = useState<number | null>(null)
   const [downloadSpeed, setDownloadSpeed] = useState<number | null>(null)
   const [uploadSpeed, setUploadSpeed] = useState<number | null>(null)
-  const [currentSpeed, setCurrentSpeed] = useState<number>(0)
-  const [progress, setProgress] = useState(0)
-  const [history, setHistory] = useState<SpeedRecord[]>(() => {
-    try {
-      return JSON.parse(localStorage.getItem('fehelper-speedtest-history') || '[]')
-    } catch {
-      return []
-    }
-  })
+  const [currentSpeed, setCurrentSpeed] = useState(0)
+  const [phaseProgress, setPhaseProgress] = useState(0)
+  const [packetLoss, setPacketLoss] = useState<number | null>(null)
+  const [isp, setIsp] = useState<string | null>(null)
+  const [server, setServer] = useState<string | null>(null)
+  const [resultUrl, setResultUrl] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const historyRaw = useUiPrefsStore((s) => s.speedtestHistory)
+  const clearSpeedtestHistory = useUiPrefsStore((s) => s.clearSpeedtestHistory)
+  const history = (Array.isArray(historyRaw) ? historyRaw : []) as SpeedRecord[]
 
-  const abortControllerRef = useRef<AbortController | null>(null)
+  const runIdRef = useRef<number | null>(null)
+  const available = Boolean(window.electronAPI?.speedtestStart)
 
-  // 保存历史记录
-  const saveRecord = useCallback((record: SpeedRecord) => {
-    setHistory((prev) => {
-      const next = [record, ...prev].slice(0, 20)
-      localStorage.setItem('fehelper-speedtest-history', JSON.stringify(next))
-      return next
+  useEffect(() => {
+    const unsub = window.electronAPI?.onSpeedtestEvent?.((event) => {
+      if (runIdRef.current !== null && event.id !== runIdRef.current) return
+
+      if (event.kind === 'status') {
+        setPhase('preparing')
+        if (event.status === 'checking') setStatusHint('正在检测 Speedtest® CLI…')
+        else if (event.status === 'downloading') setStatusHint('首次使用，正在下载官方 CLI…')
+        else if (event.status === 'ready') setStatusHint('CLI 就绪，即将开始…')
+        else setStatusHint('正在连接 Ookla 测速节点…')
+        return
+      }
+
+      if (event.kind === 'progress') {
+        setPhase(event.phase)
+        setPhaseProgress(event.progress)
+        setStatusHint(null)
+        if (event.isp) setIsp(event.isp)
+        if (event.serverName) {
+          const loc = event.serverLocation ? ` · ${event.serverLocation}` : ''
+          setServer(`${event.serverName}${loc}`)
+        }
+        if (event.phase === 'ping') {
+          if (event.pingMs != null) setPing(Math.round(event.pingMs * 10) / 10)
+          if (event.jitterMs != null) setJitter(Math.round(event.jitterMs * 10) / 10)
+        }
+        if (event.phase === 'download' || event.phase === 'upload') {
+          if (event.mbps != null) setCurrentSpeed(event.mbps)
+          if (event.phase === 'download' && event.mbps != null) setDownloadSpeed(event.mbps)
+          if (event.phase === 'upload' && event.mbps != null) setUploadSpeed(event.mbps)
+        }
+        return
+      }
+
+      if (event.kind === 'result') {
+        setPhase('completed')
+        setPhaseProgress(1)
+        setDownloadSpeed(event.downloadMbps)
+        setUploadSpeed(event.uploadMbps)
+        setCurrentSpeed(event.downloadMbps)
+        setPing(event.pingMs)
+        setJitter(event.jitterMs)
+        setPacketLoss(event.packetLoss)
+        setIsp(event.isp || null)
+        setServer(
+          event.serverName
+            ? `${event.serverName}${event.serverLocation ? ` · ${event.serverLocation}` : ''}`
+            : null,
+        )
+        setResultUrl(event.resultUrl)
+        const quality = rateQuality(event.downloadMbps, event.pingMs)
+        const record: SpeedRecord = {
+          id: String(Date.now()),
+          time: new Date().toLocaleString(),
+          ping: event.pingMs,
+          jitter: event.jitterMs,
+          download: event.downloadMbps,
+          upload: event.uploadMbps,
+          quality,
+          isp: event.isp,
+          server: event.serverName,
+          resultUrl: event.resultUrl,
+        }
+        const prev = useUiPrefsStore.getState().speedtestHistory
+        const list = (Array.isArray(prev) ? prev : []) as SpeedRecord[]
+        useUiPrefsStore.getState().setSpeedtestHistory([record, ...list].slice(0, 20))
+        return
+      }
+
+      if (event.kind === 'error') {
+        setPhase('error')
+        setError(event.message)
+        setCurrentSpeed(0)
+        return
+      }
+
+      if (event.kind === 'done') {
+        runIdRef.current = null
+        setPhase((prev) => (prev === 'preparing' || prev === 'ping' || prev === 'download' || prev === 'upload' ? 'idle' : prev))
+      }
     })
+    return () => unsub?.()
   }, [])
 
-  // 终止测速
   const stopTest = useCallback(() => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort()
-      abortControllerRef.current = null
-    }
+    const id = runIdRef.current
+    if (id != null) void window.electronAPI?.speedtestStop?.(id)
+    runIdRef.current = null
     setPhase('idle')
     setCurrentSpeed(0)
-    setProgress(0)
+    setPhaseProgress(0)
+    setStatusHint(null)
   }, [])
 
-  // 开始全套网络测速
   const startTest = useCallback(async () => {
-    abortControllerRef.current = new AbortController()
-    const signal = abortControllerRef.current.signal
+    if (!window.electronAPI?.speedtestStart) {
+      setPhase('error')
+      setError('网络测速需要在桌面版（Electron）中使用')
+      return
+    }
 
-    setPhase('ping')
+    setPhase('preparing')
+    setStatusHint('正在准备…')
     setPing(null)
     setJitter(null)
     setDownloadSpeed(null)
     setUploadSpeed(null)
     setCurrentSpeed(0)
-    setProgress(10)
+    setPhaseProgress(0)
+    setPacketLoss(null)
+    setIsp(null)
+    setServer(null)
+    setResultUrl(null)
+    setError(null)
 
     try {
-      // 1. 测试 Ping 与 Jitter (连续采样 6 次)
-      const pings: number[] = []
-      const targetUrl = 'https://www.cloudflare.com/cdn-cgi/trace'
-
-      for (let i = 0; i < 6; i++) {
-        if (signal.aborted) return
-        const t0 = performance.now()
-        try {
-          await fetch(`${targetUrl}?t=${Date.now()}_${i}`, {
-            method: 'HEAD',
-            cache: 'no-store',
-            signal,
-          })
-          const t1 = performance.now()
-          pings.push(Math.round(t1 - t0))
-        } catch {
-          // fallback 模拟延迟
-          pings.push(Math.round(25 + Math.random() * 15))
-        }
-        await new Promise((r) => setTimeout(r, 80))
-      }
-
-      const avgPing = Math.round(pings.reduce((a, b) => a + b, 0) / pings.length)
-      const calculatedJitter = Math.round(
-        pings.reduce((sum, p) => sum + Math.abs(p - avgPing), 0) / pings.length
-      )
-      setPing(avgPing)
-      setJitter(calculatedJitter)
-      setProgress(30)
-
-      // 2. 测试下载速度 (流式分块拉取，计算滑动窗口传输速率)
-      setPhase('download')
-      const dlStart = performance.now()
-      let receivedBytes = 0
-
-      // 启动 3 路并发拉取
-      const downloadTasks = [1, 2, 3].map(async (workerId) => {
-        const testUrl = `https://speed.cloudflare.com/__down?bytes=15000000&w=${workerId}&_t=${Date.now()}`
-        try {
-          const res = await fetch(testUrl, { cache: 'no-store', signal })
-          if (!res.body) return
-          const reader = res.body.getReader()
-
-          while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-            receivedBytes += value.length
-
-            const elapsedSec = (performance.now() - dlStart) / 1000
-            if (elapsedSec > 0.3) {
-              // 实时计算 Mbps: (bytes * 8) / (1024 * 1024) / sec
-              const mbps = (receivedBytes * 8) / (1024 * 1024) / elapsedSec
-              setCurrentSpeed(Math.round(mbps * 10) / 10)
-              setProgress(Math.min(75, 30 + Math.round((elapsedSec / 6) * 45)))
-            }
-            if (elapsedSec > 6) {
-              await reader.cancel()
-              break
-            }
-          }
-        } catch {
-          // 产生自然的测速吞吐量
-          receivedBytes += 8 * 1024 * 1024
-        }
-      })
-
-      await Promise.allSettled(downloadTasks)
-      const totalDlSec = Math.max(1, (performance.now() - dlStart) / 1000)
-      const finalDlMbps = Math.max(12.5, Math.round(((receivedBytes * 8) / (1024 * 1024) / totalDlSec) * 10) / 10)
-      setDownloadSpeed(finalDlMbps)
-      setCurrentSpeed(finalDlMbps)
-      setProgress(75)
-
-      // 3. 测试上传速度
-      setPhase('upload')
-      const ulStart = performance.now()
-      let uploadedBytes = 0
-      const payload = new Uint8Array(256 * 1024) // 256KB 分块
-
-      for (let i = 0; i < 12; i++) {
-        if (signal.aborted) return
-        try {
-          await fetch(`https://httpbin.org/post?t=${Date.now()}`, {
-            method: 'POST',
-            body: payload,
-            signal,
-          })
-          uploadedBytes += payload.byteLength
-        } catch {
-          uploadedBytes += payload.byteLength
-        }
-
-        const elapsedSec = (performance.now() - ulStart) / 1000
-        if (elapsedSec > 0.2) {
-          const mbps = (uploadedBytes * 8) / (1024 * 1024) / elapsedSec
-          setCurrentSpeed(Math.round(mbps * 10) / 10)
-          setProgress(Math.min(98, 75 + Math.round((i / 12) * 23)))
-        }
-      }
-
-      const totalUlSec = Math.max(1, (performance.now() - ulStart) / 1000)
-      const finalUlMbps = Math.max(8.2, Math.round(((uploadedBytes * 8) / (1024 * 1024) / totalUlSec) * 10) / 10)
-      setUploadSpeed(finalUlMbps)
-      setCurrentSpeed(finalUlMbps)
-      setProgress(100)
-      setPhase('completed')
-
-      // 网络质量评级
-      let quality = '普通 · 满足日常'
-      if (finalDlMbps >= 300) quality = '千兆极速 · 4K/8K 丝滑'
-      else if (finalDlMbps >= 100) quality = '百兆高速 · 游戏影音无阻'
-      else if (finalDlMbps >= 50) quality = '流畅稳定 · 高清视频'
-
-      // 留存记录
-      saveRecord({
-        id: String(Date.now()),
-        time: new Date().toLocaleTimeString(),
-        ping: avgPing,
-        jitter: calculatedJitter,
-        download: finalDlMbps,
-        upload: finalUlMbps,
-        quality,
-      })
-    } catch (err: any) {
-      if (err.name !== 'AbortError') {
-        console.error('测速错误:', err)
-      }
-      setPhase('idle')
+      const { id } = await window.electronAPI.speedtestStart()
+      runIdRef.current = id
+    } catch (err) {
+      setPhase('error')
+      setError(err instanceof Error ? err.message : String(err))
     }
-  }, [saveRecord])
+  }, [])
 
-  // 清空历史
   const clearHistory = () => {
-    setHistory([])
-    localStorage.removeItem('fehelper-speedtest-history')
+    clearSpeedtestHistory()
   }
+
+  const progress = overallProgress(phase, phaseProgress)
+  const running = phase === 'preparing' || phase === 'ping' || phase === 'download' || phase === 'upload'
+  const mainValue =
+    phase === 'download' || phase === 'upload'
+      ? currentSpeed
+      : downloadSpeed !== null
+        ? downloadSpeed
+        : null
 
   return (
     <ToolShell
       icon={Gauge}
       title="网络测速"
-      subtitle="专业实时网络测速工具，精准评估下载速度、上传速度、Ping 时延与网络抖动"
+      subtitle="基于 Ookla Speedtest® CLI，测量真实下载、上传、延迟与抖动"
       actions={
         <div className="flex items-center gap-2">
-          {phase === 'idle' || phase === 'completed' ? (
+          {!running ? (
             <button
               type="button"
               onClick={startTest}
@@ -242,50 +253,44 @@ export default function SpeedTestTool() {
       }
     >
       <div className="max-w-4xl mx-auto space-y-5 pb-8">
-        {/* 顶部中央大表盘 / 速率展示卡 */}
+        {!available && (
+          <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+            <p>当前环境没有 Electron 主进程，无法调用 Speedtest® CLI。请在桌面版应用里使用本工具。</p>
+          </div>
+        )}
+
         <div className="bg-white border border-black/[0.06] rounded-2xl p-8 flex flex-col items-center justify-center relative overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.03)]">
-          {/* 背景微网格纹理 */}
           <div className="absolute inset-0 bg-[radial-gradient(#1C1C1C_1px,transparent_1px)] [background-size:16px_16px] opacity-[0.03] pointer-events-none" />
 
-          {/* 状态徽标 */}
           <div className="mb-4">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-[#F3F3F1] text-[#191918]">
               <Wifi className="w-3.5 h-3.5" />
-              {phase === 'idle'
-                ? '准备就绪'
-                : phase === 'ping'
-                  ? '正在探测延迟 (Ping)...'
-                  : phase === 'download'
-                    ? '正在测试下载速率 (Download)...'
-                    : phase === 'upload'
-                      ? '正在测试上传吞吐量 (Upload)...'
-                      : '测速完成'}
+              {phaseLabel(phase, statusHint)}
             </span>
           </div>
 
-          {/* 实时速率主数值 */}
+          {(isp || server) && (
+            <p className="text-[11px] text-[#787774] mb-2 text-center max-w-md">
+              {isp && <span>{isp}</span>}
+              {isp && server && <span> · </span>}
+              {server && <span>{server}</span>}
+            </p>
+          )}
+
           <div className="flex flex-col items-center justify-center my-2 select-none">
             <div className="flex items-baseline gap-2">
               <span className="text-6xl md:text-7xl font-extrabold font-mono tracking-tighter text-[#1C1C1C]">
-                {phase === 'download'
-                  ? currentSpeed
-                  : phase === 'upload'
-                    ? currentSpeed
-                    : downloadSpeed !== null
-                      ? downloadSpeed
-                      : '--'}
+                {mainValue !== null ? mainValue : '--'}
               </span>
-              <span className="text-lg md:text-xl font-bold text-[#787774] font-mono">
-                Mbps
-              </span>
+              <span className="text-lg md:text-xl font-bold text-[#787774] font-mono">Mbps</span>
             </div>
             <span className="text-xs text-[#787774] mt-1 font-medium">
-              {phase === 'upload' ? '实时上传速率' : '下载峰值带宽'}
+              {phase === 'upload' ? '实时上传速率' : '下载带宽'}
             </span>
           </div>
 
-          {/* 进度条 */}
-          {phase !== 'idle' && (
+          {running && (
             <div className="w-full max-w-md mt-6">
               <div className="w-full h-1.5 bg-black/[0.05] rounded-full overflow-hidden">
                 <div
@@ -296,7 +301,6 @@ export default function SpeedTestTool() {
             </div>
           )}
 
-          {/* 测速快捷开始按钮 */}
           {phase === 'idle' && (
             <button
               type="button"
@@ -304,21 +308,38 @@ export default function SpeedTestTool() {
               className="mt-6 flex items-center gap-2 px-6 py-2.5 bg-[#1C1C1C] text-white text-sm font-semibold rounded-xl hover:bg-black transition-all hover:scale-[1.02] cursor-pointer shadow-md"
             >
               <Play className="w-4 h-4 fill-current" />
-              点击开始全面测速
+              点击开始 Speedtest®
             </button>
           )}
 
           {phase === 'completed' && (
-            <div className="mt-5 flex items-center gap-2 text-xs font-semibold text-emerald-700 bg-emerald-50 px-3.5 py-1.5 rounded-full border border-emerald-200">
-              <CheckCircle2 className="w-4 h-4" />
-              测试完成 · {history[0]?.quality || '网络优良'}
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+              <div className="flex items-center gap-2 text-xs font-semibold text-emerald-700 bg-emerald-50 px-3.5 py-1.5 rounded-full border border-emerald-200">
+                <CheckCircle2 className="w-4 h-4" />
+                测试完成 · {history[0]?.quality || '网络优良'}
+              </div>
+              {resultUrl && (
+                <button
+                  type="button"
+                  onClick={() => void window.electronAPI?.openExternal?.(resultUrl)}
+                  className="flex items-center gap-1.5 text-xs font-medium text-[#52514E] bg-[#F3F3F1] px-3 py-1.5 rounded-full hover:bg-[#EAEAE8] transition-colors cursor-pointer"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  在 Speedtest.net 查看
+                </button>
+              )}
+            </div>
+          )}
+
+          {phase === 'error' && error && (
+            <div className="mt-5 flex items-start gap-2 max-w-md text-xs text-rose-700 bg-rose-50 px-3.5 py-2 rounded-xl border border-rose-200">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>{error}</span>
             </div>
           )}
         </div>
 
-        {/* 4 项核心数据指标网格 */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {/* 下载速度 */}
           <div className="bg-white border border-black/[0.06] rounded-xl p-4 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
             <div className="flex items-center gap-1.5 text-xs text-[#787774] mb-1 font-medium">
               <ArrowDownCircle className="w-3.5 h-3.5 text-emerald-600" />
@@ -332,7 +353,6 @@ export default function SpeedTestTool() {
             </div>
           </div>
 
-          {/* 上传速度 */}
           <div className="bg-white border border-black/[0.06] rounded-xl p-4 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
             <div className="flex items-center gap-1.5 text-xs text-[#787774] mb-1 font-medium">
               <ArrowUpCircle className="w-3.5 h-3.5 text-blue-600" />
@@ -346,7 +366,6 @@ export default function SpeedTestTool() {
             </div>
           </div>
 
-          {/* Ping 延迟 */}
           <div className="bg-white border border-black/[0.06] rounded-xl p-4 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
             <div className="flex items-center gap-1.5 text-xs text-[#787774] mb-1 font-medium">
               <Activity className="w-3.5 h-3.5 text-amber-600" />
@@ -360,11 +379,10 @@ export default function SpeedTestTool() {
             </div>
           </div>
 
-          {/* Jitter 抖动 */}
           <div className="bg-white border border-black/[0.06] rounded-xl p-4 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
             <div className="flex items-center gap-1.5 text-xs text-[#787774] mb-1 font-medium">
               <Globe className="w-3.5 h-3.5 text-purple-600" />
-              网络抖动 (Jitter)
+              网络抖动
             </div>
             <div className="flex items-baseline gap-1">
               <span className="text-2xl font-bold font-mono text-[#191918]">
@@ -372,15 +390,15 @@ export default function SpeedTestTool() {
               </span>
               <span className="text-xs text-[#787774] font-mono">ms</span>
             </div>
+            {packetLoss !== null && (
+              <p className="mt-1 text-[10px] text-[#9A9996] font-mono">丢包 {packetLoss}%</p>
+            )}
           </div>
         </div>
 
-        {/* 历史测速记录 */}
         <div className="bg-white border border-black/[0.06] rounded-xl overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
           <div className="px-4 py-3 border-b border-black/[0.06] flex items-center justify-between bg-[#F9F9F8]">
-            <h3 className="text-xs font-bold text-[#191918] tracking-tight">
-              最近测速记录
-            </h3>
+            <h3 className="text-xs font-bold text-[#191918] tracking-tight">最近测速记录</h3>
             {history.length > 0 && (
               <button
                 type="button"
@@ -408,7 +426,7 @@ export default function SpeedTestTool() {
                 {history.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="py-8 text-center text-xs text-[#787774]">
-                      暂无历史测速记录，点击上方「开始测速」测试网络带宽
+                      暂无历史测速记录，点击上方「开始测速」使用 Speedtest® CLI
                     </td>
                   </tr>
                 ) : (

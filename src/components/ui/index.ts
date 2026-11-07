@@ -7,7 +7,7 @@ export { default as Checkbox, Checkbox as CheckboxPrimitiveComponent } from './C
 export type { CheckboxProps } from './Checkbox'
 export { default as NoteCard } from './NoteCard'
 export type { NoteCardProps, NoteVariant } from './NoteCard'
-export { default as ToolShell, ToolBadge } from './ToolShell'
+export { default as ToolShell, ToolBadge, ToolShellHeaderSlot } from './ToolShell'
 export type { ToolShellProps, ToolBadgeProps, ToolBadgeTone } from './ToolShell'
 export {
   ToolCard,

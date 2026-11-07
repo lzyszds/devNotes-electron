@@ -78,7 +78,7 @@ export default function Stats({ usageStats, onBack, onOpenTool }: StatsProps) {
   const { notes, folders, handleSelect } = useNotes()
   const { snippets } = useSnippets()
 
-  // 两份 localStorage 日志进页读一次就够（页面每次进入都是重挂载）
+  // 用量日志进页读一次就够（内存缓存 + electron-store；页面每次进入都是重挂载）
   const [dailyLog] = useState(() => readDailyLog())
   const [lastUsed] = useState(() => readLastUsed())
   const [usageTime] = useState(() => readUsageTime())

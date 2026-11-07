@@ -18,6 +18,12 @@ export interface VirtualListProps<T> {
   className?: string
   /** 视口外上下多渲染几行做缓冲，避免快速滚动时出现空白帧 */
   overscan?: number
+  /**
+   * 滚到距底部 thresholdPx 内时触发（资讯翻页等）。
+   * 调用方自己防抖 / 判 hasMore，这里只负责「快到底了」信号。
+   */
+  onNearEnd?: () => void
+  nearEndThresholdPx?: number
 }
 
 /**
@@ -37,8 +43,12 @@ export default function VirtualList<T>({
   renderRow,
   className,
   overscan = 4,
+  onNearEnd,
+  nearEndThresholdPx = 320,
 }: VirtualListProps<T>) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const onNearEndRef = useRef(onNearEnd)
+  onNearEndRef.current = onNearEnd
   /** 视口高度先给个合理初值，挂载后会被真实测量值立刻覆盖 */
   const [viewport, setViewport] = useState(456)
   /** scrollTop 必须进 state：窗口位置变了要重算该渲染哪几行 */
@@ -62,6 +72,12 @@ export default function VirtualList<T>({
     items.length,
     Math.ceil((clampedTop + viewport) / rowHeight) + overscan,
   )
+
+  useEffect(() => {
+    if (!onNearEndRef.current) return
+    const remaining = contentHeight - (clampedTop + viewport)
+    if (remaining <= nearEndThresholdPx) onNearEndRef.current()
+  }, [clampedTop, viewport, contentHeight, nearEndThresholdPx, items.length])
 
   return (
     <div

@@ -41,3 +41,26 @@ export {
 } from './dropdown-menu'
 export { Tabs, TabsList, TabsTrigger, TabsContent } from './tabs'
 export { Popover, PopoverTrigger, PopoverContent, PopoverAnchor } from './popover'
+export {
+  Select,
+  SelectGroup,
+  SelectValue,
+  SelectTrigger,
+  SelectContent,
+  SelectLabel,
+  SelectItem,
+  SelectSeparator,
+  SelectScrollUpButton,
+  SelectScrollDownButton,
+} from './select'
+export {
+  Table,
+  TableHeader,
+  TableBody,
+  TableFooter,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableCaption,
+} from '../table'
+export { DataTable, type DataTableProps } from '../data-table'

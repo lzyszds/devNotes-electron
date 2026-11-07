@@ -1,5 +1,7 @@
 /** 用户自定义的在线翻译接口配置（单套配置，同时容纳两种接口形态） */
 
+import { peekLegacyLocalJson, purgeLegacyLocalKeys } from "../store/migrateLocalKey";
+
 export type TranslateProvider = "openai" | "libretranslate";
 
 export interface OpenAICompatibleConfig {
@@ -225,7 +227,7 @@ function publish(config: TranslateApiConfig) {
   configListeners.forEach((listener) => listener(config));
 }
 
-/** electron-store 优先，localStorage 兜底 */
+/** 只读 electron-store；store 空时一次性迁旧 localStorage */
 export async function loadTranslateConfig(): Promise<TranslateApiConfig> {
   try {
     let stored: unknown = null;
@@ -235,8 +237,23 @@ export async function loadTranslateConfig(): Promise<TranslateApiConfig> {
     }
 
     if (!stored || typeof stored !== "object") {
-      const local = localStorage.getItem(TRANSLATE_CONFIG_STORAGE_KEY);
-      if (local) stored = JSON.parse(local);
+      const legacy = peekLegacyLocalJson<Partial<TranslateApiConfig>>(
+        TRANSLATE_CONFIG_STORAGE_KEY
+      );
+      if (legacy && typeof legacy === "object") {
+        stored = legacy;
+        try {
+          await window.electronAPI?.storeSet?.(
+            TRANSLATE_CONFIG_STORAGE_KEY,
+            legacy
+          );
+        } catch {
+          /* ignore */
+        }
+      }
+      purgeLegacyLocalKeys([TRANSLATE_CONFIG_STORAGE_KEY]);
+    } else {
+      purgeLegacyLocalKeys([TRANSLATE_CONFIG_STORAGE_KEY]);
     }
 
     if (stored && typeof stored === "object") {
@@ -273,11 +290,6 @@ export async function saveTranslateConfig(
 
   try {
     await window.electronAPI?.storeSet?.(TRANSLATE_CONFIG_STORAGE_KEY, next);
-  } catch {
-    // ignore
-  }
-  try {
-    localStorage.setItem(TRANSLATE_CONFIG_STORAGE_KEY, JSON.stringify(next));
   } catch {
     // ignore
   }

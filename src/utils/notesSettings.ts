@@ -4,7 +4,11 @@
  * 与「云同步策略」分开：这里只管「编辑的内容什么时候写进本机磁盘」——
  * 那是每一次敲键盘都会碰到的事，频率直接决定卡顿感与磁盘寿命；
  * 云同步那边管「要不要推到 Cloudflare」，见 cloudflareSync.ts。
+ *
+ * 持久化只走 electron-store（Capacitor 桥接同名 storeGet/storeSet）。
  */
+
+import { peekLegacyLocalJson, purgeLegacyLocalKeys } from '../store/migrateLocalKey'
 
 export interface NotesSaveSettings {
   /** 停止编辑后自动落盘。关掉后只在切文档 / 隐藏窗口 / 退出 / ⌘S 时写 */
@@ -58,8 +62,18 @@ export async function loadNotesSaveSettings(): Promise<NotesSaveSettings> {
       raw = await window.electronAPI.storeGet(NOTES_SAVE_STORAGE_KEY)
     }
     if (raw == null) {
-      const local = localStorage.getItem(NOTES_SAVE_STORAGE_KEY)
-      if (local) raw = JSON.parse(local)
+      const legacy = peekLegacyLocalJson<Partial<NotesSaveSettings>>(NOTES_SAVE_STORAGE_KEY)
+      if (legacy != null) {
+        raw = legacy
+        try {
+          await window.electronAPI?.storeSet?.(NOTES_SAVE_STORAGE_KEY, legacy)
+        } catch {
+          /* ignore */
+        }
+      }
+      purgeLegacyLocalKeys([NOTES_SAVE_STORAGE_KEY])
+    } else {
+      purgeLegacyLocalKeys([NOTES_SAVE_STORAGE_KEY])
     }
     return mergeNotesSave(raw as Partial<NotesSaveSettings> | null)
   } catch {
@@ -74,12 +88,6 @@ export async function saveNotesSaveSettings(settings: NotesSaveSettings): Promis
       await window.electronAPI.storeSet(NOTES_SAVE_STORAGE_KEY, payload)
     }
   } catch {
-    // fallback below
-  }
-
-  try {
-    localStorage.setItem(NOTES_SAVE_STORAGE_KEY, JSON.stringify(payload))
-  } catch {
-    // ignore quota errors
+    // 存不进去不影响本次会话使用
   }
 }

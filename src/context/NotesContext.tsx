@@ -149,7 +149,7 @@ interface NotesProviderProps {
 }
 
 export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderProps) {
-  // 首屏快速预热：先同步读出 localStorage 缓存，让 UI 在第 0 帧就能渲染列表和菜单栏
+  // 首屏：legacy 一次性 peek（迁完后为空，等到 hydrate）；有未迁完的旧数据时仍可立刻渲染
   const [cachedState] = useState<NotesState | null>(() => readNotesStateFromLocalStorage())
 
   const [ready, setReady] = useState(() => cachedState !== null)
@@ -218,19 +218,15 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
   const reportSaveResult = useCallback(
     (result: NotesSaveResult) => {
       if (!result.ok) {
-        applySaveStatus('error', '保存失败：本机磁盘写入失败')
+        applySaveStatus(
+          'error',
+          result.localFailed
+            ? '保存失败：本机存储不可用'
+            : '保存失败：本机磁盘写入失败'
+        )
         return
       }
-      // 只有一份写成也照常提示已保存，但得让用户知道另一份没跟上 ——
-      // 下次启动会按 savedAt 挑新的一份，大概率没事，可磁盘满的时候不该装作无事发生
-      applySaveStatus(
-        'saved',
-        result.localFailed
-          ? '已保存（本地缓存写入失败）'
-          : result.remoteFailed
-          ? '已保存（磁盘写入失败）'
-          : '已保存'
-      )
+      applySaveStatus('saved', '已保存')
     },
     [applySaveStatus]
   )
@@ -557,12 +553,9 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
   /**
    * 同步兜底落盘，供来不及 await 的时机（pagehide / 窗口隐藏 / 退出通知）。
    *
-   * 只保证 localStorage 那份是同步写完的；electron-store 那次照常发起，
-   * 正常情况会接着写完。两边内容一致，下次启动按时间戳挑新的（见
-   * loadNotesState），不会因为异步那次被打断就丢内容。
-   *
-   * 同步那份写失败（配额溢出）时不能把它当成功：pending 留着，让主进程的
-   * 退出等待照常兜底，状态栏也如实显示失败。
+   * 先走 storeSetSync 保证紧急路径写完；异步 storeSet 照常发起补写。
+   * 同步写失败时不能把它当成功：pending 留着，让主进程的退出等待照常兜底，
+   * 状态栏也如实显示失败。
    */
   const flushSync = useCallback(() => {
     if (saveTimerRef.current) {
@@ -575,7 +568,7 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
     if (!synced) {
       // 此刻还没有更晚的写入在跑（序号尚未推进），先把失败摆出来；
       // 下面那次补写若被新写入顶掉，汇报权会自动让给它
-      applySaveStatus('error', '保存失败：本地缓存写入失败')
+      applySaveStatus('error', '保存失败：同步写入失败')
     }
     // 异步那次接着补写 electron-store；它自己的结果会经 writeState 汇报
     void writeState(stateRef.current, true)
@@ -835,19 +828,14 @@ export function NotesProvider({ children, onFileOpenNavigate }: NotesProviderPro
        * 新方案：
        *   1. 若有未落盘的编辑内容，先发起一次写盘（异步，不等它完成）
        *   2. 只在内存里更新 activeId，UI 立刻响应
-       *   3. 同步写一份轻量 localStorage 备份（只有 id 字符串，不序列化笔记内容），
-       *      供应用崩溃时下次启动恢复上一次打开的文档
+       *   activeId 已在 notes state 里，由后续 saveNotesState / flushSync 一并落盘，
+       *   不必再单独写一份轻量备份。
        */
       if (pendingSaveRef.current) {
         void writeState(stateRef.current)
       }
       stateRef.current = { ...stateRef.current, activeId: id }
       setActiveId(id)
-      try {
-        localStorage.setItem('devnotes-active-id', id)
-      } catch {
-        // ignore
-      }
     },
     [activeId, writeState]
   )

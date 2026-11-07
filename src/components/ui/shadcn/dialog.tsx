@@ -15,7 +15,30 @@ import { cn } from '../../../lib/utils'
  *    tailwind.config，节奏与手写浮层时期的 fe-fade/fe-modal 一致。
  * 差异点仅保留在有意的位置：遮罩 bg-black/40 + backdrop-blur-2xs（原设计），
  * 面板默认 rounded-2xl + shadow-2xl + border-[#E6E6E3]（原卡片语言）。
+ *
+ * Select / 二级菜单会 portal 到 body（.fe-pop）。Radix 把这当成「点了对话框外」，
+ * 默认 preventDefault，选项的 click 根本到不了 —— 设置里模型下拉点了没反应就是这个。
  */
+
+/** 点在挂到 body 的浮层上时，别让 Dialog 当成外部交互吞掉 */
+function isPortaledPopoverTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false
+  return Boolean(
+    target.closest('.fe-pop') ||
+      target.closest('.context-menu') ||
+      target.closest('[data-devnotes-portal]') ||
+      target.closest('[role="listbox"]') ||
+      target.closest('[data-radix-select-viewport]') ||
+      target.closest('[data-radix-popper-content-wrapper]'),
+  )
+}
+
+/** Radix Outside 事件挂在 originalEvent.target 上；兼容 detail 与直接 target */
+function outsideEventTarget(
+  event: { target: EventTarget | null; detail?: { originalEvent?: Event } },
+): EventTarget | null {
+  return event.detail?.originalEvent?.target ?? event.target
+}
 
 const Dialog = DialogPrimitive.Root
 const DialogTrigger = DialogPrimitive.Trigger
@@ -50,32 +73,67 @@ interface DialogContentProps
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   DialogContentProps
->(({ className, children, showClose = true, ...props }, ref) => (
-  <DialogPortal>
-    <DialogOverlay />
-    <DialogPrimitive.Content
-      ref={ref}
-      className={cn(
-        'fixed left-1/2 top-1/2 z-[60] w-full max-w-lg -translate-x-1/2 -translate-y-1/2',
-        'flex flex-col rounded-2xl border border-[#E6E6E3] bg-white shadow-2xl',
-        'data-[state=open]:animate-content-show data-[state=closed]:animate-content-hide',
-        className,
-      )}
-      {...props}
-    >
-      {children}
-      {showClose && (
-        <DialogPrimitive.Close
-          className="absolute right-3 top-3 rounded-lg p-1 text-[#787774] transition-colors hover:bg-accent hover:text-[#191918] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-          aria-label="关闭"
-        >
-          <X size={15} />
-          <span className="sr-only">关闭</span>
-        </DialogPrimitive.Close>
-      )}
-    </DialogPrimitive.Content>
-  </DialogPortal>
-))
+>(
+  (
+    {
+      className,
+      children,
+      showClose = true,
+      onPointerDownOutside,
+      onInteractOutside,
+      onFocusOutside,
+      ...props
+    },
+    ref,
+  ) => (
+    <DialogPortal>
+      <DialogOverlay />
+      <DialogPrimitive.Content
+        ref={ref}
+        className={cn(
+          'fixed left-1/2 top-1/2 z-[60] w-full max-w-lg -translate-x-1/2 -translate-y-1/2',
+          /*
+           * overflow-hidden 必须有：否则圆角只画在外壳 border 上，里头顶栏/白底
+           * 仍是直角，角上会露出一圈「圆角描边 + 直角内容」的错位台阶。
+           */
+          'flex flex-col overflow-hidden rounded-2xl border border-[#E6E6E3] bg-white shadow-2xl',
+          'data-[state=open]:animate-content-show data-[state=closed]:animate-content-hide',
+          className,
+        )}
+        onPointerDownOutside={(event) => {
+          if (isPortaledPopoverTarget(outsideEventTarget(event))) {
+            event.preventDefault()
+          }
+          onPointerDownOutside?.(event)
+        }}
+        onInteractOutside={(event) => {
+          if (isPortaledPopoverTarget(outsideEventTarget(event))) {
+            event.preventDefault()
+          }
+          onInteractOutside?.(event)
+        }}
+        onFocusOutside={(event) => {
+          if (isPortaledPopoverTarget(outsideEventTarget(event))) {
+            event.preventDefault()
+          }
+          onFocusOutside?.(event)
+        }}
+        {...props}
+      >
+        {children}
+        {showClose && (
+          <DialogPrimitive.Close
+            className="absolute right-3 top-3 rounded-lg p-1 text-[#787774] transition-colors hover:bg-accent hover:text-[#191918] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+            aria-label="关闭"
+          >
+            <X size={15} />
+            <span className="sr-only">关闭</span>
+          </DialogPrimitive.Close>
+        )}
+      </DialogPrimitive.Content>
+    </DialogPortal>
+  ),
+)
 DialogContent.displayName = DialogPrimitive.Content.displayName
 
 const DialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (

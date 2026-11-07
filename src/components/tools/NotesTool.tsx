@@ -39,6 +39,7 @@ import {
   subscribeZoom,
   ZOOM_STEP,
 } from "../../utils/editorZoom";
+import { useUiPrefsStore } from "../../store/uiPrefsStore";
 import {
   captureBlockBookmark,
   createBookmarkId,
@@ -78,6 +79,13 @@ export default function NotesTool() {
 
   // 视图三态只有 Cherry 认，但状态放在这里 —— 底部状态栏要显示它
   const [viewMode, setViewMode] = useState<EditorViewMode>(readViewMode);
+  // persist 异步灌完后钉回权威值，避免首屏一直停在 hydrate 前的默认双栏/纯编辑
+  useEffect(() => {
+    const sync = () => setViewMode(readViewMode());
+    const unsub = useUiPrefsStore.persist.onFinishHydration(sync);
+    if (useUiPrefsStore.persist.hasHydrated()) sync();
+    return unsub;
+  }, []);
   const [warning, setWarning] = useState("");
   const [showBackToTop, setShowBackToTop] = useState(false);
 

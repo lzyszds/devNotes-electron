@@ -64,6 +64,7 @@ import { useContextMenu, type ContextMenuItem } from "../ui/ContextMenu";
 import { useToast } from "../ui/Toast";
 import { copyText } from "../../utils/clipboard";
 import { matchQuickCalculator } from "../../utils/cmdCalculator";
+import { useUiPrefsStore } from "../../store/uiPrefsStore";
 
 /** 2字短标签映射 */
 function getToolShortLabel(toolId: string): string {
@@ -134,24 +135,11 @@ export default function DashboardLayout({
   // 侧边栏折叠控制（控制列表栏）
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => !isMobile);
   // 二级目录栏扩展控制（类似 Notion / Obsidian 目录树按需展开，默认收起呈现精炼三栏）
-  const [isFolderTreeOpen, setIsFolderTreeOpen] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem("devnotes-foldertree-open") === "true";
-    } catch {
-      return false;
-    }
-  });
+  const isFolderTreeOpen = useUiPrefsStore((s) => s.folderTreeOpen);
+  const setFolderTreeOpen = useUiPrefsStore((s) => s.setFolderTreeOpen);
 
   const toggleFolderTree = () => {
-    setIsFolderTreeOpen((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem("devnotes-foldertree-open", String(next));
-      } catch {
-        // ignore
-      }
-      return next;
-    });
+    setFolderTreeOpen(!isFolderTreeOpen);
   };
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -236,7 +224,12 @@ export default function DashboardLayout({
   const isMarketBoardActive = activeTabId === "market-board";
   // 工具集合：当 activeTabId 不是独立模块时，即属于小工具集合
   const isToolCollectionActive =
-    !isMarkdownActive && !isSnippetsActive && !isTranslateActive && !isAiChatActive && !isSysSuiteActive && !isMarketBoardActive;
+    !isMarkdownActive &&
+    !isSnippetsActive &&
+    !isTranslateActive &&
+    !isAiChatActive &&
+    !isSysSuiteActive &&
+    !isMarketBoardActive;
 
   // 翻译与智聊页面不提供外层二级侧边栏，进入时默认强制关闭侧边栏
   useEffect(() => {
@@ -248,30 +241,21 @@ export default function DashboardLayout({
   /* ---------------- 电脑配置大模块：子工具选择（一级路由内的 tab） ---------------- */
 
   // 子工具选择提升到 layout：专属侧边栏、右键路由菜单、ComputerSuite 三处共用一份
-  const [suiteSubTool, setSuiteSubTool] = useState<ComputerSuiteToolId>(() => {
-    try {
-      const saved = localStorage.getItem("devnotes-suite-sub-tool");
-      if (saved && computerSuiteTools.some((t) => t.id === saved)) {
-        return saved as ComputerSuiteToolId;
-      }
-    } catch {
-      // ignore
-    }
-    return "sys-inspector";
-  });
+  const suiteSubToolRaw = useUiPrefsStore((s) => s.suiteSubTool);
+  const setSuiteSubToolStore = useUiPrefsStore((s) => s.setSuiteSubTool);
+  const suiteSubTool: ComputerSuiteToolId = computerSuiteTools.some(
+    (t) => t.id === suiteSubToolRaw,
+  )
+    ? (suiteSubToolRaw as ComputerSuiteToolId)
+    : "sys-inspector";
 
   // 切子工具也记一笔套件使用：统计口径与「切一次工具开一页」一致
   const handleSelectSuiteTool = useCallback(
     (id: ComputerSuiteToolId) => {
-      setSuiteSubTool(id);
-      try {
-        localStorage.setItem("devnotes-suite-sub-tool", id);
-      } catch {
-        // ignore
-      }
+      setSuiteSubToolStore(id);
       onTallyTool?.(computerSuiteId);
     },
-    [onTallyTool],
+    [onTallyTool, setSuiteSubToolStore],
   );
 
   // 首次进入才挂载 ComputerSuite（四个子工具按需 lazy），挂载后常驻保活
@@ -283,83 +267,54 @@ export default function DashboardLayout({
   const [marketBoardVisited, setMarketBoardVisited] = useState(false);
   useEffect(() => { if (isMarketBoardActive) setMarketBoardVisited(true); }, [isMarketBoardActive]);
 
-  // 胶囊 Tab 内已打开的工具标签页列表（持久化到本地）
-  const [openedToolTabs, setOpenedToolTabs] = useState<string[]>(() => {
-    try {
-      const saved = localStorage.getItem("devnotes-opened-tool-tabs");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          // 旧数据可能超长，恢复时同样只留最近 6 个
-          const valid = parsed
-            .filter((id) => tools.some((t) => t.id === id))
-            .slice(0, 6);
-          if (valid.length > 0) return valid;
-        }
-      }
-    } catch {
-      // ignore
-    }
-    return ["json-toolbox"];
-  });
+  // 胶囊 Tab 内已打开的工具标签页列表（持久化到 uiPrefsStore）
+  const openedToolTabsRaw = useUiPrefsStore((s) => s.openedToolTabs);
+  const setOpenedToolTabsStore = useUiPrefsStore((s) => s.setOpenedToolTabs);
+  const openedToolTabs = useMemo(() => {
+    const valid = openedToolTabsRaw
+      .filter((id) => tools.some((t) => t.id === id))
+      .slice(0, 6);
+    return valid.length > 0 ? valid : ["json-toolbox"];
+  }, [openedToolTabsRaw]);
 
   // 记录上次在工具集里查看的小工具，方便切回时无缝恢复
-  const [lastActiveToolId, setLastActiveToolId] = useState<string>(() => {
-    try {
-      return localStorage.getItem("devnotes-last-tool-id") || "json-toolbox";
-    } catch {
-      return "json-toolbox";
-    }
-  });
+  const lastActiveToolId = useUiPrefsStore((s) => s.lastToolId) || "json-toolbox";
+  const setLastToolId = useUiPrefsStore((s) => s.setLastToolId);
 
   // 当前激活项属于普通工具时，把它顶到已开标签的最前并记住最近访问项。
   // 标签最多 6 个：超出就挤掉最旧的（轮换），列表永远不需要滚动
   useEffect(() => {
     const isOrdinaryTool = tools.some((t) => t.id === activeTabId);
     if (isOrdinaryTool) {
-      setLastActiveToolId(activeTabId);
-      try {
-        localStorage.setItem("devnotes-last-tool-id", activeTabId);
-      } catch {
-        // ignore
+      setLastToolId(activeTabId);
+      const next = [
+        activeTabId,
+        ...openedToolTabs.filter((id) => id !== activeTabId),
+      ].slice(0, 6);
+      // 顺序未变就别写：否则 store 更新会再触发本 effect，形成循环
+      if (
+        next.length !== openedToolTabs.length ||
+        next.some((id, i) => id !== openedToolTabs[i])
+      ) {
+        setOpenedToolTabsStore(next);
       }
-
-      setOpenedToolTabs((prev) => {
-        const next = [activeTabId, ...prev.filter((id) => id !== activeTabId)].slice(0, 6);
-        try {
-          localStorage.setItem(
-            "devnotes-opened-tool-tabs",
-            JSON.stringify(next),
-          );
-        } catch {
-          // ignore
-        }
-        return next;
-      });
     }
-  }, [activeTabId]);
+  }, [activeTabId, openedToolTabs, setLastToolId, setOpenedToolTabsStore]);
 
   // 关闭胶囊中的某个工具 Tab
   const handleCloseToolTab = (targetToolId: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    setOpenedToolTabs((prev) => {
-      const next = prev.filter((id) => id !== targetToolId);
-      if (activeTabId === targetToolId) {
-        if (next.length > 0) {
-          onOpenTool(next[0]);
-        } else {
-          // 保底保留一个工具
-          next.push("json-toolbox");
-          onOpenTool("json-toolbox");
-        }
+    const next = openedToolTabs.filter((id) => id !== targetToolId);
+    if (activeTabId === targetToolId) {
+      if (next.length > 0) {
+        onOpenTool(next[0]);
+      } else {
+        // 保底保留一个工具
+        next.push("json-toolbox");
+        onOpenTool("json-toolbox");
       }
-      try {
-        localStorage.setItem("devnotes-opened-tool-tabs", JSON.stringify(next));
-      } catch {
-        // ignore
-      }
-      return next;
-    });
+    }
+    setOpenedToolTabsStore(next);
   };
 
   // 点击某个子标签（草稿纸在桌面端开独立小窗，不占工作台标签）
@@ -382,13 +337,8 @@ export default function DashboardLayout({
   const handleClearToolTabs = useCallback(() => {
     const keepCurrent = tools.some((t) => t.id === activeTabId);
     const next = keepCurrent ? [activeTabId] : ["json-toolbox"];
-    setOpenedToolTabs(next);
-    try {
-      localStorage.setItem("devnotes-opened-tool-tabs", JSON.stringify(next));
-    } catch {
-      // ignore
-    }
-  }, [activeTabId]);
+    setOpenedToolTabsStore(next);
+  }, [activeTabId, setOpenedToolTabsStore]);
 
   // 右键路由 → 该路由的子内容菜单：左侧不再常驻子集，切换收进菜单里。
   // 工具 = 已开标签 + 清空；笔记 = 文件夹 / 回收站切视图；代码、翻译 = 打开入口
@@ -1057,8 +1007,10 @@ export default function DashboardLayout({
                 ? "翻译中心"
                 : isAiChatActive
                 ? "智聊"
-                : isSysSuiteActive || isMarketBoardActive
+                : isSysSuiteActive
                 ? "电脑配置"
+                : isMarketBoardActive
+                ? "行情"
                 : "工具箱"}
             </span>
             <span>/</span>
@@ -1606,7 +1558,10 @@ export default function DashboardLayout({
                     内部所有已开工具的状态不丢 */}
                 <div
                   className="h-full w-full"
-                  style={{ display: isSysSuiteActive || isMarketBoardActive ? "none" : "block" }}
+                  style={{
+                    display:
+                      isSysSuiteActive || isMarketBoardActive ? "none" : "block",
+                  }}
                 >
                   <ToolPage toolId={activeTabId} />
                 </div>
@@ -1622,7 +1577,7 @@ export default function DashboardLayout({
                 )}
                 {marketBoardVisited && (
                   <div className="absolute inset-0" style={{ display: isMarketBoardActive ? "block" : "none" }}>
-                    <MarketBoard />
+                    <MarketBoard isActive={isMarketBoardActive} />
                   </div>
                 )}
               </div>
@@ -1773,7 +1728,7 @@ export default function DashboardLayout({
         onSectionChange={setSettingsSection}
         onClose={() => setIsSettingsOpen(false)}
         onResetSidebarWidth={() => {
-          setIsFolderTreeOpen(false);
+          setFolderTreeOpen(false);
           setIsSidebarOpen(true);
         }}
       />

@@ -40,3 +40,47 @@ export interface AppProcessMemory {
   memPercent: number
   isCurrentApp: boolean
 }
+
+/* ---- 实时遥测（与 electron/systemMonitor.ts 的导出结构一一对应） ---- */
+export interface SystemLive {
+  cpu: { total: number; cores: number[]; speedMhz: number }
+  gpu: { utilization: number | null; model: string | null; cores: number | null; memUsedBytes: number | null }
+  diskIo: { readBps: number; writeBps: number } | null
+}
+
+export interface LiveProcess {
+  key: string
+  displayName: string
+  iconPath: string
+  category: 'app' | 'background'
+  pids: number[]
+  cpu: number
+  rssBytes: number
+  memPercent: number
+  suspended: boolean
+  isCurrentApp: boolean
+}
+
+export interface DiskVolume {
+  mount: string
+  name: string
+  device: string
+  totalBytes: number
+  usedBytes: number
+  freeBytes: number
+  fileSystem?: string
+  media?: string
+  protocol?: string
+  solidState?: boolean
+  smart?: string
+}
+
+export interface StartupItem {
+  id: string
+  name: string
+  detail: string
+  enabled: boolean
+  kind: 'login-item' | 'launch-agent'
+  path: string
+  iconPath: string
+}

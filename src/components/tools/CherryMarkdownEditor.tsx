@@ -30,11 +30,10 @@ import {
   revealCherryOutlineItem,
 } from '../../utils/cherryOutline'
 import { uploadSyncImage } from '../../utils/cloudflareSync'
+import { useUiPrefsStore } from '../../store/uiPrefsStore'
 
 type CherryInstance = InstanceType<typeof Cherry>
 
-/** 分栏比例落盘的键。Cherry 自己不管这个，拖完由我们记一下 */
-const SPLIT_STORAGE_KEY = 'fehelper-editor-split'
 /** Cherry 的 minBlockPercentage 默认 0.2，两侧都夹在 20%~80% */
 const SPLIT_MIN = 20
 const SPLIT_MAX = 80
@@ -83,10 +82,13 @@ function fileToDataUrl(file: File): Promise<string> {
   })
 }
 
+/** store 里是 0~1；Cherry 布局 API 要的是 20~80 的百分比整数 */
 function readSplitRatio(): number | null {
-  const saved = Number(localStorage.getItem(SPLIT_STORAGE_KEY))
-  if (!Number.isFinite(saved) || saved < SPLIT_MIN || saved > SPLIT_MAX) return null
-  return saved
+  const saved = Number(useUiPrefsStore.getState().editorSplit)
+  if (!Number.isFinite(saved) || saved <= 0 || saved >= 1) return null
+  const percent = Math.round(saved * 100)
+  if (percent < SPLIT_MIN || percent > SPLIT_MAX) return null
+  return percent
 }
 
 /** 视图三态 → Cherry 的 switchModel 取值 */
@@ -499,7 +501,7 @@ export default function CherryMarkdownEditor({
       if (ratio === lastSplitRef.current) return
 
       lastSplitRef.current = ratio
-      localStorage.setItem(SPLIT_STORAGE_KEY, String(ratio))
+      useUiPrefsStore.getState().setEditorSplit(ratio / 100)
     }
 
     root.addEventListener('mouseup', handleMouseUp)

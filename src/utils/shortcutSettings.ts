@@ -7,7 +7,12 @@
  *  - 应用内键（app）：只在窗口聚焦时生效，冲突风险小。
  *
  * 默认值只在这里写一份，设置界面和实际生效都读它 —— 改键位不用两头同步。
+ *
+ * 持久化：桌面端走 getShortcuts/setShortcuts（主进程写 electron-store）；
+ * Capacitor 无这两条 IPC 时退到 storeGet/storeSet。旧 localStorage 只做一次性迁移。
  */
+
+import { peekLegacyLocalJson, purgeLegacyLocalKeys } from '../store/migrateLocalKey'
 
 /** 一个可自定义的快捷键绑定 */
 export interface ShortcutBinding {
@@ -371,17 +376,11 @@ const listeners = new Set<ShortcutListener>()
 /** 当前映射的内存副本，避免每次按键都去读存储 */
 let cachedMap: ShortcutMap | null = null
 
-/** 同步读缓存（首次调用会从存储载入） */
+/** 同步读缓存；首次无缓存时先用默认值顶上，再异步从 store 补齐 */
 export function getShortcutMap(): ShortcutMap {
   if (cachedMap) return cachedMap
-  // 先用 localStorage 顶上，它是同步的，能给按键监听一个立即可用的值
-  try {
-    const raw = localStorage.getItem(SHORTCUT_STORAGE_KEY)
-    cachedMap = mergeShortcutMap(raw ? JSON.parse(raw) : null)
-  } catch {
-    cachedMap = defaultShortcutMap()
-  }
-  // 真值以主进程为准（云端同步会写那边），异步刷新一次
+  cachedMap = defaultShortcutMap()
+  // 真值以主进程 / store 为准（云端同步会写那边），异步刷新一次
   void refreshShortcutMap()
   return cachedMap
 }
@@ -396,8 +395,31 @@ export function getShortcutMap(): ShortcutMap {
 export async function refreshShortcutMap(): Promise<ShortcutMap> {
   const api = window.electronAPI
   try {
-    const stored = api?.getShortcuts ? await api.getShortcuts() : null
-    cachedMap = mergeShortcutMap(stored)
+    // store 尚无权威数据时，一次性把旧 localStorage 迁进去再删
+    if (api?.storeGet) {
+      const raw = await api.storeGet(SHORTCUT_STORAGE_KEY)
+      if (raw == null) {
+        const legacy = peekLegacyLocalJson<ShortcutMap>(SHORTCUT_STORAGE_KEY)
+        if (legacy && typeof legacy === 'object') {
+          if (api.setShortcuts) {
+            await api.setShortcuts(mergeShortcutMap(legacy))
+          } else if (api.storeSet) {
+            await api.storeSet(SHORTCUT_STORAGE_KEY, legacy)
+          }
+        }
+      }
+      purgeLegacyLocalKeys([SHORTCUT_STORAGE_KEY])
+    } else {
+      purgeLegacyLocalKeys([SHORTCUT_STORAGE_KEY])
+    }
+
+    let stored: unknown = null
+    if (api?.getShortcuts) {
+      stored = await api.getShortcuts()
+    } else if (api?.storeGet) {
+      stored = await api.storeGet(SHORTCUT_STORAGE_KEY)
+    }
+    cachedMap = mergeShortcutMap(stored as Partial<ShortcutMap> | null)
   } catch {
     cachedMap = cachedMap ?? defaultShortcutMap()
   }
@@ -410,15 +432,10 @@ export async function refreshShortcutMap(): Promise<ShortcutMap> {
  *
  * 全局键同时交给主进程去重注册 —— 那边 register 返回 false 说明键位被
  * 系统占用，失败的 id 会带回来，设置界面要如实提示，不能静默吞掉。
+ * Capacitor 无 setShortcuts 时退到 storeSet（Preferences）。
  */
 export async function saveShortcutMap(next: ShortcutMap): Promise<{ failed: string[] }> {
   cachedMap = next
-  try {
-    // 存 localStorage 一份，作为主进程不可用时的兜底（移动端没有 electronAPI）
-    localStorage.setItem(SHORTCUT_STORAGE_KEY, JSON.stringify(next))
-  } catch {
-    // 存储写不进去（隐私模式等）也不影响本次会话生效，忽略
-  }
 
   let failed: string[] = []
   const api = window.electronAPI
@@ -427,7 +444,18 @@ export async function saveShortcutMap(next: ShortcutMap): Promise<{ failed: stri
       const result = await api.setShortcuts(next)
       failed = result?.failed ?? []
     } catch {
-      // 主进程不可用（移动端）时只保留应用内键的改动
+      // 主进程不可用时尽量落到 store
+      try {
+        await api.storeSet?.(SHORTCUT_STORAGE_KEY, next)
+      } catch {
+        /* ignore */
+      }
+    }
+  } else if (api?.storeSet) {
+    try {
+      await api.storeSet(SHORTCUT_STORAGE_KEY, next)
+    } catch {
+      /* ignore */
     }
   }
 

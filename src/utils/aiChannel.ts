@@ -6,6 +6,7 @@
  * 与「AI 与翻译」里的翻译接口配置相互独立，互不覆盖。
  */
 
+import { peekLegacyLocalJson, purgeLegacyLocalKeys } from '../store/migrateLocalKey'
 import { PROVIDER_PRESETS, type ProviderPreset } from './translateConfig'
 import { translateFetch } from './translateFetch'
 
@@ -159,7 +160,7 @@ function publish(config: AiChannelConfig) {
   listeners.forEach((listener) => listener(config))
 }
 
-/** electron-store 优先，localStorage 兜底 */
+/** 只读 electron-store；store 空时一次性迁旧 localStorage */
 export async function loadAiChannel(): Promise<AiChannelConfig> {
   try {
     let stored: unknown = null
@@ -169,8 +170,18 @@ export async function loadAiChannel(): Promise<AiChannelConfig> {
     }
 
     if (!stored || typeof stored !== 'object') {
-      const local = localStorage.getItem(AI_CHANNEL_STORAGE_KEY)
-      if (local) stored = JSON.parse(local)
+      const legacy = peekLegacyLocalJson<Partial<AiChannelConfig>>(AI_CHANNEL_STORAGE_KEY)
+      if (legacy && typeof legacy === 'object') {
+        stored = legacy
+        try {
+          await window.electronAPI?.storeSet?.(AI_CHANNEL_STORAGE_KEY, legacy)
+        } catch {
+          /* ignore */
+        }
+      }
+      purgeLegacyLocalKeys([AI_CHANNEL_STORAGE_KEY])
+    } else {
+      purgeLegacyLocalKeys([AI_CHANNEL_STORAGE_KEY])
     }
 
     if (stored && typeof stored === 'object') {
@@ -208,11 +219,6 @@ export async function saveAiChannel(config: AiChannelConfig): Promise<AiChannelC
 
   try {
     await window.electronAPI?.storeSet?.(AI_CHANNEL_STORAGE_KEY, next)
-  } catch {
-    // ignore
-  }
-  try {
-    localStorage.setItem(AI_CHANNEL_STORAGE_KEY, JSON.stringify(next))
   } catch {
     // ignore
   }

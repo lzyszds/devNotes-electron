@@ -1,3 +1,8 @@
+import {
+  peekLegacyLocalJson,
+  purgeLegacyLocalKeys,
+} from '../store/migrateLocalKey'
+
 /**
  * 阅读位置书签：记下「这篇里我读到哪了」，一篇可以有好几个。
  *
@@ -100,7 +105,7 @@ export interface NotesState {
   /**
    * 整份状态最后一次落盘的时刻，由 saveNotesState / saveNotesStateSync 盖章。
    *
-   * localStorage 与 electron-store 两份副本靠它判新旧。不能只看笔记的
+   * electron-store 与一次性 legacy peek 两份副本靠它判新旧。不能只看笔记的
    * updatedAt —— 彻底删除一篇笔记后它从数组里消失、文件夹改名写的是
    * folder.updatedAt、只加阅读书签写的是 bookmark.at，这些动作都不会让
    * 剩余笔记的 updatedAt 变大，旧口径会挑中那份「还留着已删笔记」的旧副本。
@@ -109,6 +114,7 @@ export interface NotesState {
 }
 
 const STORE_KEY = 'fehelper-markdown-notes'
+/** 仅供一次性迁移：peekLegacy / purgeLegacy，业务路径不再读写 */
 const LEGACY_LOCAL_KEY = 'fehelper-markdown-notes'
 
 export const DEFAULT_CONTENT = `# ✨ Markdown 全特性与工具支持全景样板
@@ -545,34 +551,32 @@ async function readFromElectron(): Promise<NotesState | null> {
 }
 
 /**
- * 同步读 localStorage 的那份笔记数据，不需要 IPC。
+ * 一次性 peek 旧 localStorage 里的笔记（迁移期）。不写回、不删 key。
  *
- * 供 NotesContext 启动时「快速预热」用：先同步拿到上一次的数据立即渲染，
- * 让用户看到笔记列表，再异步等 electron-store 返回后做差量校正。
- * 这样页面不再「白着」等 IPC 一个来回。
+ * 供 NotesContext 启动时「若还有未迁完的 legacy」同步预热；迁完后通常为空，
+ * UI 等到 hydrate 再填。旧名保留作别名，避免调用方大面积改 import。
  */
-export function readNotesStateFromLocalStorage(): NotesState | null {
-  try {
-    const raw = localStorage.getItem(LEGACY_LOCAL_KEY)
-    if (!raw) return null
-    return normalizeState(JSON.parse(raw))
-  } catch {
-    return null
-  }
+export function peekLegacyNotesState(): NotesState | null {
+  const raw = peekLegacyLocalJson<unknown>(LEGACY_LOCAL_KEY)
+  if (raw === undefined) return null
+  return normalizeState(raw)
 }
+
+/** @deprecated 语义已变为 legacy one-time peek，请优先用 peekLegacyNotesState */
+export const readNotesStateFromLocalStorage = peekLegacyNotesState
 
 /**
  * 状态的「新鲜度」：优先看落盘时盖的 savedAt。
  *
- * 用来在两份落盘副本之间挑新的那份。为什么需要它：同步写只写 localStorage
- * （见 saveNotesStateSync），异步写才更新 electron-store；进程被 kill 时
- * 后者可能没写完，于是磁盘上同时存在「新的 localStorage」和「旧的 store」。
- * 不做这个比较就会永远读到旧的那份，用户最后几次敲键凭空消失。
+ * 用来在 electron-store 与一次性 legacy peek 之间挑新的那份。
+ * 老版本同步兜底写在 localStorage，进程被 kill 时可能比 store 新；
+ * 迁完后 legacy 会被 purge，这条比较只对升级那一次生效。
  *
  * 老版本写下的数据没有 savedAt，退回按笔记时间戳推算 —— 那套口径识别不了
  * 「删掉一篇」这类让最大值回退的改动，只对老数据生效，读一次之后就会被
  * saveNotesState 盖上新的 savedAt。
- */function stateFreshness(state: NotesState): number {
+ */
+function stateFreshness(state: NotesState): number {
   if (typeof state.savedAt === 'number') return state.savedAt
   const noteStamps = state.notes.reduce((max, note) => {
     const stamp = Math.max(note.updatedAt || 0, note.deletedAt || 0, note.folderMovedAt || 0)
@@ -587,25 +591,28 @@ export function readNotesStateFromLocalStorage(): NotesState | null {
 
 export async function loadNotesState(): Promise<NotesState> {
   const fromElectron = await readFromElectron()
-  const fromLocal = readNotesStateFromLocalStorage()
+  const fromLegacy = peekLegacyNotesState()
 
-  // 两份都有时挑新的：localStorage 只是「退出兜底快照」，正常情况下比 store 旧；
-  // 它更新说明上次进程是被 kill 的，以它为准并补写 store。
-  // 反过来（store 已更新）**不再回写 localStorage** —— 以前这里几乎每次开机
-  // 都白付一次整库 stringify，现在这份镜像只在退出路径才更新，够用了
-  if (fromElectron && fromLocal) {
-    if (stateFreshness(fromLocal) > stateFreshness(fromElectron)) {
-      void saveNotesState(fromLocal)
-      return fromLocal
+  // 两份都有时挑新的：legacy 更新说明上次进程被 kill、store 没跟上，迁进 store 后删掉旧 key
+  if (fromElectron && fromLegacy) {
+    if (stateFreshness(fromLegacy) > stateFreshness(fromElectron)) {
+      await saveNotesState(fromLegacy)
+      purgeLegacyLocalKeys([LEGACY_LOCAL_KEY])
+      return fromLegacy
     }
+    purgeLegacyLocalKeys([LEGACY_LOCAL_KEY])
     return fromElectron
   }
 
-  if (fromElectron) return fromElectron
+  if (fromElectron) {
+    purgeLegacyLocalKeys([LEGACY_LOCAL_KEY])
+    return fromElectron
+  }
 
-  if (fromLocal) {
-    void saveNotesState(fromLocal)
-    return fromLocal
+  if (fromLegacy) {
+    await saveNotesState(fromLegacy)
+    purgeLegacyLocalKeys([LEGACY_LOCAL_KEY])
+    return fromLegacy
   }
 
   const note = createEmptyNote()
@@ -619,18 +626,15 @@ export async function loadNotesState(): Promise<NotesState> {
  */
 export interface NotesSaveResult {
   ok: boolean
+  /** 已无 localStorage 镜像；仅当连 store API 都没有时为 true */
   localFailed: boolean
   remoteFailed: boolean
 }
 
 /**
- * 把状态写进本机磁盘（electron-store 为主，localStorage 只做退出兜底）。
+ * 把状态写进本机磁盘（electron-store）。
  *
- * 为什么不在这里同步镜像一份到 localStorage：整库 JSON.stringify 是同步的，
- * 自动保存开着时每个停顿（1.5s）都要付一次，库到 MB 级就是明显的掉帧；
- * 而这份镜像的唯一用途是「进程被 kill 时兜底」，真正需要的时刻只有
- * pagehide / 窗口隐藏 / 退出 —— 那些时机由 saveNotesStateSync 同步写
- * （见 NotesContext.flushSync），日常保存不必再背第二份。
+ * 紧急同步兜底走 saveNotesStateSync（storeSetSync），日常保存不必再背第二份。
  *
  * state 上带的 savedAt 会被忽略，由这里按写入时刻重新盖章 —— 防止调用方拿着
  * 一份旧对象「原样存回去」时把新鲜度也带成旧值。
@@ -645,44 +649,28 @@ export async function saveNotesState(state: NotesState): Promise<NotesSaveResult
     } catch {
       remoteFailed = true
     }
+  } else {
+    remoteFailed = true
   }
 
-  /*
-   * electron-store 失败时退回同步写 localStorage：至少留一份，下次启动
-   * loadNotesState 会按 savedAt 挑它。成功路径不写，省掉整库序列化。
-   */
-  let localFailed = false
-  if (remoteFailed) {
-    try {
-      localStorage.setItem(LEGACY_LOCAL_KEY, JSON.stringify(payload))
-    } catch {
-      localFailed = true
-    }
-  }
-
-  return { ok: !(localFailed && remoteFailed), localFailed, remoteFailed }
+  // 不再有 localStorage 镜像；localFailed 仅表示「连 store API 都没有」
+  const localFailed = !window.electronAPI?.storeSet && remoteFailed
+  return { ok: !remoteFailed, localFailed, remoteFailed }
 }
 
 /**
- * 同步落盘（只写 localStorage）。
+ * 同步落盘（storeSetSync → 主进程）。
  *
  * 给来不及 await 的场合用：pagehide、窗口隐藏、主进程通知退出。这些时机里
- * 异步函数的续段可能根本不会被执行，只有同步写能保证内容不丢。
+ * 异步函数的续段可能根本不会被执行，只有同步 IPC 能保证内容不丢。
  *
- * 日常保存不再镜像 localStorage（见 saveNotesState），所以这里就是「最后
- * 一份同步快照」的唯一入口 —— 它写下的内容比 electron-store 新时，
- * 下次启动 loadNotesState 会反过来用它覆盖 store。
- *
- * 返回是否写成功：配额溢出这类失败必须让调用方知道，否则它会把
- * electron-store 那次也当成「正在补写」而不去报告失败。
+ * 返回是否写成功：失败必须让调用方知道，否则它会把异步那次也当成「正在补写」
+ * 而不去报告失败。
  */
 export function saveNotesStateSync(state: NotesState): boolean {
   try {
-    localStorage.setItem(
-      LEGACY_LOCAL_KEY,
-      JSON.stringify(normalizeState({ ...state, savedAt: Date.now() }))
-    )
-    return true
+    const payload = normalizeState({ ...state, savedAt: Date.now() })
+    return window.electronAPI?.storeSetSync?.(STORE_KEY, payload) ?? false
   } catch {
     return false
   }

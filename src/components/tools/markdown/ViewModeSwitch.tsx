@@ -1,13 +1,12 @@
 import type { ComponentType } from 'react'
 import { Columns2, Eye, SquarePen } from 'lucide-react'
 import Tooltip from '../../ui/Tooltip'
+import { useUiPrefsStore } from '../../../store/uiPrefsStore'
 
 /** 只对 Cherry 有效：所见即所得是无条件单栏内核，塞不进双栏 */
 export type EditorViewMode = 'edit' | 'split' | 'preview'
 
 const MODES: EditorViewMode[] = ['edit', 'split', 'preview']
-
-const STORAGE_KEY = 'fehelper-editor-view'
 
 const VIEW_ITEMS: {
   key: EditorViewMode
@@ -21,12 +20,12 @@ const VIEW_ITEMS: {
 ]
 
 export function readViewMode(): EditorViewMode {
-  const saved = localStorage.getItem(STORAGE_KEY)
+  const saved = useUiPrefsStore.getState().editorView
   return MODES.find((mode) => mode === saved) ?? 'split'
 }
 
 export function persistViewMode(mode: EditorViewMode): void {
-  localStorage.setItem(STORAGE_KEY, mode)
+  useUiPrefsStore.getState().setEditorView(mode)
 }
 
 export const VIEW_MODE_LABEL: Record<EditorViewMode, string> = {

@@ -9,6 +9,11 @@ import {
   type ReadingBookmark,
 } from './notesStore'
 import { compressImageToWebp } from './imageCompress'
+import { useUiPrefsStore } from '../store/uiPrefsStore'
+import {
+  peekLegacyLocalJson,
+  purgeLegacyLocalKeys,
+} from '../store/migrateLocalKey'
 
 export type CloudflareSyncMode = 'worker' | 'kv'
 
@@ -173,24 +178,119 @@ export const SECRET_CIPHER_PREFIX = 'e2ee::'
 export type SettingsSnapshot = Record<string, unknown>
 
 /**
- * 这些键存在 localStorage（历史原因：主题、编辑器偏好等都是渲染端自查自存，
- * 不需要主进程参与）。同步时要按存放位置分流 —— 全走 storeGet 会读不到，
- * 而且是静默失败：白名单里列着，实际一个字节都没上云。
+ * 这些键已迁入 uiPrefsStore（zustand persist → electron-store）。
+ * 同步时从 store 状态收集 / 写回，不再碰 localStorage。
  */
-const LOCAL_STORAGE_SETTING_KEYS = new Set([
-  'fehelper-theme',
+const UI_PREFS_SETTING_KEYS = new Set([
   'fehelper-code-theme',
   'fehelper-editor-mode',
   'fehelper-editor-split',
   'fehelper-editor-view',
-  'fehelper-sidebar-width',
+  'fehelper-editor-zoom',
   'text-translate-primary-lang',
+  'fehelper-speech-settings',
 ])
+
+/** 从 uiPrefsStore 读出云端键对应的值；缺省或空则 undefined（不上云） */
+function collectUiPrefValue(key: string): unknown | undefined {
+  const s = useUiPrefsStore.getState()
+  switch (key) {
+    case 'fehelper-code-theme':
+      return s.codeBlockTheme || undefined
+    case 'fehelper-editor-mode':
+      return s.editorMode || undefined
+    case 'fehelper-editor-split':
+      // store 用 0~1；云端历史上可能是百分比字符串，收集时统一成 0~1 字符串
+      return String(s.editorSplit)
+    case 'fehelper-editor-view':
+      return s.editorView || undefined
+    case 'fehelper-editor-zoom':
+      return String(s.editorZoom)
+    case 'text-translate-primary-lang':
+      return s.primaryLang || undefined
+    case 'fehelper-speech-settings':
+      return Object.keys(s.speechSettings).length ? s.speechSettings : undefined
+    default:
+      return undefined
+  }
+}
+
+/** 把云端值写回 uiPrefsStore；split 同时兼容 0~1 与 20~80 百分比 */
+function applyUiPrefValue(key: string, value: unknown): boolean {
+  const store = useUiPrefsStore.getState()
+  switch (key) {
+    case 'fehelper-code-theme':
+      if (typeof value === 'string' && value) {
+        store.setCodeBlockTheme(value)
+        return true
+      }
+      return false
+    case 'fehelper-editor-mode':
+      if (typeof value === 'string' && value) {
+        store.setEditorMode(value)
+        return true
+      }
+      return false
+    case 'fehelper-editor-split': {
+      const n = Number(value)
+      if (!Number.isFinite(n)) return false
+      if (n > 0 && n < 1) {
+        store.setEditorSplit(n)
+        return true
+      }
+      if (n >= 20 && n <= 80) {
+        store.setEditorSplit(n / 100)
+        return true
+      }
+      return false
+    }
+    case 'fehelper-editor-view':
+      if (typeof value === 'string' && value) {
+        store.setEditorView(value)
+        return true
+      }
+      return false
+    case 'fehelper-editor-zoom': {
+      const z = Number(value)
+      if (Number.isFinite(z) && z > 0) {
+        store.setEditorZoom(z)
+        return true
+      }
+      return false
+    }
+    case 'text-translate-primary-lang':
+      if (typeof value === 'string' && value) {
+        store.setPrimaryLang(value)
+        return true
+      }
+      return false
+    case 'fehelper-speech-settings': {
+      if (value && typeof value === 'object') {
+        store.setSpeechSettings(value as Record<string, unknown>)
+        return true
+      }
+      if (typeof value === 'string') {
+        try {
+          const parsed = JSON.parse(value) as Record<string, unknown>
+          if (parsed && typeof parsed === 'object') {
+            store.setSpeechSettings(parsed)
+            return true
+          }
+        } catch {
+          return false
+        }
+      }
+      return false
+    }
+    default:
+      return false
+  }
+}
 
 /**
  * 从本地存储收集要同步的设置。
  *
- * 按键的存放位置分流读：localStorage 的走同步 getItem，其余走 electron-store。
+ * 分流：uiPrefs 走 zustand 状态；其余走 electron-store。
  * 只取存在且有值的项 —— 没设过的项不上云，免得用空值覆盖别的机器。
  */
 export async function collectSettings(): Promise<SettingsSnapshot> {
@@ -199,9 +299,9 @@ export async function collectSettings(): Promise<SettingsSnapshot> {
 
   for (const key of SYNCED_SETTING_KEYS) {
     try {
-      if (LOCAL_STORAGE_SETTING_KEYS.has(key)) {
-        const raw = localStorage.getItem(key)
-        if (raw !== null) snapshot[key] = raw
+      if (UI_PREFS_SETTING_KEYS.has(key)) {
+        const value = collectUiPrefValue(key)
+        if (value !== undefined && value !== null) snapshot[key] = value
         continue
       }
       if (key === 'clipboard-history') {
@@ -217,6 +317,7 @@ export async function collectSettings(): Promise<SettingsSnapshot> {
         if (Array.isArray(projected)) snapshot[key] = projected
         continue
       }
+      // fehelper-theme / fehelper-sidebar-width 等：仅 electron-store
       const value = await api?.storeGet?.(key)
       if (value !== undefined && value !== null) {
         snapshot[key] = value
@@ -349,9 +450,8 @@ export async function applySettings(snapshot: SettingsSnapshot): Promise<number>
     // 免得把本机正在使用的配置冲掉
     if (snapshot[key] === null) continue
     try {
-      if (LOCAL_STORAGE_SETTING_KEYS.has(key)) {
-        // localStorage 要求字符串；云端存的是当初读出来的原样，直接写回
-        localStorage.setItem(key, String(snapshot[key]))
+      if (UI_PREFS_SETTING_KEYS.has(key)) {
+        if (!applyUiPrefValue(key, snapshot[key])) continue
       } else if (key === 'shortcut-bindings') {
         /*
          * 快捷键不能只 storeSet：主进程还握着一份 OS 层的全局注册，
@@ -374,6 +474,7 @@ export async function applySettings(snapshot: SettingsSnapshot): Promise<number>
         )
         await api?.storeSet?.(key, merged)
       } else {
+        // fehelper-theme / fehelper-sidebar-width 等：仅 electron-store
         await api?.storeSet?.(key, snapshot[key])
       }
       applied++
@@ -1379,12 +1480,20 @@ export async function loadCloudflareConfig(): Promise<CloudflareSyncConfig> {
       const stored = await window.electronAPI.storeGet(CF_CONFIG_STORE_KEY)
       if (stored && typeof stored === 'object') {
         cfg = { ...DEFAULT_CF_CONFIG, ...stored }
+        purgeLegacyLocalKeys([CF_CONFIG_STORE_KEY])
       }
     }
     if (!cfg) {
-      const local = localStorage.getItem(CF_CONFIG_STORE_KEY)
-      if (local) {
-        cfg = { ...DEFAULT_CF_CONFIG, ...JSON.parse(local) }
+      // 一次性从旧 localStorage 迁进 electron-store
+      const legacy = peekLegacyLocalJson<Partial<CloudflareSyncConfig>>(CF_CONFIG_STORE_KEY)
+      if (legacy && typeof legacy === 'object') {
+        cfg = { ...DEFAULT_CF_CONFIG, ...legacy }
+        try {
+          await window.electronAPI?.storeSet?.(CF_CONFIG_STORE_KEY, cfg)
+        } catch {
+          // ignore
+        }
+        purgeLegacyLocalKeys([CF_CONFIG_STORE_KEY])
       }
     }
     if (!cfg) return DEFAULT_CF_CONFIG
@@ -1413,11 +1522,6 @@ export async function saveCloudflareConfig(config: CloudflareSyncConfig): Promis
   } catch {
     // ignore
   }
-  try {
-    localStorage.setItem(CF_CONFIG_STORE_KEY, JSON.stringify(config))
-  } catch {
-    // ignore
-  }
 }
 
 export async function loadBackupSnapshots(): Promise<BackupSnapshot[]> {
@@ -1426,24 +1530,13 @@ export async function loadBackupSnapshots(): Promise<BackupSnapshot[]> {
       const stored = await window.electronAPI.storeGet(SNAPSHOTS_STORE_KEY)
       if (Array.isArray(stored)) {
         // 老版本在 localStorage 里还镜像过一份（leveldb 被它撑到近百 MB）。
-        // 以 store 为准，顺手把这坨历史遗留删掉 —— 一次性清理，之后不再写
-        if (localStorage.getItem(SNAPSHOTS_STORE_KEY) !== null) {
-          queueMicrotask(() => {
-            try {
-              localStorage.removeItem(SNAPSHOTS_STORE_KEY)
-            } catch {
-              // ignore
-            }
-          })
-        }
+        // 以 store 为准，顺手把这坨历史遗留删掉 —— 不再从 legacy 回填
+        purgeLegacyLocalKeys([SNAPSHOTS_STORE_KEY])
         return stored
       }
     }
-    const local = localStorage.getItem(SNAPSHOTS_STORE_KEY)
-    if (local) {
-      const parsed = JSON.parse(local)
-      if (Array.isArray(parsed)) return parsed
-    }
+    // 无 store 数据时也不回填巨型 legacy 快照，只清掉残留
+    purgeLegacyLocalKeys([SNAPSHOTS_STORE_KEY])
   } catch {
     // ignore
   }

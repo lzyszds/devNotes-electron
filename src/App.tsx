@@ -15,54 +15,52 @@ import {
   jsonToolboxAliases,
 } from './types'
 import { requestJsonToolboxMode } from './components/tools/JsonToolbox'
+import { useUiPrefsStore } from './store/uiPrefsStore'
 
 export type ViewMode = 'dashboard' | 'stats'
+
+function normalizeUsageStats(raw: Record<string, unknown> | null | undefined): Record<string, number> {
+  const saved: Record<string, number> = {}
+  if (raw && typeof raw === 'object') {
+    for (const [key, value] of Object.entries(raw)) {
+      const n = Number(value)
+      if (Number.isFinite(n) && n > 0) saved[key] = n
+    }
+  }
+  // 旧 json 三件套的计数合并进工具箱，排行里才不会凭空丢历史
+  let legacy = 0
+  for (const key of Object.keys(jsonToolboxAliases)) {
+    legacy += saved[key] ?? 0
+    delete saved[key]
+  }
+  if (legacy > 0) saved['json-toolbox'] = (saved['json-toolbox'] ?? 0) + legacy
+  // 原电脑配置四小工具已成 sys-suite 大模块的子工具：旧计数合并到套件名下
+  let sysLegacy = 0
+  for (const key of computerSuiteLegacyIds) {
+    sysLegacy += saved[key] ?? 0
+    delete saved[key]
+  }
+  if (sysLegacy > 0) {
+    saved[computerSuiteId] = (saved[computerSuiteId] ?? 0) + sysLegacy
+  }
+  return saved
+}
+
 function App() {
   const [viewMode, setViewMode] = useState<ViewMode>('dashboard')
   const [activeTabId, setActiveTabId] = useState<string>('markdown-notes')
 
-  const [usageStats, setUsageStats] = useState<Record<string, number>>(() => {
-    let saved: Record<string, number> = {}
-    try {
-      const raw = localStorage.getItem('fehelper-usage-stats')
-      if (raw) saved = JSON.parse(raw)
-    } catch {
-      saved = {}
-    }
-    // 旧 json 三件套的计数合并进工具箱，排行里才不会凭空丢历史
-    let legacy = 0
-    for (const key of Object.keys(jsonToolboxAliases)) {
-      legacy += saved[key] ?? 0
-      delete saved[key]
-    }
-    if (legacy > 0) saved['json-toolbox'] = (saved['json-toolbox'] ?? 0) + legacy
-    // 原电脑配置四小工具已成 sys-suite 大模块的子工具：旧计数合并到套件名下
-    let sysLegacy = 0
-    for (const key of computerSuiteLegacyIds) {
-      sysLegacy += saved[key] ?? 0
-      delete saved[key]
-    }
-    if (sysLegacy > 0) {
-      saved[computerSuiteId] = (saved[computerSuiteId] ?? 0) + sysLegacy
-    }
-    return saved
-  })
+  const usageStatsRaw = useUiPrefsStore((s) => s.usageStats)
+  const setUsageStatsStore = useUiPrefsStore((s) => s.setUsageStats)
+  const usageStats = normalizeUsageStats(usageStatsRaw)
 
-  // 固化全局唯一的 Notion 极简暖灰阶工作台，彻底移除 dark 与多主题切换
+  // 固化全局唯一的 Notion 极简暖灰阶工作台，彻底移除 dark 与多主题切换。
+  // fehelper-theme 旧 key 由 uiPrefsStore.adoptLegacy 统一 purge，这里不再单独 removeItem。
   useEffect(() => {
     const root = document.documentElement
     root.classList.remove('dark')
     root.setAttribute('data-theme', 'notion-warm')
-    try {
-      localStorage.removeItem('fehelper-theme')
-    } catch {
-      // ignore
-    }
   }, [])
-
-  useEffect(() => {
-    localStorage.setItem('fehelper-usage-stats', JSON.stringify(usageStats))
-  }, [usageStats])
 
   const openToolRef = useRef<(toolId: string) => void>(() => {})
   useEffect(() => {
@@ -105,10 +103,11 @@ function App() {
   }, [])
 
   const tallyTool = (toolId: string) => {
-    setUsageStats((prev) => ({
-      ...prev,
-      [toolId]: (prev[toolId] || 0) + 1,
-    }))
+    const next = {
+      ...usageStats,
+      [toolId]: (usageStats[toolId] || 0) + 1,
+    }
+    setUsageStatsStore(next)
     // 统计页的时效性内容（趋势 / 今日用量 / 连续天数 / 最近使用）靠这两笔日志
     recordDailyUse()
     recordToolUse(toolId)

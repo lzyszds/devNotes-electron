@@ -11,6 +11,7 @@ import {
   reloadSnippets,
   type Snippet,
 } from '../components/modules/snippets/useSnippets'
+import { useUiPrefsStore } from '../store/uiPrefsStore'
 
 /** 备份清单元数据 */
 export interface BackupManifest {
@@ -143,22 +144,18 @@ export async function exportOfflineBackupZip(): Promise<{
   const historyFolder = zip.folder('history')!
   historyFolder.file('histories.json', JSON.stringify(histories, null, 2))
 
-  // 4. 采集系统设置
+  // 4. 采集系统设置（仅 electron-store；uiPrefs 相关从 zustand 补一份）
   const settings: Record<string, unknown> = {}
   for (const key of BACKUP_SETTING_KEYS) {
     try {
+      if (key === 'devnotes-code-block-theme') {
+        const theme = useUiPrefsStore.getState().codeBlockTheme
+        if (theme) settings[key] = theme
+        continue
+      }
       const data = await window.electronAPI?.storeGet(key)
       if (data !== undefined && data !== null) {
         settings[key] = data
-      } else {
-        const local = localStorage.getItem(key)
-        if (local) {
-          try {
-            settings[key] = JSON.parse(local)
-          } catch {
-            settings[key] = local
-          }
-        }
       }
     } catch {
       // ignore
@@ -375,19 +372,57 @@ export async function importOfflineBackupZip(
     }
   }
 
-  // 4. 还原配置
+  // 4. 还原配置（store 为主；已迁入 uiPrefs 的键写回 zustand）
   const settingsFile = zip.file('settings/settings.json')
   if (settingsFile) {
     const text = await settingsFile.async('text')
     try {
       const backupSettings = JSON.parse(text) as Record<string, unknown>
       for (const [key, val] of Object.entries(backupSettings)) {
-        await window.electronAPI?.storeSet(key, val)
-        if (typeof val === 'string') {
-          localStorage.setItem(key, val)
-        } else {
-          localStorage.setItem(key, JSON.stringify(val))
+        if (
+          key === 'devnotes-code-block-theme' ||
+          key === 'fehelper-code-theme'
+        ) {
+          if (typeof val === 'string' && val) {
+            useUiPrefsStore.getState().setCodeBlockTheme(val)
+          }
+          continue
         }
+        if (key === 'fehelper-editor-mode' && typeof val === 'string') {
+          useUiPrefsStore.getState().setEditorMode(val)
+          continue
+        }
+        if (key === 'fehelper-editor-view' && typeof val === 'string') {
+          useUiPrefsStore.getState().setEditorView(val)
+          continue
+        }
+        if (key === 'fehelper-editor-zoom') {
+          const z = Number(val)
+          if (Number.isFinite(z) && z > 0) {
+            useUiPrefsStore.getState().setEditorZoom(z)
+          }
+          continue
+        }
+        if (key === 'fehelper-editor-split') {
+          const n = Number(val)
+          if (Number.isFinite(n) && n > 0 && n < 1) {
+            useUiPrefsStore.getState().setEditorSplit(n)
+          } else if (Number.isFinite(n) && n >= 20 && n <= 80) {
+            useUiPrefsStore.getState().setEditorSplit(n / 100)
+          }
+          continue
+        }
+        if (key === 'text-translate-primary-lang' && typeof val === 'string') {
+          useUiPrefsStore.getState().setPrimaryLang(val)
+          continue
+        }
+        if (key === 'fehelper-speech-settings') {
+          if (val && typeof val === 'object') {
+            useUiPrefsStore.getState().setSpeechSettings(val as Record<string, unknown>)
+          }
+          continue
+        }
+        await window.electronAPI?.storeSet(key, val)
       }
     } catch (e) {
       console.error('还原设置失败:', e)

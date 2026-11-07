@@ -65,7 +65,7 @@ export const computerSuiteId = 'sys-suite'
  * 电脑配置大模块内部四件套。category 填 computerSuiteId 是为了
  * 统计分类聚合时落到一个独立桶里，而不是被误算进其他工具类。
  * 子工具 id 不出现在 tools / ToolPage 里 —— 外部所有旧 id 深链接
- * （快捷键、旧 localStorage、旧计数）由 App.openTool 统一重定向到本模块。
+ * （快捷键、旧偏好键、旧计数）由 App.openTool 统一重定向到本模块。
  */
 export type ComputerSuiteToolId = 'sys-inspector' | 'disk-analyzer' | 'dev-environment' | 'speed-test' | 'net-probe' | 'port-killer'
 
@@ -73,7 +73,7 @@ export const computerSuiteTools: Tool[] = [
   { id: 'sys-inspector', name: '电脑配置检测', icon: 'Cpu', description: '硬件配置、实时内存构成与应用内存占用排行', category: computerSuiteId },
   { id: 'disk-analyzer', name: '磁盘空间分析', icon: 'HardDrive', description: '选择目录只读扫描，找出占用空间较大的文件与目录', category: computerSuiteId },
   { id: 'dev-environment', name: '开发环境检查', icon: 'Terminal', description: '检查 Git、Node.js、Python、Java 与 Docker 的版本和路径', category: computerSuiteId },
-  { id: 'speed-test', name: '网络测速', icon: 'Gauge', description: '实时测速网络下载速度、上传速度、Ping 时延与网络抖动', category: computerSuiteId },
+  { id: 'speed-test', name: '网络测速', icon: 'Gauge', description: '基于 Ookla Speedtest® CLI，测量下载、上传、延迟与抖动', category: computerSuiteId },
   { id: 'net-probe', name: '网络探测', icon: 'Activity', description: 'Ping、TCP 端口、HTTP(S) 探测，看延迟、丢包并判断卡在哪一层', category: computerSuiteId },
   { id: 'port-killer', name: '端口占用排查', icon: 'Network', description: '查出谁占了端口，一键强杀腾出来', category: computerSuiteId },
 ]

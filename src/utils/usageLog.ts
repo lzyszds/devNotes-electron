@@ -1,15 +1,20 @@
 /**
- * 使用行为的轻量日志（全部存 localStorage，不进 electron-store）。
+ * 使用行为的轻量日志（electron-store；旧 localStorage 仅一次性 peek 迁移）。
  *
  * 性能优化考量：
- * 此前在每次主画布 pointerdown 交互时直接同步调用 2 次 localStorage.getItem / setItem，
+ * 此前在每次主画布 pointerdown 交互时直接同步读写旧本地存储，
  * 同步磁盘 I/O 阻塞了浏览器事件主循环，造成所有点击都有十几毫秒的固定输入延迟。
  *
  * 现改为【内存缓存 + 异步防抖批量落盘】：
  * - 点击事件中仅进行纯内存对象计数操作（耗时 ~0.005ms，零 GC 开销）；
- * - 批量写入延迟 1.5s 防抖执行；
- * - 页面卸载或退至后台时（beforeunload / pagehide）强制同步 flush，确保统计数据不丢失。
+ * - 批量写入延迟 1.5s 防抖执行（storeSet）；
+ * - 页面卸载或退至后台时（beforeunload / pagehide）强制 storeSetSync flush，确保统计数据不丢失。
  */
+import {
+  peekLegacyLocalJson,
+  purgeLegacyLocalKeys,
+} from '../store/migrateLocalKey'
+
 const DAILY_KEY = 'fehelper-usage-daily'
 const LAST_KEY = 'fehelper-usage-last'
 const TIME_KEY = 'fehelper-usage-time'
@@ -19,28 +24,14 @@ export type DailyLog = Record<string, number>
 export type LastUsedMap = Record<string, number>
 export type UsageTimeMap = Record<string, number>
 
-function readJSON<T>(key: string, fallback: T): T {
-  try {
-    const raw = localStorage.getItem(key)
-    return raw ? (JSON.parse(raw) as T) : fallback
-  } catch {
-    return fallback
-  }
-}
-
-function writeJSON(key: string, value: unknown): void {
-  try {
-    localStorage.setItem(key, JSON.stringify(value))
-  } catch {
-    // 磁盘已满或受限时静默跳过，避免影响应用主功能
-  }
-}
-
 // 内存暂存区
 let memoryDailyLog: DailyLog | null = null
 let memoryLastUsed: LastUsedMap | null = null
 let memoryUsageTime: UsageTimeMap | null = null
 let memoryToolActions: Record<string, number> | null = null
+
+// 每个 key 是否已发起过异步 storeGet 细化
+const storeHydrateStarted = new Set<string>()
 
 // 待写脏标记
 let pendingDaily = false
@@ -50,27 +41,127 @@ let pendingActions = false
 
 let flushTimer: number | null = null
 
-export function flushUsageLogs(): void {
+function memoryFor(key: string): Record<string, number> | null {
+  switch (key) {
+    case DAILY_KEY:
+      return memoryDailyLog
+    case LAST_KEY:
+      return memoryLastUsed
+    case TIME_KEY:
+      return memoryUsageTime
+    case ACTIONS_KEY:
+      return memoryToolActions
+    default:
+      return null
+  }
+}
+
+function setMemory(key: string, value: Record<string, number>): void {
+  switch (key) {
+    case DAILY_KEY:
+      memoryDailyLog = value
+      break
+    case LAST_KEY:
+      memoryLastUsed = value
+      break
+    case TIME_KEY:
+      memoryUsageTime = value
+      break
+    case ACTIONS_KEY:
+      memoryToolActions = value
+      break
+  }
+}
+
+function isPending(key: string): boolean {
+  switch (key) {
+    case DAILY_KEY:
+      return pendingDaily
+    case LAST_KEY:
+      return pendingLast
+    case TIME_KEY:
+      return pendingTime
+    case ACTIONS_KEY:
+      return pendingActions
+    default:
+      return false
+  }
+}
+
+/**
+ * 同步首读：legacy peek 进内存并 purge；同时 fire-and-forget storeGet 细化。
+ * 已有内存则直接返回（热点路径零 I/O）。
+ */
+function readJSON<T extends Record<string, number>>(key: string, fallback: T): T {
+  const existing = memoryFor(key)
+  if (existing) return existing as T
+
+  const legacy = peekLegacyLocalJson<T>(key)
+  const seeded =
+    legacy && typeof legacy === 'object' ? ({ ...legacy } as T) : ({ ...fallback } as T)
+  setMemory(key, seeded)
+  purgeLegacyLocalKeys([key])
+
+  if (!storeHydrateStarted.has(key)) {
+    storeHydrateStarted.add(key)
+    const api = window.electronAPI
+    if (api?.storeGet) {
+      void api.storeGet(key).then((stored) => {
+        if (!stored || typeof stored !== 'object') return
+        // 用户已在内存里开始累计时以内存为准，避免异步回填盖掉刚记的一笔
+        if (isPending(key) && memoryFor(key)) return
+        setMemory(key, { ...(stored as Record<string, number>) })
+      })
+    }
+  }
+
+  return seeded
+}
+
+function writeJSON(key: string, value: unknown): void {
+  const api = window.electronAPI
+  if (api?.storeSet) {
+    void api.storeSet(key, value).catch(() => {
+      /* 磁盘已满或受限时静默跳过，避免影响应用主功能 */
+    })
+  }
+}
+
+function writeJSONSync(key: string, value: unknown): void {
+  try {
+    window.electronAPI?.storeSetSync?.(key, value)
+  } catch {
+    /* ignore */
+  }
+}
+
+function flushPending(forceSync: boolean): void {
   if (flushTimer) {
     window.clearTimeout(flushTimer)
     flushTimer = null
   }
+  const write = forceSync ? writeJSONSync : writeJSON
   if (pendingDaily && memoryDailyLog) {
-    writeJSON(DAILY_KEY, memoryDailyLog)
+    write(DAILY_KEY, memoryDailyLog)
     pendingDaily = false
   }
   if (pendingLast && memoryLastUsed) {
-    writeJSON(LAST_KEY, memoryLastUsed)
+    write(LAST_KEY, memoryLastUsed)
     pendingLast = false
   }
   if (pendingTime && memoryUsageTime) {
-    writeJSON(TIME_KEY, memoryUsageTime)
+    write(TIME_KEY, memoryUsageTime)
     pendingTime = false
   }
   if (pendingActions && memoryToolActions) {
-    writeJSON(ACTIONS_KEY, memoryToolActions)
+    write(ACTIONS_KEY, memoryToolActions)
     pendingActions = false
   }
+}
+
+/** 日常防抖 flush：异步 storeSet */
+export function flushUsageLogs(): void {
+  flushPending(false)
 }
 
 function scheduleFlush(): void {
@@ -81,10 +172,11 @@ function scheduleFlush(): void {
   }, 1500)
 }
 
-// 注册卸载刷新监听
+// 注册卸载刷新监听（必须 storeSetSync）
 if (typeof window !== 'undefined') {
-  window.addEventListener('pagehide', flushUsageLogs)
-  window.addEventListener('beforeunload', flushUsageLogs)
+  const syncFlush = () => flushPending(true)
+  window.addEventListener('pagehide', syncFlush)
+  window.addEventListener('beforeunload', syncFlush)
 }
 
 /** 本地时区的 'YYYY-MM-DD'。别用 toISOString —— 那是 UTC，晚上 8 点后会算到第二天去 */

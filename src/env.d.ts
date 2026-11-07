@@ -34,7 +34,7 @@ interface PortInspectResult {
   error?: string
 }
 
-type TrayTitleMode = 'pnl_mem' | 'pnl' | 'equity' | 'memory' | 'ticker' | 'none'
+type TrayTitleMode = 'dual' | 'pnl_mem' | 'pnl' | 'equity' | 'memory' | 'ticker' | 'none'
 
 /** 托盘状态显示配置（主进程持久化到 electron-store 的 tray-status 键） */
 interface TrayStatusConfig {
@@ -95,6 +95,8 @@ interface Window {
     ) => () => void
     storeGet: (key: string) => Promise<any>
     storeSet: (key: string, value: any) => Promise<void>
+    /** 同步写 electron-store（pagehide / 退出紧急路径） */
+    storeSetSync?: (key: string, value: any) => boolean
     storeDelete: (key: string) => Promise<void>
     /** 主进程剪贴板读写(可选,浏览器环境下不存在) */
     clipboardRead?: () => Promise<string>
@@ -238,15 +240,59 @@ interface Window {
     marketQuotes?: (payload: { spot: string[]; contracts: string[] }) => Promise<{
       symbol: string; name: string; kind: 'contract' | 'spot'; asset: 'crypto' | 'equity'; price: number; changePercent: number;
       change: number; currency: string; fundingRate?: number; openInterest?: number; high24h?: number; low24h?: number;
-      markPrice?: number; nextFundingTime?: number; fundingIntervalHours?: number; turnover24h?: number; longRatio?: number; updatedAt: number;
+      markPrice?: number; nextFundingTime?: number; fundingIntervalHours?: number; turnover24h?: number; longRatio?: number;
+      open?: number; prevClose?: number; volume?: number; turnoverRate?: number; pe?: number; pb?: number;
+      amplitude?: number; floatMarketCap?: number; marketCap?: number; updatedAt: number;
     }[]>
-    marketNews?: () => Promise<{ title: string; url: string; source: string; publishedAt: string }[]>
-    marketCandles?: (payload: { symbol: string; kind: 'contract' | 'spot' }) => Promise<number[]>
+    marketHot?: (payload?: {
+      limit?: number
+      offset?: number
+      assetFilter?: 'all' | 'crypto' | 'equity'
+      force?: boolean
+    }) => Promise<{
+      items: Array<{
+        symbol: string; name: string; kind: 'contract' | 'spot'; asset: 'crypto' | 'equity'; price: number; changePercent: number;
+        change: number; currency: string; fundingRate?: number; openInterest?: number; high24h?: number; low24h?: number;
+        markPrice?: number; nextFundingTime?: number; fundingIntervalHours?: number; turnover24h?: number; longRatio?: number;
+        open?: number; prevClose?: number; volume?: number; turnoverRate?: number; pe?: number; pb?: number;
+        amplitude?: number; floatMarketCap?: number; marketCap?: number; updatedAt: number;
+      }>
+      offset: number
+      limit: number
+      total: number
+      hasMore: boolean
+    }>
+    marketNews?: (payload?: {
+      page?: number
+      pageSize?: number
+      force?: boolean
+    }) => Promise<{
+      items: Array<{
+        title: string
+        url: string
+        source: string
+        publishedAt: string
+        category: 'equity' | 'crypto' | 'exchange'
+        sentiment: 'bull' | 'bear' | 'neutral'
+      }>
+      page: number
+      pageSize: number
+      totalCount: number
+      hasMore: boolean
+    }>
+    marketCandles?: (payload: {
+      symbol: string
+      kind: 'contract' | 'spot'
+      interval?: '1h' | '4h' | '1d'
+    }) => Promise<number[]>
     marketAccount?: () => Promise<{
       /** 失败的字段为 null（不是 0），渲染层据此显示 --，别把失败当成零资产/空仓 */
       total: number | null
       available: number | null
       unrealisedPnl: number | null
+      /** 合约 total + 现货 USDT；总资产估值 = totalAsset + unrealisedPnl */
+      totalAsset: number | null
+      totalAssetSpot: number | null
       openPositions: Array<{
         contract: string
         symbol: string
@@ -298,6 +344,11 @@ interface Window {
     hashCompute?: (payload: { paths: string[]; algorithms: string[]; requestId: number }) => Promise<HashFileResult[]>
     onHashProgress?: (callback: (progress: HashFileProgress & { requestId: number }) => void) => () => void
 
+    /* Speedtest® CLI（Ookla 官方，主进程跑二进制，进度以事件推送） */
+    speedtestStart?: () => Promise<{ id: number }>
+    speedtestStop?: (id: number) => Promise<void>
+    onSpeedtestEvent?: (callback: (event: SpeedtestIpcEvent) => void) => () => void
+
     /* 网络探测 */
     netInfoInterfaces?: () => Promise<LocalInterface[]>
     netInfoPublicIp?: (mode: 'direct' | 'proxy') => Promise<PublicIpResult>
@@ -341,6 +392,14 @@ interface Window {
     /* 电脑配置与内存检测 */
     systemInfo?: () => Promise<import('./types/system').SystemHardwareInfo>
     systemProcessList?: () => Promise<import('./types/system').AppProcessMemory[]>
+    systemLive?: () => Promise<import('./types/system').SystemLive>
+    systemLiveProcesses?: () => Promise<import('./types/system').LiveProcess[]>
+    systemVolumes?: () => Promise<import('./types/system').DiskVolume[]>
+    systemProcessIcons?: (paths: string[]) => Promise<Record<string, string | null>>
+    systemProcessSignal?: (pids: number[], action: 'suspend' | 'resume') => Promise<{ ok: boolean; failed: number }>
+    systemSpawn?: (command: string) => Promise<{ ok: boolean; pid?: number; error?: string }>
+    systemStartupList?: () => Promise<import('./types/system').StartupItem[]>
+    systemStartupToggle?: (id: string, enabled: boolean) => Promise<{ ok: boolean; error?: string }>
     systemKillProcess?: (pid: number) => Promise<{ ok: boolean; pid: number; error?: string }>
     systemDiskChoose?: () => Promise<string | null>
     systemDiskScan?: (root: string) => Promise<{ path: string; name: string; sizeBytes: number; isDirectory: boolean; modifiedAt: number }[]>
@@ -387,6 +446,39 @@ interface PublicIpResult {
   via: string | null
   error?: string
 }
+
+/** Speedtest® CLI 推送给渲染层的事件（带运行 id） */
+type SpeedtestIpcEvent =
+  | { id: number; kind: 'status'; status: 'checking' | 'downloading' | 'ready' | 'starting' }
+  | {
+      id: number
+      kind: 'progress'
+      phase: 'ping' | 'download' | 'upload'
+      progress: number
+      mbps: number | null
+      pingMs: number | null
+      jitterMs: number | null
+      serverName?: string
+      serverLocation?: string
+      isp?: string
+    }
+  | {
+      id: number
+      kind: 'result'
+      downloadMbps: number
+      uploadMbps: number
+      pingMs: number
+      jitterMs: number
+      packetLoss: number | null
+      isp: string
+      serverName: string
+      serverLocation: string
+      serverId: number | null
+      resultUrl: string | null
+      externalIp: string | null
+    }
+  | { id: number; kind: 'error'; message: string }
+  | { id: number; kind: 'done'; code: number | null }
 
 /** 网络探测：ping 的单条事件 */
 type NetPingEvent =

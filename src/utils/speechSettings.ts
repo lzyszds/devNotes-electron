@@ -8,7 +8,10 @@
  *
  * 与其他设置一样收口在模块级状态：工具里的朗读和设置面板里的试听是两个入口，
  * 各自 setState 会把偏好散到两处，这里统一存，两边都只订阅。
+ * 持久化走 uiPrefsStore，不再直接碰 localStorage。
  */
+
+import { useUiPrefsStore } from '../store/uiPrefsStore'
 
 export interface SpeechSettings {
   /** 指定音色的 voiceURI；空串表示「按朗读语言自动挑一个」 */
@@ -34,30 +37,33 @@ export const SPEECH_LIMITS = {
   volume: { min: 0, max: 1, step: 0.05 },
 } as const
 
-const STORAGE_KEY = 'fehelper-speech-settings'
-
 const listeners = new Set<(settings: SpeechSettings) => void>()
 
 const clamp = (value: number, min: number, max: number) =>
   Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : min
 
-function readSettings(): SpeechSettings {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return { ...SPEECH_DEFAULTS }
-    const parsed = JSON.parse(raw) as Partial<SpeechSettings>
-    return {
-      voiceURI: typeof parsed.voiceURI === 'string' ? parsed.voiceURI : SPEECH_DEFAULTS.voiceURI,
-      rate: clamp(Number(parsed.rate), SPEECH_LIMITS.rate.min, SPEECH_LIMITS.rate.max),
-      pitch: clamp(Number(parsed.pitch), SPEECH_LIMITS.pitch.min, SPEECH_LIMITS.pitch.max),
-      volume: clamp(Number(parsed.volume), SPEECH_LIMITS.volume.min, SPEECH_LIMITS.volume.max),
-    }
-  } catch {
-    return { ...SPEECH_DEFAULTS }
+function normalizeSettings(raw: Record<string, unknown> | SpeechSettings | null | undefined): SpeechSettings {
+  if (!raw || typeof raw !== 'object') return { ...SPEECH_DEFAULTS }
+  const parsed = raw as Partial<SpeechSettings>
+  return {
+    voiceURI: typeof parsed.voiceURI === 'string' ? parsed.voiceURI : SPEECH_DEFAULTS.voiceURI,
+    rate: clamp(Number(parsed.rate), SPEECH_LIMITS.rate.min, SPEECH_LIMITS.rate.max),
+    pitch: clamp(Number(parsed.pitch), SPEECH_LIMITS.pitch.min, SPEECH_LIMITS.pitch.max),
+    volume: clamp(Number(parsed.volume), SPEECH_LIMITS.volume.min, SPEECH_LIMITS.volume.max),
   }
 }
 
+function readSettings(): SpeechSettings {
+  return normalizeSettings(useUiPrefsStore.getState().speechSettings)
+}
+
 let current = readSettings()
+
+useUiPrefsStore.persist.onFinishHydration(() => {
+  const next = readSettings()
+  current = next
+  listeners.forEach((notify) => notify(next))
+})
 
 export function getSpeechSettings(): SpeechSettings {
   return current
@@ -70,11 +76,7 @@ export function saveSpeechSettings(patch: Partial<SpeechSettings>): SpeechSettin
     pitch: clamp(patch.pitch ?? current.pitch, SPEECH_LIMITS.pitch.min, SPEECH_LIMITS.pitch.max),
     volume: clamp(patch.volume ?? current.volume, SPEECH_LIMITS.volume.min, SPEECH_LIMITS.volume.max),
   }
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(current))
-  } catch {
-    // 隐私模式下写不进去，本次会话内仍然生效
-  }
+  useUiPrefsStore.getState().setSpeechSettings({ ...current })
   listeners.forEach((notify) => notify(current))
   return current
 }

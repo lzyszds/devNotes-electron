@@ -1,11 +1,17 @@
 /*
  * AI 在线会话：会话持久化存储与会话生命周期管理。
  *
- * 优先持久化至 electron-store，降级兜底至 localStorage。
+ * 持久化只走 electron-store（storeGet/storeSet；Capacitor 桥接同名 API）。
+ * 同步首屏读内存缓存，由异步 load 填入；旧 localStorage 仅做一次性迁移。
  * 允许用户新建、切换、重命名、删除会话，以及将整场会话一键导出为 Markdown 或 JSON。
  */
 
 import { getPresetById } from './aiChatPresets'
+import {
+  peekLegacyLocalJson,
+  peekLegacyLocalString,
+  purgeLegacyLocalKeys,
+} from '../store/migrateLocalKey'
 
 export interface AiChatMessage {
   id: string
@@ -57,49 +63,50 @@ export function createNewSession(presetId = 'general', title = '新对话'): AiC
   }
 }
 
+/** 异步 load 填入后的会话列表；首屏在 load 完成前用默认空会话 */
+let cachedSessions: AiChatSession[] | null = null
+/** 当前活跃会话 ID 的内存副本 */
+let cachedActiveId = ''
+
 /** 同步读取缓存的历史会话列表（供组件初次挂载时即刻渲染，消除空白闪烁与异步延迟） */
 export function getCachedChatSessions(): AiChatSession[] {
-  // 防抖还没落地时，内存里的那份一定比 localStorage 新（首次进入组件就先拿它）
+  // 防抖还没落地时，内存里的那份一定比已落盘的新（首次进入组件就先拿它）
   if (pendingSessions) return pendingSessions
-  try {
-    const local = localStorage.getItem(AI_CHAT_SESSIONS_STORAGE_KEY)
-    if (local) {
-      const parsed = JSON.parse(local)
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed as AiChatSession[]
-      }
-    }
-  } catch {
-    // ignore
-  }
+  if (cachedSessions) return cachedSessions
   return [createNewSession('general', '日常全能问答')]
 }
 
 /** 同步读取缓存的当前活跃会话 ID */
 export function getCachedActiveSessionId(): string {
-  try {
-    const id = localStorage.getItem(AI_CHAT_ACTIVE_ID_KEY)
-    if (typeof id === 'string') return id
-  } catch {
-    // ignore
-  }
-  return ''
+  return cachedActiveId
 }
 
-/** 读取所有历史会话列表（异步 IPC 兜底） */
+/** 读取所有历史会话列表（electron-store；空则一次性迁 localStorage 遗留） */
 export async function loadChatSessions(): Promise<AiChatSession[]> {
   try {
     let stored: unknown = null
     if (window.electronAPI?.storeGet) {
       stored = await window.electronAPI.storeGet(AI_CHAT_SESSIONS_STORAGE_KEY)
     }
-    if (!stored || !Array.isArray(stored)) {
-      const local = localStorage.getItem(AI_CHAT_SESSIONS_STORAGE_KEY)
-      if (local) stored = JSON.parse(local)
+
+    if (!stored || !Array.isArray(stored) || stored.length === 0) {
+      const legacy = peekLegacyLocalJson<AiChatSession[]>(AI_CHAT_SESSIONS_STORAGE_KEY)
+      if (Array.isArray(legacy) && legacy.length > 0) {
+        stored = legacy
+        try {
+          await window.electronAPI?.storeSet?.(AI_CHAT_SESSIONS_STORAGE_KEY, legacy)
+        } catch {
+          /* ignore */
+        }
+      }
+      purgeLegacyLocalKeys([AI_CHAT_SESSIONS_STORAGE_KEY])
+    } else {
+      purgeLegacyLocalKeys([AI_CHAT_SESSIONS_STORAGE_KEY])
     }
 
     if (Array.isArray(stored) && stored.length > 0) {
-      return stored as AiChatSession[]
+      cachedSessions = stored as AiChatSession[]
+      return cachedSessions
     }
   } catch {
     // ignore
@@ -107,21 +114,23 @@ export async function loadChatSessions(): Promise<AiChatSession[]> {
 
   // 默认赠送一个初始空会话
   const defaultSession = createNewSession('general', '日常全能问答')
-  return [defaultSession]
+  cachedSessions = [defaultSession]
+  return cachedSessions
 }
 
-let saveSessionsTimer: any = null
-/** 防抖窗口内最新的那份会话列表：localStorage 等防抖结束再写，避免每次流式追加都整库 stringify */
+let saveSessionsTimer: ReturnType<typeof setTimeout> | null = null
+/** 防抖窗口内最新的那份会话列表：等防抖结束再写盘，避免每次流式追加都整库 stringify */
 let pendingSessions: AiChatSession[] | null = null
 
 /** 持久化保存所有会话列表（防抖 300ms 异步持久化至磁盘，避免高频 IPC 阻塞主线程） */
 export function saveChatSessions(sessions: AiChatSession[]): void {
   /*
-   * localStorage 不再同步全量写：流式回复期间消息会高频追加，每次都对
-   * 「全部会话 + 全部消息」做一次 JSON.stringify 是切会话卡顿的老来源之一。
-   * 现在与磁盘写入共用同一个 300ms 防抖，窗口关闭时由 flushChatSessions 兜底。
+   * 流式回复期间消息会高频追加，每次都对「全部会话 + 全部消息」做一次
+   * JSON.stringify / IPC 是切会话卡顿的老来源之一。与磁盘写入共用同一个
+   * 300ms 防抖，窗口关闭时由 flushChatSessions 兜底。
    */
   pendingSessions = sessions
+  cachedSessions = sessions
 
   if (saveSessionsTimer) clearTimeout(saveSessionsTimer)
   saveSessionsTimer = setTimeout(() => {
@@ -130,7 +139,7 @@ export function saveChatSessions(sessions: AiChatSession[]): void {
 }
 
 /**
- * 立刻把挂起的会话写盘（localStorage 同步 + electron-store 异步）。
+ * 立刻把挂起的会话写盘（electron-store 异步）。
  * 窗口隐藏 / 退出时调用，保证「防抖窗口内改的最后一句」不会丢。
  */
 export function flushChatSessions(): void {
@@ -141,11 +150,7 @@ export function flushChatSessions(): void {
   const sessions = pendingSessions
   if (!sessions) return
   pendingSessions = null
-  try {
-    localStorage.setItem(AI_CHAT_SESSIONS_STORAGE_KEY, JSON.stringify(sessions))
-  } catch {
-    // ignore
-  }
+  cachedSessions = sessions
   if (window.electronAPI?.storeSet) {
     window.electronAPI.storeSet(AI_CHAT_SESSIONS_STORAGE_KEY, sessions).catch(() => {})
   }
@@ -156,9 +161,26 @@ export async function loadActiveSessionId(): Promise<string | null> {
   try {
     if (window.electronAPI?.storeGet) {
       const stored = await window.electronAPI.storeGet(AI_CHAT_ACTIVE_ID_KEY)
-      if (typeof stored === 'string') return stored
+      if (typeof stored === 'string') {
+        cachedActiveId = stored
+        purgeLegacyLocalKeys([AI_CHAT_ACTIVE_ID_KEY])
+        return stored
+      }
     }
-    return localStorage.getItem(AI_CHAT_ACTIVE_ID_KEY)
+    // store 空时一次性迁旧 localStorage（当时存的是裸字符串，不是 JSON）
+    const legacy = peekLegacyLocalString(AI_CHAT_ACTIVE_ID_KEY)
+    if (legacy) {
+      cachedActiveId = legacy
+      try {
+        await window.electronAPI?.storeSet?.(AI_CHAT_ACTIVE_ID_KEY, legacy)
+      } catch {
+        /* ignore */
+      }
+      purgeLegacyLocalKeys([AI_CHAT_ACTIVE_ID_KEY])
+      return legacy
+    }
+    purgeLegacyLocalKeys([AI_CHAT_ACTIVE_ID_KEY])
+    return null
   } catch {
     return null
   }
@@ -166,15 +188,11 @@ export async function loadActiveSessionId(): Promise<string | null> {
 
 /** 保存当前停留的会话 ID */
 export async function saveActiveSessionId(id: string): Promise<void> {
+  cachedActiveId = id
   try {
     if (window.electronAPI?.storeSet) {
       await window.electronAPI.storeSet(AI_CHAT_ACTIVE_ID_KEY, id)
     }
-  } catch {
-    // ignore
-  }
-  try {
-    localStorage.setItem(AI_CHAT_ACTIVE_ID_KEY, id)
   } catch {
     // ignore
   }
@@ -234,4 +252,3 @@ export function downloadFile(content: string, filename: string, mimeType: string
   document.body.removeChild(a)
   URL.revokeObjectURL(url)
 }
-

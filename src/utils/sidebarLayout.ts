@@ -7,8 +7,10 @@
  *     与 normalizeRailToolIds 里「空数组 = 用默认值」的处理
  *
  * 配置跟着设置一起上云（和主题、快捷键同样的待遇），换台机器不用重配。
+ * 持久化只走 electron-store；同步首屏读内存缓存，旧 localStorage 只做一次性迁移。
  */
 
+import { peekLegacyLocalJson, purgeLegacyLocalKeys } from '../store/migrateLocalKey'
 import { allModules } from '../types'
 
 /** 存储键。与 main.ts / capacitorBridge 的 store 键空间共用 */
@@ -75,16 +77,10 @@ const listeners = new Set<RailListener>()
 /** 当前配置的内存副本。Rail 与设置面板都读它，避免每次渲染都去碰存储 */
 let cached: string[] | null = null
 
-/** 同步读缓存。首次调用会先用 localStorage 顶一个值出来 */
+/** 同步读缓存。首次无缓存时先用默认值，再异步从 store 补齐 */
 export function getCachedRailToolIds(): string[] {
   if (cached) return cached
-  try {
-    const raw = localStorage.getItem(RAIL_TOOLS_STORAGE_KEY)
-    cached = normalizeRailToolIds(raw ? JSON.parse(raw) : null)
-  } catch {
-    cached = [...DEFAULT_RAIL_TOOL_IDS]
-  }
-  // 真值以 electron-store 为准，异步补一次
+  cached = [...DEFAULT_RAIL_TOOL_IDS]
   void refreshRailToolIds()
   return cached
 }
@@ -92,12 +88,27 @@ export function getCachedRailToolIds(): string[] {
 /** 从存储重读并广播。首次加载与云端同步写回后都走它 */
 export async function refreshRailToolIds(): Promise<string[]> {
   try {
-    const stored = await window.electronAPI?.storeGet(RAIL_TOOLS_STORAGE_KEY)
-    // undefined 表示「这份设置没上过云」，保持现状而不是打回默认值
-    if (stored !== undefined && stored !== null) {
-      cached = normalizeRailToolIds(stored)
+    let stored: unknown = undefined
+    if (window.electronAPI?.storeGet) {
+      stored = await window.electronAPI.storeGet(RAIL_TOOLS_STORAGE_KEY)
+    }
+
+    // undefined/null 表示「这份设置没上过云 / store 空」—— 尝试一次性迁旧 localStorage
+    if (stored === undefined || stored === null) {
+      const legacy = peekLegacyLocalJson<string[]>(RAIL_TOOLS_STORAGE_KEY)
+      if (Array.isArray(legacy)) {
+        stored = legacy
+        try {
+          await window.electronAPI?.storeSet?.(RAIL_TOOLS_STORAGE_KEY, legacy)
+        } catch {
+          /* ignore */
+        }
+      }
+      purgeLegacyLocalKeys([RAIL_TOOLS_STORAGE_KEY])
+      cached = stored != null ? normalizeRailToolIds(stored) : (cached ?? [...DEFAULT_RAIL_TOOL_IDS])
     } else {
-      cached = cached ?? [...DEFAULT_RAIL_TOOL_IDS]
+      purgeLegacyLocalKeys([RAIL_TOOLS_STORAGE_KEY])
+      cached = normalizeRailToolIds(stored)
     }
   } catch {
     cached = cached ?? [...DEFAULT_RAIL_TOOL_IDS]
@@ -110,11 +121,6 @@ export async function refreshRailToolIds(): Promise<string[]> {
 export async function saveRailToolIds(ids: string[]): Promise<string[]> {
   const next = normalizeRailToolIds(ids)
   cached = next
-  try {
-    localStorage.setItem(RAIL_TOOLS_STORAGE_KEY, JSON.stringify(next))
-  } catch {
-    // 隐私模式等写不进去，不影响本次会话
-  }
   await window.electronAPI?.storeSet(RAIL_TOOLS_STORAGE_KEY, next).catch(() => { })
   listeners.forEach((listener) => listener(next))
   return next

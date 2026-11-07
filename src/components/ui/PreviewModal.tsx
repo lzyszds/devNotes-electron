@@ -57,7 +57,7 @@ export const PreviewModal = React.memo(function PreviewModal({
       <DialogContent
         showClose={false}
         aria-describedby={undefined}
-        className="w-full max-w-3xl h-[86vh] max-h-[760px] p-0 gap-0"
+        className="w-full max-w-3xl h-[86vh] max-h-[760px] p-0 gap-0 overflow-hidden"
       >
         {/* 标题条：同卡片头部设计的灰背 44px 条 */}
         <div className="flex items-center justify-between gap-2 px-3.5 h-[44px] shrink-0 border-b border-[#E6E6E3] bg-[#FBFBFA]">

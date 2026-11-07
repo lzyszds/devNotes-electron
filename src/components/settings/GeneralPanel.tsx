@@ -289,13 +289,13 @@ export default function GeneralPanel({
                 <div className="min-w-0">
                   <div className="text-xs font-bold text-[#191918]">状态栏文字内容</div>
                   <div className="text-[11px] text-[#787774] mt-0.5 leading-relaxed">
-                    选择在托盘图标右侧常驻显示的关键数据
+                    「两行仪表」会把图标与读数画成一张菜单栏位图；其它模式挂在图标右侧
                   </div>
                 </div>
                 <Select
-                  value={trayStatus.titleMode || 'pnl_mem'}
+                  value={trayStatus.titleMode === 'pnl_mem' || !trayStatus.titleMode ? 'dual' : trayStatus.titleMode}
                   options={[
-                    { value: 'pnl_mem', label: '浮盈 + 内存 (如 -$106 · 83%)' },
+                    { value: 'dual', label: '两行仪表 (净值·盈亏 / 内存·CPU)' },
                     { value: 'pnl', label: '仅持仓浮盈 (如 -$106)' },
                     { value: 'equity', label: '仅账户净值 (如 $674)' },
                     { value: 'memory', label: '仅内存占用 (如 83%)' },

@@ -1,6 +1,7 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useToolHistory, type HistoryItem } from '../hooks/useToolHistory'
+import { useUiPrefsStore } from '../store/uiPrefsStore'
 import { AUTO_LANG } from '../utils/languages'
 
 /**
@@ -12,7 +13,6 @@ import { AUTO_LANG } from '../utils/languages'
 /** 「自动双向」：输入中文出英文、输入英文出中文，不必每次手动切 */
 export const AUTO_TARGET = 'auto-pair'
 
-const PRIMARY_LANG_KEY = 'text-translate-primary-lang'
 const HISTORY_TOOL_ID = 'text-translate'
 
 interface TranslateContextValue {
@@ -52,9 +52,8 @@ export function TranslateProvider({ children }: { children: ReactNode }) {
   const [output, setOutput] = useState('')
   const [sourceLang, setSourceLangState] = useState<string>(AUTO_LANG)
   const [targetLang, setTargetLang] = useState<string>(AUTO_TARGET)
-  const [primaryLang, setPrimaryLang] = useState<string>(
-    () => localStorage.getItem(PRIMARY_LANG_KEY) || 'zh'
-  )
+  const primaryLang = useUiPrefsStore((s) => s.primaryLang) || 'zh'
+  const setPrimaryLang = useUiPrefsStore((s) => s.setPrimaryLang)
   const [isTranslating, setIsTranslating] = useState(false)
   const [elapsed, setElapsed] = useState<number | null>(null)
 
@@ -81,10 +80,6 @@ export function TranslateProvider({ children }: { children: ReactNode }) {
       setOutput(input)
     }
   }, [sourceLang, targetLang])
-
-  useEffect(() => {
-    localStorage.setItem(PRIMARY_LANG_KEY, primaryLang)
-  }, [primaryLang])
 
   const { history, saveHistory, clearHistory, removeHistoryItem } =
     useToolHistory<string>(HISTORY_TOOL_ID)
@@ -119,6 +114,7 @@ export function TranslateProvider({ children }: { children: ReactNode }) {
       setSourceLang,
       targetLang,
       primaryLang,
+      setPrimaryLang,
       swapLanguages,
       history,
       saveHistory,

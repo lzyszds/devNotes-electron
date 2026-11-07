@@ -1,13 +1,14 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
-import { Segmented } from '../ui'
+import { Segmented, ToolShellHeaderSlot } from '../ui'
 import type { JsonToolboxMode } from '../../types'
 
 /*
  * JSON 工具箱：美化 / 比对 / 多语 三件合一。
  *
  * 三个子工具本体零改动（各自带着自己的 ToolShell、历史与状态），
- * 这里只做两件事：顶上一条模式切换，以及「保活挂载」——
- * 切模式不重挂载，格式化历史、比对输入、多语草稿全都在。
+ * 这里只做两件事：把模式切换经 ToolShellHeaderSlot 塞进子工具顶栏，
+ * 以及「保活挂载」——切模式不重挂载，格式化历史、比对输入、多语草稿全都在。
+ * 不再单独占一行切换条：那条横条会把全局顶栏节奏顶松。
  */
 
 const JsonFormatTool = lazy(() => import('./JsonFormatTool'))
@@ -65,16 +66,17 @@ export default function JsonToolbox() {
   }, [mode])
 
   return (
-    <div className="h-full min-h-0 flex flex-col bg-[#FFFFFF] text-[#191918]">
-      {/* 模式切换条：贴着工具自己的标题栏上方 */}
-      <div className="h-9 px-3 flex items-center gap-2.5 border-b border-[#E6E6E3] flex-shrink-0">
-        <Segmented value={mode} options={MODES} onChange={setMode} />
-        <span className="text-[10px] text-[#9A9996]">
-          三个 JSON 工具合在一起，各自状态独立保留
-        </span>
-      </div>
-
-      <div className="flex-1 min-h-0 relative">
+    <ToolShellHeaderSlot
+      content={
+        <Segmented
+          value={mode}
+          options={MODES}
+          onChange={setMode}
+          className="flex-shrink-0"
+        />
+      }
+    >
+      <div className="h-full min-h-0 relative bg-[#FFFFFF] text-[#191918]">
         {MODES.map((m) =>
           visited.has(m.value) ? (
             <div
@@ -94,6 +96,6 @@ export default function JsonToolbox() {
           ) : null
         )}
       </div>
-    </div>
+    </ToolShellHeaderSlot>
   )
 }

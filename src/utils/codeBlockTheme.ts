@@ -12,6 +12,7 @@
 
 import { bundledThemesInfo } from 'shiki/themes'
 import type { BundledTheme } from 'shiki/themes'
+import { useUiPrefsStore } from '../store/uiPrefsStore'
 
 /** 档位 id 即 shiki 主题 id */
 export type CodeBlockThemeId = BundledTheme
@@ -107,7 +108,7 @@ export const CODE_BLOCK_THEMES: CodeBlockThemePreset[] = CURATED_THEME_IDS.flatM
  */
 export const DEFAULT_CODE_BLOCK_THEME: CodeBlockThemeId = 'one-dark-pro'
 
-/** 与同层的编辑器偏好（fehelper-editor-mode / -view / -split）保持一致，直接落 localStorage */
+/** 旧 localStorage 键名；现已由 uiPrefsStore.adoptLegacy 一次性迁走，业务路径不再读写 */
 export const CODE_BLOCK_THEME_STORAGE_KEY = 'fehelper-code-theme'
 
 export function getCodeBlockPreset(id: CodeBlockThemeId): CodeBlockThemePreset {
@@ -123,25 +124,31 @@ function isCodeBlockThemeId(value: unknown): value is CodeBlockThemeId {
 // 而编辑器不在设置面板的 React 子树里，只能靠模块级订阅广播。
 
 function readStoredTheme(): CodeBlockThemeId {
-  try {
-    const saved = localStorage.getItem(CODE_BLOCK_THEME_STORAGE_KEY)
-    if (isCodeBlockThemeId(saved)) return saved
-  } catch {
-    // 读取失败（隐私模式等）时用默认值
-  }
+  const saved = useUiPrefsStore.getState().codeBlockTheme
+  if (isCodeBlockThemeId(saved)) return saved
   return DEFAULT_CODE_BLOCK_THEME
 }
 
 /*
- * 直接在这里读，不提供异步的 load()。
- * 编辑器是在自己的 useEffect 里构造实例并取当前档位的，而 React 的 effect 自下而上执行 ——
- * 编辑器组件的 effect 会早于 App 的 effect，若把读取放在 App 里再往下传，首次挂载必然拿到默认值。
- * localStorage 本来就是同步的，模块初始化时读掉最省事。
+ * 模块初始化时先读 store 当前值（hydrate 前是默认档），再挂 onFinishHydration
+ * 把权威值钉回来。编辑器在自己的 useEffect 里取档位；若把读取放到 App 再往下传，
+ * effect 自下而上执行时编辑器会早于 App，首屏必然落到默认值。
  */
-let cachedTheme: CodeBlockThemeId = readStoredTheme()
-
 type ThemeListener = (id: CodeBlockThemeId) => void
 const themeListeners = new Set<ThemeListener>()
+
+let cachedTheme: CodeBlockThemeId = readStoredTheme()
+
+function publish(id: CodeBlockThemeId) {
+  cachedTheme = id
+  themeListeners.forEach((listener) => listener(id))
+}
+
+useUiPrefsStore.persist.onFinishHydration(() => {
+  const next = readStoredTheme()
+  if (next === cachedTheme) return
+  publish(next)
+})
 
 /** 同步读取当前档位（编辑器构造时要用） */
 export function getCachedCodeBlockTheme(): CodeBlockThemeId {
@@ -155,20 +162,10 @@ export function subscribeCodeBlockTheme(listener: ThemeListener): () => void {
   }
 }
 
-function publish(id: CodeBlockThemeId) {
-  cachedTheme = id
-  themeListeners.forEach((listener) => listener(id))
-}
-
 export function saveCodeBlockTheme(id: CodeBlockThemeId): void {
   if (!isCodeBlockThemeId(id)) return
 
-  // 先广播再落盘：订阅者同步拿到新值，编辑器立刻变色，不必等写盘完成
+  // 先广播再落盘：订阅者同步拿到新值，编辑器立刻变色，不必等 persist 写完
   publish(id)
-
-  try {
-    localStorage.setItem(CODE_BLOCK_THEME_STORAGE_KEY, id)
-  } catch {
-    // ignore
-  }
+  useUiPrefsStore.getState().setCodeBlockTheme(id)
 }

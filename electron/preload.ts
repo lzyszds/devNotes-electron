@@ -2,9 +2,13 @@ import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { InboxEntry, LanStatus, OutboxEntry } from './lanTransfer'
 import type { HttpResult, PingEvent, TcpResult } from './netProbe'
 import type { LocalInterface, PublicIpResult } from './netInfo'
+import type { SpeedtestEvent } from './speedtest'
+
+type SpeedtestIpcEvent = SpeedtestEvent & { id: number }
 import type { HashProgress, HashResult } from './hashFile'
 import type { UpdateStatus } from './updater'
 import type { MarketNewsItem, MarketQuote, GateAccountData } from './marketData'
+import type { SystemLive, LiveProcess, DiskVolume, StartupItem } from './systemMonitor'
 import type { SystemHardwareInfo, AppProcessMemory, DiskScanEntry, DeveloperToolStatus } from './systemInfo'
 
 export type TrayTitleMode = 'pnl_mem' | 'pnl' | 'equity' | 'memory' | 'ticker' | 'none'
@@ -101,14 +105,52 @@ contextBridge.exposeInMainWorld('electronAPI', {
   systemProcessList: (): Promise<AppProcessMemory[]> => ipcRenderer.invoke('system-process-list'),
   systemKillProcess: (pid: number): Promise<{ ok: boolean; pid: number; error?: string }> =>
     ipcRenderer.invoke('system-kill-process', pid),
+  systemLive: (): Promise<SystemLive> => ipcRenderer.invoke('system-live'),
+  systemLiveProcesses: (): Promise<LiveProcess[]> => ipcRenderer.invoke('system-live-processes'),
+  systemVolumes: (): Promise<DiskVolume[]> => ipcRenderer.invoke('system-volumes'),
+  systemProcessIcons: (paths: string[]): Promise<Record<string, string | null>> =>
+    ipcRenderer.invoke('system-process-icons', paths),
+  systemProcessSignal: (pids: number[], action: 'suspend' | 'resume'): Promise<{ ok: boolean; failed: number }> =>
+    ipcRenderer.invoke('system-process-signal', pids, action),
+  systemSpawn: (command: string): Promise<{ ok: boolean; pid?: number; error?: string }> =>
+    ipcRenderer.invoke('system-spawn', command),
+  systemStartupList: (): Promise<StartupItem[]> => ipcRenderer.invoke('system-startup-list'),
+  systemStartupToggle: (id: string, enabled: boolean): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke('system-startup-toggle', id, enabled),
   systemDiskChoose: (): Promise<string | null> => ipcRenderer.invoke('system-disk-choose'),
   systemDiskScan: (root: string): Promise<DiskScanEntry[]> => ipcRenderer.invoke('system-disk-scan', root),
   systemDiskReveal: (target: string): Promise<boolean> => ipcRenderer.invoke('system-disk-reveal', target),
   systemDevTools: (): Promise<DeveloperToolStatus[]> => ipcRenderer.invoke('system-dev-tools'),
   marketQuotes: (payload: { spot: string[]; contracts: string[] }): Promise<MarketQuote[]> =>
     ipcRenderer.invoke('market-quotes', payload),
-  marketNews: (): Promise<MarketNewsItem[]> => ipcRenderer.invoke('market-news'),
-  marketCandles: (payload: { symbol: string; kind: 'contract' | 'spot' }): Promise<number[]> => ipcRenderer.invoke('market-candles', payload),
+  marketHot: (payload?: {
+    limit?: number
+    offset?: number
+    assetFilter?: 'all' | 'crypto' | 'equity'
+    force?: boolean
+  }): Promise<{
+    items: MarketQuote[]
+    offset: number
+    limit: number
+    total: number
+    hasMore: boolean
+  }> => ipcRenderer.invoke('market-hot', payload),
+  marketNews: (payload?: {
+    page?: number
+    pageSize?: number
+    force?: boolean
+  }): Promise<{
+    items: MarketNewsItem[]
+    page: number
+    pageSize: number
+    totalCount: number
+    hasMore: boolean
+  }> => ipcRenderer.invoke('market-news', payload),
+  marketCandles: (payload: {
+    symbol: string
+    kind: 'contract' | 'spot'
+    interval?: '1h' | '4h' | '1d'
+  }): Promise<number[]> => ipcRenderer.invoke('market-candles', payload),
   marketAccount: (): Promise<GateAccountData> => ipcRenderer.invoke('market-account'),
   gateCredentialsStatus: (): Promise<{ configured: boolean; encryptionAvailable: boolean }> =>
     ipcRenderer.invoke('gate-credentials-status'),
@@ -139,6 +181,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Store operations
   storeGet: (key: string) => ipcRenderer.invoke('store-get', key),
   storeSet: (key: string, value: any) => ipcRenderer.invoke('store-set', key, value),
+  /** pagehide / 退出紧急同步写，替代昔日 localStorage 镜像 */
+  storeSetSync: (key: string, value: any): boolean => {
+    try {
+      return Boolean(ipcRenderer.sendSync('store-set-sync', key, value))
+    } catch {
+      return false
+    }
+  },
   storeDelete: (key: string) => ipcRenderer.invoke('store-delete', key),
 
   // 剪贴板读写(右键菜单的复制/粘贴使用)
@@ -172,6 +222,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   /* 文件路径：拖拽进来的 File 对象需要用 webUtils 换成本地真实路径 */
   filePathsFromFiles: (files: File[]): string[] =>
     files.map((file) => webUtils.getPathForFile(file)).filter(Boolean),
+
+  /* Speedtest® CLI（Ookla 官方） */
+  speedtestStart: (): Promise<{ id: number }> => ipcRenderer.invoke('speedtest-start'),
+  speedtestStop: (id: number): Promise<void> => ipcRenderer.invoke('speedtest-stop', id),
+  onSpeedtestEvent: (callback: (event: SpeedtestIpcEvent) => void) => {
+    const listener = (_: unknown, event: SpeedtestIpcEvent) => callback(event)
+    ipcRenderer.on('speedtest:event', listener)
+    return () => {
+      ipcRenderer.removeListener('speedtest:event', listener)
+    }
+  },
 
   /* 网络探测 */
   netPingStart: (options: { host: string; count: number; intervalSec: number; timeoutSec: number; size: number }): Promise<{ id: number; host: string }> =>
@@ -421,6 +482,7 @@ declare global {
       onUpdateStatus: (callback: (status: UpdateStatus) => void) => () => void
       storeGet: (key: string) => Promise<any>
       storeSet: (key: string, value: any) => Promise<void>
+      storeSetSync: (key: string, value: any) => boolean
       storeDelete: (key: string) => Promise<void>
       clipboardRead: () => Promise<string>
       clipboardWrite: (text: string) => Promise<void>
@@ -477,6 +539,14 @@ declare global {
       systemInfo: () => Promise<SystemHardwareInfo>
       systemProcessList: () => Promise<AppProcessMemory[]>
       systemKillProcess: (pid: number) => Promise<{ ok: boolean; pid: number; error?: string }>
+      systemLive: () => Promise<SystemLive>
+      systemLiveProcesses: () => Promise<LiveProcess[]>
+      systemVolumes: () => Promise<DiskVolume[]>
+      systemProcessIcons: (paths: string[]) => Promise<Record<string, string | null>>
+      systemProcessSignal: (pids: number[], action: 'suspend' | 'resume') => Promise<{ ok: boolean; failed: number }>
+      systemSpawn: (command: string) => Promise<{ ok: boolean; pid?: number; error?: string }>
+      systemStartupList: () => Promise<StartupItem[]>
+      systemStartupToggle: (id: string, enabled: boolean) => Promise<{ ok: boolean; error?: string }>
     }
   }
 }

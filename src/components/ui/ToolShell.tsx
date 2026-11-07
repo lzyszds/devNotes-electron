@@ -1,5 +1,26 @@
-import { forwardRef } from "react";
+import { createContext, forwardRef, useContext } from "react";
 import type { ComponentType, ReactNode, Ref } from "react";
+
+/*
+ * 顶栏插槽：外层包装器可往子工具的 ToolShell 标题栏里塞一段节点，
+ * 而不必改动子工具本体。JSON 工具箱用它把「美化 / 比对 / 多语」
+ * 收进共用的 40px 顶栏，避免再单独占一行把全局布局顶松。
+ */
+const ToolShellHeaderSlotContext = createContext<ReactNode>(null);
+
+export function ToolShellHeaderSlot({
+  content,
+  children,
+}: {
+  content: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <ToolShellHeaderSlotContext.Provider value={content}>
+      {children}
+    </ToolShellHeaderSlotContext.Provider>
+  );
+}
 
 type IconComponent = ComponentType<{
   size?: number | string;
@@ -149,16 +170,19 @@ export default function ToolShell({
   overlay,
   children,
 }: ToolShellProps) {
+  const headerSlot = useContext(ToolShellHeaderSlotContext);
+
   return (
     <div className="relative flex h-full min-h-0 bg-[#FFFFFF] overflow-hidden text-[#191918]">
       <div className="flex-1 flex flex-col min-w-0 min-h-0">
         {/*
          * 顶部紧凑标题栏（h-10 = 40px）：原 68px 大顶栏的紧凑版。
-         * 左侧：状态点 + 小图标块 + 标题 + 徽章；右侧：原顶栏的 actions。
+         * 左侧：状态点 + 小图标块 + 标题 + 外层插槽 + 徽章；右侧：原顶栏的 actions。
          * h-10 保证 h-8/h-9 的操作按钮都放得下；窄屏时标题截断、操作区横向滚动。
          */}
         {showHeader && <header className="h-10 px-3 md:px-4 bg-[#FFFFFF] border-b border-[#E6E6E3] flex items-center justify-between gap-3 flex-shrink-0 min-w-0">
           <div className="flex items-center gap-2 min-w-0 flex-1">
+            {headerSlot}
             <span
               className={`h-5 w-5 rounded-[5px] flex items-center justify-center flex-shrink-0 transition-colors ${
                 iconTone === "brand"

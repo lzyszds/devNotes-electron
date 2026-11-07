@@ -4,25 +4,36 @@
  * 单独抽一层模块级状态（而不是塞进 React state）的原因：缩放要能被三个入口改到 ——
  * 顶部条的按钮、⌘= / ⌘- / ⌘0 快捷键、以及 ⌘+滚轮。三者都在事件回调里，
  * 让它们各自去 setState 会把这份状态散到三处；这里统一收口，UI 只订阅。
+ *
+ * 持久化走 uiPrefsStore（electron-store），不再直接碰 localStorage。
  */
+
+import { useUiPrefsStore } from '../store/uiPrefsStore'
 
 export const ZOOM_MIN = 50
 export const ZOOM_MAX = 200
 export const ZOOM_STEP = 10
 export const ZOOM_DEFAULT = 100
 
-const STORAGE_KEY = 'fehelper-editor-zoom'
-
 const listeners = new Set<(zoom: number) => void>()
 
 const clamp = (value: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(value)))
 
+/** store 里是百分比（50–200）；hydrate 前也可能短暂拿到异常值 */
 function readZoom(): number {
-  const saved = Number(localStorage.getItem(STORAGE_KEY))
+  const saved = Number(useUiPrefsStore.getState().editorZoom)
   return Number.isFinite(saved) && saved > 0 ? clamp(saved) : ZOOM_DEFAULT
 }
 
 let current = readZoom()
+
+/** persist 异步灌完后把模块缓存钉回权威值，避免首屏一直停在默认 100 */
+useUiPrefsStore.persist.onFinishHydration(() => {
+  const next = readZoom()
+  if (next === current) return
+  current = next
+  listeners.forEach((notify) => notify(next))
+})
 
 export function getZoom(): number {
   return current
@@ -33,7 +44,7 @@ export function setZoom(next: number): number {
   const value = clamp(next)
   if (value === current) return value
   current = value
-  localStorage.setItem(STORAGE_KEY, String(value))
+  useUiPrefsStore.getState().setEditorZoom(value)
   listeners.forEach((notify) => notify(value))
   return value
 }

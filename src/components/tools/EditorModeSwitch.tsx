@@ -1,12 +1,11 @@
 import type { ComponentType } from 'react'
 import { Columns2, PenLine } from 'lucide-react'
 import Tooltip from '../ui/Tooltip'
+import { useUiPrefsStore } from '../../store/uiPrefsStore'
 
 /** cherry = 双栏源码+预览 / milkdown = 所见即所得(类 Typora,基于 Milkdown,默认) */
 const MODES = ['cherry', 'milkdown'] as const
 export type EditorMode = (typeof MODES)[number]
-
-const STORAGE_KEY = 'fehelper-editor-mode'
 
 const MODE_ITEMS: {
   key: EditorMode
@@ -35,12 +34,12 @@ const MODE_ITEMS: {
  * (Vditor 时代的两个模式已被替换成 Milkdown 的所见即所得)。
  */
 export function readEditorMode(): EditorMode {
-  const saved = localStorage.getItem(STORAGE_KEY)
+  const saved = useUiPrefsStore.getState().editorMode
   return MODES.find((mode) => mode === saved) ?? 'milkdown'
 }
 
 export function persistEditorMode(mode: EditorMode): void {
-  localStorage.setItem(STORAGE_KEY, mode)
+  useUiPrefsStore.getState().setEditorMode(mode)
 }
 
 type EditorModeSwitchProps = {

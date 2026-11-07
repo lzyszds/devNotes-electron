@@ -48,6 +48,7 @@ import {
 } from './lanTransfer'
 import { COMMON_PORTS, inspectPort, killProcess } from './ports'
 import { httpProbe, startPing, tcpProbe, validateHost, validatePort, type PingOptions } from './netProbe'
+import { startSpeedtest } from './speedtest'
 import { listLocalInterfaces, queryPublicIp } from './netInfo'
 import { HASH_ALGORITHMS, hashFiles, type HashAlgorithm } from './hashFile'
 import {
@@ -61,11 +62,23 @@ import {
   checkDeveloperTools,
   type MemoryQuickStat,
 } from './systemInfo'
+import { renderTrayDual, formatTrayMoney, disposeTrayPainter, type TrayColumn } from './trayDisplay'
+import {
+  sampleSystemLive,
+  listLiveProcesses,
+  listVolumes,
+  getProcessIcons,
+  signalProcesses,
+  spawnTask,
+  listStartupItems,
+  setStartupItemEnabled,
+} from './systemMonitor'
 import { setupAutoUpdater } from './updater'
 import {
   fetchMarketCandles,
   fetchMarketNews,
   fetchMarketQuotes,
+  fetchHotFutures,
   fetchGateAccount,
   getGateCredentialGeneration,
   hasGateCredentials,
@@ -614,6 +627,8 @@ function createCaptureWindow(): void {
       // window.electronAPI 是 undefined，遮罩层既截不到图也关不掉
       contextIsolation: true,
       nodeIntegration: false,
+      // 拼写检查会常驻加载词典并给每个输入框挂检查器；这是开发者工具，代码/JSON 全是「错词」，关掉
+      spellcheck: false,
       // 隐藏时也要走绘制帧，等真实底图完成后才显示，而不是定时猜加载时间。
       backgroundThrottling: false,
     },
@@ -792,6 +807,8 @@ function openScratchWindow(): void {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      // 拼写检查会常驻加载词典并给每个输入框挂检查器；这是开发者工具，代码/JSON 全是「错词」，关掉
+      spellcheck: false,
     },
   })
   scratchWindow = window
@@ -1083,6 +1100,8 @@ function openClipboardWindow(): void {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      // 拼写检查会常驻加载词典并给每个输入框挂检查器；这是开发者工具，代码/JSON 全是「错词」，关掉
+      spellcheck: false,
     },
   })
   clipboardWindow = window
@@ -1248,7 +1267,7 @@ function queueOpenFile(filePath: string) {
  *
  * 笔记默认不自动保存，未保存的改动只存在于渲染进程内存里。进程被退出
  * （托盘「退出」、系统关机）时如果没人通知它，最后几段编辑就丢了。
- * 渲染层收到后会同步写 localStorage 并发起 electron-store 写入
+ * 渲染层收到后会 storeSetSync 紧急落盘，并异步补写 electron-store
  * （见 NotesContext.flushSync）。
  *
  * 故意不等待回执：落盘本身很快，而等待会让退出变慢，渲染层卡死时更会把
@@ -1315,7 +1334,9 @@ function createMainWindow() {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      // 拼写检查会常驻加载词典并给每个输入框挂检查器；这是开发者工具，代码/JSON 全是「错词」，关掉
+      spellcheck: false,
     },
     show: false
   })
@@ -1378,7 +1399,9 @@ function createToolWindow(toolName: string) {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      // 拼写检查会常驻加载词典并给每个输入框挂检查器；这是开发者工具，代码/JSON 全是「错词」，关掉
+      spellcheck: false,
     },
     show: false
   })
@@ -1413,7 +1436,7 @@ function createToolWindow(toolName: string) {
  */
 const TRAY_STATUS_KEY = 'tray-status'
 
-export type TrayTitleMode = 'pnl_mem' | 'pnl' | 'equity' | 'memory' | 'ticker' | 'none'
+export type TrayTitleMode = 'dual' | 'pnl_mem' | 'pnl' | 'equity' | 'memory' | 'ticker' | 'none'
 
 export interface TrayStatusConfig {
   /** 是否在托盘显示状态 */
@@ -1431,7 +1454,7 @@ export interface TrayStatusConfig {
 const DEFAULT_TRAY_STATUS: TrayStatusConfig = {
   enabled: true,
   intervalSec: 5,
-  titleMode: 'pnl_mem',
+  titleMode: 'dual',
   tickerSymbol: 'BTCUSDT',
   showMarketInMenu: true,
 }
@@ -1454,9 +1477,12 @@ function readTrayStatusConfig(): TrayStatusConfig {
   return {
     enabled: raw.enabled !== false,
     intervalSec: raw.intervalSec === 10 || raw.intervalSec === 30 ? raw.intervalSec : 5,
-    titleMode: (['pnl_mem', 'pnl', 'equity', 'memory', 'ticker', 'none'] as const).includes(raw.titleMode as any)
-      ? (raw.titleMode as TrayTitleMode)
-      : 'pnl_mem',
+    // 旧默认 pnl_mem（单行「-$81 · 77%」）并入新的两行仪表：同样的信息，排得下也读得清
+    titleMode: raw.titleMode === 'pnl_mem'
+      ? 'dual'
+      : (['dual', 'pnl', 'equity', 'memory', 'ticker', 'none'] as const).includes(raw.titleMode as any)
+        ? (raw.titleMode as TrayTitleMode)
+        : 'dual',
     tickerSymbol: typeof raw.tickerSymbol === 'string' && raw.tickerSymbol ? raw.tickerSymbol : 'BTCUSDT',
     showMarketInMenu: raw.showMarketInMenu !== false,
   }
@@ -1493,7 +1519,7 @@ function buildTrayMenuTemplate(cfg: TrayStatusConfig, memStat?: MemoryQuickStat 
     const usedGB = (memStat.usedBytes / 1024 ** 3).toFixed(1)
     const totalGB = (memStat.totalBytes / 1024 ** 3).toFixed(1)
     items.push(
-      { label: `系统内存: ${Math.round(memStat.percent)}%`, enabled: false },
+      { label: `CPU: ${Math.round(memStat.cpuPercent)}%　内存: ${Math.round(memStat.percent)}%`, enabled: false },
       { label: `已用 ${usedGB} GB / 总 ${totalGB} GB`, enabled: false },
     )
     if (memStat.swapUsedBytes != null && memStat.swapUsedBytes > 0) {
@@ -1575,10 +1601,10 @@ function buildTrayMenuTemplate(cfg: TrayStatusConfig, memStat?: MemoryQuickStat 
       label: '托盘显示配置',
       submenu: [
         {
-          label: '状态栏: 浮动盈亏 + 内存 (如 -$106 · 83%)',
+          label: '状态栏: 两行仪表 (盈亏 / 净值 / 内存 / CPU)',
           type: 'radio',
-          checked: cfg.titleMode === 'pnl_mem',
-          click: () => saveAndApplyTrayConfig({ titleMode: 'pnl_mem' }),
+          checked: cfg.titleMode === 'dual',
+          click: () => saveAndApplyTrayConfig({ titleMode: 'dual' }),
         },
         {
           label: '状态栏: 仅持仓浮盈 (如 -$106)',
@@ -1645,13 +1671,81 @@ function buildTrayMenuTemplate(cfg: TrayStatusConfig, memStat?: MemoryQuickStat 
   return items
 }
 
+let trayBaseIcon: Electron.NativeImage | null = null
+/** 未缩到 22px 的原图，两行仪表合成时要用，避免 22→32 二次放大发糊 */
+let traySourceIcon: Electron.NativeImage | null = null
+let trayShowsDualImage = false
+
+/**
+ * 两行仪表的列数据：
+ *   总资产估值 │ 内存 RAM
+ *   浮动盈亏   │ 处理器 CPU
+ * 账户没配置（或还没拿到快照）时只剩 RAM / CPU 一列，不显示一堆 --。
+ */
+function buildDualColumns(stat?: MemoryQuickStat | null): TrayColumn[] | null {
+  const columns: TrayColumn[] = []
+  /*
+   * 账户列：上「总资产估值」= totalAsset + unrealisedPnl（与看板卡片同一口径），
+   * 下浮盈。别用合约 total —— 那是「资产」763，不是估值 658。
+   * 内存列仍标 RAM/CPU，否则两行百分数分不清谁是谁。
+   */
+  if (trayAccountState === 'ready' && cachedTrayAccount) {
+    const acc = cachedTrayAccount
+    const valuation =
+      acc.totalAsset != null && acc.unrealisedPnl != null
+        ? acc.totalAsset + acc.unrealisedPnl
+        : null
+    columns.push([
+      { label: '', value: valuation == null ? '--' : formatTrayMoney(valuation, false) },
+      { label: '', value: acc.unrealisedPnl == null ? '--' : formatTrayMoney(acc.unrealisedPnl, true) },
+    ])
+  } else if (trayAccountState === 'loading' || trayAccountState === 'error') {
+    columns.push([
+      { label: '', value: '--' },
+      { label: '', value: '--' },
+    ])
+  }
+  if (stat) {
+    columns.push([
+      { label: 'RAM', value: `${Math.round(stat.percent)}%` },
+      { label: 'CPU', value: `${Math.round(stat.cpuPercent)}%` },
+    ])
+  }
+  return columns.length > 0 ? columns : null
+}
+
 function renderTrayTitleAndMenu(cfg: TrayStatusConfig, stat?: MemoryQuickStat | null) {
   if (!tray) return
 
   // 1. 托盘文字
   if (process.platform === 'darwin') {
     let title = ''
-    if (cfg.enabled) {
+    /*
+     * 两行仪表模式：整块文字画成一张模板位图当托盘图标（见 trayDisplay.ts），
+     * 此时不再用 setTitle。切回其他模式要把原图标换回来，否则会卡在文字位图上。
+     */
+    const dualColumns = cfg.enabled && cfg.titleMode === 'dual' ? buildDualColumns(stat) : null
+    if (dualColumns) {
+      const key = `dual:${JSON.stringify(dualColumns)}`
+      if (key !== lastTrayTitle) {
+        lastTrayTitle = key
+        // 离屏栅格化是异步的；用 key 防抖，过期结果丢弃，避免数字跳变时旧图盖新图
+        void renderTrayDual(dualColumns, traySourceIcon ?? trayBaseIcon).then((img) => {
+          if (!tray || lastTrayTitle !== key || !img) return
+          tray.setImage(img)
+          tray.setTitle('')
+          trayShowsDualImage = true
+        })
+      }
+    } else if (trayShowsDualImage && trayBaseIcon) {
+      tray.setImage(trayBaseIcon)
+      trayShowsDualImage = false
+      lastTrayTitle = ''
+    }
+    if (!dualColumns && cfg.enabled && cfg.titleMode === 'dual') {
+      // 仪表模式但还没有任何读数（内存也没拿到）：退回内存数字，别留空
+      title = stat ? `${Math.round(stat.percent)}%` : ''
+    } else if (cfg.enabled && !dualColumns) {
       if (cfg.titleMode === 'memory') {
         title = stat ? `${Math.round(stat.percent)}%` : ''
       } else if (cfg.titleMode === 'pnl' || cfg.titleMode === 'pnl_mem' || cfg.titleMode === 'equity') {
@@ -1684,7 +1778,7 @@ function renderTrayTitleAndMenu(cfg: TrayStatusConfig, stat?: MemoryQuickStat | 
       }
     }
 
-    if (title !== lastTrayTitle) {
+    if (!dualColumns && title !== lastTrayTitle) {
       lastTrayTitle = title
       tray.setTitle(title)
     }
@@ -1711,7 +1805,7 @@ function renderTrayTitleAndMenu(cfg: TrayStatusConfig, stat?: MemoryQuickStat | 
   }
 
   // 3. 构建并更新右键菜单。签名要把状态和错误文本算进去，否则 -- / 0 会被当成同一个菜单而不重绘
-  const menuSig = `${Math.round(stat?.percent ?? 0)}_${trayAccountState}_${trayAccountError}_${cachedTrayAccount?.updatedAt ?? 0}_${cachedTrayAccount?.unrealisedPnl ?? '-'}_${cachedTrayAccount?.total ?? '-'}_${cachedTrayAccount?.openPositions?.length ?? '-'}_${cachedTrayQuotes.length}_${cfg.titleMode}_${cfg.showMarketInMenu}`
+  const menuSig = `${Math.round(stat?.percent ?? 0)}_${Math.round(stat?.cpuPercent ?? 0)}_${trayAccountState}_${trayAccountError}_${cachedTrayAccount?.updatedAt ?? 0}_${cachedTrayAccount?.unrealisedPnl ?? '-'}_${cachedTrayAccount?.total ?? '-'}_${cachedTrayAccount?.openPositions?.length ?? '-'}_${cachedTrayQuotes.length}_${cfg.titleMode}_${cfg.showMarketInMenu}`
   if (menuSig !== lastTrayMenuSignature) {
     lastTrayMenuSignature = menuSig
     tray.setContextMenu(Menu.buildFromTemplate(buildTrayMenuTemplate(cfg, stat)))
@@ -1724,6 +1818,10 @@ function resetTrayStatus() {
   lastTrayTip = ''
   lastTrayMenuSignature = ''
   if (!tray) return
+  if (trayShowsDualImage && trayBaseIcon) {
+    tray.setImage(trayBaseIcon)
+    trayShowsDualImage = false
+  }
   if (process.platform === 'darwin') tray.setTitle('')
   tray.setToolTip('devNotes')
   tray.setContextMenu(Menu.buildFromTemplate(buildTrayMenuTemplate(readTrayStatusConfig(), null)))
@@ -1884,10 +1982,12 @@ function createTray() {
   }
   
   try {
-    const trayIcon = process.platform === 'darwin' 
-      ? icon.resize({ width: 22, height: 22 }) 
-      : icon.resize({ width: 16, height: 16 })
+    traySourceIcon = icon
+    const trayIcon = process.platform === 'darwin'
+      ? icon.resize({ width: 22, height: 22, quality: 'best' })
+      : icon.resize({ width: 16, height: 16, quality: 'best' })
     tray = new Tray(trayIcon)
+    trayBaseIcon = trayIcon
   } catch (e) {
     console.warn('Failed to create tray:', e)
     return
@@ -2292,6 +2392,23 @@ function setupIpc() {
     return await getProcessMemoryList()
   })
 
+  ipcMain.handle('system-live', () => sampleSystemLive())
+  ipcMain.handle('system-live-processes', () => listLiveProcesses())
+  ipcMain.handle('system-volumes', () => listVolumes())
+  ipcMain.handle('system-process-icons', (_e, paths: string[]) =>
+    Array.isArray(paths) ? getProcessIcons(paths.filter((p) => typeof p === 'string')) : {},
+  )
+  ipcMain.handle('system-process-signal', (_e, pids: number[], action: 'suspend' | 'resume') => {
+    if (!Array.isArray(pids) || !['suspend', 'resume'].includes(action)) return { ok: false, failed: 0 }
+    return signalProcesses(pids.slice(0, 500), action)
+  })
+  ipcMain.handle('system-spawn', (_e, command: string) =>
+    typeof command === 'string' ? spawnTask(command) : { ok: false, error: '命令无效' },
+  )
+  ipcMain.handle('system-startup-list', () => listStartupItems())
+  ipcMain.handle('system-startup-toggle', (_e, id: string, enabled: boolean) =>
+    typeof id === 'string' ? setStartupItemEnabled(id, !!enabled) : { ok: false, error: '参数无效' },
+  )
   ipcMain.handle('system-disk-choose', async (event) => {
     const owner = BrowserWindow.fromWebContents(event.sender)
     return owner ? chooseDiskDirectory(owner) : null
@@ -2310,11 +2427,52 @@ function setupIpc() {
     if (!payload || !Array.isArray(payload.spot) || !Array.isArray(payload.contracts)) throw new Error('行情参数无效')
     return fetchMarketQuotes({ spot: payload.spot.slice(0, 30), contracts: payload.contracts.slice(0, 30) })
   })
-  ipcMain.handle('market-news', () => fetchMarketNews())
-  ipcMain.handle('market-candles', (_event, payload: { symbol: string; kind: 'contract' | 'spot' }) => {
-    if (!payload || typeof payload.symbol !== 'string' || !['contract', 'spot'].includes(payload.kind)) throw new Error('K 线参数无效')
-    return fetchMarketCandles(payload)
-  })
+  ipcMain.handle(
+    'market-hot',
+    (
+      _event,
+      payload?: {
+        limit?: number
+        offset?: number
+        assetFilter?: 'all' | 'crypto' | 'equity'
+        force?: boolean
+      },
+    ) => {
+      const limit = Number(payload?.limit)
+      const offset = Number(payload?.offset)
+      const assetFilter = payload?.assetFilter
+      return fetchHotFutures({
+        limit: Number.isFinite(limit) ? limit : 40,
+        offset: Number.isFinite(offset) ? offset : 0,
+        assetFilter:
+          assetFilter === 'crypto' || assetFilter === 'equity'
+            ? assetFilter
+            : 'all',
+        force: Boolean(payload?.force),
+      })
+    },
+  )
+  ipcMain.handle(
+    'market-news',
+    (
+      _event,
+      payload?: { page?: number; pageSize?: number; force?: boolean },
+    ) => fetchMarketNews(payload ?? {}),
+  )
+  ipcMain.handle(
+    'market-candles',
+    (
+      _event,
+      payload: { symbol: string; kind: 'contract' | 'spot'; interval?: '1h' | '4h' | '1d' },
+    ) => {
+      if (!payload || typeof payload.symbol !== 'string' || !['contract', 'spot'].includes(payload.kind)) {
+        throw new Error('K 线参数无效')
+      }
+      const interval =
+        payload.interval === '4h' || payload.interval === '1d' ? payload.interval : '1h'
+      return fetchMarketCandles({ ...payload, interval })
+    },
+  )
   ipcMain.handle('market-account', () => fetchGateAccount())
   ipcMain.handle('gate-credentials-status', () => gateCredentialStatus())
   /* 保存/清除都要先作废旧凭据代际，再清托盘快照，最后立刻回源一次账户。 */
@@ -2487,6 +2645,27 @@ function setupIpc() {
     store.set(key, value)
     if (key === CLIPBOARD_HISTORY_KEY && Array.isArray(value)) {
       commitClipboardEntries(value, false)
+    }
+  })
+
+  /*
+   * 同步写盘：pagehide / before-quit 来不及 await invoke。
+   * 笔记与用量日志的紧急 flush 走这里，替代昔日的 localStorage 同步镜像。
+   */
+  ipcMain.on('store-set-sync', (event, key: string, value: unknown) => {
+    try {
+      if (isBulkKey(key)) {
+        bulkSet(key, value)
+        if (store.has(key)) store.delete(key)
+      } else {
+        store.set(key, value)
+        if (key === CLIPBOARD_HISTORY_KEY && Array.isArray(value)) {
+          commitClipboardEntries(value, false)
+        }
+      }
+      event.returnValue = true
+    } catch {
+      event.returnValue = false
     }
   })
 
@@ -2676,10 +2855,33 @@ function setupIpc() {
   /* 网络探测：ICMP ping 以事件流推给渲染进程，TCP / HTTP 为单次请求 */
   const pingRuns = new Map<number, () => void>()
   let pingCounter = 0
+  /* Speedtest® CLI：同一时刻只允许一跑，避免多开占满带宽、结果互相干扰 */
+  const speedtestRuns = new Map<number, () => void>()
+  let speedtestCounter = 0
   const clamp = (value: unknown, min: number, max: number, fallback: number) => {
     const n = Number(value)
     return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback
   }
+  ipcMain.handle('speedtest-start', (event) => {
+    for (const stop of speedtestRuns.values()) stop()
+    speedtestRuns.clear()
+    speedtestCounter += 1
+    const id = speedtestCounter
+    const stop = startSpeedtest((ev) => {
+      if (ev.kind === 'done') speedtestRuns.delete(id)
+      if (!event.sender.isDestroyed()) event.sender.send('speedtest:event', { id, ...ev })
+    })
+    speedtestRuns.set(id, stop)
+    event.sender.once('destroyed', () => {
+      speedtestRuns.get(id)?.()
+      speedtestRuns.delete(id)
+    })
+    return { id }
+  })
+  ipcMain.handle('speedtest-stop', (_, id: number) => {
+    speedtestRuns.get(id)?.()
+    speedtestRuns.delete(id)
+  })
   ipcMain.handle('net-ping-start', (event, payload: { host: string; count: number; intervalSec: number; timeoutSec: number; size: number }) => {
     const host = validateHost(String(payload?.host ?? ''))
     if (!host) throw new Error('地址格式不对，只能是域名或 IP')
@@ -2810,6 +3012,17 @@ if (!gotLock) {
 }
 
 // macOS:双击关联文件 / open -a 打开文件(冷启动时该事件先于 ready 触发,靠队列兜底)
+/*
+ * 减负开关：只关掉本应用用不到、却会在后台常驻或周期性唤醒的 Chromium 子系统。
+ *  - MediaRouter：投屏设备发现（mDNS 轮询），没有任何入口会用到
+ *  - OptimizationHints：Chrome 的页面优化提示，需要联网拉模型
+ *  - disable-background-networking：Chromium 自己的后台联网（组件更新、安全浏览探测），
+ *    与应用自己的 fetch / 自动更新无关，不影响任何功能
+ * 这些必须在 app ready 之前追加才生效。
+ */
+app.commandLine.appendSwitch('disable-features', 'MediaRouter,OptimizationHints')
+app.commandLine.appendSwitch('disable-background-networking')
+
 app.on('will-finish-launching', () => {
   app.on('open-file', (event, filePath) => {
     event.preventDefault()
@@ -2882,6 +3095,8 @@ app.on('will-quit', () => {
   clipboardStop?.()
   clipboardStop = null
   stopLanTransfer()
+  // 两行仪表的离屏 painter，跟 OCR 子进程一样要主动收掉
+  disposeTrayPainter()
   // OCR 引擎子进程是常驻的（模型占一百多 MB），退出时必须主动收掉，
   // 否则会留下一个没有父进程的孤儿 Node 进程
   shutdownLightOcr()
@@ -2894,8 +3109,8 @@ app.on('will-quit', () => {
  * 而笔记默认不自动保存，此时内存里可能还有用户刚敲的内容。这里拦一次
  * before-quit，通知渲染层写完再真正退出。
  *
- * 500ms 是 empirically 够用的量级（localStorage 同步写 + electron-store
- * 一次 IPC），到点重新 quit。第二次进来时 notesFlushPending 仍为 true，
+ * 500ms 是 empirically 够用的量级（storeSetSync + 异步 storeSet 一次 IPC），
+ * 到点重新 quit。第二次进来时 notesFlushPending 仍为 true，
  * 直接放行，于是 will-quit 里的清理（全局快捷键、剪贴板监听等）照常执行。
  */
 let notesFlushPending = false

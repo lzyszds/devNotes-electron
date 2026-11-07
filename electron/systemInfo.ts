@@ -220,7 +220,18 @@ function gb(bytes: number): string {
 }
 
 /** 读 macOS 的 Swap 用量。换页量大说明历史上有真的内存挤兑，值得在界面上明示 */
+let swapCache: { at: number; value: number | undefined } | null = null
+
 async function readDarwinSwapUsed(): Promise<number | undefined> {
+  // Swap 是缓变量：托盘每 5 秒、电脑配置页每 2 秒都会来读，每次读都要拉起一个 sysctl 子进程。
+  // 缓存 15 秒，数字肉眼看不出差别，进程创建次数直接降一个量级
+  if (swapCache && Date.now() - swapCache.at < 15_000) return swapCache.value
+  const value = await readDarwinSwapUsedUncached()
+  swapCache = { at: Date.now(), value }
+  return value
+}
+
+async function readDarwinSwapUsedUncached(): Promise<number | undefined> {
   try {
     const { stdout } = await run('sysctl', ['-n', 'vm.swapusage'])
     // 形如 "total = 9216.00M  used = 7752.38M  free = 1463.62M  (encrypted)"
@@ -257,6 +268,24 @@ export interface MemoryQuickStat {
   percent: number
   /** Swap 已用字节（只在 macOS 上探测，其他平台不填） */
   swapUsedBytes?: number
+  /** 整机 CPU 占用 0-100（两次调用之间的差值；首次调用为 0） */
+  cpuPercent: number
+}
+
+let lastCpuSample: { idle: number; total: number } | null = null
+
+/** 托盘专用的 CPU 采样基线：独立于电脑配置页那份，两边各算各的差值，互不干扰 */
+function sampleCpuPercent(): number {
+  let idle = 0
+  let total = 0
+  for (const c of os.cpus()) {
+    idle += c.times.idle
+    total += c.times.user + c.times.nice + c.times.sys + c.times.idle + c.times.irq
+  }
+  const prev = lastCpuSample
+  lastCpuSample = { idle, total }
+  if (!prev || total <= prev.total) return 0
+  return Math.min(100, Math.max(0, (1 - (idle - prev.idle) / (total - prev.total)) * 100))
 }
 
 /**
@@ -290,6 +319,7 @@ export async function getMemoryQuickStat(): Promise<MemoryQuickStat> {
     availableBytes,
     percent: Math.round((usedBytes / totalBytes) * 1000) / 10,
     swapUsedBytes,
+    cpuPercent: sampleCpuPercent(),
   }
 }
 
